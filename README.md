@@ -1,14 +1,14 @@
 <h1 align="center">Open Codex CLI</h1>
 <p align="center">Lightweight coding agent that runs in your terminal</p>
 
-<p align="center"><code>npm i -g open-codex</code></p>
+<p align="center"><code>npm i -g @samooth/open-codex</code></p>
 
 > **Important Note**: This is a fork of the [original OpenAI Codex CLI](https://github.com/openai/codex) with expanded model support and changed installation instructions. The main differences in this fork are:
->
-> - Support for multiple AI providers (OpenAI, Gemini, OpenRouter, Ollama)
+> 
+> - Support for multiple AI providers (OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, Hugging Face)
 > - Uses the [Chat Completion API instead of the Responses API](https://platform.openai.com/docs/guides/responses-vs-chat-completions) which allows us to support any openai compatible provider and model.
 > - All other functionality remains similar to the original project
-> - You can install this fork globally with `npm i -g open-codex`
+> - You can install this fork globally with `npm i -g @samooth/open-codex`
 
 ---
 
@@ -18,11 +18,11 @@
 - [Experimental Technology Disclaimer](#experimental-technology-disclaimer)
 - [Quickstart](#quickstart)
 - [Why Codex?](#whycodex)
-- [Security Model \& Permissions](#securitymodelpermissions)
+- [Security Model & Permissions](#securitymodelpermissions)
   - [Platform sandboxing details](#platform-sandboxing-details)
 - [System Requirements](#systemrequirements)
 - [CLI Reference](#clireference)
-- [Memory \& Project Docs](#memoryprojectdocs)
+- [Memory & Project Docs](#memoryprojectdocs)
 - [Non‑interactive / CI mode](#noninteractivecimode)
 - [Recipes](#recipes)
 - [Installation](#installation)
@@ -36,7 +36,7 @@
   - [Community values](#community-values)
   - [Getting help](#getting-help)
   - [Releasing `codex`](#releasing-codex)
-- [Security \& Responsible AI](#securityresponsibleai)
+- [Security & Responsible AI](#securityresponsibleai)
 - [License](#license)
 - [Zero Data Retention (ZDR) Organization Limitation](#zero-data-retention-zdr-organization-limitation)
 
@@ -60,7 +60,7 @@ Help us improve by filing issues or submitting PRs (see the section below for ho
 Install globally:
 
 ```shell
-npm install -g open-codex
+npm install -g @samooth/open-codex
 ```
 
 Next, set your API key as an environment variable (shown here with OpenAI, but other providers are supported):
@@ -70,13 +70,13 @@ export OPENAI_API_KEY="your-api-key-here"
 ```
 
 > **Note:** This command sets the key only for your current terminal session. To make it permanent, add the `export` line to your shell's configuration file (e.g., `~/.zshrc`).
->
+> 
 > **Tip:** You can also place your API key into a `.env` file at the root of your project:
->
+> 
 > ```env
 > OPENAI_API_KEY=your-api-key-here
 > ```
->
+> 
 > The CLI will automatically load variables from `.env` (via `dotenv/config`).
 
 Run interactively:
@@ -109,24 +109,25 @@ files, and iterate – all under version control. In short, it's _chat‑driven
 development_ that understands and executes your repo.
 
 - **Zero setup** — bring your API key and it just works!
-- **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, or Ollama!
+- **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
+- **Dry Run mode** — preview all changes without actually modifying files or running commands!
 
 And it's **fully open-source** so you can see and contribute to how it develops!
 
 ---
 
-## Security Model \& Permissions
+## Security Model & Permissions
 
 Codex lets you decide _how much autonomy_ the agent receives and auto-approval policy via the
 `--approval-mode` flag (or the interactive onboarding prompt):
 
 | Mode                      | What the agent may do without asking            | Still requires approval                                         |
-| ------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| ------------------------- | ----------------------------------------------- | -------------------------------------------------------------- |
 | **Suggest** <br>(default) | • Read any file in the repo                     | • **All** file writes/patches <br>• **All** shell/Bash commands |
-| **Auto Edit**             | • Read **and** apply‑patch writes to files      | • **All** shell/Bash commands                                   |
-| **Full Auto**             | • Read/write files <br>• Execute shell commands | –                                                               |
+| **Auto Edit**             | • Read **and** apply‑patch writes to files      | • **All** shell/Bash commands                                  |
+| **Full Auto**             | • Read/write files <br>• Execute shell commands | –                                                              |
 
 In **Full Auto** every command is run **network‑disabled** and confined to the
 current working directory (plus temporary files) for defense‑in‑depth. Codex
@@ -134,8 +135,13 @@ will also show a warning/confirmation if you start in **auto‑edit** or
 **full‑auto** while the directory is _not_ tracked by Git, so you always have a
 safety net.
 
-Coming soon: you'll be able to whitelist specific commands to auto‑execute with
-the network enabled, once we're confident in additional safeguards.
+### Dry Run Mode
+
+If you're unsure about what the agent might do, you can use the `--dry-run` flag. In this mode, Codex will simulate all operations (file writes, shell commands, etc.) and show you exactly what it *would* have done without actually touching your filesystem or executing any code.
+
+```shell
+open-codex --dry-run "Refactor all components to TypeScript"
+```
 
 ### Platform sandboxing details
 
@@ -179,17 +185,23 @@ The hardening mechanism Codex uses depends on your OS:
 | `open-codex -q "…"`                       | Non‑interactive "quiet mode"        | `codex -q --json "explain utils.ts"` |
 | `open-codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
 
-Key flags: `--model/-m`, `--approval-mode/-a`, and `--quiet/-q`.
+Key flags:
+- `--provider / -p`: AI provider to use.
+- `--model / -m`: Model to use for completions.
+- `--approval-mode / -a`: Override the approval policy.
+- `--dry-run`: Preview changes without applying them.
+- `--quiet / -q`: Non-interactive mode.
 
 ---
 
-## Memory \& Project Docs
+## Memory & Project Docs
 
 Codex merges Markdown instructions in this order:
 
 1. `~/.codex/instructions.md` – personal global guidance
 2. `codex.md` at repo root – shared project notes
 3. `codex.md` in cwd – sub‑package specifics
+4. `.codex/memory.md` – persistent project-specific facts learned by the agent.
 
 Disable with `--no-project-doc` or `CODEX_DISABLE_PROJECT_DOC=1`.
 
@@ -202,7 +214,7 @@ Run Codex head‑less in pipelines. Example GitHub Action step:
 ```yaml
 - name: Update changelog via Codex
   run: |
-    npm install -g open-codex
+    npm install -g @samooth/open-codex
     export OPENAI_API_KEY="${{ secrets.OPENAI_KEY }}"
     open-codex -a auto-edit --quiet "update CHANGELOG for next release"
 ```
@@ -241,9 +253,9 @@ Below are a few bite‑size examples you can copy‑paste. Replace the text in q
 <summary><strong>From npm (Recommended)</strong></summary>
 
 ```bash
-npm install -g open-codex
+npm install -g @samooth/open-codex
 # or
-yarn global add open-codex
+yarn global add @samooth/open-codex
 ```
 
 </details>
@@ -276,7 +288,7 @@ npm link
 
 ## Configuration
 
-Codex looks for config files in **`~/.codex/`** (either YAML or JSON format).
+Codex looks for config files in **`~/.codex/`** (either YAML or JSON format). The configuration is validated using Zod to ensure correctness.
 
 ```json
 // ~/.codex/config.json
@@ -284,7 +296,10 @@ Codex looks for config files in **`~/.codex/`** (either YAML or JSON format).
   "model": "o4-mini", // Default model
   "provider": "openai", // Default provider
   "approvalMode": "suggest", // or auto-edit, full-auto
-  "fullAutoErrorMode": "ask-user" // or ignore-and-continue
+  "fullAutoErrorMode": "ask-user", // or ignore-and-continue
+  "memory": {
+    "enabled": true
+  }
 }
 ```
 
@@ -306,6 +321,8 @@ This fork of Codex supports multiple AI providers:
 - openrouter
 - ollama
 - xai
+- deepseek
+- hf (Hugging Face)
 
 To use a different provider, set the `provider` key in your config file:
 
@@ -317,15 +334,21 @@ To use a different provider, set the `provider` key in your config file:
 
 OR use the `--provider` flag. eg. `codex --provider gemini`
 
+#### Dynamic Model Discovery
+
+For many providers, you can use the `/models` command within the interactive chat to see a list of available models and switch between them. For the **Hugging Face** provider, this dynamically fetches the latest `tool-use` compatible models directly from the Hugging Face Hub.
+
 Here's a list of all the providers and their default models:
 
 | Provider   | Environment Variable Required | Default Agentic Model        | Default Full Context Model |
 | ---------- | ----------------------------- | ---------------------------- | -------------------------- |
 | openai     | OPENAI_API_KEY                | o4-mini                      | o3                         |
-| gemini     | GOOGLE_GENERATIVE_AI_API_KEY  | gemini-2.5-pro-preview-03-25 | gemini-2.0-flash           |
+| gemini     | GOOGLE_GENERATIVE_AI_API_KEY  | gemini-3-pro-preview         | gemini-2.5-pro             |
 | openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
 | ollama     | Not required                  | User must specify            | User must specify          |
 | xai        | XAI_API_KEY                   | grok-3-mini-beta             | grok-3-beta                |
+| deepseek   | DS_API_KEY                    | deepseek-chat                | deepseek-reasoner          |
+| hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5         | moonshotai/Kimi-K2.5       |
 
 #### When using an alternative provider, make sure you have the correct environment variables set.
 
@@ -347,7 +370,7 @@ This is a fork of the original OpenAI Codex CLI project with expanded support fo
 <details>
 <summary>How do I stop Codex from touching my repo?</summary>
 
-Codex always runs in a **sandbox first**. If a proposed command or file change looks suspicious you can simply answer **n** when prompted and nothing happens to your working tree.
+Codex always runs in a **sandbox first**. If a proposed command or file change looks suspicious you can simply answer **n** when prompted and nothing happens to your working tree. For extra safety, use the `--dry-run` flag.
 
 </details>
 
@@ -363,7 +386,7 @@ Not directly. It requires [Windows Subsystem for Linux (WSL2)](https://learn.mic
 
 The default is `o4-mini`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override.
 
-You can also use models from other providers like Gemini and OpenRouter. See the [Configuration](#configuration) section for more details.
+You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
 
 </details>
 
@@ -390,14 +413,7 @@ OpenAI rejected the request. Error details: Status: 400, Code: unsupported_param
 - If you are part of a ZDR organization, Codex CLI will not work until support is added.
 - We are tracking this limitation and will update the documentation if support becomes available.
 
-## Funding Opportunity
-
-We’re excited to launch a **$1 million initiative** supporting open source projects that use Codex CLI and other OpenAI models.
-
-- Grants are awarded in **$25,000** API credit increments.
-- Applications are reviewed **on a rolling basis**.
-
-**Interested? [Apply here](https://openai.com/form/codex-open-source-fund/).**
+---
 
 ## Contributing
 
