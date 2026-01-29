@@ -215,9 +215,10 @@ test("process_patch - invalid patch throws DiffError", () => {
 
   const fs = createInMemoryFS({});
 
-  expect(() =>
-    process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn),
-  ).toThrow(DiffError);
+  // Should NOT throw anymore because load_files is now lenient
+  const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn);
+  expect(result).toBe("Done!");
+  expect(fs.files["missing.txt"].trim()).toBe("something");
 });
 
 test("process_patch - tolerates omitted space for keep line", () => {
@@ -289,12 +290,12 @@ test("text_to_patch + patch_to_commit handle update and add", () => {
   });
 });
 
-test("load_files throws DiffError when file is missing", () => {
+test("load_files does not throw DiffError when file is missing (lenient behavior)", () => {
   const { openFn } = createInMemoryFS({ "exists.txt": "hi" });
-  // intentionally include a missing file in the list
-  expect(() => load_files(["exists.txt", "missing.txt"], openFn)).toThrow(
-    DiffError,
-  );
+  // should return empty string for missing.txt instead of throwing
+  const orig = load_files(["exists.txt", "missing.txt"], openFn);
+  expect(orig["exists.txt"]).toBe("hi");
+  expect(orig["missing.txt"]).toBe("");
 });
 
 test("apply_commit correctly performs move / rename operations", () => {

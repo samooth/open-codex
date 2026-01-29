@@ -6,15 +6,14 @@
 // `./auto-approval-mode.js`, so the change is completely transparent for the
 // compiled `dist/` output used by the published CLI.
 
-import type { FullAutoErrorMode } from "./auto-approval-mode.js";
-
 import { log, isLoggingEnabled } from "./agent/log.js";
-import { AutoApprovalMode } from "./auto-approval-mode.js";
+import { AutoApprovalMode, FullAutoErrorMode } from "./auto-approval-mode.js";
 import { reportMissingAPIKeyForProvider } from "./model-utils.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { load as loadYaml, dump as dumpYaml } from "js-yaml";
 import { homedir } from "os";
 import { dirname, join, extname, resolve as resolvePath } from "path";
+import { z } from "zod";
 
 export const DEFAULT_APPROVAL_MODE = AutoApprovalMode.SUGGEST;
 export const DEFAULT_INSTRUCTIONS = "";
@@ -33,22 +32,26 @@ export const INSTRUCTIONS_FILEPATH = join(CONFIG_DIR, "instructions.md");
 export const OPENAI_TIMEOUT_MS =
   parseInt(process.env["OPENAI_TIMEOUT_MS"] || "0", 10) || undefined;
 
-export let DEFAULT_PROVIDER = "openai";
-export let API_KEY = "";
-
-// Gracefully fallback to a provider if we have a missing API key.
-if (!process.env["OPENAI_API_KEY"]) {
-  if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
-    DEFAULT_PROVIDER = "gemini";
-  } else if (process.env["OPENROUTER_API_KEY"]) {
-    DEFAULT_PROVIDER = "openrouter";
-  } else if (process.env["XAI_API_KEY"]) {
-    DEFAULT_PROVIDER = "xai";
-  } else if (process.env["DS_API_KEY"]) {
-    DEFAULT_PROVIDER = "deepseek";
-  }else if (process.env["HF_API_KEY"]){
-    DEFAULT_PROVIDER = "hf";
+export function getDefaultProvider(): string {
+  if (process.env["OPENAI_API_KEY"]) {
+    return "openai";
   }
+  if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
+    return "gemini";
+  }
+  if (process.env["OPENROUTER_API_KEY"]) {
+    return "openrouter";
+  }
+  if (process.env["XAI_API_KEY"]) {
+    return "xai";
+  }
+  if (process.env["DS_API_KEY"]) {
+    return "deepseek";
+  }
+  if (process.env["HF_API_KEY"]) {
+    return "hf";
+  }
+  return "openai";
 }
 
 function getAPIKeyForProviderOrExit(provider: string): string {
@@ -172,34 +175,28 @@ function defaultModelsForProvider(provider: string): {
   }
 }
 
-export function setApiKey(apiKey: string): void {
-  API_KEY = apiKey;
-}
-
 // Formatting (quiet mode-only).
 export const PRETTY_PRINT = Boolean(process.env["PRETTY_PRINT"] || "");
 
+export const MemoryConfigSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
+
+export const StoredConfigSchema = z.object({
+  model: z.string().optional(),
+  baseURL: z.string().optional(),
+  provider: z.string().optional(),
+  approvalMode: z.nativeEnum(AutoApprovalMode).optional(),
+  fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
+  memory: MemoryConfigSchema.optional(),
+});
+
 // Represents config as persisted in config.json.
-export type StoredConfig = {
-  model?: string;
-  baseURL?: string;
-  provider?: string;
-  approvalMode?: AutoApprovalMode;
-  fullAutoErrorMode?: FullAutoErrorMode;
-  memory?: MemoryConfig;
-};
+export type StoredConfig = z.infer<typeof StoredConfigSchema>;
 
 // Minimal config written on first run.  An *empty* model string ensures that
-// we always fall back to DEFAULT_MODEL on load, so updates to the default keep
-// propagating to existing users until they explicitly set a model.
-export const EMPTY_STORED_CONFIG: StoredConfig = { model: "" };
-
-// Pre‑stringified JSON variant so we don’t stringify repeatedly.
-const EMPTY_CONFIG_JSON = JSON.stringify(EMPTY_STORED_CONFIG, null, 2) + "\n";
-
-export type MemoryConfig = {
-  enabled: boolean;
-};
 
 // Represents full runtime config, including loaded instructions.
 export type AppConfig = {
@@ -211,6 +208,7 @@ export type AppConfig = {
   approvalMode?: AutoApprovalMode;
   fullAutoErrorMode?: FullAutoErrorMode;
   memory?: MemoryConfig;
+  dryRun?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -411,10 +409,21 @@ export const loadConfig = (
     const raw = readFileSync(actualConfigPath, "utf-8");
     const ext = extname(actualConfigPath).toLowerCase();
     try {
+      let parsed: unknown;
       if (ext === ".yaml" || ext === ".yml") {
-        storedConfig = loadYaml(raw) as unknown as StoredConfig;
+        parsed = loadYaml(raw);
       } else {
-        storedConfig = JSON.parse(raw);
+        parsed = JSON.parse(raw);
+      }
+
+      const result = StoredConfigSchema.safeParse(parsed);
+      if (result.success) {
+        storedConfig = result.data;
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[codex] Invalid config in ${actualConfigPath}. Using defaults.`,
+        );
       }
     } catch {
       // If parsing fails, fall back to empty config to avoid crashing.
@@ -439,7 +448,7 @@ export const loadConfig = (
       ? storedConfig.baseURL.trim()
       : undefined;
 
-  const providerOrDefault = options.provider ?? DEFAULT_PROVIDER;
+  const providerOrDefault = options.provider ?? getDefaultProvider();
 
   const derivedBaseURL = storedProvider
     ? baseURLForProvider(storedProvider)

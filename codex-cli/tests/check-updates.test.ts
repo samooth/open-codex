@@ -16,7 +16,7 @@ vi.mock("which", () => ({
 vi.mock("child_process", () => ({
   execFile: vi.fn((_cmd, _args, _opts, callback) => {
     const stdout = JSON.stringify({
-      "open-codex": {
+      "@samooth/open-codex": {
         current: "1.0.0",
         latest: "2.0.0",
       },

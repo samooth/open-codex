@@ -36,12 +36,13 @@ export async function getNPMCommandPath(): Promise<string | undefined> {
 export async function checkOutdated(
   npmCommandPath: string,
 ): Promise<UpdateCheckInfo | undefined> {
+  const { name: packageName } = await import("../../package.json");
   return new Promise((resolve, _reject) => {
     // TODO: support local installation
     // Right now we're using "--global", which only checks global packages.
     // But codex might be installed locally — we should check the local version first,
     // and only fall back to the global one if needed.
-    const args = ["outdated", "--global", "--json", "--", "open-codex"];
+    const args = ["outdated", "--global", "--json", "--", packageName];
     // corepack npm wrapper would automatically update package.json. disable that behavior.
     // COREPACK_ENABLE_AUTO_PIN disables the package.json overwrite, and
     // COREPACK_ENABLE_PROJECT_SPEC makes the npm view command succeed
@@ -59,7 +60,6 @@ export async function checkOutdated(
     }
     cp.execFile(commandPath, args, options, async (_error, stdout) => {
       try {
-        const { name: packageName } = await import("../../package.json");
         const content: Record<string, PackageInfo> = JSON.parse(stdout);
         if (!content[packageName]) {
           // package not installed or not outdated

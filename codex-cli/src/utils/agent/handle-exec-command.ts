@@ -24,6 +24,21 @@ import { access } from "fs/promises";
 // ---------------------------------------------------------------------------
 const alwaysApprovedCommands = new Set<string>();
 
+/**
+ * Register a command name that should always be approved for the remainder
+ * of the current CLI session.
+ */
+export function authorizeCommand(commandName: string): void {
+  alwaysApprovedCommands.add(commandName.trim());
+}
+
+/**
+ * Clear all authorized commands. Primarily used for testing.
+ */
+export function clearAuthorizedCommands(): void {
+  alwaysApprovedCommands.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Helper: Given the argv-style representation of a command, return a stable
 // string key that can be used for equality checks.
@@ -35,33 +50,25 @@ const alwaysApprovedCommands = new Set<string>();
 // ---------------------------------------------------------------------------
 
 function deriveCommandKey(cmd: Array<string>): string {
-  // pull off only the bits you care about
-  const [
-    maybeShell,
-    maybeFlag,
-    coreInvocation,
-    /* …ignore the rest… */
-  ] = cmd;
+  const [first, second, third] = cmd;
 
-  if (coreInvocation?.startsWith("apply_patch")) {
+  if (!first) {
+    return "";
+  }
+
+  if (first === "apply_patch" || (first === "shell" && second === "apply_patch")) {
     return "apply_patch";
   }
 
-  if (maybeShell === "bash" && maybeFlag === "-lc") {
+  if (first === "bash" && second === "-lc" && third) {
     // If the command was invoked through `bash -lc "<script>"` we extract the
     // base program name from the script string.
-    const script = coreInvocation ?? "";
-    return script.split(/\s+/)[0] || "bash";
+    const script = third ?? "";
+    return script.trim().split(/\s+/)[0] || "bash";
   }
 
-  // For every other command we fall back to using only the program name (the
-  // first argv element).  This guarantees we always return a *string* even if
-  // `coreInvocation` is undefined.
-  if (coreInvocation) {
-    return coreInvocation.split(/\s+/)[0]!;
-  }
-
-  return JSON.stringify(cmd);
+  // For every other command we use the program name (the first argv element).
+  return first;
 }
 
 type HandleExecCommandResult = {
@@ -82,6 +89,13 @@ export async function handleExecCommand(
   onOutput?: (chunk: string) => void,
 ): Promise<HandleExecCommandResult> {
   const { cmd: command } = args;
+
+  if (config.dryRun) {
+    return {
+      outputText: `[Dry Run] Would execute: ${formatCommandForDisplay(command)}`,
+      metadata: { exit_code: 0, duration_seconds: 0, dry_run: true },
+    };
+  }
 
   const key = deriveCommandKey(command);
 

@@ -1,5 +1,6 @@
 import type { AppConfig } from "./config";
 
+import { listModels } from "@huggingface/hub";
 import chalk from "chalk";
 import OpenAI from "openai";
 
@@ -16,11 +17,37 @@ export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
 
 let modelsPromise: Promise<Array<string>> | null = null;
 
+async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>> {
+  const models: Array<string> = [];
+  try {
+    for await (const model of listModels({
+      credentials: { accessToken: config.apiKey },
+      filter: {
+        tag: "tool-use",
+        task: "text-generation",
+      },
+      sort: "downloads",
+      direction: -1,
+      limit: 20,
+    })) {
+      models.push(model.name);
+    }
+    return models.sort();
+  } catch (error) {
+    return [];
+  }
+}
+
 async function fetchModels(config: AppConfig): Promise<Array<string>> {
   // If the user has not configured an API key we cannot hit the network.
   if (!config.apiKey) {
     return [];
   }
+
+  if (config.provider === "hf") {
+    return fetchHuggingFaceModels(config);
+  }
+
   try {
     const openai = new OpenAI({
       apiKey: config.apiKey,
@@ -117,6 +144,10 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
             )} for Google Gemini models\n`;
           case "xai":
             return `- ${chalk.bold("XAI_API_KEY")} for xAI models\n`;
+          case "deepseek":
+            return `- ${chalk.bold("DS_API_KEY")} for DeepSeek models\n`;
+          case "hf":
+            return `- ${chalk.bold("HF_API_KEY")} for Hugging Face models\n`;
           default:
             return (
               [
@@ -126,6 +157,8 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
                   "GOOGLE_GENERATIVE_AI_API_KEY",
                 )} for Google Gemini models`,
                 `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
+                `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,
+                `- ${chalk.bold("HF_API_KEY")} for Hugging Face models`,
               ].join("\n") + "\n"
             );
         }
@@ -148,6 +181,14 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
           case "xai":
             return `You can create an xAI key here: ${chalk.bold(
               chalk.underline("https://console.x.ai/team/default/api-keys"),
+            )}\n`;
+          case "deepseek":
+            return `You can create a DeepSeek key here: ${chalk.bold(
+              chalk.underline("https://platform.deepseek.com/api_keys"),
+            )}\n`;
+          case "hf":
+            return `You can create a Hugging Face key here: ${chalk.bold(
+              chalk.underline("https://huggingface.co/settings/tokens"),
             )}\n`;
           default:
             return "";

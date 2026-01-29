@@ -14,6 +14,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
+import { authorizeCommand } from "./utils/agent/handle-exec-command";
 import { initLogger } from "./utils/agent/log";
 import { ReviewDecision } from "./utils/agent/review";
 import { AutoApprovalMode } from "./utils/auto-approval-mode";
@@ -70,6 +71,8 @@ const cli = meow(
     --no-project-doc           Do not automatically include the repository's 'codex.md'
     --project-doc <file>       Include an additional markdown file at <file> as context
     --full-stdout              Do not truncate stdout/stderr from command outputs
+    --allow <command>          Pre-authorize a specific command (e.g., 'ls', 'pytest') for the session
+    --dry-run                  Preview changes without applying them
 
   Dangerous options
     --dangerously-auto-approve-everything
@@ -140,6 +143,15 @@ const cli = meow(
         description:
           "Disable truncation of command stdout/stderr messages (show everything)",
         aliases: ["no-truncate"],
+      },
+      allow: {
+        type: "string",
+        isMultiple: true,
+        description: "Pre-authorize a specific command for the session",
+      },
+      dryRun: {
+        type: "boolean",
+        description: "Preview changes without applying them",
       },
 
       // Experimental mode where whole directory is loaded in context and model is requested
@@ -228,11 +240,17 @@ let config = loadConfig(undefined, undefined, {
 const prompt = cli.input[0];
 const model = cli.flags.model;
 const imagePaths = cli.flags.image as Array<string> | undefined;
+const allowedCommands = (cli.flags.allow as Array<string>) || [];
+
+for (const cmdName of allowedCommands) {
+  authorizeCommand(cmdName);
+}
 
 config = {
   ...config,
   model: model ?? config.model,
   provider: provider ?? config.provider,
+  dryRun: Boolean(cli.flags.dryRun),
 };
 
 // Check for updates after loading config

@@ -48,6 +48,14 @@ beforeEach(() => {
   testDir = tmpdir(); // use the OS temp dir as our "cwd"
   testConfigPath = join(testDir, "config.json");
   testInstructionsPath = join(testDir, "instructions.md");
+
+  // Isolate environment variables
+  vi.stubEnv("OPENAI_API_KEY", "test-api-key");
+  vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
+  vi.stubEnv("OPENROUTER_API_KEY", "");
+  vi.stubEnv("XAI_API_KEY", "");
+  vi.stubEnv("DS_API_KEY", "");
+  vi.stubEnv("HF_API_KEY", "");
 });
 
 afterEach(() => {

@@ -274,10 +274,15 @@ class Parser {
       ])
     ) {
       const s = this.read_str();
-      if (!s.startsWith(HUNK_ADD_LINE_PREFIX)) {
-        throw new DiffError(`Invalid Add File Line: ${s}`);
+      if (s.startsWith("@@")) {
+        continue;
       }
-      lines.push(s.slice(1));
+      if (s.startsWith(HUNK_ADD_LINE_PREFIX)) {
+        lines.push(s.slice(1));
+      } else {
+        // Lenient: if it doesn't start with +, just add it as is
+        lines.push(s);
+      }
     }
     return {
       type: ActionType.ADD,
@@ -397,14 +402,6 @@ function peek_next_section(
     }
 
     line = line.slice(1);
-    // Tolerate models that add an extra space after the control character
-    // (e.g. "- line" instead of "-line").
-    if (
-      (mode === "add" || mode === "delete" || mode === "keep") &&
-      line.startsWith(" ")
-    ) {
-      line = line.slice(1);
-    }
     
     if (mode === "keep" && lastMode !== mode) {
       if (insLines.length || delLines.length) {

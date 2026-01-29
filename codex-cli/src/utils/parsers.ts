@@ -347,7 +347,12 @@ function normalizeJsonToolCall(
       json.name === "search_codebase" ||
       json.name === "persistent_memory" ||
       json.name === "read_file_lines" ||
-      json.name === "list_files_recursive"
+      json.name === "list_files_recursive" ||
+      json.name === "read_file" ||
+      json.name === "write_file" ||
+      json.name === "delete_file" ||
+      json.name === "list_directory" ||
+      (json.name.startsWith("repo_browser.") && json.name !== "repo_browser.exec")
     ) {
       return {
         name: json.name,
@@ -359,7 +364,7 @@ function normalizeJsonToolCall(
     if (result.success) {
       const parsedArgs = result.args;
       return {
-        name: json.name === "apply_patch" ? "shell" : json.name,
+        name: (json.name === "apply_patch" || json.name === "repo_browser.exec" || json.name === "shell") ? "shell" : json.name,
         arguments: JSON.stringify({
           cmd: parsedArgs.cmd,
           workdir: parsedArgs.workdir,
@@ -378,10 +383,20 @@ function normalizeJsonToolCall(
         toolName = "search_codebase";
       } else if (json.start_line || json.end_line) {
         toolName = "read_file_lines";
+      } else if (json.content !== undefined) {
+        toolName = "write_file";
       } else if (json.depth) {
         toolName = "list_files_recursive";
       } else if (json.fact) {
         toolName = "persistent_memory";
+      } else if (json.path && !json.cmd && !json.command && !json.patch) {
+        // Ambiguous path property - could be read_file, delete_file or list_directory.
+        // We'll default to read_file as it's the safest/most common.
+        toolName = "read_file";
+      }
+
+      if (json.name === "repo_browser.read_file_lines") {
+        toolName = "read_file_lines";
       }
 
       if (toolName === "shell") {

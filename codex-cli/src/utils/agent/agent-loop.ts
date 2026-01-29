@@ -277,9 +277,26 @@ export class AgentLoop {
       // Normalise the function‑call item
       const isChatStyle = (toolCall as any).function != null;
 
-      const name: string | undefined = isChatStyle
+      let name: string | undefined = isChatStyle
         ? (toolCall as any).function?.name
         : (toolCall as any).name;
+
+      if (name) {
+        // Strip common model-specific suffixes that leak into tool names
+        name = name.split("<|")[0];
+        name = name.split("---")[0];
+        name = name.trim();
+
+        // Map repo_browser aliases to standard names
+        if (name === "repo_browser.exec") name = "shell";
+        if (name === "repo_browser.read_file") name = "read_file";
+        if (name === "repo_browser.write_file") name = "write_file";
+        if (name === "repo_browser.read_file_lines") name = "read_file_lines";
+        if (name === "repo_browser.list_files") name = "list_files_recursive";
+        if (name === "repo_browser.print_tree") name = "list_files_recursive";
+        if (name === "repo_browser.list_directory") name = "list_directory";
+        if (name === "repo_browser.search") name = "search_codebase";
+      }
 
       const rawArguments: string | undefined = isChatStyle
         ? (toolCall as any).function?.arguments
@@ -316,81 +333,313 @@ export class AgentLoop {
         content: "no function found",
       };
 
-      if ((name === "container.exec" || name === "shell" || name === "apply_patch") && args) {
-        let partialOutput = "";
-        const {
-          outputText,
-          metadata,
-          additionalItems: additionalItemsFromExec,
-        } = await handleExecCommand(
+      let outputText: string;
+      let metadata: Record<string, unknown>;
+      let additionalItems: Array<ChatCompletionMessageParam> | undefined;
+
+      if ((name === "container.exec" || name === "shell" || name === "apply_patch" || name === "repo_browser.exec") && args) {
+        const result = await handleExecCommand(
           args,
           this.config,
           this.approvalPolicy,
           this.getCommandConfirmation,
           this.execAbortController?.signal,
           (chunk) => {
-            partialOutput += chunk;
             // Emit a "thinking" update with partial output
             this.onItem({
               role: "tool",
               tool_call_id: callId,
               content: JSON.stringify({
-                output: partialOutput,
+                output: chunk,
                 metadata: { exit_code: undefined, duration_seconds: 0 },
                 streaming: true,
               }),
             });
           },
         );
-        outputItem.content = JSON.stringify({ output: outputText, metadata });
-        results.push(outputItem);
-        if (additionalItemsFromExec) {
-          results.push(...additionalItemsFromExec);
-        }
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
      } else if (name === "search_codebase") {
-       // Non-shell tools expect the raw JSON argument string.
-       const { outputText, metadata } = await this.handleSearchCodebase(
-         rawArguments ?? "{}",
-       );
-       outputItem.content = JSON.stringify({ output: outputText, metadata });
-       results.push(outputItem);
+       const result = await this.handleSearchCodebase(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
      } else if (name === "persistent_memory") {
-       const { outputText, metadata } = await this.handlePersistentMemory(
-         rawArguments ?? "{}",
-       );
-       outputItem.content = JSON.stringify({ output: outputText, metadata });
-       results.push(outputItem);
+       const result = await this.handlePersistentMemory(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
      } else if (name === "read_file_lines") {
-       const { outputText, metadata } = await this.handleReadFileLines(
-         rawArguments ?? "{}",
-       );
-       outputItem.content = JSON.stringify({ output: outputText, metadata });
-       results.push(outputItem);
+       const result = await this.handleReadFileLines(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
      } else if (name === "list_files_recursive") {
-       const { outputText, metadata } = await this.handleListFilesRecursive(
-         rawArguments ?? "{}",
-       );
-       outputItem.content = JSON.stringify({ output: outputText, metadata });
-       results.push(outputItem);
+       const result = await this.handleListFilesRecursive(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
+     } else if (name === "read_file") {
+       const result = await this.handleReadFile(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
+     } else if (name === "write_file") {
+       const result = await this.handleWriteFile(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
+     } else if (name === "delete_file") {
+       const result = await this.handleDeleteFile(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
+     } else if (name === "list_directory") {
+       const result = await this.handleListDirectory(rawArguments ?? "{}");
+       outputText = result.outputText;
+       metadata = result.metadata;
+       additionalItems = result.additionalItems;
       } else {
         results.push(outputItem);
+        continue;
+      }
+
+      outputItem.content = JSON.stringify({ output: outputText, metadata });
+      results.push(outputItem);
+      if (additionalItems) {
+        results.push(...additionalItems);
       }
     }
 
     return results;
   }
 
-  private async handleSearchCodebase(rawArgs: string): Promise<{
+  private async handleReadFile(rawArgs: string): Promise<{
     outputText: string;
     metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
   }> {
     try {
       const args = JSON.parse(rawArgs);
-      const { pattern, path: searchPath, include } = args;
+      const { path: filePath } = args;
+
+      if (!filePath) {
+        return {
+          outputText: "Error: 'path' is required for read_file",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const execResult = await handleExecCommand(
+        { cmd: ["cat", filePath] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (execResult.outputText === "aborted") {
+        return execResult;
+      }
+
+      const fullPath = join(process.cwd(), filePath);
+      if (!existsSync(fullPath)) {
+        return {
+          outputText: `Error: File not found: ${filePath}`,
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const content = readFileSync(fullPath, "utf-8");
+      return {
+        outputText: content,
+        metadata: { exit_code: 0, path: filePath, size: content.length },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error reading file: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleWriteFile(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { path: filePath, content } = args;
+
+      if (!filePath || content === undefined) {
+        return {
+          outputText: "Error: 'path' and 'content' are required for write_file",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const execResult = await handleExecCommand(
+        { cmd: ["write_file", filePath] }, // Synthetic command for authorization
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (execResult.outputText === "aborted") {
+        return execResult;
+      }
+
+      if (this.config.dryRun) {
+        return {
+          outputText: `[Dry Run] Would write ${content.length} characters to ${filePath}`,
+          metadata: { exit_code: 0, path: filePath, dry_run: true },
+        };
+      }
+
+      const fullPath = join(process.cwd(), filePath);
+      const parentDir = join(fullPath, "..");
+      if (!existsSync(parentDir)) {
+        mkdirSync(parentDir, { recursive: true });
+      }
+
+      writeFileSync(fullPath, content, "utf-8");
+      return {
+        outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
+        metadata: { exit_code: 0, path: filePath },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error writing file: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleDeleteFile(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { path: filePath } = args;
+
+      if (!filePath) {
+        return {
+          outputText: "Error: 'path' is required for delete_file",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const execResult = await handleExecCommand(
+        { cmd: ["rm", filePath] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (execResult.outputText === "aborted") {
+        return execResult;
+      }
+
+      if (this.config.dryRun) {
+        return {
+          outputText: `[Dry Run] Would delete file: ${filePath}`,
+          metadata: { exit_code: 0, path: filePath, dry_run: true },
+        };
+      }
+
+      const fullPath = join(process.cwd(), filePath);
+      if (!existsSync(fullPath)) {
+        return {
+          outputText: `Error: File not found: ${filePath}`,
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const fs = await import("fs");
+      fs.unlinkSync(fullPath);
+      return {
+        outputText: `Successfully deleted ${filePath}`,
+        metadata: { exit_code: 0, path: filePath },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error deleting file: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleListDirectory(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { path: dirPath = "." } = args;
+
+      const execResult = await handleExecCommand(
+        { cmd: ["ls", dirPath] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (execResult.outputText === "aborted") {
+        return execResult;
+      }
+
+      const fullPath = join(process.cwd(), dirPath);
+      if (!existsSync(fullPath)) {
+        return {
+          outputText: `Error: Directory not found: ${dirPath}`,
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const entries = readdirSync(fullPath, { withFileTypes: true })
+        .sort((a, b) => {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+      const resultText = entries
+        .map(e => `${e.isDirectory() ? "dir: " : "file:"} ${e.name}`)
+        .join("\n");
+
+      return {
+        outputText: resultText || "Directory is empty.",
+        metadata: { exit_code: 0, path: dirPath, count: entries.length },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error listing directory: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleSearchCodebase(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const pattern = args.pattern || args.query;
+      const { path: searchPath, include } = args;
 
       if (!pattern) {
         return {
-          outputText: "Error: 'pattern' is required for search_codebase",
+          outputText: "Error: 'pattern' or 'query' is required for search_codebase",
           metadata: { exit_code: 1 },
         };
       }
@@ -403,17 +652,23 @@ export class AgentLoop {
         rgArgs.push("-g", include);
       }
 
-      const { outputText, metadata } = await handleExecCommand(
+      const result = await handleExecCommand(
         {
           cmd: rgArgs,
           workdir: process.cwd(),
           timeoutInMillis: 30000,
         },
         this.config,
-        "full-auto", // Always allow search
-        async () => ({ review: ReviewDecision.YES }), // Auto-confirm
+        this.approvalPolicy,
+        this.getCommandConfirmation,
         this.execAbortController?.signal,
       );
+
+      if (result.outputText === "aborted") {
+        return result;
+      }
+
+      const { outputText, metadata } = result;
 
       // Process ripgrep JSON output to be more compact/useful for the model
       const lines = outputText.trim().split("\n");
@@ -437,7 +692,7 @@ export class AgentLoop {
 
       if (results.length === 0 && metadata.exit_code !== 0 && metadata.exit_code !== 1) {
         return {
-          outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${metadata.outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
+          outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
           metadata,
         };
       }
@@ -460,6 +715,7 @@ export class AgentLoop {
   private async handlePersistentMemory(rawArgs: string): Promise<{
     outputText: string;
     metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
   }> {
     try {
       const args = JSON.parse(rawArgs);
@@ -472,6 +728,26 @@ export class AgentLoop {
         };
       }
 
+      const entry = fact; // Simplified entry for authorization
+      const result = await handleExecCommand(
+        { cmd: ["persistent_memory", entry] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (result.outputText === "aborted") {
+        return result;
+      }
+
+      if (this.config.dryRun) {
+        return {
+          outputText: `[Dry Run] Would save fact: ${fact}`,
+          metadata: { exit_code: 0, dry_run: true },
+        };
+      }
+
       const memoryDir = join(process.cwd(), ".codex");
       const memoryPath = join(memoryDir, "memory.md");
 
@@ -480,8 +756,8 @@ export class AgentLoop {
       }
 
       const timestamp = new Date().toISOString().split("T")[0];
-      const entry = `\n- [${timestamp}] ${fact}`;
-      appendFileSync(memoryPath, entry, "utf-8");
+      const fullEntry = `\n- [${timestamp}] ${fact}`;
+      appendFileSync(memoryPath, fullEntry, "utf-8");
 
       return {
         outputText: `Fact saved: ${fact}`,
@@ -498,6 +774,7 @@ export class AgentLoop {
   private async handleReadFileLines(rawArgs: string): Promise<{
     outputText: string;
     metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
   }> {
     try {
       const args = JSON.parse(rawArgs);
@@ -509,6 +786,18 @@ export class AgentLoop {
             "Error: 'path', 'start_line', and 'end_line' are required for read_file_lines",
           metadata: { exit_code: 1 },
         };
+      }
+
+      const result = await handleExecCommand(
+        { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (result.outputText === "aborted") {
+        return result;
       }
 
       const fullPath = join(process.cwd(), filePath);
@@ -549,10 +838,23 @@ export class AgentLoop {
   private async handleListFilesRecursive(rawArgs: string): Promise<{
     outputText: string;
     metadata: Record<string, unknown>;
+    additionalItems?: Array<ChatCompletionMessageParam>;
   }> {
     try {
       const args = JSON.parse(rawArgs);
       const { path: startPath = ".", depth = 3 } = args;
+
+      const result = await handleExecCommand(
+        { cmd: ["ls", "-R", startPath] },
+        this.config,
+        this.approvalPolicy,
+        this.getCommandConfirmation,
+        this.execAbortController?.signal,
+      );
+
+      if (result.outputText === "aborted") {
+        return result;
+      }
 
       const fullStartPath = join(process.cwd(), startPath);
       if (!existsSync(fullStartPath)) {
@@ -769,6 +1071,155 @@ export class AgentLoop {
                 {
                   type: "function",
                   function: {
+                    name: "repo_browser.exec",
+                    description: "Alias for shell command execution.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        command: { type: "array", items: { type: "string" } },
+                        cmd: { type: "array", items: { type: "string" } },
+                        workdir: {
+                          type: "string",
+                          description: "The working directory for the command.",
+                        },
+                        timeout: {
+                          type: "number",
+                          description:
+                            "The maximum time to wait for the command to complete in milliseconds.",
+                        },
+                      },
+                      required: [],
+                      additionalProperties: true,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.read_file_lines",
+                    description: "Alias for read_file_lines.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                        start_line: { type: "number" },
+                        end_line: { type: "number" },
+                      },
+                      required: ["path", "start_line", "end_line"],
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.read_file<|channel|>commentary",
+                    description: "Alias for read_file (legacy support).",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                      },
+                      required: ["path"],
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.read_file",
+                    description: "Alias for read_file.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                      },
+                      required: ["path"],
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.write_file",
+                    description: "Alias for write_file.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                        content: { type: "string" },
+                      },
+                      required: ["path", "content"],
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.print_tree",
+                    description: "Alias for list_files_recursive.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                      },
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.list_directory",
+                    description: "Alias for list_directory.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                      },
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.list_files",
+                    description: "Alias for list_files_recursive.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: { type: "string" },
+                      },
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "repo_browser.search",
+                    description: "Alias for search_codebase.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        pattern: { type: "string" },
+                        query: { type: "string" },
+                        path: { type: "string" },
+                      },
+                      required: [],
+                      additionalProperties: true,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
                     name: "shell",
                     description:
                       "Runs a shell command, and returns its output.",
@@ -888,6 +1339,89 @@ export class AgentLoop {
                         depth: {
                           type: "number",
                           description: "Maximum depth to recurse (default: 3).",
+                        },
+                      },
+                      required: [],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "read_file",
+                    description: "Reads the full content of a file.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description: "The path to the file to read.",
+                        },
+                      },
+                      required: ["path"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "write_file",
+                    description:
+                      "Writes content to a file, creating any parent directories as needed. Overwrites if the file already exists.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description: "The path to the file to write.",
+                        },
+                        content: {
+                          type: "string",
+                          description: "The content to write to the file.",
+                        },
+                      },
+                      required: ["path", "content"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "delete_file",
+                    description: "Deletes a file from the codebase.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description: "The path to the file to delete.",
+                        },
+                      },
+                      required: ["path"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "list_directory",
+                    description:
+                      "Lists the contents of a directory (non-recursive).",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description:
+                            "The directory to list (default: current working directory).",
                         },
                       },
                       required: [],
@@ -1396,18 +1930,11 @@ export class AgentLoop {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const e: any = err;
 
-        if (
-          e.type === "invalid_request_error" &&
-          e.code === "model_not_found"
-        ) {
-          return true;
-        }
+        const isInvalid =
+          e.type === "invalid_request_error" ||
+          (e.cause && e.cause.type === "invalid_request_error");
 
-        if (
-          e.cause &&
-          e.cause.type === "invalid_request_error" &&
-          e.cause.code === "model_not_found"
-        ) {
+        if (isInvalid) {
           return true;
         }
 
@@ -1493,6 +2020,7 @@ const prefix = `You are operating as and within OpenCodex, a terminal-based agen
 You can:
 - Receive user prompts, project context, and files.
 - Stream responses and emit function calls (e.g., shell commands, code edits).
+- Direct file operations: \`read_file\`, \`write_file\`, \`delete_file\`, and \`list_directory\`.
 - Apply patches, run commands, and manage user approvals based on policy.
 - Work inside a sandboxed, git-backed workspace with rollback support.
 - Log telemetry so sessions can be replayed or inspected later.
@@ -1511,7 +2039,10 @@ You MUST adhere to the following criteria when executing the task:
 - Analyzing code for vulnerabilities is allowed.
 - Showing user code and tool call details is allowed.
 - User instructions may overwrite the *CODING GUIDELINES* section in this developer message.
-- Use the \`apply_patch\` shell command to edit files: {"cmd":["apply_patch","*** Begin Patch\\n*** Update File: path/to/file.py\\n@@ def example():\\n-  pass\\n+  return 123\\n*** End Patch"]}
+- Use the \`apply_patch\` shell command to edit existing files surgically.
+- Use \`write_file\` to create new files or completely rewrite small files.
+- Use \`read_file\` to read full contents of small files, and \`read_file_lines\` for larger ones.
+- Use \`list_directory\` for a quick look at a directory's contents.
 - If completing the user's task requires writing or modifying files:
     - Your code and final answer should follow these *CODING GUIDELINES*:
         - Fix the problem at the root cause rather than applying surface-level patches, when possible.

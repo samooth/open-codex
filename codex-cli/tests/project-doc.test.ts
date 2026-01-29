@@ -54,7 +54,9 @@ describe("project doc integration", () => {
       cwd: projectDir,
     });
 
-    expect(instructions.length).toBe(PROJECT_DOC_MAX_BYTES);
+    // The truncated project doc will be wrapped in a header:
+    // "--- project-doc ---\n\n" (21 chars)
+    expect(instructions.length).toBe(PROJECT_DOC_MAX_BYTES + 21);
     expect(warnSpy).toHaveBeenCalledOnce();
 
     warnSpy.mockRestore();

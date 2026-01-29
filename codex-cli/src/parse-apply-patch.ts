@@ -82,10 +82,13 @@ export function parseApplyPatch(patch: string): Array<ApplyPatchOp> | null {
     const lastOp = ops[ops.length - 1];
 
     if (lastOp?.type === "create") {
-      lastOp.content = appendLine(
-        lastOp.content,
-        line.slice(HUNK_ADD_LINE_PREFIX.length),
-      );
+      if (line.startsWith("@@")) {
+        continue;
+      }
+      const contentLine = line.startsWith(HUNK_ADD_LINE_PREFIX)
+        ? line.slice(HUNK_ADD_LINE_PREFIX.length)
+        : line;
+      lastOp.content = appendLine(lastOp.content, contentLine);
       continue;
     }
 
