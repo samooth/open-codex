@@ -28,11 +28,14 @@ async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>>
       },
       sort: "downloads",
       direction: -1,
-      limit: 20,
+      limit: 50,
     })) {
-      models.push(model.name);
+      // Double-check the pipeline tag to be absolutely sure it's a text-generation LLM
+      if (model.pipeline_tag === "text-generation") {
+        models.push(model.name);
+      }
     }
-    return models.sort();
+    return [...new Set(models)].sort();
   } catch (error) {
     return [];
   }

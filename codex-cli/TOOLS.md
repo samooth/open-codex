@@ -8,23 +8,30 @@ This document explains in detail how OpenCodex defines, registers, and executes 
 This is the "brain" of the agent. It controls:
 - **Registration**: The `run()` method contains the `tools` array passed to the OpenAI API. This defines the JSON schema for every tool the model is aware of.
 - **Routing & Parallelism**: The `handleFunctionCall()` method initiates all model-requested tool calls in **parallel** using `Promise.all()`, significantly reducing latency for multi-file operations.
+- **Loop Protection**: Tracks the history of tool calls in the current session. If the exact same tool call (name and arguments) fails more than twice, the system intercepts the third attempt and returns a "Loop detected" error, forcing the model to stop and ask for help.
 - **Normalization**: This file handles tool aliasing (e.g., mapping `repo_browser.read_file` to the internal `read_file` handler) and strips model-specific suffixes like `<|channel|>`.
 - **High-Level Handlers**: Implements specialized tools directly using high-performance asynchronous I/O:
     - `read_file`, `write_file`, `delete_file`: Basic FS operations.
     - `list_directory`: Non-recursive directory listing.
     - `list_files_recursive`: Parallel tree-view project exploration.
     - `read_file_lines`: Reading specific line ranges to save context.
-    - `search_codebase`: Structured search using ripgrep (`rg --json`).
-    - `persistent_memory`: Fact storage in `.codex/memory.md`.
+    - search_codebase: Structured search using ripgrep (`rg --json`).
+    - persistent_memory: Fact storage in `.codex/memory.md` with category support.
+    - summarize_memory: Retrieve all stored facts for review and consolidation.
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
 Controls the execution of shell commands:
 - **Authorization**: Manages the session-level "Always Allow" list. It exports `authorizeCommand()` which is used by the `--allow` CLI flag.
 - **Sandbox Decisions**: Determines if a command should run in a restricted environment based on the current policy.
-- **Dry Run**: If `dryRun` is enabled in config, it intercepts commands and returns a preview message instead of executing.
+- **Dry Run**: If `dryRun` is enabled in config, it intercepts commands and returns a preview message instead of executing. This can be toggled in-session via `/config`.
 - **Key Derivation**: The `deriveCommandKey()` function extracts the base command (e.g., `pytest` from `bash -lc "pytest ..."`) to ensure that authorizing a command works across different shell invocations.
 
-### 3. `src/approvals.ts`
+### 3. `src/components/chat/terminal-chat-response-item.tsx`
+Handles the rendering of agent responses:
+- **Syntax Highlighting**: Uses `cli-highlight` to provide full color support for code blocks and unified diffs within the terminal UI.
+- **Markdown Rendering**: Integrates `marked-terminal` with custom highlighting for a polished developer experience.
+
+### 4. `src/approvals.ts`
 The safety engine of the CLI:
 - **Policies**: Defines the three main levels of autonomy: `suggest` (prompt for everything), `auto-edit` (surgical edits allowed), and `full-auto` (sandbox everything).
 - **Safety Assessment**: `canAutoApprove()` determines if a specific command string is "known safe" (like `ls` or `pwd`) or if it requires user intervention.

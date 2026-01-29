@@ -1,6 +1,6 @@
 { 
   "name": "Open Codex",
-  "version": "1.4.6",
+  "version": "1.4.9",
   "description": "Tools for repo-wide maintenance.",
   "scripts": {
     "release": "cd codex-cli && npm run release",

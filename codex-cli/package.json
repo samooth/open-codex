@@ -1,6 +1,6 @@
 {
   "name": "@samooth/open-codex",
-  "version": "0.1.46",
+  "version": "0.1.49",
   "license": "Apache-2.0",
   "bin": {
     "open-codex": "dist/cli.js"
@@ -25,6 +25,7 @@
     "release": "npm run release:readme && npm run release:version && npm run build && npm publish"
   },
   "files": [
+    "README.md",
     "dist"
   ],
   "dependencies": {

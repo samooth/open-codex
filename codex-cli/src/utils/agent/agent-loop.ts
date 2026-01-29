@@ -5,11 +5,9 @@ import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions/completions.mjs";
-import type { ReasoningEffort } from "openai/resources.mjs";
+import type { reasoningeffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
-import { join } from "path";
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
 import {
@@ -26,6 +24,10 @@ import {
 import { handleExecCommand } from "./handle-exec-command.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
+import { prefix } from "./system-prompt.js";
+import { tools } from "./tool-definitions.js";
+import * as handlers from "./tool-handlers.js";
+import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -101,9 +103,17 @@ export class AgentLoop {
   /** Set to true by `terminate()` – prevents any further use of the instance. */
   private terminated = false;
   /** Master abort controller – fires when terminate() is invoked. */
-  private readonly hardAbort = new AbortController();
+  private hardAbort = new AbortController();
 
   private onReset: () => void;
+
+  /**
+   * Tracks history of tool calls in the current session to detect loops.
+   * Key: tool name + stringified arguments
+   * Value: { count: number, lastError?: string }
+   */
+  private toolCallHistory: Map<string, { count: number; lastError?: string }> =
+    new Map();
 
   /**
    * Abort the ongoing request/stream, if any. This allows callers (typically
@@ -138,6 +148,7 @@ export class AgentLoop {
     // the stored lastResponseId so a subsequent run starts a clean turn.
     if (this.pendingAborts.size === 0) {
       try {
+        this.toolCallHistory.clear();
         this.onReset();
       } catch {
         /* ignore */
@@ -304,13 +315,29 @@ export class AgentLoop {
 
       const callId: string = (toolCall as any).id || (toolCall as any).call_id;
 
+      const toolCallKey = `${name}:${rawArguments}`;
+      const history = this.toolCallHistory.get(toolCallKey) || { count: 0 };
+
       const result = parseToolCallArguments(rawArguments ?? "{}");
       if (isLoggingEnabled()) {
         log(
           `handleFunctionCall(): name=${
             name ?? "undefined"
-          } callId=${callId} args=${rawArguments}`,
+          } callId=${callId} args=${rawArguments} count=${history.count}`,
         );
+      }
+
+      if (history.count >= 2) {
+        return [
+          {
+            role: "tool",
+            tool_call_id: callId,
+            content: JSON.stringify({
+              output: `Error: Loop detected. This exact tool call has been attempted ${history.count} times already and failed with: "${history.lastError}". Please stop and ask the user for clarification instead of retrying again.`,
+              metadata: { exit_code: 1, duration_seconds: 0, loop_detected: true },
+            }),
+          } as ChatCompletionMessageParam,
+        ];
       }
 
       if (!result.success) {
@@ -415,6 +442,18 @@ export class AgentLoop {
       }
 
       outputItem.content = JSON.stringify({ output: outputText, metadata });
+
+      // Update history for loop detection
+      if (metadata.exit_code !== 0) {
+        this.toolCallHistory.set(toolCallKey, {
+          count: history.count + 1,
+          lastError: outputText.slice(0, 200), // Store a snippet of the error
+        });
+      } else {
+        // If it succeeded, we can clear it from history or at least reset count
+        this.toolCallHistory.delete(toolCallKey);
+      }
+
       const callResults = [outputItem];
       if (additionalItems) {
         callResults.push(...additionalItems);
@@ -2104,6 +2143,12 @@ You can:
 The Codex CLI is open-sourced. Don't confuse yourself with the old Codex language model built by OpenAI many moons ago (this is understandably top of mind for you!). Within this context, OpenCodex refers to the open-source agentic coding interface.
 
 You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. NEVER simulate or type out tool responses (like JSON or XML observation blocks) yourself; let the system provide them after you call a tool. If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
+
+### Efficiency & Safety
+- **Parallelism**: You can and should call multiple tools in parallel (e.g., reading multiple files at once) by emitting multiple tool calls in a single response. This is significantly faster for information gathering.
+- **Loop Protection**: If a command or tool call fails more than twice with the same error, **STOP immediately**. Do not retry a third time. Instead, explain the situation to the user, share the error, and ask for clarification or help. Blindly retrying failing commands is a waste of resources and unlikely to succeed without a different approach.
+- **Context Management**: Use \`read_file_lines\` for large files to avoid blowing out your context window.
+- **Dry Run**: If the system informs you that a "Dry Run" is active, be aware that your changes are not being persisted. Use this mode to plan and verify your logic.
 
 
 

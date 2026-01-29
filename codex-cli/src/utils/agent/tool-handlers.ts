@@ -1,0 +1,554 @@
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
+import { join } from "path";
+import { handleExecCommand } from "./handle-exec-command.js";
+import type { AgentContext } from "./types.js";
+
+export async function handleReadFile(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath } = args;
+
+    if (!filePath) {
+      return {
+        outputText: "Error: 'path' is required for read_file",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const execResult = await handleExecCommand(
+      { cmd: ["cat", filePath] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (execResult.outputText === "aborted") {
+      return execResult;
+    }
+
+    const fullPath = join(process.cwd(), filePath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: File not found: ${filePath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const content = readFileSync(fullPath, "utf-8");
+    return {
+      outputText: content,
+      metadata: { exit_code: 0, path: filePath, size: content.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error reading file: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleWriteFile(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath, content } = args;
+
+    if (!filePath || content === undefined) {
+      return {
+        outputText: "Error: 'path' and 'content' are required for write_file",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const execResult = await handleExecCommand(
+      { cmd: ["write_file", filePath] }, // Synthetic command for authorization
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (execResult.outputText === "aborted") {
+      return execResult;
+    }
+
+    if (ctx.config.dryRun) {
+      return {
+        outputText: `[Dry Run] Would write ${content.length} characters to ${filePath}`,
+        metadata: { exit_code: 0, path: filePath, dry_run: true },
+      };
+    }
+
+    const fullPath = join(process.cwd(), filePath);
+    const parentDir = join(fullPath, "..");
+    if (!existsSync(parentDir)) {
+      mkdirSync(parentDir, { recursive: true });
+    }
+
+    writeFileSync(fullPath, content, "utf-8");
+    return {
+      outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
+      metadata: { exit_code: 0, path: filePath },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error writing file: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleDeleteFile(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath } = args;
+
+    if (!filePath) {
+      return {
+        outputText: "Error: 'path' is required for delete_file",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const execResult = await handleExecCommand(
+      { cmd: ["rm", filePath] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (execResult.outputText === "aborted") {
+      return execResult;
+    }
+
+    if (ctx.config.dryRun) {
+      return {
+        outputText: `[Dry Run] Would delete file: ${filePath}`,
+        metadata: { exit_code: 0, path: filePath, dry_run: true },
+      };
+    }
+
+    const fullPath = join(process.cwd(), filePath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: File not found: ${filePath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const fs = await import("fs");
+    fs.unlinkSync(fullPath);
+    return {
+      outputText: `Successfully deleted ${filePath}`,
+      metadata: { exit_code: 0, path: filePath },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error deleting file: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleListDirectory(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: dirPath = "." } = args;
+
+    const execResult = await handleExecCommand(
+      { cmd: ["ls", dirPath] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (execResult.outputText === "aborted") {
+      return execResult;
+    }
+
+    const fullPath = join(process.cwd(), dirPath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: Directory not found: ${dirPath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const entries = readdirSync(fullPath, { withFileTypes: true })
+      .sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+    const resultText = entries
+      .map(e => `${e.isDirectory() ? "dir: " : "file:"} ${e.name}`)
+      .join("\n");
+
+    return {
+      outputText: resultText || "Directory is empty.",
+      metadata: { exit_code: 0, path: dirPath, count: entries.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error listing directory: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleSearchCodebase(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const pattern = args.pattern || args.query;
+    const { path: searchPath, include } = args;
+
+    if (!pattern) {
+      return {
+        outputText: "Error: 'pattern' or 'query' is required for search_codebase",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const rgArgs = ["rg", "--json", pattern];
+    if (searchPath) {
+      rgArgs.push(searchPath);
+    }
+    if (include) {
+      rgArgs.push("-g", include);
+    }
+
+    const result = await handleExecCommand(
+      {
+        cmd: rgArgs,
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (result.outputText === "aborted") {
+      return result;
+    }
+
+    const { outputText, metadata } = result;
+
+    // Process ripgrep JSON output to be more compact/useful for the model
+    const lines = outputText.trim().split("\n");
+    const results: Array<any> = [];
+
+    for (const line of lines) {
+      if (!line) continue;
+      try {
+        const parsed = JSON.parse(line);
+        if (parsed.type === "match") {
+          results.push({
+            file: parsed.data.path.text,
+            line: parsed.data.line_number,
+            text: parsed.data.lines.text.trim(),
+          });
+        }
+      } catch {
+        // Skip invalid JSON lines
+      }
+    }
+
+    if (results.length === 0 && metadata.exit_code !== 0 && metadata.exit_code !== 1) {
+      return {
+        outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
+        metadata,
+      };
+    }
+
+    return {
+      outputText:
+        results.length > 0
+          ? JSON.stringify(results, null, 2)
+          : "No matches found.",
+      metadata: { ...metadata, match_count: results.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error executing search: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handlePersistentMemory(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { fact, category = "general" } = args;
+
+    if (!fact) {
+      return {
+        outputText: "Error: 'fact' is required for persistent_memory",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const entry = `[${category}] ${fact}`;
+    const result = await handleExecCommand(
+      { cmd: ["persistent_memory", entry] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (result.outputText === "aborted") {
+      return result;
+    }
+
+    if (ctx.config.dryRun) {
+      return {
+        outputText: `[Dry Run] Would save fact: ${entry}`,
+        metadata: { exit_code: 0, dry_run: true },
+      };
+    }
+
+    const memoryDir = join(process.cwd(), ".codex");
+    const memoryPath = join(memoryDir, "memory.md");
+
+    if (!existsSync(memoryDir)) {
+      mkdirSync(memoryDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().split("T")[0];
+    const fullEntry = `\n- [${timestamp}] [${category}] ${fact}`;
+    appendFileSync(memoryPath, fullEntry, "utf-8");
+
+    return {
+      outputText: `Fact saved to ${category}: ${fact}`,
+      metadata: { exit_code: 0, path: memoryPath, category },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error saving memory: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleSummarizeMemory(): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    if (!existsSync(memoryPath)) {
+      return {
+        outputText: "No memory file found to summarize.",
+        metadata: { exit_code: 0 },
+      };
+    }
+
+    const content = readFileSync(memoryPath, "utf-8");
+    return {
+      outputText: `Current Memory Contents:\n${content}\n\nPlease review and let me know if you want to consolidate or remove any outdated facts.`,
+      metadata: { exit_code: 0, length: content.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error summarizing memory: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleReadFileLines(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath, start_line, end_line } = args;
+
+    if (!filePath || start_line === undefined || end_line === undefined) {
+      return {
+        outputText:
+          "Error: 'path', 'start_line', and 'end_line' are required for read_file_lines",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const result = await handleExecCommand(
+      { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (result.outputText === "aborted") {
+      return result;
+    }
+
+    const fullPath = join(process.cwd(), filePath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: File not found: ${filePath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const content = readFileSync(fullPath, "utf-8");
+    const lines = content.split("\n");
+    
+    const start = Math.max(0, start_line - 1);
+    const end = Math.min(lines.length, end_line);
+    
+    const requestedLines = lines.slice(start, end);
+    const resultText = requestedLines.join("\n");
+
+    return {
+      outputText: resultText,
+      metadata: {
+        exit_code: 0,
+        start_line: start + 1,
+        end_line: end,
+        total_lines: lines.length,
+      },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error reading file lines: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleListFilesRecursive(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: startPath = ".", depth = 3 } = args;
+
+    const result = await handleExecCommand(
+      { cmd: ["ls", "-R", startPath] },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (result.outputText === "aborted") {
+      return result;
+    }
+
+    const fullStartPath = join(process.cwd(), startPath);
+    if (!existsSync(fullStartPath)) {
+      return {
+        outputText: `Error: Path not found: ${startPath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const generateTree = async (
+      dir: string,
+      currentDepth: number,
+    ): Promise<string> => {
+      if (currentDepth > depth) return "";
+
+      let dirents: Array<import("fs").Dirent> = [];
+      try {
+        dirents = readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return "";
+      }
+
+      const entries = dirents
+        .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
+        .sort((a, b) => {
+          if (a.isDirectory() && !b.isDirectory()) return -1;
+          if (!a.isDirectory() && b.isDirectory()) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+      const results = await Promise.all(
+        entries.map(async (entry) => {
+          const indent = "  ".repeat(currentDepth - 1);
+          if (entry.isDirectory()) {
+            let subtree = `${indent}dir: ${entry.name}/\n`;
+            subtree += await generateTree(join(dir, entry.name), currentDepth + 1);
+            return subtree;
+          } else {
+            return `${indent}file: ${entry.name}\n`;
+          }
+        }),
+      );
+
+      return results.join("");
+    };
+
+    const treeResult = await generateTree(fullStartPath, 1);
+
+    return {
+      outputText: treeResult || "No files found.",
+      metadata: { exit_code: 0, path: startPath, depth },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error listing files: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}

@@ -111,9 +111,12 @@ development_ that understands and executes your repo.
 - **Zero setup** — bring your API key and it just works!
 - **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
+- **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
 - **Dry Run mode** — preview all changes without actually modifying files or running commands!
+- **Interactive Config** — toggle settings like dry-run and debug mode in-session with `/config` ⚙️
+- **Loop Protection** — automatic detection and prevention of repetitive failing tool calls 🔄
 
 And it's **fully open-source** so you can see and contribute to how it develops!
 
@@ -185,6 +188,8 @@ The hardening mechanism Codex uses depends on your OS:
 | `open-codex "…"`                          | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
 | `open-codex -q "…"`                       | Non‑interactive "quiet mode"        | `codex -q --json "explain utils.ts"` |
 | `open-codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
+
+Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
 
 Key flags:
 - `--provider / -p`: AI provider to use.

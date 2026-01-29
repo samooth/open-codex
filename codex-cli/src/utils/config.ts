@@ -123,9 +123,9 @@ function baseURLForProvider(provider: string): string {
     case "xai":
       return "https://api.x.ai/v1";
     case "deepseek":
-      return "https://api.deepseek.com/v1"; 
+      return "https://api.deepseek.com/v1";
     case "hf":
-      return "https://router.huggingface.co/v1";            
+      return "https://router.huggingface.co/v1";
     default:
       // TODO throw?
       return "";
@@ -450,10 +450,6 @@ export const loadConfig = (
 
   const providerOrDefault = options.provider ?? getDefaultProvider();
 
-  const derivedBaseURL = storedProvider
-    ? baseURLForProvider(storedProvider)
-    : storedBaseURL ?? baseURLForProvider(providerOrDefault);
-
   const derivedModels = storedProvider
     ? defaultModelsForProvider(storedProvider)
     : defaultModelsForProvider(providerOrDefault);
@@ -463,6 +459,10 @@ export const loadConfig = (
     (options.isFullContext
       ? derivedModels?.fullContext
       : derivedModels?.agentic);
+
+  const derivedBaseURL = storedProvider
+    ? baseURLForProvider(storedProvider)
+    : storedBaseURL ?? baseURLForProvider(providerOrDefault);
 
   const derivedProvider = storedProvider ?? providerOrDefault;
   const apiKeyForProvider =
