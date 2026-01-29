@@ -312,30 +312,27 @@ export async function getFileContents(
   const root = path.resolve(rootPath);
   const candidateFiles: Array<string> = [];
 
-  // BFS queue of directories
-  const queue: Array<string> = [root];
-
-  while (queue.length > 0) {
-    const currentDir = queue.pop()!;
+  // Parallel BFS/DFS for directory traversal
+  const traverse = async (currentDir: string) => {
     let dirents: Array<fsSync.Dirent> = [];
     try {
       dirents = await fs.readdir(currentDir, { withFileTypes: true });
     } catch {
-      continue;
+      return;
     }
 
-    for (const dirent of dirents) {
+    const tasks = dirents.map(async (dirent) => {
       try {
         const resolved = path.resolve(currentDir, dirent.name);
         // skip symlinks
         const lstat = await fs.lstat(resolved);
         if (lstat.isSymbolicLink()) {
-          continue;
+          return;
         }
         if (dirent.isDirectory()) {
           // check if ignored
           if (!shouldIgnorePath(resolved, compiledPatterns)) {
-            queue.push(resolved);
+            await traverse(resolved);
           }
         } else if (dirent.isFile()) {
           // check if ignored
@@ -346,8 +343,11 @@ export async function getFileContents(
       } catch {
         // skip
       }
-    }
-  }
+    });
+    await Promise.all(tasks);
+  };
+
+  await traverse(root);
 
   // We'll read the stat for each candidate file, see if we can skip reading from cache.
   const results: Array<FileContent> = [];

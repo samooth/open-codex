@@ -110,6 +110,7 @@ development_ that understands and executes your repo.
 
 - **Zero setup** — bring your API key and it just works!
 - **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
+- **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
 - **Dry Run mode** — preview all changes without actually modifying files or running commands!

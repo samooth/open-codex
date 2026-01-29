@@ -273,7 +273,7 @@ export class AgentLoop {
 
     const results: Array<ChatCompletionMessageParam> = [];
 
-    for (const toolCall of itemArg.tool_calls) {
+    const toolCallPromises = itemArg.tool_calls.map(async (toolCall) => {
       // Normalise the function‑call item
       const isChatStyle = (toolCall as any).function != null;
 
@@ -307,23 +307,23 @@ export class AgentLoop {
       const result = parseToolCallArguments(rawArguments ?? "{}");
       if (isLoggingEnabled()) {
         log(
-          `handleFunctionCall(): name=$
-{          name ?? "undefined"        } callId=$
-{callId} args=$
-{rawArguments}`,
+          `handleFunctionCall(): name=${
+            name ?? "undefined"
+          } callId=${callId} args=${rawArguments}`,
         );
       }
 
       if (!result.success) {
-        results.push({
-          role: "tool",
-          tool_call_id: callId,
-          content: JSON.stringify({
-            output: result.error,
-            metadata: { exit_code: 1, duration_seconds: 0 },
-          }),
-        });
-        continue;
+        return [
+          {
+            role: "tool",
+            tool_call_id: callId,
+            content: JSON.stringify({
+              output: result.error,
+              metadata: { exit_code: 1, duration_seconds: 0 },
+            }),
+          } as ChatCompletionMessageParam,
+        ];
       }
 
       const args = result.args;
@@ -337,7 +337,13 @@ export class AgentLoop {
       let metadata: Record<string, unknown>;
       let additionalItems: Array<ChatCompletionMessageParam> | undefined;
 
-      if ((name === "container.exec" || name === "shell" || name === "apply_patch" || name === "repo_browser.exec") && args) {
+      if (
+        (name === "container.exec" ||
+          name === "shell" ||
+          name === "apply_patch" ||
+          name === "repo_browser.exec") &&
+        args
+      ) {
         const result = await handleExecCommand(
           args,
           this.config,
@@ -360,56 +366,61 @@ export class AgentLoop {
         outputText = result.outputText;
         metadata = result.metadata;
         additionalItems = result.additionalItems;
-     } else if (name === "search_codebase") {
-       const result = await this.handleSearchCodebase(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "persistent_memory") {
-       const result = await this.handlePersistentMemory(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "read_file_lines") {
-       const result = await this.handleReadFileLines(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "list_files_recursive") {
-       const result = await this.handleListFilesRecursive(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "read_file") {
-       const result = await this.handleReadFile(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "write_file") {
-       const result = await this.handleWriteFile(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "delete_file") {
-       const result = await this.handleDeleteFile(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
-     } else if (name === "list_directory") {
-       const result = await this.handleListDirectory(rawArguments ?? "{}");
-       outputText = result.outputText;
-       metadata = result.metadata;
-       additionalItems = result.additionalItems;
+      } else if (name === "search_codebase") {
+        const result = await this.handleSearchCodebase(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "persistent_memory") {
+        const result = await this.handlePersistentMemory(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "read_file_lines") {
+        const result = await this.handleReadFileLines(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "list_files_recursive") {
+        const result = await this.handleListFilesRecursive(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "read_file") {
+        const result = await this.handleReadFile(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "write_file") {
+        const result = await this.handleWriteFile(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "delete_file") {
+        const result = await this.handleDeleteFile(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      } else if (name === "list_directory") {
+        const result = await this.handleListDirectory(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
       } else {
-        results.push(outputItem);
-        continue;
+        return [outputItem];
       }
 
       outputItem.content = JSON.stringify({ output: outputText, metadata });
-      results.push(outputItem);
+      const callResults = [outputItem];
       if (additionalItems) {
-        results.push(...additionalItems);
+        callResults.push(...additionalItems);
       }
+      return callResults;
+    });
+
+    const allCallResults = await Promise.all(toolCallPromises);
+    for (const callResults of allCallResults) {
+      results.push(...callResults);
     }
 
     return results;
@@ -864,31 +875,44 @@ export class AgentLoop {
         };
       }
 
-      const generateTree = (dir: string, currentDepth: number): string => {
+      const generateTree = async (
+        dir: string,
+        currentDepth: number,
+      ): Promise<string> => {
         if (currentDepth > depth) return "";
-        
-        let tree = "";
-        const entries = readdirSync(dir, { withFileTypes: true })
-          .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
+
+        let dirents: Array<import("fs").Dirent> = [];
+        try {
+          dirents = readdirSync(dir, { withFileTypes: true });
+        } catch {
+          return "";
+        }
+
+        const entries = dirents
+          .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
           .sort((a, b) => {
             if (a.isDirectory() && !b.isDirectory()) return -1;
             if (!a.isDirectory() && b.isDirectory()) return 1;
             return a.name.localeCompare(b.name);
           });
 
-        for (const entry of entries) {
-          const indent = "  ".repeat(currentDepth - 1);
-          if (entry.isDirectory()) {
-            tree += `${indent}dir: ${entry.name}/\n`;
-            tree += generateTree(join(dir, entry.name), currentDepth + 1);
-          } else {
-            tree += `${indent}file: ${entry.name}\n`;
-          }
-        }
-        return tree;
+        const results = await Promise.all(
+          entries.map(async (entry) => {
+            const indent = "  ".repeat(currentDepth - 1);
+            if (entry.isDirectory()) {
+              let subtree = `${indent}dir: ${entry.name}/\n`;
+              subtree += await generateTree(join(dir, entry.name), currentDepth + 1);
+              return subtree;
+            } else {
+              return `${indent}file: ${entry.name}\n`;
+            }
+          }),
+        );
+
+        return results.join("");
       };
 
-      const treeResult = generateTree(fullStartPath, 1);
+      const treeResult = await generateTree(fullStartPath, 1);
 
       return {
         outputText: treeResult || "No files found.",
