@@ -32,6 +32,7 @@ export default function TerminalChatInput({
   openModelOverlay,
   openApprovalOverlay,
   openHelpOverlay,
+  openConfigOverlay,
   interruptAgent,
   active,
 }: {
@@ -52,6 +53,7 @@ export default function TerminalChatInput({
   openModelOverlay: () => void;
   openApprovalOverlay: () => void;
   openHelpOverlay: () => void;
+  openConfigOverlay: () => void;
   interruptAgent: () => void;
   active: boolean;
 }): React.ReactElement {
@@ -158,6 +160,12 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (inputValue.startsWith("/config")) {
+        setInput("");
+        openConfigOverlay();
+        return;
+      }
+
       if (inputValue === "q" || inputValue === ":q" || inputValue === "exit") {
         setInput("");
         // wait one 60ms frame
@@ -240,6 +248,7 @@ export default function TerminalChatInput({
       openApprovalOverlay,
       openModelOverlay,
       openHelpOverlay,
+      openConfigOverlay,
     ],
   );
 

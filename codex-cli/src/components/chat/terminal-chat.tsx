@@ -22,6 +22,7 @@ import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
+import ConfigOverlay from "../config-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { inspect } from "util";
@@ -41,12 +42,13 @@ const colorsByPolicy: Record<ApprovalPolicy, ColorName | undefined> = {
 };
 
 export default function TerminalChat({
-  config,
+  config: initialConfig,
   prompt: _initialPrompt,
   imagePaths: _initialImagePaths,
   approvalPolicy: initialApprovalPolicy,
   fullStdout,
 }: Props): React.ReactElement {
+  const [config, setConfig] = useState<AppConfig>(initialConfig);
   const [model, setModel] = useState<string>(config.model);
   const [prevItems, setPrevItems] = useState<Array<ChatCompletionMessageParam>>(
     [],
@@ -61,7 +63,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help"
+    "none" | "history" | "model" | "approval" | "help" | "config"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -71,7 +73,7 @@ export default function TerminalChat({
   const PWD = React.useMemo(() => shortCwd(), []);
 
   // Keep a single AgentLoop instance alive across renders;
-  // recreate only when model/instructions/approvalPolicy change.
+  // recreate only when model/instructions/approvalPolicy/config change.
   const agentRef = React.useRef<AgentLoop>();
   const [, forceUpdate] = React.useReducer((c) => c + 1, 0); // trigger re‑render
 
@@ -311,6 +313,7 @@ export default function TerminalChat({
             openModelOverlay={() => setOverlayMode("model")}
             openApprovalOverlay={() => setOverlayMode("approval")}
             openHelpOverlay={() => setOverlayMode("help")}
+            openConfigOverlay={() => setOverlayMode("config")}
             active={overlayMode === "none"}
             interruptAgent={() => {
               if (!agent) {
@@ -405,6 +408,26 @@ export default function TerminalChat({
 
         {overlayMode === "help" && (
           <HelpOverlay onExit={() => setOverlayMode("none")} />
+        )}
+
+        {overlayMode === "config" && (
+          <ConfigOverlay
+            dryRun={!!config.dryRun}
+            debug={!!process.env["DEBUG"]}
+            onToggleDryRun={() => {
+              setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
+            }}
+            onToggleDebug={() => {
+              if (process.env["DEBUG"]) {
+                delete process.env["DEBUG"];
+              } else {
+                process.env["DEBUG"] = "1";
+              }
+              // Force update to reflect debug status in UI if needed
+              forceUpdate();
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
         )}
       </Box>
     </Box>

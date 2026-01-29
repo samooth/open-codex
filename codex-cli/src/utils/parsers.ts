@@ -34,6 +34,9 @@ const ToolCallArgsSchema = z
     // search_codebase
     pattern: z.string().optional(),
     include: z.string().optional(),
+    // persistent_memory
+    fact: z.string().optional(),
+    category: z.string().optional(),
     // list_files_recursive
     depth: z.number().optional(),
   })
@@ -44,6 +47,7 @@ const ToolCallArgsSchema = z
       data.patch ||
       data.path ||
       data.pattern ||
+      data.fact ||
       data.depth,
     {
       message:
@@ -346,6 +350,7 @@ function normalizeJsonToolCall(
     if (
       json.name === "search_codebase" ||
       json.name === "persistent_memory" ||
+      json.name === "summarize_memory" ||
       json.name === "read_file_lines" ||
       json.name === "list_files_recursive" ||
       json.name === "read_file" ||

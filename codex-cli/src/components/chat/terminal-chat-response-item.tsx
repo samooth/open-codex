@@ -14,6 +14,7 @@ import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
 import { parse, setOptions } from "marked";
 import TerminalRenderer from "marked-terminal";
+import { highlight } from "cli-highlight";
 import React, { useMemo } from "react";
 
 export default function TerminalChatResponseItem({
@@ -263,7 +264,13 @@ export function Markdown({
     // Configure marked for this specific render
     setOptions({
       // @ts-expect-error missing parser, space props
-      renderer: new TerminalRenderer({ ...options, width: size.columns }),
+      renderer: new TerminalRenderer({
+        ...options,
+        width: size.columns,
+        highlight: (code: string, lang: string) => {
+          return highlight(code, { language: lang, ignoreIllegals: true });
+        },
+      }),
     });
     const parsed = parse(children, { async: false }).trim();
 

@@ -376,6 +376,10 @@ export class AgentLoop {
         outputText = result.outputText;
         metadata = result.metadata;
         additionalItems = result.additionalItems;
+      } else if (name === "summarize_memory") {
+        const result = await this.handleSummarizeMemory();
+        outputText = result.outputText;
+        metadata = result.metadata;
       } else if (name === "read_file_lines") {
         const result = await this.handleReadFileLines(rawArguments ?? "{}");
         outputText = result.outputText;
@@ -730,7 +734,7 @@ export class AgentLoop {
   }> {
     try {
       const args = JSON.parse(rawArgs);
-      const { fact } = args;
+      const { fact, category = "general" } = args;
 
       if (!fact) {
         return {
@@ -739,7 +743,7 @@ export class AgentLoop {
         };
       }
 
-      const entry = fact; // Simplified entry for authorization
+      const entry = `[${category}] ${fact}`;
       const result = await handleExecCommand(
         { cmd: ["persistent_memory", entry] },
         this.config,
@@ -754,7 +758,7 @@ export class AgentLoop {
 
       if (this.config.dryRun) {
         return {
-          outputText: `[Dry Run] Would save fact: ${fact}`,
+          outputText: `[Dry Run] Would save fact: ${entry}`,
           metadata: { exit_code: 0, dry_run: true },
         };
       }
@@ -767,16 +771,44 @@ export class AgentLoop {
       }
 
       const timestamp = new Date().toISOString().split("T")[0];
-      const fullEntry = `\n- [${timestamp}] ${fact}`;
+      const fullEntry = `\n- [${timestamp}] [${category}] ${fact}`;
       appendFileSync(memoryPath, fullEntry, "utf-8");
 
       return {
-        outputText: `Fact saved: ${fact}`,
-        metadata: { exit_code: 0, path: memoryPath },
+        outputText: `Fact saved to ${category}: ${fact}`,
+        metadata: { exit_code: 0, path: memoryPath, category },
       };
     } catch (err) {
       return {
         outputText: `Error saving memory: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleSummarizeMemory(): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+  }> {
+    try {
+      const memoryPath = join(process.cwd(), ".codex", "memory.md");
+      if (!existsSync(memoryPath)) {
+        return {
+          outputText: "No memory file found to summarize.",
+          metadata: { exit_code: 0 },
+        };
+      }
+
+      const content = readFileSync(memoryPath, "utf-8");
+      // For now, we'll just return the content and tell the model to summarize it
+      // In a more advanced implementation, we could perform an LLM-based summarization here.
+      return {
+        outputText: `Current Memory Contents:\n${content}\n\nPlease review and let me know if you want to consolidate or remove any outdated facts.`,
+        metadata: { exit_code: 0, length: content.length },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error summarizing memory: ${String(err)}`,
         metadata: { exit_code: 1 },
       };
     }
@@ -1312,6 +1344,11 @@ export class AgentLoop {
                           description:
                             "The fact to remember (e.g., 'The frontend runs on port 3000').",
                         },
+                        category: {
+                          type: "string",
+                          description:
+                            "Optional category for the fact (e.g., 'architecture', 'dev-setup', 'api').",
+                        },
                       },
                       required: ["fact"],
                       additionalProperties: false,
@@ -1366,6 +1403,20 @@ export class AgentLoop {
                         },
                       },
                       required: [],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "summarize_memory",
+                    description:
+                      "Retrieves all stored facts from the project memory for review and summarization. Useful when the memory becomes too large.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {},
                       additionalProperties: false,
                     },
                   },
