@@ -20,6 +20,7 @@ export function execWithSeatbelt(
   opts: SpawnOptions,
   writableRoots: Array<string>,
   abortSignal?: AbortSignal,
+  onOutput?: (chunk: string) => void,
 ): Promise<ExecResult> {
   let scopedWritePolicy: string;
   let policyTemplateParams: Array<string>;
@@ -68,7 +69,7 @@ export function execWithSeatbelt(
     "--",
     ...cmd,
   ];
-  return exec(fullCommand, opts, writableRoots, abortSignal);
+  return exec(fullCommand, opts, writableRoots, abortSignal, onOutput);
 }
 
 const READ_ONLY_SEATBELT_POLICY = `

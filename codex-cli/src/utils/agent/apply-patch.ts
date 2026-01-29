@@ -147,9 +147,6 @@ class Parser {
           throw new DiffError(`Update File Error: Duplicate Path: ${path}`);
         }
         const moveTo = this.read_str(MOVE_FILE_TO_PREFIX);
-        if (!(path in this.current_files)) {
-          throw new DiffError(`Update File Error: Missing File: ${path}`);
-        }
         const text = this.current_files[path];
         const action = this.parse_update_file(text ?? "");
         action.move_path = moveTo || undefined;
@@ -209,6 +206,7 @@ class Parser {
       if (!(defStr || sectionStr || index === 0)) {
         throw new DiffError(`Invalid Line:\n${this.lines[this.index]}`);
       }
+      const isNewFileHunk = defStr.includes("-0,0") || defStr.includes("-1,1") || text === "" || text === undefined;
       if (defStr.trim()) {
         let found = false;
         if (!fileLines.slice(0, index).some((s) => s === defStr)) {
@@ -238,6 +236,7 @@ class Parser {
       const [nextChunkContext, chunks, endPatchIndex, eof] = peek_next_section(
         this.lines,
         this.index,
+        isNewFileHunk,
       );
       const [newIndex, fuzz] = find_context(
         fileLines,
@@ -348,6 +347,7 @@ function find_context(
 function peek_next_section(
   lines: Array<string>,
   initialIndex: number,
+  isNewFile = false,
 ): [Array<string>, Array<Chunk>, number, boolean] {
   let index = initialIndex;
   const old: Array<string> = [];
@@ -386,17 +386,26 @@ function peek_next_section(
     } else if (line[0] === " ") {
       mode = "keep";
     } else {
-      // Tolerate invalid lines where the leading whitespace is missing. This is necessary as
-      // the model sometimes doesn't fully adhere to the spec and returns lines without leading
-      // whitespace for context lines.
-      mode = "keep";
-      line = " " + line;
-
-      // TODO: Re-enable strict mode.
-      // throw new DiffError(`Invalid Line: ${line}`)
+      // If we are in a new file (hunk -0,0 or -1,1 on empty file), assume additions.
+      // Models often forget the '+' prefix when writing whole new files.
+      if (isNewFile) {
+        mode = "add";
+      } else {
+        mode = "keep";
+        line = " " + line;
+      }
     }
 
     line = line.slice(1);
+    // Tolerate models that add an extra space after the control character
+    // (e.g. "- line" instead of "-line").
+    if (
+      (mode === "add" || mode === "delete" || mode === "keep") &&
+      line.startsWith(" ")
+    ) {
+      line = line.slice(1);
+    }
+    
     if (mode === "keep" && lastMode !== mode) {
       if (insLines.length || delLines.length) {
         chunks.push({
@@ -558,9 +567,10 @@ export function load_files(
     try {
       orig[p] = openFn(p);
     } catch {
-      // Convert any file read error into a DiffError so that callers
-      // consistently receive DiffError for patch-related failures.
-      throw new DiffError(`File not found: ${p}`);
+      // If the file is not found, treat it as empty. This allows models to
+      // use "Update File" even for files that do not exist yet (which is a
+      // common hallucination/behavior).
+      orig[p] = "";
     }
   }
   return orig;
@@ -593,10 +603,11 @@ export function process_patch(
   writeFn: (p: string, c: string) => void,
   removeFn: (p: string) => void,
 ): string {
-  if (!text.startsWith(PATCH_PREFIX)) {
-    throw new DiffError("Patch must start with *** Begin Patch\\n");
+  const trimmedText = text.trim();
+  if (!trimmedText.startsWith("*** Begin Patch")) {
+    throw new DiffError("Patch must start with *** Begin Patch");
   }
-  const paths = identify_files_needed(text);
+  const paths = identify_files_needed(trimmedText);
   const orig = load_files(paths, openFn);
   const [patch, _fuzz] = text_to_patch(text, orig);
   const commit = patch_to_commit(patch, orig);

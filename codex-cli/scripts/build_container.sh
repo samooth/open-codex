@@ -12,5 +12,5 @@ npm install
 npm run build
 rm -rf ./dist/openai-codex-*.tgz
 npm pack --pack-destination ./dist
-mv ./dist/openai-codex-*.tgz ./dist/codex.tgz
+mv ./dist/open-codex-*.tgz ./dist/codex.tgz
 docker build -t codex -f "./Dockerfile" .

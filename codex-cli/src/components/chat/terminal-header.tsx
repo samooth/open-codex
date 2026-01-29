@@ -30,17 +30,15 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
       {terminalRows < 10 ? (
         // Compact header for small terminal windows
         <Text>
-          ● Codex v{version} – {PWD} – {model} –{" "}
+          ● OpenCodex <Text color="blueBright">v{version}</Text> – {PWD} – {model} –{" "}
           <Text color={colorsByPolicy[approvalPolicy]}>{approvalPolicy}</Text>
         </Text>
       ) : (
         <>
           <Box borderStyle="round" paddingX={1} width={64}>
             <Text>
-              ● OpenAI <Text bold>Codex</Text>{" "}
-              <Text dimColor>
-                (research preview) <Text color="blueBright">v{version}</Text>
-              </Text>
+              ● <Text bold>OpenCodex</Text>{" "}
+              <Text color="blueBright">v{version}</Text>
             </Text>
           </Box>
           <Box

@@ -79,6 +79,7 @@ export async function handleExecCommand(
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>,
   abortSignal?: AbortSignal,
+  onOutput?: (chunk: string) => void,
 ): Promise<HandleExecCommandResult> {
   const { cmd: command } = args;
 
@@ -92,6 +93,7 @@ export async function handleExecCommand(
       /* applyPatch */ undefined,
       /* runInSandbox */ false,
       abortSignal,
+      onOutput,
     ).then(convertSummaryToResult);
   }
 
@@ -139,6 +141,7 @@ export async function handleExecCommand(
     applyPatch,
     runInSandbox,
     abortSignal,
+    onOutput,
   );
   // If the operation was aborted in the meantime, propagate the cancellation
   // upward by returning an empty (no‑op) result so that the agent loop will
@@ -170,7 +173,13 @@ export async function handleExecCommand(
     } else {
       // The user has approved the command, so we will run it outside of the
       // sandbox.
-      const summary = await execCommand(args, applyPatch, false, abortSignal);
+      const summary = await execCommand(
+        args,
+        applyPatch,
+        false,
+        abortSignal,
+        onOutput,
+      );
       return convertSummaryToResult(summary);
     }
   } else {
@@ -181,12 +190,13 @@ export async function handleExecCommand(
 function convertSummaryToResult(
   summary: ExecCommandSummary,
 ): HandleExecCommandResult {
-  const { stdout, stderr, exitCode, durationMs } = summary;
+  const { stdout, stderr, exitCode, durationMs, workdir } = summary;
   return {
     outputText: stdout || stderr,
     metadata: {
       exit_code: exitCode,
       duration_seconds: Math.round(durationMs / 100) / 10,
+      working_directory: workdir,
     },
   };
 }
@@ -196,6 +206,7 @@ type ExecCommandSummary = {
   stderr: string;
   exitCode: number;
   durationMs: number;
+  workdir: string;
 };
 
 async function execCommand(
@@ -203,9 +214,12 @@ async function execCommand(
   applyPatchCommand: ApplyPatchCommand | undefined,
   runInSandbox: boolean,
   abortSignal?: AbortSignal,
+  onOutput?: (chunk: string) => void,
 ): Promise<ExecCommandSummary> {
   let { workdir } = execInput;
-  if (workdir) {
+  if (!workdir) {
+    workdir = process.cwd();
+  } else {
     try {
       await access(workdir);
     } catch (e) {
@@ -239,7 +253,12 @@ async function execCommand(
   const execResult =
     applyPatchCommand != null
       ? execApplyPatch(applyPatchCommand.patch)
-      : await exec(execInput, await getSandbox(runInSandbox), abortSignal);
+      : await exec(
+          execInput,
+          await getSandbox(runInSandbox),
+          abortSignal,
+          onOutput,
+        );
   const duration = Date.now() - start;
   const { stdout, stderr, exitCode } = execResult;
 
@@ -254,6 +273,7 @@ async function execCommand(
     stderr,
     exitCode,
     durationMs: duration,
+    workdir: workdir ?? process.cwd(),
   };
 }
 

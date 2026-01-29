@@ -23,6 +23,7 @@ export function exec(
   options: SpawnOptions,
   _writableRoots: Array<string>,
   abortSignal?: AbortSignal,
+  onOutput?: (chunk: string) => void,
 ): Promise<ExecResult> {
   // Adapt command for the current platform (e.g., convert 'ls' to 'dir' on Windows)
   const adaptedCommand = adaptCommandForPlatform(command);
@@ -157,6 +158,7 @@ export function exec(
 
   return new Promise<ExecResult>((resolve) => {
     child.stdout?.on("data", (data: Buffer) => {
+      onOutput?.(data.toString("utf8"));
       if (!hitMaxStdout) {
         numStdoutBytes += data.length;
         if (numStdoutBytes <= MAX_BUFFER) {
@@ -167,6 +169,7 @@ export function exec(
       }
     });
     child.stderr?.on("data", (data: Buffer) => {
+      onOutput?.(data.toString("utf8"));
       if (!hitMaxStderr) {
         numStderrBytes += data.length;
         if (numStderrBytes <= MAX_BUFFER) {

@@ -29,6 +29,7 @@ import {
   parseToolCallOutput,
   parseToolCallChatCompletion,
 } from "./utils/parsers";
+import { CLI_VERSION } from "./utils/session";
 import { onExit, setInkRenderer } from "./utils/terminal";
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -49,11 +50,12 @@ initLogger();
 const cli = meow(
   `
   Usage
-    $ codex [options] <prompt>
-    $ codex completion <bash|zsh|fish>
+    $ opencodex [options] <prompt>
+    $ opencodex completion <bash|zsh|fish>
 
   Options
     -h, --help                 Show usage and exit
+    -v, --version              Print the version and exit
     -m  --provider <provider>  Provider to use for completions (default: openai, options: openai, gemini, openrouter, ollama, xai)
     -m, --model <model>        Model to use for completions (default: o4-mini)
     -i, --image <path>         Path(s) to image files to include as input
@@ -90,6 +92,7 @@ const cli = meow(
     flags: {
       // misc
       help: { type: "boolean", aliases: ["h"] },
+      version: { type: "boolean", aliases: ["v"] },
       view: { type: "string" },
       model: { type: "string", aliases: ["m"] },
       provider: { type: "string", aliases: ["p"] },
@@ -150,6 +153,12 @@ const cli = meow(
     },
   },
 );
+
+if (cli.flags.version) {
+  // eslint-disable-next-line no-console
+  console.log(CLI_VERSION);
+  process.exit(0);
+}
 
 // Handle 'completion' subcommand before any prompting or API calls
 if (cli.input[0] === "completion") {

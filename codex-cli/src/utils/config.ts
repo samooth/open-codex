@@ -44,6 +44,10 @@ if (!process.env["OPENAI_API_KEY"]) {
     DEFAULT_PROVIDER = "openrouter";
   } else if (process.env["XAI_API_KEY"]) {
     DEFAULT_PROVIDER = "xai";
+  } else if (process.env["DS_API_KEY"]) {
+    DEFAULT_PROVIDER = "deepseek";
+  }else if (process.env["HF_API_KEY"]){
+    DEFAULT_PROVIDER = "hf";
   }
 }
 
@@ -71,11 +75,28 @@ function getAPIKeyForProviderOrExit(provider: string): string {
       process.exit(1);
       break;
     case "ollama":
-      // Ollama doesn't require an API key but the openai client requires one
-      return "ollama";
+      if (process.env["OLLAMA_API_KEY"]) {
+        return process.env["OLLAMA_API_KEY"];
+      }else{
+        return "ollama"
+      }
     case "xai":
       if (process.env["XAI_API_KEY"]) {
         return process.env["XAI_API_KEY"];
+      }
+      reportMissingAPIKeyForProvider(provider);
+      process.exit(1);
+      break;
+    case "hf":
+      if (process.env["HF_API_KEY"]) {
+        return process.env["HF_API_KEY"];
+      }
+      reportMissingAPIKeyForProvider(provider);
+      process.exit(1);
+      break;      
+    case "deepseek":
+      if (process.env["DS_API_KEY"]) {
+        return process.env["DS_API_KEY"];
       }
       reportMissingAPIKeyForProvider(provider);
       process.exit(1);
@@ -98,6 +119,10 @@ function baseURLForProvider(provider: string): string {
       return "https://openrouter.ai/api/v1";
     case "xai":
       return "https://api.x.ai/v1";
+    case "deepseek":
+      return "https://api.deepseek.com/v1"; 
+    case "hf":
+      return "https://router.huggingface.co/v1";            
     default:
       // TODO throw?
       return "";
@@ -116,8 +141,8 @@ function defaultModelsForProvider(provider: string): {
       };
     case "gemini":
       return {
-        agentic: "gemini-2.5-pro-preview-03-25",
-        fullContext: "gemini-2.0-flash",
+        agentic: "gemini-3-pro-preview",
+        fullContext: "gemini-2.5-pro",
       };
     case "openrouter":
       return {
@@ -129,6 +154,16 @@ function defaultModelsForProvider(provider: string): {
         agentic: "grok-3-mini-beta",
         fullContext: "grok-3-beta",
       };
+    case "deepseek":
+      return {
+        agentic: "deepseek-chat",
+        fullContext: "deepseek-reasoner",
+      };
+    case "hf":
+      return {
+        agentic: "moonshotai/Kimi-K2.5",
+        fullContext: "moonshotai/Kimi-K2.5"
+      }      
     default:
       return {
         agentic: "",
@@ -295,12 +330,24 @@ export const loadInstructions = (
 
   let projectDoc = "";
   let projectDocPath: string | null = null;
+  let memoryContent = "";
   if (shouldLoadProjectDoc) {
     const cwd = options.cwd ?? process.cwd();
     projectDoc = loadProjectDoc(cwd, options.projectDocPath);
     projectDocPath = options.projectDocPath
       ? resolvePath(cwd, options.projectDocPath)
       : discoverProjectDocPath(cwd);
+    
+    // Load project memory
+    const memoryPath = join(cwd, ".codex", "memory.md");
+    if (existsSync(memoryPath)) {
+      try {
+        memoryContent = readFileSync(memoryPath, "utf-8");
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (projectDocPath) {
       if (isLoggingEnabled()) {
         log(
@@ -314,9 +361,13 @@ export const loadInstructions = (
     }
   }
 
-  const combinedInstructions = [userInstructions, projectDoc]
+  const combinedInstructions = [
+    userInstructions,
+    projectDoc ? `--- project-doc ---\n\n${projectDoc}` : "",
+    memoryContent ? `--- project-memory ---\n\n${memoryContent}` : "",
+  ]
     .filter((s) => s && s.trim() !== "")
-    .join("\n\n--- project-doc ---\n\n");
+    .join("\n\n");
 
   try {
     // Always ensure the instructions file exists so users can edit it.

@@ -1,6 +1,5 @@
 import type { ExecInput, ExecResult } from "./sandbox/interface.js";
 import type { SpawnOptions } from "child_process";
-import type { ParseEntry } from "shell-quote";
 
 import { process_patch } from "./apply-patch.js";
 import { SandboxType } from "./sandbox/interface.js";
@@ -9,21 +8,22 @@ import { exec as rawExec } from "./sandbox/raw-exec.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import fs from "fs";
 import os from "os";
-import { parse } from "shell-quote";
+import { parse, quote } from "shell-quote";
 
 const DEFAULT_TIMEOUT_MS = 10_000; // 10 seconds
 
 function requiresShell(cmd: Array<string>): boolean {
-  // If the command is a single string that contains shell operators,
-  // it needs to be run with shell: true
+  // If the command is a single string, we use shell: true to let the shell
+  // handle finding the executable.
   if (cmd.length === 1 && cmd[0] !== undefined) {
-    const tokens = parse(cmd[0]) as Array<ParseEntry>;
-    return tokens.some((token) => typeof token === "object" && "op" in token);
+    return true;
   }
 
-  // If the command is split into multiple arguments, we don't need shell: true
-  // even if one of the arguments is a shell operator like '|'
-  return false;
+  // If any of the arguments are shell operators, we need a shell.
+  return cmd.some((arg) => {
+    const tokens = parse(arg);
+    return tokens.some((token) => typeof token === "object" && "op" in token);
+  });
 }
 
 /**
@@ -34,6 +34,7 @@ export function exec(
   { cmd, workdir, timeoutInMillis }: ExecInput,
   sandbox: SandboxType,
   abortSignal?: AbortSignal,
+  onOutput?: (chunk: string) => void,
 ): Promise<ExecResult> {
   // This is a temporary measure to understand what are the common base commands
   // until we start persisting and uploading rollouts
@@ -41,13 +42,16 @@ export function exec(
   const execForSandbox =
     sandbox === SandboxType.MACOS_SEATBELT ? execWithSeatbelt : rawExec;
 
+  const needsShell = requiresShell(cmd);
+  const finalCmd = needsShell ? [quote(cmd)] : cmd;
+
   const opts: SpawnOptions = {
     timeout: timeoutInMillis || DEFAULT_TIMEOUT_MS,
-    ...(requiresShell(cmd) ? { shell: true } : {}),
+    ...(needsShell ? { shell: true } : {}),
     ...(workdir ? { cwd: workdir } : {}),
   };
   const writableRoots = [process.cwd(), os.tmpdir()];
-  return execForSandbox(cmd, opts, writableRoots, abortSignal);
+  return execForSandbox(finalCmd, opts, writableRoots, abortSignal, onOutput);
 }
 
 export function execApplyPatch(patchText: string): ExecResult {

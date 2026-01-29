@@ -153,7 +153,7 @@ function TerminalChatResponseMessage({
   return (
     <Box flexDirection="column">
       <Text bold color={colorsByRole[message.role] || "gray"}>
-        {message.role === "assistant" ? "codex" : message.role}
+        {message.role === "assistant" ? "opencodex" : message.role}
       </Text>
       <Markdown>{content}</Markdown>
     </Box>
@@ -186,7 +186,7 @@ function TerminalChatResponseToolCallOutput({
   fullStdout: boolean;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
-  const { exit_code, duration_seconds } = metadata;
+  const { exit_code, duration_seconds, working_directory } = metadata;
   const metadataInfo = useMemo(
     () =>
       [
@@ -194,10 +194,11 @@ function TerminalChatResponseToolCallOutput({
         typeof duration_seconds !== "undefined"
           ? `duration: ${duration_seconds}s`
           : "",
+        working_directory ? `pwd: ${working_directory}` : "",
       ]
         .filter(Boolean)
         .join(", "),
-    [exit_code, duration_seconds],
+    [exit_code, duration_seconds, working_directory],
   );
   let displayedContent = output;
   if (!fullStdout) {

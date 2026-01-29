@@ -56,10 +56,8 @@ export default function App({
       <Box flexDirection="column">
         <Box borderStyle="round" paddingX={1} width={64}>
           <Text>
-            ● OpenAI <Text bold>Codex</Text>{" "}
-            <Text dimColor>
-              (research preview) <Text color="blueBright">v{CLI_VERSION}</Text>
-            </Text>
+            ● <Text bold>OpenCodex</Text>{" "}
+            <Text color="blueBright">v{CLI_VERSION}</Text>
           </Text>
         </Box>
         <Box

@@ -8,9 +8,14 @@ import type {
 import type { ReasoningEffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
+import { join } from "path";
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
-import { parseToolCallArguments } from "../parsers.js";
+import {
+  parseToolCallArguments,
+  tryExtractToolCallsFromContent,
+} from "../parsers.js";
 import {
   ORIGIN,
   CLI_VERSION,
@@ -111,11 +116,14 @@ export class AgentLoop {
     }
     if (isLoggingEnabled()) {
       log(
-        `AgentLoop.cancel() invoked – currentStream=${Boolean(
+        `AgentLoop.cancel() invoked – currentStream=$
+{Boolean(
           this.currentStream,
-        )} execAbortController=${Boolean(
+        )} execAbortController=$
+{Boolean(
           this.execAbortController,
-        )} generation=${this.generation}`,
+        )} generation=$
+{this.generation}`,
       );
     }
     this.currentStream?.controller?.abort?.();
@@ -256,111 +264,340 @@ export class AgentLoop {
   private async handleFunctionCall(
     itemArg: ChatCompletionMessageParam,
   ): Promise<Array<ChatCompletionMessageParam>> {
-    // If the agent has been canceled in the meantime we should not perform any
-    // additional work. Returning an empty array ensures that we neither execute
-    // the requested tool call nor enqueue any follow‑up input items. This keeps
-    // the cancellation semantics intuitive for users – once they interrupt a
-    // task no further actions related to that task should be taken.
     if (this.canceled) {
       return [];
     }
-    if (itemArg.role !== "assistant") {
+    if (itemArg.role !== "assistant" || !itemArg.tool_calls) {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let item: any = itemArg;
-    if (itemArg.tool_calls?.[0]) {
-      item = itemArg.tool_calls?.[0];
-    }
-    // ---------------------------------------------------------------------
-    // Normalise the function‑call item into a consistent shape regardless of
-    // whether it originated from the `/responses` or the `/chat/completions`
-    // endpoint – their JSON differs slightly.
-    // ---------------------------------------------------------------------
-    const isChatStyle =
-      // The chat endpoint nests function details under a `function` key.
-      // We conservatively treat the presence of this field as a signal that
-      // we are dealing with the chat format.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (item as any).function != null;
+    const results: Array<ChatCompletionMessageParam> = [];
 
-    const name: string | undefined = isChatStyle
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).function?.name
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).name;
+    for (const toolCall of itemArg.tool_calls) {
+      // Normalise the function‑call item
+      const isChatStyle = (toolCall as any).function != null;
 
-    const rawArguments: string | undefined = isChatStyle
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).function?.arguments
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (item as any).arguments;
+      const name: string | undefined = isChatStyle
+        ? (toolCall as any).function?.name
+        : (toolCall as any).name;
 
-    // The OpenAI "function_call" item may have either `call_id` (responses
-    // endpoint) or `id` (chat endpoint).  Prefer `call_id` if present but fall
-    // back to `id` to remain compatible.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const callId: string = (item as any).call_id ?? (item as any).id;
+      const rawArguments: string | undefined = isChatStyle
+        ? (toolCall as any).function?.arguments
+        : (toolCall as any).arguments;
 
-    const args = parseToolCallArguments(rawArguments ?? "{}");
-    if (isLoggingEnabled()) {
-      log(
-        `handleFunctionCall(): name=${
-          name ?? "undefined"
-        } callId=${callId} args=${rawArguments}`,
-      );
-    }
+      const callId: string = (toolCall as any).id || (toolCall as any).call_id;
 
-    if (args == null) {
+      const result = parseToolCallArguments(rawArguments ?? "{}");
+      if (isLoggingEnabled()) {
+        log(
+          `handleFunctionCall(): name=$
+{          name ?? "undefined"        } callId=$
+{callId} args=$
+{rawArguments}`,
+        );
+      }
+
+      if (!result.success) {
+        results.push({
+          role: "tool",
+          tool_call_id: callId,
+          content: JSON.stringify({
+            output: result.error,
+            metadata: { exit_code: 1, duration_seconds: 0 },
+          }),
+        });
+        continue;
+      }
+
+      const args = result.args;
       const outputItem: ChatCompletionMessageParam = {
         role: "tool",
         tool_call_id: callId,
-        content: `invalid arguments: ${rawArguments}`,
+        content: "no function found",
       };
-      return [outputItem];
-    }
 
-    const outputItem: ChatCompletionMessageParam = {
-      role: "tool",
-      tool_call_id: callId,
-      content: "no function found",
-    };
-
-    // We intentionally *do not* remove this `callId` from the `pendingAborts`
-    // set right away.  The output produced below is only queued up for the
-    // *next* request to the OpenAI API – it has not been delivered yet.  If
-    // the user presses ESC‑ESC (i.e. invokes `cancel()`) in the small window
-    // between queuing the result and the actual network call, we need to be
-    // able to surface a synthetic `function_call_output` marked as
-    // "aborted".  Keeping the ID in the set until the run concludes
-    // successfully lets the next `run()` differentiate between an aborted
-    // tool call (needs the synthetic output) and a completed one (cleared
-    // below in the `flush()` helper).
-
-    // used to tell model to stop if needed
-    const additionalItems: Array<ChatCompletionMessageParam> = [];
-
-    // TODO: allow arbitrary function calls (beyond shell/container.exec)
-    if (name === "container.exec" || name === "shell") {
-      const {
-        outputText,
-        metadata,
-        additionalItems: additionalItemsFromExec,
-      } = await handleExecCommand(
-        args,
-        this.config,
-        this.approvalPolicy,
-        this.getCommandConfirmation,
-        this.execAbortController?.signal,
-      );
-      outputItem.content = JSON.stringify({ output: outputText, metadata });
-      if (additionalItemsFromExec) {
-        additionalItems.push(...additionalItemsFromExec);
+      if ((name === "container.exec" || name === "shell" || name === "apply_patch") && args) {
+        let partialOutput = "";
+        const {
+          outputText,
+          metadata,
+          additionalItems: additionalItemsFromExec,
+        } = await handleExecCommand(
+          args,
+          this.config,
+          this.approvalPolicy,
+          this.getCommandConfirmation,
+          this.execAbortController?.signal,
+          (chunk) => {
+            partialOutput += chunk;
+            // Emit a "thinking" update with partial output
+            this.onItem({
+              role: "tool",
+              tool_call_id: callId,
+              content: JSON.stringify({
+                output: partialOutput,
+                metadata: { exit_code: undefined, duration_seconds: 0 },
+                streaming: true,
+              }),
+            });
+          },
+        );
+        outputItem.content = JSON.stringify({ output: outputText, metadata });
+        results.push(outputItem);
+        if (additionalItemsFromExec) {
+          results.push(...additionalItemsFromExec);
+        }
+     } else if (name === "search_codebase") {
+       // Non-shell tools expect the raw JSON argument string.
+       const { outputText, metadata } = await this.handleSearchCodebase(
+         rawArguments ?? "{}",
+       );
+       outputItem.content = JSON.stringify({ output: outputText, metadata });
+       results.push(outputItem);
+     } else if (name === "persistent_memory") {
+       const { outputText, metadata } = await this.handlePersistentMemory(
+         rawArguments ?? "{}",
+       );
+       outputItem.content = JSON.stringify({ output: outputText, metadata });
+       results.push(outputItem);
+     } else if (name === "read_file_lines") {
+       const { outputText, metadata } = await this.handleReadFileLines(
+         rawArguments ?? "{}",
+       );
+       outputItem.content = JSON.stringify({ output: outputText, metadata });
+       results.push(outputItem);
+     } else if (name === "list_files_recursive") {
+       const { outputText, metadata } = await this.handleListFilesRecursive(
+         rawArguments ?? "{}",
+       );
+       outputItem.content = JSON.stringify({ output: outputText, metadata });
+       results.push(outputItem);
+      } else {
+        results.push(outputItem);
       }
     }
 
-    return [outputItem, ...additionalItems];
+    return results;
+  }
+
+  private async handleSearchCodebase(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { pattern, path: searchPath, include } = args;
+
+      if (!pattern) {
+        return {
+          outputText: "Error: 'pattern' is required for search_codebase",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const rgArgs = ["rg", "--json", pattern];
+      if (searchPath) {
+        rgArgs.push(searchPath);
+      }
+      if (include) {
+        rgArgs.push("-g", include);
+      }
+
+      const { outputText, metadata } = await handleExecCommand(
+        {
+          cmd: rgArgs,
+          workdir: process.cwd(),
+          timeoutInMillis: 30000,
+        },
+        this.config,
+        "full-auto", // Always allow search
+        async () => ({ review: ReviewDecision.YES }), // Auto-confirm
+        this.execAbortController?.signal,
+      );
+
+      // Process ripgrep JSON output to be more compact/useful for the model
+      const lines = outputText.trim().split("\n");
+      const results: Array<any> = [];
+
+      for (const line of lines) {
+        if (!line) continue;
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === "match") {
+            results.push({
+              file: parsed.data.path.text,
+              line: parsed.data.line_number,
+              text: parsed.data.lines.text.trim(),
+            });
+          }
+        } catch {
+          // Skip invalid JSON lines
+        }
+      }
+
+      if (results.length === 0 && metadata.exit_code !== 0 && metadata.exit_code !== 1) {
+        return {
+          outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${metadata.outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
+          metadata,
+        };
+      }
+
+      return {
+        outputText:
+          results.length > 0
+            ? JSON.stringify(results, null, 2)
+            : "No matches found.",
+        metadata: { ...metadata, match_count: results.length },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error executing search: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handlePersistentMemory(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { fact } = args;
+
+      if (!fact) {
+        return {
+          outputText: "Error: 'fact' is required for persistent_memory",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const memoryDir = join(process.cwd(), ".codex");
+      const memoryPath = join(memoryDir, "memory.md");
+
+      if (!existsSync(memoryDir)) {
+        mkdirSync(memoryDir, { recursive: true });
+      }
+
+      const timestamp = new Date().toISOString().split("T")[0];
+      const entry = `\n- [${timestamp}] ${fact}`;
+      appendFileSync(memoryPath, entry, "utf-8");
+
+      return {
+        outputText: `Fact saved: ${fact}`,
+        metadata: { exit_code: 0, path: memoryPath },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error saving memory: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleReadFileLines(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { path: filePath, start_line, end_line } = args;
+
+      if (!filePath || start_line === undefined || end_line === undefined) {
+        return {
+          outputText:
+            "Error: 'path', 'start_line', and 'end_line' are required for read_file_lines",
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const fullPath = join(process.cwd(), filePath);
+      if (!existsSync(fullPath)) {
+        return {
+          outputText: `Error: File not found: ${filePath}`,
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const content = readFileSync(fullPath, "utf-8");
+      const lines = content.split("\n");
+      
+      // start_line and end_line are 1-based
+      const start = Math.max(0, start_line - 1);
+      const end = Math.min(lines.length, end_line);
+      
+      const requestedLines = lines.slice(start, end);
+      const resultText = requestedLines.join("\n");
+
+      return {
+        outputText: resultText,
+        metadata: {
+          exit_code: 0,
+          start_line: start + 1,
+          end_line: end,
+          total_lines: lines.length,
+        },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error reading file lines: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+  }
+
+  private async handleListFilesRecursive(rawArgs: string): Promise<{
+    outputText: string;
+    metadata: Record<string, unknown>;
+  }> {
+    try {
+      const args = JSON.parse(rawArgs);
+      const { path: startPath = ".", depth = 3 } = args;
+
+      const fullStartPath = join(process.cwd(), startPath);
+      if (!existsSync(fullStartPath)) {
+        return {
+          outputText: `Error: Path not found: ${startPath}`,
+          metadata: { exit_code: 1 },
+        };
+      }
+
+      const generateTree = (dir: string, currentDepth: number): string => {
+        if (currentDepth > depth) return "";
+        
+        let tree = "";
+        const entries = readdirSync(dir, { withFileTypes: true })
+          .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
+          .sort((a, b) => {
+            if (a.isDirectory() && !b.isDirectory()) return -1;
+            if (!a.isDirectory() && b.isDirectory()) return 1;
+            return a.name.localeCompare(b.name);
+          });
+
+        for (const entry of entries) {
+          const indent = "  ".repeat(currentDepth - 1);
+          if (entry.isDirectory()) {
+            tree += `${indent}dir: ${entry.name}/\n`;
+            tree += generateTree(join(dir, entry.name), currentDepth + 1);
+          } else {
+            tree += `${indent}file: ${entry.name}\n`;
+          }
+        }
+        return tree;
+      };
+
+      const treeResult = generateTree(fullStartPath, 1);
+
+      return {
+        outputText: treeResult || "No files found.",
+        metadata: { exit_code: 0, path: startPath, depth },
+      };
+    } catch (err) {
+      return {
+        outputText: `Error listing files: ${String(err)}`,
+        metadata: { exit_code: 1 },
+      };
+    }
   }
 
   public async run(
@@ -369,7 +606,7 @@ export class AgentLoop {
   ): Promise<void> {
     // ---------------------------------------------------------------------
     // Top‑level error wrapper so that known transient network issues like
-    // `ERR_STREAM_PREMATURE_CLOSE` do not crash the entire CLI process.
+    // \`ERR_STREAM_PREMATURE_CLOSE\` do not crash the entire CLI process.
     // Instead we surface the failure to the user as a regular system‑message
     // and terminate the current run gracefully. The calling UI can then let
     // the user retry the request if desired.
@@ -512,6 +749,26 @@ export class AgentLoop {
                 {
                   type: "function",
                   function: {
+                    name: "apply_patch",
+                    description: "Applies a unified diff patch to the codebase.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        patch: {
+                          type: "string",
+                          description:
+                            "The patch to apply, in unified diff format, wrapped in *** Begin Patch and *** End Patch markers.",
+                        },
+                      },
+                      required: ["patch"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
                     name: "shell",
                     description:
                       "Runs a shell command, and returns its output.",
@@ -530,7 +787,110 @@ export class AgentLoop {
                             "The maximum time to wait for the command to complete in milliseconds.",
                         },
                       },
-                      required: ["command"],
+                      required: ["command", "workdir", "timeout"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "search_codebase",
+                    description:
+                      "Searches the codebase using ripgrep and returns results in a structured JSON format.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        pattern: {
+                          type: "string",
+                          description: "The regex pattern to search for.",
+                        },
+                        path: {
+                          type: "string",
+                          description:
+                            "Optional subdirectory to search within (default: root).",
+                        },
+                        include: {
+                          type: "string",
+                          description:
+                            "Optional glob pattern for files to include (e.g., '*.ts').",
+                        },
+                      },
+                      required: ["pattern"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "persistent_memory",
+                    description:
+                      "Saves a fact about the project to a local file that will be injected into future sessions. Useful for project-specific details like ports, architecture choices, or common paths.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        fact: {
+                          type: "string",
+                          description:
+                            "The fact to remember (e.g., 'The frontend runs on port 3000').",
+                        },
+                      },
+                      required: ["fact"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "read_file_lines",
+                    description:
+                      "Reads specific line ranges from a file. Useful for large files to avoid exceeding context limits.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description: "The path to the file to read.",
+                        },
+                        start_line: {
+                          type: "number",
+                          description: "The 1-based starting line number.",
+                        },
+                        end_line: {
+                          type: "number",
+                          description: "The 1-based ending line number (inclusive).",
+                        },
+                      },
+                      required: ["path", "start_line", "end_line"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                {
+                  type: "function",
+                  function: {
+                    name: "list_files_recursive",
+                    description:
+                      "Returns a tree-view structure of the project files. Useful for understanding project layout.",
+                    strict: false,
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        path: {
+                          type: "string",
+                          description: "The directory to list (default: root).",
+                        },
+                        depth: {
+                          type: "number",
+                          description: "Maximum depth to recurse (default: 3).",
+                        },
+                      },
+                      required: [],
                       additionalProperties: false,
                     },
                   },
@@ -761,6 +1121,30 @@ export class AgentLoop {
             const finish_reason = chunk?.choices?.[0]?.finish_reason;
             if (finish_reason) {
               if (thisGeneration === this.generation && !this.canceled) {
+                // If there's content but no tool_calls, try to extract one from the content.
+                // This is a fallback for models (e.g. some Ollama models) that don't
+                // use the native tool-calling API correctly.
+                if (
+                  !message?.tool_calls?.[0] &&
+                  typeof message?.content === "string"
+                ) {
+                  const extracted = tryExtractToolCallsFromContent(
+                    message.content,
+                  );
+                  if (extracted.length > 0) {
+                    (message as any).tool_calls = extracted;
+                    // Track these tool call IDs so we can send an aborted response
+                    // if the user cancels before we finish handling them.
+                    for (const call of extracted) {
+                      if (call.id) {
+                        this.pendingAborts.add(call.id);
+                      }
+                    }
+                    // Clear the content so it's not displayed as a regular message.
+                    message.content = "";
+                  }
+                }
+
                 // Process completed tool calls
                 if (message?.tool_calls?.[0]) {
                   stageItem(message);
@@ -1046,9 +1430,7 @@ export class AgentLoop {
             `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
             `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
             `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
-            `Message: ${
-              e.message || (e.cause && e.cause.message) || "unknown"
-            }`,
+            `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
           ].join(", ");
 
           const msgText = `⚠️  OpenAI rejected the request${
@@ -1106,7 +1488,7 @@ export class AgentLoop {
   }
 }
 
-const prefix = `You are operating as and within the Codex CLI, a terminal-based agentic coding assistant built by OpenAI. It wraps OpenAI models to enable natural language interaction with a local codebase. You are expected to be precise, safe, and helpful.
+const prefix = `You are operating as and within OpenCodex, a terminal-based agentic coding assistant. It wraps LLM models to enable natural language interaction with a local codebase. You are expected to be precise, safe, and helpful.
 
 You can:
 - Receive user prompts, project context, and files.
@@ -1114,11 +1496,13 @@ You can:
 - Apply patches, run commands, and manage user approvals based on policy.
 - Work inside a sandboxed, git-backed workspace with rollback support.
 - Log telemetry so sessions can be replayed or inspected later.
-- More details on your functionality are available at \`codex --help\`
+- More details on your functionality are available at \`opencodex --help\`
 
-The Codex CLI is open-sourced. Don't confuse yourself with the old Codex language model built by OpenAI many moons ago (this is understandably top of mind for you!). Within this context, Codex refers to the open-source agentic coding interface.
+The Codex CLI is open-sourced. Don't confuse yourself with the old Codex language model built by OpenAI many moons ago (this is understandably top of mind for you!). Within this context, OpenCodex refers to the open-source agentic coding interface.
 
-You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
+You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. NEVER simulate or type out tool responses (like JSON or XML observation blocks) yourself; let the system provide them after you call a tool. If you are not sure about file content or codebase structure pertaining to the user's request, use your tools to read files and gather the relevant information: do NOT guess or make up an answer.
+
+
 
 Please resolve the user's task by editing and testing the code files in your current code execution session. You are a deployed coding agent. Your session allows for you to modify and run code. The repo(s) are already cloned in your working directory, and you must fully solve the problem for your answer to be considered correct.
 
@@ -1151,4 +1535,5 @@ You MUST adhere to the following criteria when executing the task:
     - Respond in a friendly tune as a remote teammate, who is knowledgeable, capable and eager to help with coding.
 - When your task involves writing or modifying files:
     - Do NOT tell the user to "save the file" or "copy the code into a file" if you already created or modified the file using \`apply_patch\`. Instead, reference the file as already saved.
-    - Do NOT show the full contents of large files you have already written, unless the user explicitly asks for them.`;
+    - Do NOT show the full contents of large files you have already written, unless the user explicitly asks for them.
+`;

@@ -108,11 +108,56 @@ export default function TerminalChat({
       onItem: (item) => {
         log(`onItem: ${JSON.stringify(item)}`);
         setItems((prev) => {
+          // If it's a streaming tool update, try to update the existing item
+          if (item.role === "tool" && "tool_call_id" in item) {
+            try {
+              const content = JSON.parse(item.content as string);
+              if (content.streaming) {
+                const existingIndex = prev.findLastIndex(
+                  (i) =>
+                    i.role === "tool" &&
+                    "tool_call_id" in i &&
+                    i.tool_call_id === item.tool_call_id,
+                );
+                if (existingIndex !== -1) {
+                  const updated = [...prev];
+                  updated[existingIndex] = item;
+                  return updated;
+                }
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+
           const updated = [...prev, item];
           saveRollout(updated);
           return updated;
         });
-        setPrevItems((prev) => [...prev, item]);
+        setPrevItems((prev) => {
+          // Same logic for prevItems
+          if (item.role === "tool" && "tool_call_id" in item) {
+            try {
+              const content = JSON.parse(item.content as string);
+              if (content.streaming) {
+                const existingIndex = prev.findLastIndex(
+                  (i) =>
+                    i.role === "tool" &&
+                    "tool_call_id" in i &&
+                    i.tool_call_id === item.tool_call_id,
+                );
+                if (existingIndex !== -1) {
+                  const updated = [...prev];
+                  updated[existingIndex] = item;
+                  return updated;
+                }
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+          return [...prev, item];
+        });
       },
       onLoading: setLoading,
       getCommandConfirmation: async (
