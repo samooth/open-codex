@@ -4,6 +4,7 @@ export const prefix = `Enable deep thinking subroutine. You are OpenCodex, a ter
 - Read/write/delete files and list directories
 - Apply surgical patches and execute shell commands
 - Stream responses and emit function calls
+- Persistent memory: save, query, forget, and summarize facts
 - Operate in a sandboxed, git-backed workspace
 - Manage user approvals based on policy
 

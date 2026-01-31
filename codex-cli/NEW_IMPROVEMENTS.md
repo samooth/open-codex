@@ -1,44 +1,39 @@
-# UI Improvement Suggestions for OpenCodex CLI
+# UI Improvement Suggestions for OpenCodex CLI - Status Update
 
-Here are several ways the UI of the OpenCodex CLI could be improved to enhance user experience, transparency, and efficiency:
+Here is the current state of UI improvements for the OpenCodex CLI:
 
-## 1. Enhanced Agent Feedback and Transparency
-
-*   **Advanced "Thinking" Indicator:** While basic partial reasoning is now displayed, this could be significantly enhanced:
-    *   **Scrolling Reasoning:** For lengthy thought processes, implement a scrolling mechanism within the thinking indicator to avoid truncation and allow users to read the full context of the agent's thought.
-    *   **Categorized Reasoning:** If the underlying models can provide different "types" of reasoning (e.g., "Planning Phase," "Code Analysis," "Tool Execution," "Debugging"), display these categories with distinct colors, icons, or hierarchical formatting to make the agent's current focus clear.
-    *   **Progress Indicators for Sub-steps:** For complex tasks, if the agent breaks its process into identifiable sub-steps, display a "Step X of Y: [Current Action]" indicator within the thinking phase.
-*   **Clearer Tool Call Visualization:**
-    *   **Active Tool Indicator:** Visually highlight which tool is currently being executed (e.g., `shell`, `read_file`, `apply_patch`) within the input area or a dedicated status line.
-    *   **Tool Arguments Preview:** For non-trivial tool calls, offer a concise preview of the arguments being passed, potentially with a toggle to expand for full details.
+*   **[DONE] Support for `<think>` tags:** The UI now correctly parses and styles `<think>` blocks output by deep-thinking models, rendering them in a distinct, italicized, and dimmed box.
+    *   **[DONE] Scrolling Reasoning:** A scrolling mechanism within the thinking indicator has been implemented, allowing users to navigate through lengthy partial reasoning using the arrow keys.
+    *   **[DONE] Active Tool Indicator:** The active tool name (e.g., `shell`, `read_file`) is now displayed within the thinking indicator.
+    *   **[DONE] Empty Command Fallback:** If the model emits an empty command block (e.g., `command {}`), the system now defaults to executing `ls .` to help the model gather context about the current directory.
+    *   **[DONE] Tool Arguments Preview:** A concise preview of tool arguments is now shown next to the active tool name.
 *   **Structured Tool Output Display:**
-    *   **Contextual Summaries:** For verbose tool outputs (e.g., long `stdout` from a `shell` command, large file contents), provide a concise summary by default, with an option (e.g., a keyboard shortcut or clickable element) to expand and view the full output.
-    *   **Intelligent Highlighting:** Automatically highlight critical information in tool outputs, such as error messages, key values, or changes in diffs, using distinct colors or formatting.
-
+---
 ## 2. Improved User Input and Interaction
 
-*   **Visual Prompt Queue:** Implement a clear visual representation of the user prompt queue. This could be:
-    *   A small indicator showing "N queued prompts."
-    *   A mini-list displaying the first few queued prompts, allowing users to see what's next.
-    *   The ability to reorder or cancel queued prompts.
-*   **Always Visible Input Area:** Ensure the user can always see and type into the input area, even when the agent is busy or a confirmation prompt is active. New input should automatically be added to the queue.
-*   **Enhanced Command History:** Beyond simple up/down arrow navigation, consider:
-    *   A dedicated history overlay (similar to model/help overlays) that displays recent commands and allows searching/filtering.
-    *   Context-aware suggestions based on past commands or files in the current directory.
-
+*   **[DONE] Visual Prompt Queue:** 
+    *   A small indicator showing the number of queued prompts is displayed in the status line.
+    *   Input is always visible and active, even when the agent is busy; new inputs are automatically queued.
+*   **[DONE] Slash Command Suggestions:** When the user types `/`, a list of available slash commands (e.g., `/model`, `/clear`, `/history`) with descriptions is displayed above the input area. Users can navigate these suggestions using arrow keys or Tab and select them with Return.
+*   **[DONE] Enhanced Command History:** 
+---
 ## 3. Better Context Management Visibility
 
-*   **Dynamic Context Window Usage:** The `contextLeftPercent` is a good start. This could be visualized more effectively, perhaps as a small, colored bar or numerical indicator that changes as context fills up, providing a clearer sense of how much information the LLM is processing.
-*   **Active File Context Display:** When the agent operates on specific files (e.g., `read_file`), briefly show which files are actively in the agent's current working context.
+*   **[DONE] Dynamic Context Window Usage:** A visual progress bar for context usage is now always visible in the status line, changing color (green/yellow/red) as the context window fills up.
+*   **[DONE] Active File Context Display:** The UI now displays a list of "Files in context," showing which files the agent has recently accessed (read, written, or patched) in the current session.
+*   **[DONE] Enhanced Memory Management:**
+    *   **`query_memory` tool:** The agent can now specifically search the project memory for relevant facts.
+    *   **`forget_memory` tool:** The agent can now identfy and remove outdated or incorrect entries from the project memory.
+    *   **Automatic Context Injection:** Important facts in memory are automatically summarized and can be explicitly retrieved by the agent to maintain project-wide knowledge.
 
 ## 4. Actionable Feedback and Error Handling
 
-*   **Distinct Error Highlighting:** Make error messages from tool executions or model responses more visually distinct (e.g., red background, bold text) and clearly indicate what the error pertains to.
-*   **Guidance for LLM Failures:** When the LLM encounters a "loop detection" error or repeatedly fails a tool call, provide explicit, actionable advice to the user on how to intervene or rephrase their request.
+*   **[DONE] Guidance for LLM Failures:** Loop detection logic is implemented. If a tool call fails twice with the same error, the agent stops and asks for clarification, providing an explicit error message about the loop.
 
 ## 5. Overall Polish and Usability
 
-*   **Theming and Customization:** Allow users to choose from predefined color themes or even customize certain UI elements.
-*   **Subtle Animations/Transitions:** Judicious use of subtle animations (e.g., for loading states, overlay transitions) can improve the perceived responsiveness and modernity of the CLI.
-*   **Responsive Layout:** Ensure the CLI's layout gracefully adapts to different terminal sizes and fonts.
-*   **"Smart" Auto-Scrolling:** Optimize auto-scrolling behavior to keep the most relevant information in view without being disorienting, perhaps only scrolling automatically when the user is at the bottom of the output.
+*   **Responsive Layout:** The UI utilizes `useTerminalSize` to adapt its rendering (e.g., Markdown width, truncated outputs) to the current terminal dimensions.
+*   **Smart Auto-Scrolling:** Ink's default rendering handles basic scrolling, but further optimization for large chat histories is always considered.
+
+---
+*Last Updated: 2026-01-31*

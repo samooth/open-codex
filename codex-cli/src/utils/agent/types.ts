@@ -18,6 +18,7 @@ export type AgentLoopParams = {
   onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
   onLoading: (loading: boolean) => void;
   onReset: () => void;
+  onFileAccess?: (path: string) => void;
 
   /** Called when the command is not auto-approved to request explicit user review. */
   getCommandConfirmation: (
@@ -35,5 +36,6 @@ export interface AgentContext {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
   onItem: (item: ChatCompletionMessageParam) => void;
+  onFileAccess?: (path: string) => void;
 }
 

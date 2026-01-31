@@ -63,6 +63,7 @@ export default function TerminalChat({
   );
   const [thinkingSeconds, setThinkingSeconds] = useState(0);
   const [partialReasoning, setPartialReasoning] = useState<string>("");
+  const [activeFiles, setActiveFiles] = useState<Set<string>>(new Set());
   const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
   const [activeToolArguments, setActiveToolArguments] = useState<Record<string, any> | undefined>(undefined);
   const [promptQueue, setPromptQueue] = useState<
@@ -133,7 +134,17 @@ export default function TerminalChat({
       config,
       instructions: config.instructions,
       approvalPolicy,
-      onReset: () => setPrevItems([]),
+      onReset: () => {
+        setPrevItems([]);
+        setActiveFiles(new Set());
+      },
+      onFileAccess: (path) => {
+        setActiveFiles((prev) => {
+          const next = new Set(prev);
+          next.add(path);
+          return next;
+        });
+      },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         if (reasoning) {
           setPartialReasoning((prev) => prev + reasoning);
@@ -362,6 +373,7 @@ export default function TerminalChat({
             setItems={setItems}
             isNew={Boolean(items.length === 0)}
             setPrevItems={setPrevItems}
+            setActiveFiles={setActiveFiles}
             confirmationPrompt={confirmationPrompt}
             submitConfirmation={(
               decision: ReviewDecision,
@@ -381,6 +393,7 @@ export default function TerminalChat({
             openPromptOverlay={() => setOverlayMode("prompt")}
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
+            activeFiles={activeFiles}
             activeToolName={activeToolName}
             activeToolArguments={activeToolArguments}
             queuedPromptsCount={promptQueue.length}

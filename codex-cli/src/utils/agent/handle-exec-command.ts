@@ -88,7 +88,13 @@ export async function handleExecCommand(
   abortSignal?: AbortSignal,
   onOutput?: (chunk: string) => void,
 ): Promise<HandleExecCommandResult> {
-  const { cmd: command } = args;
+  let { cmd: command } = args;
+
+  // Fallback: If the model provides an empty command array, default to 'ls .'
+  if (command.length === 0) {
+    command = ["ls", "."];
+    args.cmd = command;
+  }
 
   if (config.dryRun) {
     return {

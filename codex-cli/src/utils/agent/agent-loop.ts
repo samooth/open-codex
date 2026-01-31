@@ -57,6 +57,7 @@ export class AgentLoop {
   private onItem: (item: ChatCompletionMessageParam) => void;
   private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
   private onLoading: (loading: boolean) => void;
+  private onFileAccess?: (path: string) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -203,6 +204,7 @@ export class AgentLoop {
     onItem,
     onPartialUpdate,
     onLoading,
+    onFileAccess,
     getCommandConfirmation,
     onReset,
   }: AgentLoopParams & { config?: AppConfig }) {
@@ -224,6 +226,7 @@ export class AgentLoop {
     this.onItem = onItem;
     this.onPartialUpdate = onPartialUpdate;
     this.onLoading = onLoading;
+    this.onFileAccess = onFileAccess;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onReset = onReset;
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
@@ -365,6 +368,7 @@ export class AgentLoop {
         execAbortController: this.execAbortController,
         getCommandConfirmation: this.getCommandConfirmation,
         onItem: this.onItem,
+        onFileAccess: this.onFileAccess,
       };
 
       if (
@@ -398,7 +402,7 @@ export class AgentLoop {
         additionalItems = result.additionalItems;
 
         // --- AUTO-CORRECTION LOOP for apply_patch ---
-        if (name === "apply_patch" && metadata["exit_code"] === 0 && (args as any).patch) {
+        if (name === "apply_patch" && (args as any).patch) {
           const { identify_files_needed, identify_files_added } = await import("./apply-patch.js");
           const affectedFiles = [
             ...identify_files_needed((args as any).patch),
@@ -406,12 +410,18 @@ export class AgentLoop {
           ];
           
           for (const file of affectedFiles) {
-            const validation = await validateFileSyntax(file);
-            if (!validation.isValid) {
-              outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
-              metadata["exit_code"] = 1;
-              metadata["syntax_error"] = true;
-              break;
+            this.onFileAccess?.(file);
+          }
+
+          if (metadata["exit_code"] === 0) {
+            for (const file of affectedFiles) {
+              const validation = await validateFileSyntax(file);
+              if (!validation.isValid) {
+                outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
+                metadata["exit_code"] = 1;
+                metadata["syntax_error"] = true;
+                break;
+              }
             }
           }
         }
@@ -427,6 +437,14 @@ export class AgentLoop {
         additionalItems = result.additionalItems;
       } else if (name === "summarize_memory") {
         const result = await handlers.handleSummarizeMemory();
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "query_memory") {
+        const result = await handlers.handleQueryMemory(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "forget_memory") {
+        const result = await handlers.handleForgetMemory(rawArguments ?? "{}");
         outputText = result.outputText;
         metadata = result.metadata;
       } else if (name === "read_file_lines") {

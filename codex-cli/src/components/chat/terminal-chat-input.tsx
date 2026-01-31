@@ -19,6 +19,16 @@ const suggestions = [
   "are there any bugs in my code?",
 ];
 
+const slashCommands = [
+  { name: "/model", description: "switch model" },
+  { name: "/clear", description: "clear context" },
+  { name: "/history", description: "show history" },
+  { name: "/approval", description: "change approval mode" },
+  { name: "/config", description: "toggle dry-run/debug" },
+  { name: "/prompt", description: "edit system instructions" },
+  { name: "/help", description: "show help" },
+];
+
 export default function TerminalChatInput({
   isNew,
   loading,
@@ -27,6 +37,7 @@ export default function TerminalChatInput({
   submitConfirmation,
   setPrevItems,
   setItems,
+  setActiveFiles,
   contextLeftPercent,
   openOverlay,
   openModelOverlay,
@@ -40,6 +51,7 @@ export default function TerminalChatInput({
   allowAlwaysPatch,
   awaitingContinueConfirmation,
   queuedPromptsCount,
+  activeFiles,
   activeToolName,
   activeToolArguments,
 }: {
@@ -55,6 +67,7 @@ export default function TerminalChatInput({
   setItems: React.Dispatch<
     React.SetStateAction<Array<ChatCompletionMessageParam>>
   >;
+  setActiveFiles: React.Dispatch<React.SetStateAction<Set<string>>>;
   contextLeftPercent: number;
   openOverlay: () => void;
   openModelOverlay: () => void;
@@ -68,15 +81,21 @@ export default function TerminalChatInput({
   allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: boolean;
   queuedPromptsCount: number;
+  activeFiles: Set<string>;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
+  const [selectedSlashCommand, setSelectedSlashCommand] = useState<number>(0);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<Array<string>>([]);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [draftInput, setDraftInput] = useState<string>("");
+
+  const filteredSlashCommands = input.startsWith("/")
+    ? slashCommands.filter((c) => c.name.startsWith(input))
+    : [];
 
   useInput(
     (_input, _key) => {
@@ -101,6 +120,10 @@ export default function TerminalChatInput({
 
       if (!confirmationPrompt && !loading) {
         if (_key.upArrow) {
+          if (filteredSlashCommands.length > 0) {
+            setSelectedSlashCommand((s) => (s - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
+            return;
+          }
           if (history.length > 0) {
             if (historyIndex == null) {
               setDraftInput(input);
@@ -119,6 +142,10 @@ export default function TerminalChatInput({
         }
 
         if (_key.downArrow) {
+          if (filteredSlashCommands.length > 0) {
+            setSelectedSlashCommand((s) => (s + 1) % filteredSlashCommands.length);
+            return;
+          }
           if (historyIndex == null) {
             return;
           }
@@ -135,7 +162,16 @@ export default function TerminalChatInput({
         }
       }
 
-      if (input.trim() === "" && isNew) {
+      if (input.startsWith("/")) {
+        if (_key.tab) {
+          setSelectedSlashCommand((s) => (s + (_key.shift ? -1 : 1) + filteredSlashCommands.length) % filteredSlashCommands.length);
+        } else if (_key.return && filteredSlashCommands.length > 0) {
+          const cmd = filteredSlashCommands[selectedSlashCommand]?.name || "";
+          setInput(cmd);
+          setSelectedSlashCommand(0);
+          // We don't submit immediately to allow the user to see the full command or add args
+        }
+      } else if (input.trim() === "" && isNew) {
         if (_key.tab) {
           setSelectedSuggestion(
             (s) => (s + (_key.shift ? -1 : 1)) % (suggestions.length + 1),
@@ -218,6 +254,7 @@ export default function TerminalChatInput({
         setInput("");
         setSessionId("");
         setPrevItems([]);
+        setActiveFiles(new Set());
         clearTerminal();
 
         // Emit a system message to confirm the clear action.  We *append*
@@ -348,6 +385,18 @@ export default function TerminalChatInput({
           </Box>
         )}
       </Box>
+      {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
+        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={0}>
+          {filteredSlashCommands.map((cmd, i) => (
+            <Box key={cmd.name} gap={2}>
+              <Text color={i === selectedSlashCommand ? "cyan" : "gray"} bold={i === selectedSlashCommand}>
+                {i === selectedSlashCommand ? "❯" : " "} {cmd.name.padEnd(10)}
+              </Text>
+              <Text dimColor={i !== selectedSlashCommand}>{cmd.description}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
       {loading && (
         <Box borderStyle="round" borderColor="dimGray" paddingLeft={1}>
           <TerminalChatInputThinking
@@ -359,47 +408,53 @@ export default function TerminalChatInput({
           />
         </Box>
       )}
-      <Box paddingX={2} marginBottom={1}>
-        <Text dimColor>
-          {isNew && !input ? (
-            <>
-              try:{" "}
-              {suggestions.map((m, key) => (
-                <Fragment key={key}>
-                  {key !== 0 ? " | " : ""}
-                  <Text
-                    backgroundColor={
-                      key + 1 === selectedSuggestion ? "blackBright" : ""
-                    }
-                  >
-                    {m}
-                  </Text>
-                </Fragment>
-              ))}
-            </>
-          ) : (
-            <>
-              send q or ctrl+c to exit | send "/clear" to reset | send "/help"
-              for commands | press enter to send
-              {contextLeftPercent < 25 && (
-                <>
-                  {" — "}
-                  <Text color="red">
-                    {Math.round(contextLeftPercent)}% context left
-                  </Text>
-                </>
-              )}
-              {queuedPromptsCount > 0 && (
-                <>
-                  {" — "}
-                  <Text color="yellow">
-                    {queuedPromptsCount} prompt(s) queued
-                  </Text>
-                </>
-              )}
-            </>
-          )}
-        </Text>
+      <Box paddingX={2} marginBottom={1} flexDirection="column">
+        {activeFiles.size > 0 && (
+          <Box marginBottom={0}>
+            <Text dimColor>Files in context: </Text>
+            <Text color="cyan" wrap="truncate">
+              {Array.from(activeFiles).join(", ")}
+            </Text>
+          </Box>
+        )}
+        <Box>
+          <Text dimColor>
+            {isNew && !input ? (
+              <>
+                try:{" "}
+                {suggestions.map((m, key) => (
+                  <Fragment key={key}>
+                    {key !== 0 ? " | " : ""}
+                    <Text
+                      backgroundColor={
+                        key + 1 === selectedSuggestion ? "blackBright" : ""
+                      }
+                    >
+                      {m}
+                    </Text>
+                  </Fragment>
+                ))}
+              </>
+            ) : (
+              <>
+                send q or ctrl+c to exit | send "/clear" to reset | send "/help"
+                for commands | press enter to send
+              </>
+            )}
+          </Text>
+          <Box marginLeft="auto" gap={1}>
+            <Text dimColor>context: </Text>
+            <Text color={contextLeftPercent < 10 ? "red" : contextLeftPercent < 25 ? "yellow" : "green"}>
+              {"[".padEnd(1 + Math.round((100 - contextLeftPercent) / 10), "■").padEnd(11, " ").concat("]")}
+              {` ${Math.round(100 - contextLeftPercent)}%`}
+            </Text>
+            {queuedPromptsCount > 0 && (
+              <Text color="yellow">
+                {` | ${queuedPromptsCount} prompt(s) queued`}
+              </Text>
+            )}
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

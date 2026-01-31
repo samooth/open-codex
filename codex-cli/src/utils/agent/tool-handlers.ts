@@ -43,6 +43,7 @@ export async function handleReadFile(
       };
     }
 
+    ctx.onFileAccess?.(filePath);
     const content = readFileSync(fullPath, "utf-8");
     return {
       outputText: content,
@@ -100,6 +101,7 @@ export async function handleWriteFile(
       mkdirSync(parentDir, { recursive: true });
     }
 
+    ctx.onFileAccess?.(filePath);
     writeFileSync(fullPath, content, "utf-8");
     return {
       outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
@@ -159,6 +161,7 @@ export async function handleDeleteFile(
       };
     }
 
+    ctx.onFileAccess?.(filePath);
     const fs = await import("fs");
     fs.unlinkSync(fullPath);
     return {
@@ -404,6 +407,73 @@ export async function handleSummarizeMemory(): Promise<{
   }
 }
 
+export async function handleQueryMemory(
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { query } = args;
+    if (!query) {
+      return { outputText: "Error: 'query' is required", metadata: { exit_code: 1 } };
+    }
+
+    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    if (!existsSync(memoryPath)) {
+      return { outputText: "No memory file found.", metadata: { exit_code: 0 } };
+    }
+
+    const content = readFileSync(memoryPath, "utf-8");
+    const lines = content.split("\n");
+    const matches = lines.filter((line) => line.toLowerCase().includes(query.toLowerCase()));
+
+    return {
+      outputText: matches.length > 0 ? `Matching memory entries:\n${matches.join("\n")}` : "No matching memory entries found.",
+      metadata: { exit_code: 0, match_count: matches.length },
+    };
+  } catch (err) {
+    return { outputText: `Error querying memory: ${String(err)}`, metadata: { exit_code: 1 } };
+  }
+}
+
+export async function handleForgetMemory(
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { pattern } = args;
+    if (!pattern) {
+      return { outputText: "Error: 'pattern' is required", metadata: { exit_code: 1 } };
+    }
+
+    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    if (!existsSync(memoryPath)) {
+      return { outputText: "No memory file found.", metadata: { exit_code: 0 } };
+    }
+
+    const content = readFileSync(memoryPath, "utf-8");
+    const lines = content.split("\n");
+    const nextLines = lines.filter((line) => !line.toLowerCase().includes(pattern.toLowerCase()));
+
+    if (lines.length === nextLines.length) {
+      return { outputText: `No entries matched "${pattern}".`, metadata: { exit_code: 0, removed_count: 0 } };
+    }
+
+    writeFileSync(memoryPath, nextLines.join("\n"), "utf-8");
+    return {
+      outputText: `Successfully removed ${lines.length - nextLines.length} entry(ies) matching "${pattern}".`,
+      metadata: { exit_code: 0, removed_count: lines.length - nextLines.length },
+    };
+  } catch (err) {
+    return { outputText: `Error updating memory: ${String(err)}`, metadata: { exit_code: 1 } };
+  }
+}
+
 export async function handleReadFileLines(
   ctx: AgentContext,
   rawArgs: string,
@@ -444,6 +514,7 @@ export async function handleReadFileLines(
       };
     }
 
+    ctx.onFileAccess?.(filePath);
     const content = readFileSync(fullPath, "utf-8");
     const lines = content.split("\n");
     

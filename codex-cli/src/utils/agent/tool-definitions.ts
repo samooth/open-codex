@@ -251,6 +251,44 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "query_memory",
+      description: "Searches the project memory for specific facts using a search query.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query to find relevant facts in memory.",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "forget_memory",
+      description: "Removes facts from the project memory that match a specific search pattern or text.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: {
+            type: "string",
+            description: "The text or regex pattern to identify facts to be removed.",
+          },
+        },
+        required: ["pattern"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "read_file_lines",
       description:
         "Reads specific line ranges from a file. Useful for large files to avoid exceeding context limits.",
