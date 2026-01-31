@@ -23,6 +23,7 @@ import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
+import PromptOverlay from "../prompt-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { inspect } from "util";
@@ -63,7 +64,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -314,6 +315,7 @@ export default function TerminalChat({
             openApprovalOverlay={() => setOverlayMode("approval")}
             openHelpOverlay={() => setOverlayMode("help")}
             openConfigOverlay={() => setOverlayMode("config")}
+            openPromptOverlay={() => setOverlayMode("prompt")}
             active={overlayMode === "none"}
             interruptAgent={() => {
               if (!agent) {
@@ -426,6 +428,31 @@ export default function TerminalChat({
               }
               // Force update to reflect debug status in UI if needed
               forceUpdate();
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
+        )}
+
+        {overlayMode === "prompt" && (
+          <PromptOverlay
+            currentInstructions={config.instructions || ""}
+            onSave={(newInstructions) => {
+              agent?.cancel();
+              setLoading(false);
+              setConfig((prev) => ({ ...prev, instructions: newInstructions }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Updated system instructions.`,
+                    },
+                  ],
+                },
+              ]);
+              setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
           />

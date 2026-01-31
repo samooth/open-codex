@@ -46,6 +46,9 @@ export default function HelpOverlay({
           <Text color="cyan">/config</Text> – toggle session settings (dry-run, debug)
         </Text>
         <Text>
+          <Text color="cyan">/prompt</Text> – edit system instructions
+        </Text>
+        <Text>
           <Text color="cyan">/history</Text> – show command &amp; file history
           for this session
         </Text>

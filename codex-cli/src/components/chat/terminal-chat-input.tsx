@@ -33,6 +33,7 @@ export default function TerminalChatInput({
   openApprovalOverlay,
   openHelpOverlay,
   openConfigOverlay,
+  openPromptOverlay,
   interruptAgent,
   active,
   allowAlwaysPatch,
@@ -55,6 +56,7 @@ export default function TerminalChatInput({
   openApprovalOverlay: () => void;
   openHelpOverlay: () => void;
   openConfigOverlay: () => void;
+  openPromptOverlay: () => void;
   interruptAgent: () => void;
   active: boolean;
   allowAlwaysPatch?: boolean;
@@ -168,6 +170,12 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (inputValue.startsWith("/prompt")) {
+        setInput("");
+        openPromptOverlay();
+        return;
+      }
+
       if (inputValue === "q" || inputValue === ":q" || inputValue === "exit") {
         setInput("");
         // wait one 60ms frame
@@ -251,6 +259,7 @@ export default function TerminalChatInput({
       openModelOverlay,
       openHelpOverlay,
       openConfigOverlay,
+      openPromptOverlay,
     ],
   );
 
