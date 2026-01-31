@@ -39,6 +39,9 @@ export function getDefaultProvider(): string {
   if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
     return "gemini";
   }
+  if (process.env["OLLAMA_BASE_URL"]) {
+    return "ollama";
+  }
   if (process.env["OPENROUTER_API_KEY"]) {
     return "openrouter";
   }
@@ -147,6 +150,11 @@ function defaultModelsForProvider(provider: string): {
         agentic: "gemini-3-pro-preview",
         fullContext: "gemini-2.5-pro",
       };
+    case "ollama":
+      return {
+        agentic: "llama3",
+        fullContext: "llama3",
+      };
     case "openrouter":
       return {
         agentic: "openai/o4-mini",
@@ -210,6 +218,7 @@ export type AppConfig = {
   memory?: MemoryConfig;
   dryRun?: boolean;
   allowAlwaysPatch?: boolean;
+  skipSemanticMemory?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -482,7 +491,50 @@ export const loadConfig = (
     approvalMode: storedConfig.approvalMode,
     fullAutoErrorMode: storedConfig.fullAutoErrorMode,
     memory: storedConfig.memory,
+    skipSemanticMemory: derivedProvider === "ollama",
   };
+
+  // -----------------------------------------------------------------------
+  // First‑run bootstrap: if the configuration file (and/or its containing
+  // directory) didn't exist we create them now so that users end up with a
+  // materialised ~/.codex/config.json file on first execution.  This mirrors
+  // what `saveConfig()` would do but without requiring callers to remember to
+  // invoke it separately.
+  //
+  // We intentionally perform this *after* we have computed the final
+  // `config` object so that we can just persist the resolved defaults.  The
+  // write operations are guarded by `existsSync` checks so that subsequent
+  // runs that already have a config will remain read‑only here.
+  // -----------------------------------------------------------------------
+
+  try {
+    if (!existsSync(actualConfigPath)) {
+      // Ensure the directory exists first.
+      const dir = dirname(actualConfigPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      // Persist a minimal config – we include the `model` key but leave it as
+      // an empty string so that `loadConfig()` treats it as "unset" and falls
+      // back to whatever DEFAULT_MODEL is current at runtime.  This prevents
+      // pinning users to an old default after upgrading Codex.
+      const ext = extname(actualConfigPath).toLowerCase();
+      // Empty stored config for initial bootstrap.
+      const EMPTY_STORED_CONFIG: StoredConfig = { model: "" };
+      const EMPTY_CONFIG_JSON = JSON.stringify(EMPTY_STORED_CONFIG, null, 2);
+
+      if (ext === ".yaml" || ext === ".yml") {
+        writeFileSync(actualConfigPath, dumpYaml(EMPTY_STORED_CONFIG), "utf-8");
+      } else {
+        writeFileSync(actualConfigPath, EMPTY_CONFIG_JSON, "utf-8");
+      }
+    }
+  } catch {
+    // Silently ignore any errors – failure to persist the defaults shouldn't
+    // block the CLI from starting.  A future explicit `codex config` command
+    // or `saveConfig()` call can handle (re‑)writing later.
+  }
 
   return config;
 };

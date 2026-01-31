@@ -672,7 +672,7 @@ export class AgentLoop {
                 ? latestUserInput.content.map(c => "text" in c ? c.text : "").join(" ") 
                 : "";
 
-            if (queryText) {
+            if (queryText && !this.config.skipSemanticMemory) {
               const snippets = await this.semanticMemory.findRelevant(queryText);
               if (snippets.length > 0) {
                 relevantMemory = `\n\n--- Relevant Project Memory ---\n${snippets.join("\n")}`;

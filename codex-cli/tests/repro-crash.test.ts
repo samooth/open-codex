@@ -21,8 +21,11 @@ describe("parseToolCallChatCompletion reproduction", () => {
 
   it("should not crash when parseToolCall has arguments for non-shell tool", () => {
     const toolCall: any = {
-      name: "search_codebase",
-      arguments: JSON.stringify({ pattern: "foo" }),
+      type: "function",
+      function: {
+        name: "search_codebase",
+        arguments: JSON.stringify({ pattern: "foo" }),
+      },
     };
 
     const details = parseToolCall(toolCall);

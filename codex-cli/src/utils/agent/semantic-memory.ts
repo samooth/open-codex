@@ -92,14 +92,19 @@ export class SemanticMemory {
         }
       }));
 
-      return scored
+      const topResults = scored
         .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .filter(s => s.score > 0.1) // Threshold to filter out completely irrelevant entries
+        .slice(0, limit);
+      
+      const relevant = topResults
+        .filter(s => s.score > 0.1)
         .map(s => s.line);
+
+      // If semantic search yields nothing relevant, return the most recent entries
+      return relevant.length > 0 ? relevant : lines.slice(-limit);
     } catch (err) {
       log(`Semantic memory search failed: ${String(err)}`);
-      return lines.slice(0, limit); // Fallback to first few entries
+      return lines.slice(-limit); // Fallback to most recent entries
     }
   }
 }

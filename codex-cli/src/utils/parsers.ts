@@ -37,8 +37,9 @@ const ToolCallArgsSchema = z
     // read_file_lines
     start_line: z.number().optional(),
     end_line: z.number().optional(),
-    // search_codebase
+    // search_codebase / query_memory
     pattern: z.string().optional(),
+    query: z.string().optional(),
     include: z.string().optional(),
     // persistent_memory
     fact: z.string().optional(),
@@ -53,11 +54,12 @@ const ToolCallArgsSchema = z
       data.patch ||
       data.path ||
       data.pattern ||
+      data.query ||
       data.fact ||
-      data.depth,
+      typeof data.depth === 'number',
     {
       message:
-        "Missing required property: one of 'command', 'cmd', 'patch', 'path', 'pattern', or 'depth' must be provided",
+        "Missing required property: one of 'command', 'cmd', 'patch', 'path', 'pattern', 'query', 'fact', or 'depth' must be provided",
     },
   );
 
@@ -356,9 +358,9 @@ export function tryExtractToolCallsFromContent(
     const blockContent = rawBlock.trim();
     if (!blockContent) continue;
 
+    let json;
     try {
       // Try to parse as JSON first
-      let json;
       try {
         json = JSON.parse(blockContent);
       } catch {
@@ -378,26 +380,25 @@ export function tryExtractToolCallsFromContent(
         continue;
       }
     } catch {
-      // Not JSON, treat as a raw shell command if it's a bash/shell block
-      if (!match[0].startsWith("```json")) {
-        const result = parseToolCallArguments(
-          JSON.stringify({ cmd: blockContent }),
-        );
-        if (result.success) {
-          if (!result.args) {
-            continue;
-          }
-          toolCalls.push({
-            id: `call_mb_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
-            type: "function",
-            function: {
-              name: "shell",
-              arguments: JSON.stringify({
-                cmd: result.args.cmd,
-              }),
-            },
-          });
-        }
+      // Ignore JSON parse/normalize errors and fall through to bash fallback
+    }
+
+    // Not valid JSON, treat as a raw shell command if it's a bash/shell block
+    if (!match[0].startsWith("```json")) {
+      const result = parseToolCallArguments(
+        JSON.stringify({ cmd: blockContent }),
+      );
+      if (result.success && result.args) {
+        toolCalls.push({
+          id: `call_mb_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
+          type: "function",
+          function: {
+            name: "shell",
+            arguments: JSON.stringify({
+              cmd: result.args.cmd,
+            }),
+          },
+        });
       }
     }
   }
@@ -586,6 +587,9 @@ function normalizeJsonToolCall(
     if (
       json.name === "search_codebase" ||
       json.name === "persistent_memory" ||
+      json.name === "query_memory" ||
+      json.name === "forget_memory" ||
+      json.name === "maintain_memory" ||
       json.name === "summarize_memory" ||
       json.name === "read_file_lines" ||
       json.name === "list_files_recursive" ||
@@ -605,7 +609,12 @@ function normalizeJsonToolCall(
     if (result.success) {
       const parsedArgs = result.args;
       if (!parsedArgs) {
-        return undefined;
+        // If it's a known tool name but failed to construct ExecInput args,
+        // we can still return it if it's one of the other tools.
+        return {
+          name: json.name,
+          arguments: argsStr,
+        };
       }
       return {
         name: (json.name === "apply_patch" || json.name === "repo_browser.exec" || json.name === "shell") ? "shell" : json.name,
@@ -618,13 +627,15 @@ function normalizeJsonToolCall(
     }
   }
   // Case 2: Direct command or arguments without name
-  else if (json.cmd || json.command || json.patch || json.path || json.pattern || json.depth) {
+  else if (json.cmd || json.command || json.patch || json.path || json.pattern || json.query || json.fact || json.depth) {
     const result = parseToolCallArguments(rawStr);
     if (result.success) {
       // Infer tool name
       let toolName = "shell";
       if (json.pattern) {
         toolName = "search_codebase";
+      } else if (json.query) {
+        toolName = "query_memory";
       } else if (json.start_line || json.end_line) {
         toolName = "read_file_lines";
       } else if (json.content !== undefined) {
@@ -643,10 +654,7 @@ function normalizeJsonToolCall(
         toolName = "read_file_lines";
       }
       const parsedArgs = result.args;
-      if (!parsedArgs) {
-        return undefined;
-      }
-      if (toolName === "shell") {
+      if (toolName === "shell" && parsedArgs) {
         return {
           name: "shell",
           arguments: JSON.stringify({
