@@ -8,8 +8,6 @@ import type {
 import type { ReasoningEffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
-import { join } from "path";
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
 import {
@@ -25,14 +23,16 @@ import {
   setSessionId,
 } from "../session.js";
 import { handleExecCommand } from "./handle-exec-command.js";
+import { tools } from "./tool-definitions.js";
+import * as handlers from "./tool-handlers.js";
 import { validateFileSyntax } from "./validate-file.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 // import { prefix } from "./system-prompt.js";
 // @ts-ignore
-import { tools } from "./tool-definitions.js";
 // @ts-ignore
-import * as handlers from "./tool-handlers.js";
+import { join } from "path";
 // import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
 
 // Wait time before retrying after rate limit errors (ms).
@@ -80,7 +80,7 @@ export class AgentLoop {
   private oai: OpenAI;
 
   private onItem: (item: ChatCompletionMessageParam) => void;
-  private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string) => void;
+  private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
   private onLoading: (loading: boolean) => void;
   private getCommandConfirmation: (
     command: Array<string>,
@@ -112,6 +112,9 @@ export class AgentLoop {
   private terminated = false;
   /** Master abort controller – fires when terminate() is invoked. */
   private hardAbort = new AbortController();
+
+  private currentActiveToolName: string | undefined = undefined;
+  private currentActiveToolRawArguments: string | undefined = undefined;
 
   private onReset: () => void;
 
@@ -313,19 +316,22 @@ export class AgentLoop {
         }
 
         // Map repo_browser aliases to standard names
-        if (name === "repo_browser.exec") name = "shell";
-        if (name === "repo_browser.read_file") name = "read_file";
-        if (name === "repo_browser.write_file") name = "write_file";
-        if (name === "repo_browser.read_file_lines") name = "read_file_lines";
-        if (name === "repo_browser.list_files") name = "list_files_recursive";
-        if (name === "repo_browser.print_tree") name = "list_files_recursive";
-        if (name === "repo_browser.list_directory") name = "list_directory";
-        if (name === "repo_browser.search") name = "search_codebase";
+        if (name === "repo_browser.exec") {name = "shell";}
+        if (name === "repo_browser.read_file") {name = "read_file";}
+        if (name === "repo_browser.write_file") {name = "write_file";}
+        if (name === "repo_browser.read_file_lines") {name = "read_file_lines";}
+        if (name === "repo_browser.list_files") {name = "list_files_recursive";}
+        if (name === "repo_browser.print_tree") {name = "list_files_recursive";}
+        if (name === "repo_browser.list_directory") {name = "list_directory";}
+        if (name === "repo_browser.search") {name = "search_codebase";}
       }
 
       const rawArguments: string | undefined = isChatStyle
         ? (toolCall as any).function?.arguments
         : (toolCall as any).arguments;
+
+      this.currentActiveToolName = name;
+      this.currentActiveToolRawArguments = rawArguments;
 
       const callId: string = (toolCall as any).id || (toolCall as any).call_id;
 
@@ -491,6 +497,8 @@ export class AgentLoop {
       if (additionalItems) {
         callResults.push(...additionalItems);
       }
+      this.currentActiveToolName = undefined;
+      this.currentActiveToolRawArguments = undefined;
       return callResults;
     });
 
@@ -703,8 +711,8 @@ export class AgentLoop {
 
       const entries = readdirSync(fullPath, { withFileTypes: true })
         .sort((a, b) => {
-          if (a.isDirectory() && !b.isDirectory()) return -1;
-          if (!a.isDirectory() && b.isDirectory()) return 1;
+          if (a.isDirectory() && !b.isDirectory()) {return -1;}
+          if (!a.isDirectory() && b.isDirectory()) {return 1;}
           return a.name.localeCompare(b.name);
         });
 
@@ -772,7 +780,7 @@ export class AgentLoop {
       const results: Array<any> = [];
 
       for (const line of lines) {
-        if (!line) continue;
+        if (!line) {continue;}
         try {
           const parsed = JSON.parse(line);
           if (parsed.type === "match") {
@@ -993,7 +1001,7 @@ export class AgentLoop {
         dir: string,
         currentDepth: number,
       ): Promise<string> => {
-        if (currentDepth > depth) return "";
+        if (currentDepth > depth) {return "";}
 
         let dirents: Array<import("fs").Dirent> = [];
         try {
@@ -1005,8 +1013,8 @@ export class AgentLoop {
         const entries = dirents
           .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
           .sort((a, b) => {
-            if (a.isDirectory() && !b.isDirectory()) return -1;
-            if (!a.isDirectory() && b.isDirectory()) return 1;
+            if (a.isDirectory() && !b.isDirectory()) {return -1;}
+            if (!a.isDirectory() && b.isDirectory()) {return 1;}
             return a.name.localeCompare(b.name);
           });
 
@@ -1789,15 +1797,16 @@ export class AgentLoop {
             const reasoning = (delta as any)?.reasoning_content;
             const tool_call = delta?.tool_calls?.[0];
 
-            let currentActiveToolName: string | undefined;
-            if (tool_call?.function?.name) {
-              currentActiveToolName = tool_call.function.name;
-            } else if (name !== undefined) { // Check if name is explicitly not undefined
-              currentActiveToolName = name;
-            }
-
-            if (content || reasoning || currentActiveToolName) {
-              this.onPartialUpdate?.(message?.content as string || "", reasoning, currentActiveToolName);
+            if (content || reasoning || this.currentActiveToolName || this.currentActiveToolRawArguments) {
+              let parsedArgs: Record<string, any> | undefined;
+              if (this.currentActiveToolRawArguments) {
+                try {
+                  parsedArgs = JSON.parse(this.currentActiveToolRawArguments);
+                } catch {
+                  parsedArgs = { raw: this.currentActiveToolRawArguments };
+                }
+              }
+              this.onPartialUpdate?.(message?.content as string || "", reasoning, this.currentActiveToolName, parsedArgs);
             }
 
             if (!message) {

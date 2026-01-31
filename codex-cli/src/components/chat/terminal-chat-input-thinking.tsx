@@ -69,11 +69,13 @@ export default function TerminalChatInputThinking({
   active,
   partialReasoning,
   activeToolName,
+  activeToolArguments,
 }: {
   onInterrupt: () => void;
   active: boolean;
   partialReasoning?: string;
   activeToolName?: string;
+  activeToolArguments?: Record<string, any>;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -202,6 +204,7 @@ export default function TerminalChatInputThinking({
           {displayedLines.join('\n')}
           {showScrollIndicatorBottom ? ' ▼' : ''}
           {activeToolName ? ` [${activeToolName}]` : ''}
+          {activeToolArguments && ` Args: ${JSON.stringify(activeToolArguments).slice(0, 50)}...`}
           {dots}
         </Text>
       </Box>

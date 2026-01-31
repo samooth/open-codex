@@ -2,12 +2,12 @@ import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
+import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "../vendor/ink-select/select";
-import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
@@ -41,6 +41,7 @@ export default function TerminalChatInput({
   awaitingContinueConfirmation,
   queuedPromptsCount,
   activeToolName,
+  activeToolArguments,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -68,6 +69,7 @@ export default function TerminalChatInput({
   awaitingContinueConfirmation?: boolean;
   queuedPromptsCount: number;
   activeToolName?: string;
+  activeToolArguments?: Record<string, any>;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -353,6 +355,7 @@ export default function TerminalChatInput({
             active={active}
             partialReasoning={partialReasoning}
             activeToolName={activeToolName}
+            activeToolArguments={activeToolArguments}
           />
         </Box>
       )}

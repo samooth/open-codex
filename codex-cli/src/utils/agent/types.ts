@@ -15,7 +15,7 @@ export type AgentLoopParams = {
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
   onItem: (item: ChatCompletionMessageParam) => void;
-  onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string) => void;
+  onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
   onLoading: (loading: boolean) => void;
   onReset: () => void;
 

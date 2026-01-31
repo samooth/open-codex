@@ -20,10 +20,10 @@ import { CLI_VERSION } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
+import ConfigOverlay from "../config-overlay.js";
 import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
-import ConfigOverlay from "../config-overlay.js";
 import PromptOverlay from "../prompt-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
@@ -64,6 +64,7 @@ export default function TerminalChat({
   const [thinkingSeconds, setThinkingSeconds] = useState(0);
   const [partialReasoning, setPartialReasoning] = useState<string>("");
   const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
+  const [activeToolArguments, setActiveToolArguments] = useState<Record<string, any> | undefined>(undefined);
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
   >([]);
@@ -133,7 +134,7 @@ export default function TerminalChat({
       instructions: config.instructions,
       approvalPolicy,
       onReset: () => setPrevItems([]),
-      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string) => {
+      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         if (reasoning) {
           setPartialReasoning((prev) => prev + reasoning);
         } else if (content) {
@@ -152,6 +153,7 @@ export default function TerminalChat({
           }
         }
         setActiveToolName(activeToolName);
+        setActiveToolArguments(activeToolArguments);
       },
       onItem: (item) => {
         log(`onItem: ${JSON.stringify(item)}`);
@@ -380,6 +382,7 @@ export default function TerminalChat({
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
             activeToolName={activeToolName}
+            activeToolArguments={activeToolArguments}
             queuedPromptsCount={promptQueue.length}
             interruptAgent={() => {
               if (!agent) {
