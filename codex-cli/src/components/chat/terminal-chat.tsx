@@ -138,13 +138,13 @@ export default function TerminalChat({
         if (reasoning) {
           setPartialReasoning((prev) => prev + reasoning);
         } else if (content) {
-          // Extract <thought> content if present
-          const thoughtMatch = content.match(/<thought>([\s\S]*?)$|(<thought>[\s\S]*?<\/thought>)/g);
+          // Extract <thought> or <think> content if present
+          const thoughtMatch = content.match(/<(thought|think)>([\s\S]*?)$|(<(thought|think)>[\s\S]*?<\/\4>)/g);
           if (thoughtMatch && thoughtMatch.length > 0) {
              const lastThought = thoughtMatch[thoughtMatch.length - 1];
              if (lastThought) {
                const cleanThought = lastThought
-                 .replace(/<\/?thought>/g, "")
+                 .replace(/<\/?(thought|think)>/g, "")
                  .trim();
                if (cleanThought) {
                  setPartialReasoning(cleanThought);

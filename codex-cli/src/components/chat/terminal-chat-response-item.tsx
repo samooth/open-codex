@@ -152,11 +152,11 @@ function TerminalChatResponseMessage({
     );
   }
 
-  // Extract <thought> blocks
+  // Extract <thought> or <think> blocks
   const thoughts: Array<string> = [];
   const displayContent = content.replace(
-    /<thought>([\s\S]*?)<\/thought>/g,
-    (_, thought) => {
+    /<(thought|think)>([\s\S]*?)<\/\1>/g,
+    (_, _tagName, thought) => {
       thoughts.push(thought.trim());
       return "";
     },
