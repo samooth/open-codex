@@ -155,18 +155,50 @@ export default function TerminalChatInputThinking({
     { isActive: active },
   );
 
-  const displayReasoning = partialReasoning
-    ? partialReasoning.length > 100
-      ? "..." + partialReasoning.slice(-100)
-      : partialReasoning
-    : thinkingText;
+  const displayReasoning = partialReasoning || thinkingText;
+
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const maxDisplayLines = 3; // Maximum lines to display
+
+  const rawLines = (displayReasoning || "").split('\n');
+  const totalLines = rawLines.length;
+  let displayedLines = rawLines;
+  let showScrollIndicatorTop = false;
+  let showScrollIndicatorBottom = false;
+
+  let actualStartIndex = 0;
+
+  if (totalLines > maxDisplayLines) {
+    actualStartIndex = Math.max(0, totalLines - maxDisplayLines - scrollOffset);
+    displayedLines = rawLines.slice(actualStartIndex, actualStartIndex + maxDisplayLines);
+
+    if (actualStartIndex > 0) {
+      showScrollIndicatorTop = true;
+    }
+    if ((actualStartIndex + maxDisplayLines) < totalLines) {
+      showScrollIndicatorBottom = true;
+    }
+  }
+
+  // Handle scrolling with arrow keys
+  useInput((_input, key) => {
+    if (active && partialReasoning) {
+      if (key.upArrow) {
+        setScrollOffset((prev) => Math.min(totalLines - maxDisplayLines, prev + 1));
+      } else if (key.downArrow) {
+        setScrollOffset((prev) => Math.max(0, prev - 1));
+      }
+    }
+  });
 
   return (
     <Box flexDirection="column" gap={1}>
       <Box gap={2}>
         <Spinner type="ball" />
         <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
-          {displayReasoning}
+          {showScrollIndicatorTop ? '▲ ' : ''}
+          {displayedLines.join('\n')}
+          {showScrollIndicatorBottom ? ' ▼' : ''}
           {dots}
         </Text>
       </Box>
