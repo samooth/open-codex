@@ -25,6 +25,7 @@ import {
   setSessionId,
 } from "../session.js";
 import { handleExecCommand } from "./handle-exec-command.js";
+import { validateFileSyntax } from "./validate-file.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { prefix } from "./system-prompt.js";
@@ -396,6 +397,25 @@ export class AgentLoop {
         outputText = result.outputText;
         metadata = result.metadata;
         additionalItems = result.additionalItems;
+
+        // --- AUTO-CORRECTION LOOP for apply_patch ---
+        if (name === "apply_patch" && metadata.exit_code === 0 && args.patch) {
+          const { identify_files_needed, identify_files_added } = await import("./apply-patch.js");
+          const affectedFiles = [
+            ...identify_files_needed(args.patch),
+            ...identify_files_added(args.patch)
+          ];
+          
+          for (const file of affectedFiles) {
+            const validation = await validateFileSyntax(file);
+            if (!validation.isValid) {
+              outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
+              metadata.exit_code = 1;
+              metadata.syntax_error = true;
+              break;
+            }
+          }
+        }
       } else if (name === "search_codebase") {
         const result = await this.handleSearchCodebase(rawArguments ?? "{}");
         outputText = result.outputText;
@@ -563,6 +583,16 @@ export class AgentLoop {
       }
 
       writeFileSync(fullPath, content, "utf-8");
+
+      // --- AUTO-CORRECTION LOOP ---
+      const validation = await validateFileSyntax(fullPath);
+      if (!validation.isValid) {
+        return {
+          outputText: `Error: The file was written but contains syntax errors:\n${validation.error}\nPlease fix the errors and write the file again.`,
+          metadata: { exit_code: 1, path: filePath, syntax_error: true },
+        };
+      }
+
       return {
         outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
         metadata: { exit_code: 0, path: filePath },
