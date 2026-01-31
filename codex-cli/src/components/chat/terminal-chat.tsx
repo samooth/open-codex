@@ -62,6 +62,11 @@ export default function TerminalChat({
     initialApprovalPolicy,
   );
   const [thinkingSeconds, setThinkingSeconds] = useState(0);
+  const [partialReasoning, setPartialReasoning] = useState<string>("");
+  const [promptQueue, setPromptQueue] = useState<
+    Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
+  >([]);
+
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
@@ -127,6 +132,25 @@ export default function TerminalChat({
       instructions: config.instructions,
       approvalPolicy,
       onReset: () => setPrevItems([]),
+      onPartialUpdate: (content: string, reasoning?: string) => {
+        if (reasoning) {
+          setPartialReasoning((prev) => prev + reasoning);
+        } else if (content) {
+          // Extract <thought> content if present
+          const thoughtMatch = content.match(/<thought>([\s\S]*?)$|(<thought>[\s\S]*?<\/thought>)/g);
+          if (thoughtMatch && thoughtMatch.length > 0) {
+             const lastThought = thoughtMatch[thoughtMatch.length - 1];
+             if (lastThought) {
+               const cleanThought = lastThought
+                 .replace(/<\/?thought>/g, "")
+                 .trim();
+               if (cleanThought) {
+                 setPartialReasoning(cleanThought);
+               }
+             }
+          }
+        }
+      },
       onItem: (item) => {
         log(`onItem: ${JSON.stringify(item)}`);
         setItems((prev) => {
@@ -181,7 +205,12 @@ export default function TerminalChat({
           return [...prev, item];
         });
       },
-      onLoading: setLoading,
+      onLoading: (isLoading) => {
+        if (isLoading) {
+          setPartialReasoning("");
+        }
+        setLoading(isLoading);
+      },
       getCommandConfirmation: async (
         command: Array<string>,
         applyPatch: ApplyPatchCommand | undefined,
@@ -247,6 +276,17 @@ export default function TerminalChat({
       log(`agentRef.current is now ${Boolean(agent)}`);
     }
   }, [agent]);
+
+  // Effect to process the prompt queue
+  useEffect(() => {
+    if (agent && !loading && promptQueue.length > 0) {
+      const nextPrompt = promptQueue[0];
+      if (nextPrompt) {
+        setPromptQueue((prev) => prev.slice(1)); // Remove the processed prompt
+        agent.run(nextPrompt.inputs, nextPrompt.prevItems);
+      }
+    }
+  }, [agent, loading, promptQueue]);
 
   // ---------------------------------------------------------------------
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
@@ -336,6 +376,7 @@ export default function TerminalChat({
             openConfigOverlay={() => setOverlayMode("config")}
             openPromptOverlay={() => setOverlayMode("prompt")}
             active={overlayMode === "none"}
+            partialReasoning={partialReasoning}
             interruptAgent={() => {
               if (!agent) {
                 return;
@@ -349,7 +390,12 @@ export default function TerminalChat({
               setLoading(false);
             }}
             submitInput={(inputs) => {
-              agent.run(inputs, prevItems);
+              // If agent is not loading, run immediately. Otherwise, queue.
+              if (!loading) {
+                agent.run(inputs, prevItems);
+              } else {
+                setPromptQueue((prev) => [...prev, { inputs, prevItems }]);
+              }
               return {};
             }}
             allowAlwaysPatch={config.allowAlwaysPatch}

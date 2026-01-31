@@ -3,7 +3,7 @@ import type {
   ExecOutputMetadata,
 } from "./agent/sandbox/interface.js";
 import type { ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
-import type { ResponseFunctionToolCall } from "openai/resources/responses/responses.mjs";
+// import type { ResponseFunctionToolCall } from "openai/resources/responses/responses.mjs";
 
 import { formatCommandForDisplay } from "../format-command.js";
 import { parse } from "shell-quote";
@@ -106,12 +106,14 @@ export function parseToolCallChatCompletion(
     };
   }
   if (result.args) {
-    const { cmd } = result.args;
-    const cmdReadableText = formatCommandForDisplay(cmd);
-    return {
-      cmd,
-      cmdReadableText,
-    };
+    const cmd = result.args.cmd;
+    if (cmd) {
+      const cmdReadableText = formatCommandForDisplay(cmd);
+      return {
+        cmd,
+        cmdReadableText,
+      };
+    }
   }
   return {
     cmd: [],
@@ -120,29 +122,34 @@ export function parseToolCallChatCompletion(
 }
 
 export function parseToolCall(
-  toolCall: ResponseFunctionToolCall,
+  toolCall: ChatCompletionMessageToolCall,
 ): CommandReviewDetails | undefined {
-  const result = parseToolCallArguments(toolCall.arguments);
+  if (toolCall.type !== "function") {
+    return undefined;
+  }
+  const result = parseToolCallArguments(toolCall.function.arguments);
   if (!result.success) {
     return {
       cmd: [],
-      cmdReadableText: toolCall.arguments,
+      cmdReadableText: toolCall.function.arguments,
     };
   }
 
   if (result.args) {
-    const { cmd } = result.args;
-    const cmdReadableText = formatCommandForDisplay(cmd);
+    const cmd = result.args.cmd;
+    if (cmd) {
+      const cmdReadableText = formatCommandForDisplay(cmd);
 
-    return {
-      cmd,
-      cmdReadableText,
-    };
+      return {
+        cmd,
+        cmdReadableText,
+      };
+    }
   }
 
   return {
     cmd: [],
-    cmdReadableText: `${toolCall.name} ${toolCall.arguments}`,
+    cmdReadableText: `${toolCall.function.name} ${toolCall.function.arguments}`,
   };
 }
 
@@ -195,23 +202,28 @@ export function parseToolCallArguments(
   }
 
   const data = result.data;
-  const commandArray = toStringArray(data.cmd) ?? toStringArray(data.command);
-
-  // If we have a command or patch, we wrap it into the ExecInput format
-  if (commandArray || typeof data.patch === "string") {
-    const finalCmd = 
-      commandArray ?? (data.patch ? ["apply_patch", data.patch] : []);
-    return {
-      success: true,
-      args: {
-        cmd: finalCmd,
-        workdir: data.workdir,
-        timeoutInMillis: data.timeout,
-      },
-    };
-  }
-
-  // Otherwise, return the raw data object (for other tools like search_codebase)
+        const commandArray = toStringArray(data.cmd) ?? toStringArray(data.command);
+    
+        // If we have a command or patch, we wrap it into the ExecInput format
+        if (commandArray || typeof data.patch === "string") {
+          const finalCmd =
+            commandArray ?? (data.patch ? ["apply_patch", data.patch] : []);
+          if (!finalCmd) {
+            return {
+              success: false,
+              error: "Failed to construct command array for ExecInput",
+            };
+          }
+          const args: ExecInput = {
+            cmd: finalCmd,
+            workdir: data.workdir,
+            timeoutInMillis: data.timeout,
+          };
+          return {
+            success: true,
+            args,
+          };
+        }  // Otherwise, return the raw data object (for other tools like search_codebase)
   return {
     success: true,
     data: data,
@@ -255,6 +267,9 @@ export function tryExtractToolCallsFromContent(
           JSON.stringify({ cmd: blockContent }),
         );
         if (result.success) {
+          if (!result.args) {
+            continue;
+          }
           toolCalls.push({
             id: `call_mb_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
             type: "function",
@@ -420,6 +435,9 @@ function normalizeJsonToolCall(
     const result = parseToolCallArguments(argsStr);
     if (result.success) {
       const parsedArgs = result.args;
+      if (!parsedArgs) {
+        return undefined;
+      }
       return {
         name: (json.name === "apply_patch" || json.name === "repo_browser.exec" || json.name === "shell") ? "shell" : json.name,
         arguments: JSON.stringify({
@@ -455,14 +473,17 @@ function normalizeJsonToolCall(
       if (json.name === "repo_browser.read_file_lines") {
         toolName = "read_file_lines";
       }
-
+      const parsedArgs = result.args;
+      if (!parsedArgs) {
+        return undefined;
+      }
       if (toolName === "shell") {
         return {
           name: "shell",
           arguments: JSON.stringify({
-            cmd: result.args.cmd,
-            workdir: result.args.workdir,
-            timeout: result.args.timeoutInMillis,
+            cmd: parsedArgs.cmd,
+            workdir: parsedArgs.workdir,
+            timeout: parsedArgs.timeoutInMillis,
           }),
         };
       }

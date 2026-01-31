@@ -34,6 +34,8 @@ test("AgentLoop.handleWriteFile returns dry run message when dryRun is enabled",
     instructions: "",
     approvalPolicy: AutoApprovalMode.FULL_AUTO,
     onItem: vi.fn(),
+    onLoading: vi.fn(),
+    onReset: vi.fn(),
     getCommandConfirmation: async () => ({ review: ReviewDecision.YES }),
   });
 

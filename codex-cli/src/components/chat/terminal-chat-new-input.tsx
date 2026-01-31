@@ -5,15 +5,16 @@ import type { ResponseItem } from "openai/resources/responses/responses.mjs";
 
 import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
-import { log, isLoggingEnabled } from "../../utils/agent/log.js";
+// import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
-import Spinner from "../vendor/ink-spinner.js";
-import { Box, Text, useApp, useInput, useStdin } from "ink";
+// import Spinner from "../vendor/ink-spinner.js";
+import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
+import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, Fragment } from "react";
-import { useInterval } from "use-interval";
+// import { useInterval } from "use-interval";
 
 const suggestions = [
   "explain this codebase to me",
@@ -29,39 +30,40 @@ const typeHelpText = `ctrl+c to exit | "/clear" to reset context | "/help" for c
 const DEBUG_HIST =
   process.env["DEBUG_TCI"] === "1" || process.env["DEBUG_TCI"] === "true";
 
-const thinkingTexts = ["Thinking"]; /* [
-  "Consulting the rubber duck",
-  "Maximizing paperclips",
-  "Reticulating splines",
-  "Immanentizing the Eschaton",
-  "Thinking",
-  "Thinking about thinking",
-  "Spinning in circles",
-  "Counting dust specks",
-  "Updating priors",
-  "Feeding the utility monster",
-  "Taking off",
-  "Wireheading",
-  "Counting to infinity",
-  "Staring into the Basilisk",
-  "Running acausal tariff negotiations",
-  "Searching the library of babel",
-  "Multiplying matrices",
-  "Solving the halting problem",
-  "Counting grains of sand",
-  "Simulating a simulation",
-  "Asking the oracle",
-  "Detangling qubits",
-  "Reading tea leaves",
-  "Pondering universal love and transcendent joy",
-  "Feeling the AGI",
-  "Shaving the yak",
-  "Escaping local minima",
-  "Pruning the search tree",
-  "Descending the gradient",
-  "Painting the bikeshed",
-  "Securing funding",
-]; */
+// const thinkingTexts = ["Thinking"]; /* [
+//   "Consulting the rubber duck",
+//   "Maximizing paperclips",
+//   "Reticulating splines",
+//   "Immanentizing the Eschaton",
+//   "Thinking",
+//   "Thinking about thinking",
+//   "Spinning in circles",
+//   "Counting dust specks",
+//   "Updating priors",
+//   "Feeding the utility monster",
+//   "Taking off",
+//   "Wireheading",
+//   "Counting to infinity",
+//   "Staring into the Basilisk",
+//   "Running acausal tariff negotiations",
+//   "Searching the library of babel",
+//   "Multiplying matrices",
+//   "Solving the halting problem",
+//   "Counting grains of sand",
+//   "Simulating a simulation",
+//   "Asking the oracle",
+//   "Detangling qubits",
+//   "Reading tea leaves",
+//   "Pondering universal love and transcendent joy",
+//   "Feeling the AGI",
+//   "Shaving the yak",
+//   "Escaping local minima",
+//   "Pruning the search tree",
+//   "Descending the gradient",
+//   "Painting the bikeshed",
+//   "Securing funding",
+// ]; */
+
 
 export default function TerminalChatInput({
   isNew: _isNew,
@@ -78,6 +80,7 @@ export default function TerminalChatInput({
   openHelpOverlay,
   interruptAgent,
   active,
+  partialReasoning,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -96,6 +99,7 @@ export default function TerminalChatInput({
   openHelpOverlay: () => void;
   interruptAgent: () => void;
   active: boolean;
+  partialReasoning?: string;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -334,6 +338,7 @@ export default function TerminalChatInput({
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}
             active={active}
+            partialReasoning={partialReasoning}
           />
         </Box>
       ) : (
@@ -396,108 +401,4 @@ export default function TerminalChatInput({
   );
 }
 
-function TerminalChatInputThinking({
-  onInterrupt,
-  active,
-}: {
-  onInterrupt: () => void;
-  active: boolean;
-}) {
-  const [dots, setDots] = useState("");
-  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
 
-  const [thinkingText] = useState(
-    () => thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)],
-  );
-
-  // ---------------------------------------------------------------------
-  // Raw stdin listener to catch the case where the terminal delivers two
-  // consecutive ESC bytes ("\x1B\x1B") in a *single* chunk. Ink's `useInput`
-  // collapses that sequence into one key event, so the regular two‑step
-  // handler above never sees the second press.  By inspecting the raw data
-  // we can identify this special case and trigger the interrupt while still
-  // requiring a double press for the normal single‑byte ESC events.
-  // ---------------------------------------------------------------------
-
-  const { stdin, setRawMode } = useStdin();
-
-  React.useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    // Ensure raw mode – already enabled by Ink when the component has focus,
-    // but called defensively in case that assumption ever changes.
-    setRawMode?.(true);
-
-    const onData = (data: Buffer | string) => {
-      if (awaitingConfirm) {
-        return; // already awaiting a second explicit press
-      }
-
-      // Handle both Buffer and string forms.
-      const str = Buffer.isBuffer(data) ? data.toString("utf8") : data;
-      if (str === "\x1b\x1b") {
-        // Treat as the first Escape press – prompt the user for confirmation.
-        if (isLoggingEnabled()) {
-          log(
-            "raw stdin: received collapsed ESC ESC – starting confirmation timer",
-          );
-        }
-        setAwaitingConfirm(true);
-        setTimeout(() => setAwaitingConfirm(false), 1500);
-      }
-    };
-
-    stdin?.on("data", onData);
-
-    return () => {
-      stdin?.off("data", onData);
-    };
-  }, [stdin, awaitingConfirm, onInterrupt, active, setRawMode]);
-
-  useInterval(() => {
-    setDots((prev) => (prev.length < 3 ? prev + "." : ""));
-  }, 500);
-
-  useInput(
-    (_input, key) => {
-      if (!key.escape) {
-        return;
-      }
-
-      if (awaitingConfirm) {
-        if (isLoggingEnabled()) {
-          log("useInput: second ESC detected – triggering onInterrupt()");
-        }
-        onInterrupt();
-        setAwaitingConfirm(false);
-      } else {
-        if (isLoggingEnabled()) {
-          log("useInput: first ESC detected – waiting for confirmation");
-        }
-        setAwaitingConfirm(true);
-        setTimeout(() => setAwaitingConfirm(false), 1500);
-      }
-    },
-    { isActive: active },
-  );
-
-  return (
-    <Box flexDirection="column" gap={1}>
-      <Box gap={2}>
-        <Spinner type="ball" />
-        <Text>
-          {thinkingText}
-          {dots}
-        </Text>
-      </Box>
-      {awaitingConfirm && (
-        <Text dimColor>
-          Press <Text bold>Esc</Text> again to interrupt and enter a new
-          instruction
-        </Text>
-      )}
-    </Box>
-  );
-}

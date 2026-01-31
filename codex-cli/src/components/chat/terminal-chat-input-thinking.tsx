@@ -4,12 +4,12 @@ import { Box, Text, useInput, useStdin } from "ink";
 import React, { useState } from "react";
 import { useInterval } from "use-interval";
 
-const thinkingTexts = ["Thinking"]; /* [
+const thinkingTexts = [
+  "Thinking",
   "Consulting the rubber duck",
   "Maximizing paperclips",
   "Reticulating splines",
   "Immanentizing the Eschaton",
-  "Thinking",
   "Thinking about thinking",
   "Spinning in circles",
   "Counting dust specks",
@@ -19,7 +19,7 @@ const thinkingTexts = ["Thinking"]; /* [
   "Wireheading",
   "Counting to infinity",
   "Staring into the Basilisk",
-  "Negotiationing acausal trades",
+  "Negotiating acausal trades",
   "Searching the library of babel",
   "Multiplying matrices",
   "Solving the halting problem",
@@ -62,14 +62,16 @@ const thinkingTexts = ["Thinking"]; /* [
   "Channeling",
   "Cooking",
   "Parroting stochastically",
-]; */
+];
 
 export default function TerminalChatInputThinking({
   onInterrupt,
   active,
+  partialReasoning,
 }: {
   onInterrupt: () => void;
   active: boolean;
+  partialReasoning?: string;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -153,12 +155,18 @@ export default function TerminalChatInputThinking({
     { isActive: active },
   );
 
+  const displayReasoning = partialReasoning
+    ? partialReasoning.length > 100
+      ? "..." + partialReasoning.slice(-100)
+      : partialReasoning
+    : thinkingText;
+
   return (
     <Box flexDirection="column" gap={1}>
       <Box gap={2}>
         <Spinner type="ball" />
-        <Text>
-          {thinkingText}
+        <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
+          {displayReasoning}
           {dots}
         </Text>
       </Box>

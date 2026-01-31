@@ -151,12 +151,42 @@ function TerminalChatResponseMessage({
       />
     );
   }
+
+  // Extract <thought> blocks
+  const thoughts: Array<string> = [];
+  const displayContent = content.replace(
+    /<thought>([\s\S]*?)<\/thought>/g,
+    (_, thought) => {
+      thoughts.push(thought.trim());
+      return "";
+    },
+  );
+
   return (
     <Box flexDirection="column">
       <Text bold color={colorsByRole[message.role] || "gray"}>
         {message.role === "assistant" ? "opencodex" : message.role}
       </Text>
-      <Markdown>{content}</Markdown>
+      {thoughts.map((thought, i) => (
+        <Box
+          key={i}
+          flexDirection="column"
+          paddingLeft={2}
+          borderStyle="round"
+          borderColor="gray"
+          dimColor
+          marginTop={1}
+          marginBottom={1}
+        >
+          <Text italic color="cyan">
+            thought
+          </Text>
+          <Text italic>{thought}</Text>
+        </Box>
+      ))}
+      {displayContent.trim().length > 0 && (
+        <Markdown>{displayContent.trim()}</Markdown>
+      )}
     </Box>
   );
 }

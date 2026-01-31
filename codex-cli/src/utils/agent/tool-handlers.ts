@@ -24,7 +24,7 @@ export async function handleReadFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["cat", filePath] },
+      { cmd: ["cat", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -76,7 +76,7 @@ export async function handleWriteFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["write_file", filePath] }, // Synthetic command for authorization
+      { cmd: ["write_file", filePath], workdir: process.cwd(), timeoutInMillis: 30000 }, // Synthetic command for authorization
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -133,7 +133,7 @@ export async function handleDeleteFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["rm", filePath] },
+      { cmd: ["rm", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -186,7 +186,7 @@ export async function handleListDirectory(
     const { path: dirPath = "." } = args;
 
     const execResult = await handleExecCommand(
-      { cmd: ["ls", dirPath] },
+      { cmd: ["ls", dirPath], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -294,9 +294,9 @@ export async function handleSearchCodebase(
       }
     }
 
-    if (results.length === 0 && metadata.exit_code !== 0 && metadata.exit_code !== 1) {
+    if (results.length === 0 && metadata["exit_code"] !== 0 && metadata["exit_code"] !== 1) {
       return {
-        outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
+        outputText: `Error: search_codebase failed with exit code ${metadata["exit_code"]}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
         metadata,
       };
     }
@@ -337,7 +337,7 @@ export async function handlePersistentMemory(
 
     const entry = `[${category}] ${fact}`;
     const result = await handleExecCommand(
-      { cmd: ["persistent_memory", entry] },
+      { cmd: ["persistent_memory", entry], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -425,7 +425,7 @@ export async function handleReadFileLines(
     }
 
     const result = await handleExecCommand(
-      { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`] },
+      { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -483,7 +483,7 @@ export async function handleListFilesRecursive(
     const { path: startPath = ".", depth = 3 } = args;
 
     const result = await handleExecCommand(
-      { cmd: ["ls", "-R", startPath] },
+      { cmd: ["ls", "-R", startPath], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,

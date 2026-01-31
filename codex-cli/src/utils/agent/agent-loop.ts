@@ -5,7 +5,7 @@ import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions/completions.mjs";
-import type { reasoningeffort } from "openai/resources.mjs";
+import type { ReasoningEffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
@@ -28,10 +28,12 @@ import { handleExecCommand } from "./handle-exec-command.js";
 import { validateFileSyntax } from "./validate-file.js";
 import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
-import { prefix } from "./system-prompt.js";
+// import { prefix } from "./system-prompt.js";
+// @ts-ignore
 import { tools } from "./tool-definitions.js";
+// @ts-ignore
 import * as handlers from "./tool-handlers.js";
-import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
+// import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -53,6 +55,7 @@ type AgentLoopParams = {
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
   onItem: (item: ChatCompletionMessageParam) => void;
+  onPartialUpdate?: (content: string, reasoning?: string) => void;
   onLoading: (loading: boolean) => void;
   onReset: () => void;
 
@@ -77,6 +80,7 @@ export class AgentLoop {
   private oai: OpenAI;
 
   private onItem: (item: ChatCompletionMessageParam) => void;
+  private onPartialUpdate?: (content: string, reasoning?: string) => void;
   private onLoading: (loading: boolean) => void;
   private getCommandConfirmation: (
     command: Array<string>,
@@ -219,6 +223,7 @@ export class AgentLoop {
     // `config.apiKey` below.
     config,
     onItem,
+    onPartialUpdate,
     onLoading,
     getCommandConfirmation,
     onReset,
@@ -239,6 +244,7 @@ export class AgentLoop {
         instructions: instructions ?? "",
       } as AppConfig);
     this.onItem = onItem;
+    this.onPartialUpdate = onPartialUpdate;
     this.onLoading = onLoading;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onReset = onReset;
@@ -299,8 +305,12 @@ export class AgentLoop {
       if (name) {
         // Strip common model-specific suffixes that leak into tool names
         name = name.split("<|")[0];
-        name = name.split("---")[0];
-        name = name.trim();
+        if (name) {
+          name = name.split("---")[0];
+        }
+        if (name) {
+          name = name.trim();
+        }
 
         // Map repo_browser aliases to standard names
         if (name === "repo_browser.exec") name = "shell";
@@ -399,19 +409,19 @@ export class AgentLoop {
         additionalItems = result.additionalItems;
 
         // --- AUTO-CORRECTION LOOP for apply_patch ---
-        if (name === "apply_patch" && metadata.exit_code === 0 && args.patch) {
+        if (name === "apply_patch" && metadata["exit_code"] === 0 && (args as any).patch) {
           const { identify_files_needed, identify_files_added } = await import("./apply-patch.js");
           const affectedFiles = [
-            ...identify_files_needed(args.patch),
-            ...identify_files_added(args.patch)
+            ...identify_files_needed((args as any).patch),
+            ...identify_files_added((args as any).patch)
           ];
           
           for (const file of affectedFiles) {
             const validation = await validateFileSyntax(file);
             if (!validation.isValid) {
               outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
-              metadata.exit_code = 1;
-              metadata.syntax_error = true;
+              metadata["exit_code"] = 1;
+              metadata["syntax_error"] = true;
               break;
             }
           }
@@ -467,7 +477,7 @@ export class AgentLoop {
       outputItem.content = JSON.stringify({ output: outputText, metadata });
 
       // Update history for loop detection
-      if (metadata.exit_code !== 0) {
+      if (metadata["exit_code"] !== 0) {
         this.toolCallHistory.set(toolCallKey, {
           count: history.count + 1,
           lastError: outputText.slice(0, 200), // Store a snippet of the error
@@ -477,7 +487,7 @@ export class AgentLoop {
         this.toolCallHistory.delete(toolCallKey);
       }
 
-      const callResults = [outputItem];
+      const callResults: Array<ChatCompletionMessageParam> = [outputItem];
       if (additionalItems) {
         callResults.push(...additionalItems);
       }
@@ -509,7 +519,7 @@ export class AgentLoop {
       }
 
       const execResult = await handleExecCommand(
-        { cmd: ["cat", filePath] },
+        { cmd: ["cat", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -558,7 +568,7 @@ export class AgentLoop {
       }
 
       const execResult = await handleExecCommand(
-        { cmd: ["write_file", filePath] }, // Synthetic command for authorization
+        { cmd: ["write_file", filePath], workdir: process.cwd(), timeoutInMillis: 30000 }, // Synthetic command for authorization
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -622,7 +632,7 @@ export class AgentLoop {
       }
 
       const execResult = await handleExecCommand(
-        { cmd: ["rm", filePath] },
+        { cmd: ["rm", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -672,7 +682,7 @@ export class AgentLoop {
       const { path: dirPath = "." } = args;
 
       const execResult = await handleExecCommand(
-        { cmd: ["ls", dirPath] },
+        { cmd: ["ls", dirPath], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -777,9 +787,9 @@ export class AgentLoop {
         }
       }
 
-      if (results.length === 0 && metadata.exit_code !== 0 && metadata.exit_code !== 1) {
+      if (results.length === 0 && metadata["exit_code"] !== 0 && metadata["exit_code"] !== 1) {
         return {
-          outputText: `Error: search_codebase failed with exit code ${metadata.exit_code}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
+          outputText: `Error: search_codebase failed with exit code ${metadata["exit_code"]}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
           metadata,
         };
       }
@@ -817,7 +827,7 @@ export class AgentLoop {
 
       const entry = `[${category}] ${fact}`;
       const result = await handleExecCommand(
-        { cmd: ["persistent_memory", entry] },
+        { cmd: ["persistent_memory", entry], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -904,7 +914,7 @@ export class AgentLoop {
       }
 
       const result = await handleExecCommand(
-        { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`] },
+        { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -960,7 +970,7 @@ export class AgentLoop {
       const { path: startPath = ".", depth = 3 } = args;
 
       const result = await handleExecCommand(
-        { cmd: ["ls", "-R", startPath] },
+        { cmd: ["ls", "-R", startPath], workdir: process.cwd(), timeoutInMillis: 30000 },
         this.config,
         this.approvalPolicy,
         this.getCommandConfirmation,
@@ -1189,7 +1199,7 @@ export class AgentLoop {
                   type: "function",
                   function: {
                     name: "apply_patch",
-                    description: "Applies a unified diff patch to the codebase.",
+                    description: "Applies a unified diff patch to the codebase. The patch must be wrapped in '--- Begin Patch ---' and '--- End Patch ---' markers.",
                     strict: false,
                     parameters: {
                       type: "object",
@@ -1776,7 +1786,13 @@ export class AgentLoop {
             }
             const delta = chunk?.choices?.[0]?.delta;
             const content = delta?.content;
+            const reasoning = (delta as any)?.reasoning_content;
             const tool_call = delta?.tool_calls?.[0];
+
+            if (content || reasoning) {
+              this.onPartialUpdate?.(message?.content as string || "", reasoning);
+            }
+
             if (!message) {
               message = delta as Extract<
                 ChatCompletionChunk,
@@ -2191,7 +2207,7 @@ You are an agent - please keep going until the user's query is completely resolv
 
 ### Efficiency & Safety
 - **Parallelism**: You can and should call multiple tools in parallel (e.g., reading multiple files at once) by emitting multiple tool calls in a single response. This is significantly faster for information gathering.
-- **Loop Protection**: If a command or tool call fails more than twice with the same error, **STOP immediately**. Do not retry a third time. Instead, explain the situation to the user, share the error, and ask for clarification or help. Blindly retrying failing commands is a waste of resources and unlikely to succeed without a different approach.
+- **Loop Protection**: If a command or tool call fails more than twice with the same error, **STOP immediately**. Do not retry a third time. Instead, explain the situation to the user, share the error, and ask for clarification or help. If you receive a \`tool\` output with \`metadata.loop_detected: true\` and \`exit_code: 1\`, this is an explicit signal that a loop has been detected, and you MUST stop and ask for user clarification. Blindly retrying failing commands is a waste of resources and unlikely to succeed without a different approach.
 - **Context Management**: Use \`read_file_lines\` for large files to avoid blowing out your context window.
 - **Dry Run**: If the system informs you that a "Dry Run" is active, be aware that your changes are not being persisted. Use this mode to plan and verify your logic.
 
@@ -2204,9 +2220,8 @@ You MUST adhere to the following criteria when executing the task:
 - Analyzing code for vulnerabilities is allowed.
 - Showing user code and tool call details is allowed.
 - User instructions may overwrite the *CODING GUIDELINES* section in this developer message.
-- Use the \`apply_patch\` shell command to edit existing files surgically.
-- Use \`write_file\` to create new files or completely rewrite small files.
-- Use \`read_file\` to read full contents of small files, and \`read_file_lines\` for larger ones.
+    - Use the \`apply_patch\` tool to surgically edit existing files. The \`patch\` parameter must be a string containing the unified diff format, with "--- Begin Patch ---" and "--- End Patch ---" markers. Ensure the patch is generated from the root of the repository.
+    - Use \`write_file\` to create new files or completely rewrite small files.- Use \`read_file\` to read full contents of small files, and \`read_file_lines\` for larger ones.
 - Use \`list_directory\` for a quick look at a directory's contents.
 - If completing the user's task requires writing or modifying files:
     - Your code and final answer should follow these *CODING GUIDELINES*:
