@@ -234,13 +234,11 @@ if (cli.flags.config) {
 const fullContextMode = Boolean(cli.flags.fullContext);
 const provider = cli.flags.provider;
 
-let config = loadConfig(undefined, undefined, {
-  cwd: process.cwd(),
-  provider: provider,
-  disableProjectDoc: Boolean(cli.flags.noProjectDoc),
-  projectDocPath: cli.flags.projectDoc as string | undefined,
-  isFullContext: fullContextMode,
-});
+  const config = loadConfig(undefined, undefined, {
+    cwd: process.cwd(),
+    skipMemory: true,
+    isFullContext: fullContextMode,
+  });
 
 const prompt = cli.input[0];
 const model = cli.flags.model;

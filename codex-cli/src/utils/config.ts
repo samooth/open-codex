@@ -306,6 +306,8 @@ export type LoadConfigOptions = {
   projectDocPath?: string;
   /** Whether we are in fullcontext mode. */
   isFullContext?: boolean;
+  /** Skip loading full memory (e.g. for semantic search) */
+  skipMemory?: boolean;
   /** The provider to use. */
   provider?: string;
   /** Force the API key for testing purposes. */
@@ -338,12 +340,14 @@ export const loadInstructions = (
       : discoverProjectDocPath(cwd);
     
     // Load project memory
-    const memoryPath = join(cwd, ".codex", "memory.md");
-    if (existsSync(memoryPath)) {
-      try {
-        memoryContent = readFileSync(memoryPath, "utf-8");
-      } catch {
-        /* ignore */
+    if (!options.skipMemory) {
+      const memoryPath = join(cwd, ".codex", "memory.md");
+      if (existsSync(memoryPath)) {
+        try {
+          memoryContent = readFileSync(memoryPath, "utf-8");
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -476,56 +480,9 @@ export const loadConfig = (
     baseURL: derivedBaseURL,
     instructions: loadInstructions(instructionsPath, options),
     approvalMode: storedConfig.approvalMode,
+    fullAutoErrorMode: storedConfig.fullAutoErrorMode,
+    memory: storedConfig.memory,
   };
-
-  // -----------------------------------------------------------------------
-  // First‑run bootstrap: if the configuration file (and/or its containing
-  // directory) didn't exist we create them now so that users end up with a
-  // materialised ~/.codex/config.json file on first execution.  This mirrors
-  // what `saveConfig()` would do but without requiring callers to remember to
-  // invoke it separately.
-  //
-  // We intentionally perform this *after* we have computed the final
-  // `config` object so that we can just persist the resolved defaults.  The
-  // write operations are guarded by `existsSync` checks so that subsequent
-  // runs that already have a config will remain read‑only here.
-  // -----------------------------------------------------------------------
-
-  try {
-    if (!existsSync(actualConfigPath)) {
-      // Ensure the directory exists first.
-      const dir = dirname(actualConfigPath);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-
-      // Persist a minimal config – we include the `model` key but leave it as
-      // an empty string so that `loadConfig()` treats it as "unset" and falls
-      // back to whatever DEFAULT_MODEL is current at runtime.  This prevents
-      // pinning users to an old default after upgrading Codex.
-      const ext = extname(actualConfigPath).toLowerCase();
-      if (ext === ".yaml" || ext === ".yml") {
-        writeFileSync(actualConfigPath, dumpYaml(EMPTY_STORED_CONFIG), "utf-8");
-      } else {
-        writeFileSync(actualConfigPath, EMPTY_CONFIG_JSON, "utf-8");
-      }
-    }
-  } catch {
-    // Silently ignore any errors – failure to persist the defaults shouldn't
-    // block the CLI from starting.  A future explicit `codex config` command
-    // or `saveConfig()` call can handle (re‑)writing later.
-  }
-
-  // Only include the "memory" key if it was explicitly set by the user. This
-  // preserves backward‑compatibility with older config files (and our test
-  // fixtures) that don't include a "memory" section.
-  if (storedConfig.memory !== undefined) {
-    config.memory = storedConfig.memory;
-  }
-
-  if (storedConfig.fullAutoErrorMode) {
-    config.fullAutoErrorMode = storedConfig.fullAutoErrorMode;
-  }
 
   return config;
 };

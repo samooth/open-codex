@@ -32,6 +32,7 @@ import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { prefix } from "./system-prompt.js";
 import { join } from "path";
 import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
+import { SemanticMemory } from "./semantic-memory.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -73,6 +74,7 @@ export class AgentLoop {
    * from streams that belong to a previous run which might still be emitting
    * after the user has canceled and issued a new command. */
   private generation = 0;
+  private semanticMemory: SemanticMemory;
   /** AbortController for in‑progress tool calls (e.g. shell commands). */
   private execAbortController: AbortController | null = null;
   /** Set to true when `cancel()` is called so `run()` can exit early. */
@@ -250,6 +252,8 @@ export class AgentLoop {
       },
       ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
     });
+
+    this.semanticMemory = new SemanticMemory(this.oai);
 
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
@@ -652,7 +656,24 @@ export class AgentLoop {
             const basePrefix = this.instructions?.includes("You are operating as and within OpenCodex")
               ? ""
               : prefix;
-            const mergedInstructions = [basePrefix, this.instructions, dryRunInfo]
+
+            // Context-Aware Memory Search: Inject relevant snippets from project memory
+            let relevantMemory = "";
+            const latestUserInput = input.findLast((i) => i.role === "user");
+            const queryText = typeof latestUserInput?.content === "string" 
+              ? latestUserInput.content 
+              : Array.isArray(latestUserInput?.content) 
+                ? latestUserInput.content.map(c => "text" in c ? c.text : "").join(" ") 
+                : "";
+
+            if (queryText) {
+              const snippets = await this.semanticMemory.findRelevant(queryText);
+              if (snippets.length > 0) {
+                relevantMemory = `\n\n--- Relevant Project Memory ---\n${snippets.join("\n")}`;
+              }
+            }
+
+            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {
