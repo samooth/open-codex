@@ -40,6 +40,7 @@ export default function TerminalChatInput({
   allowAlwaysPatch,
   awaitingContinueConfirmation,
   queuedPromptsCount,
+  activeToolName,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -66,6 +67,7 @@ export default function TerminalChatInput({
   allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: boolean;
   queuedPromptsCount: number;
+  activeToolName?: string;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -350,6 +352,7 @@ export default function TerminalChatInput({
             onInterrupt={interruptAgent}
             active={active}
             partialReasoning={partialReasoning}
+            activeToolName={activeToolName}
           />
         </Box>
       )}

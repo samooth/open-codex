@@ -63,6 +63,7 @@ export default function TerminalChat({
   );
   const [thinkingSeconds, setThinkingSeconds] = useState(0);
   const [partialReasoning, setPartialReasoning] = useState<string>("");
+  const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
   >([]);
@@ -132,7 +133,7 @@ export default function TerminalChat({
       instructions: config.instructions,
       approvalPolicy,
       onReset: () => setPrevItems([]),
-      onPartialUpdate: (content: string, reasoning?: string) => {
+      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string) => {
         if (reasoning) {
           setPartialReasoning((prev) => prev + reasoning);
         } else if (content) {
@@ -150,6 +151,7 @@ export default function TerminalChat({
              }
           }
         }
+        setActiveToolName(activeToolName);
       },
       onItem: (item) => {
         log(`onItem: ${JSON.stringify(item)}`);
@@ -377,6 +379,7 @@ export default function TerminalChat({
             openPromptOverlay={() => setOverlayMode("prompt")}
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
+            activeToolName={activeToolName}
             queuedPromptsCount={promptQueue.length}
             interruptAgent={() => {
               if (!agent) {

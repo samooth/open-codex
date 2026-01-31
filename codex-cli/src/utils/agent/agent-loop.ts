@@ -55,7 +55,7 @@ type AgentLoopParams = {
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
   onItem: (item: ChatCompletionMessageParam) => void;
-  onPartialUpdate?: (content: string, reasoning?: string) => void;
+  onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string) => void;
   onLoading: (loading: boolean) => void;
   onReset: () => void;
 
@@ -80,7 +80,7 @@ export class AgentLoop {
   private oai: OpenAI;
 
   private onItem: (item: ChatCompletionMessageParam) => void;
-  private onPartialUpdate?: (content: string, reasoning?: string) => void;
+  private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string) => void;
   private onLoading: (loading: boolean) => void;
   private getCommandConfirmation: (
     command: Array<string>,
@@ -1789,8 +1789,15 @@ export class AgentLoop {
             const reasoning = (delta as any)?.reasoning_content;
             const tool_call = delta?.tool_calls?.[0];
 
-            if (content || reasoning) {
-              this.onPartialUpdate?.(message?.content as string || "", reasoning);
+            let currentActiveToolName: string | undefined;
+            if (tool_call?.function?.name) {
+              currentActiveToolName = tool_call.function.name;
+            } else if (name !== undefined) { // Check if name is explicitly not undefined
+              currentActiveToolName = name;
+            }
+
+            if (content || reasoning || currentActiveToolName) {
+              this.onPartialUpdate?.(message?.content as string || "", reasoning, currentActiveToolName);
             }
 
             if (!message) {
@@ -2208,6 +2215,8 @@ You are an agent - please keep going until the user's query is completely resolv
 ### Efficiency & Safety
 - **Parallelism**: You can and should call multiple tools in parallel (e.g., reading multiple files at once) by emitting multiple tool calls in a single response. This is significantly faster for information gathering.
 - **Loop Protection**: If a command or tool call fails more than twice with the same error, **STOP immediately**. Do not retry a third time. Instead, explain the situation to the user, share the error, and ask for clarification or help. If you receive a \`tool\` output with \`metadata.loop_detected: true\` and \`exit_code: 1\`, this is an explicit signal that a loop has been detected, and you MUST stop and ask for user clarification. Blindly retrying failing commands is a waste of resources and unlikely to succeed without a different approach.
+- **Tool Argument Formatting**: All tool calls must use a *single, valid JSON object* for their arguments. Do NOT concatenate multiple JSON objects. For example, \`{"path":"HC/README.md"}{\"pattern\":\"GAME_TODO.md\"}\` is an invalid format. Instead, pass a single JSON object with all necessary parameters, e.g., \`{\"path\":\"HC/README.md\", \"pattern\":\"GAME_TODO.md\"}\` if the tool supports it, or use separate tool calls if the operations are distinct.
+- **Invalid Tool Call Arguments**: If your tool call arguments are rejected (e.g., "Failed to parse arguments as JSON" or "invalid tool call arguments"), STOP and explain the error to the user, asking for clarification. Do NOT attempt to re-run the same malformed tool call.
 - **Context Management**: Use \`read_file_lines\` for large files to avoid blowing out your context window.
 - **Dry Run**: If the system informs you that a "Dry Run" is active, be aware that your changes are not being persisted. Use this mode to plan and verify your logic.
 
