@@ -1,23 +1,17 @@
-import { parseMultipleJSON } from "./parse_multiple_json.js";
-
-/**
- * Enhanced parsing for multiple concatenated JSON objects
- * @param input - String potentially containing multiple JSON objects
- * @returns Parsed objects with error handling
- */
-function parseMultipleJsonObjects(input: string) {
-  const result = parseMultipleJSON(input, { strict: false });
-  return result.objects;
-}
-
 import type {
   ExecInput,
   ExecOutputMetadata,
 } from "./agent/sandbox/interface.js";
 import type { ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
+// import type { ResponseFunctionToolCall } from "openai/resources/responses/responses.mjs";
+
 import { formatCommandForDisplay } from "../format-command.js";
 import { parse } from "shell-quote";
 import { z } from "zod";
+
+// The console utility import is intentionally explicit to avoid bundlers from
+// including the entire `console` module when only the `log` function is
+// required.
 
 /**
  * Zod schema for tool call arguments.
@@ -61,10 +55,9 @@ const ToolCallArgsSchema = z
     },
   );
 
-// Fixed: Single, clear type definition without duplicates
 export type ParsedToolCallResult = 
-  | { success: true; args: ExecInput; data?: unknown; multiCall?: false }
-  | { success: true; multiCall: true; results: Array<{ args?: ExecInput; data?: unknown }> }
+  | { success: true; args: ExecInput; data?: any }
+  | { success: true; data: any; args?: never }
   | { success: false; error: string };
 
 export function parseToolCallOutput(toolCallOutput: string): {
@@ -162,91 +155,36 @@ export function parseToolCall(
 }
 
 /**
- * Robust JSON splitter that handles escaped characters and whitespace
- * Split concatenated JSON objects: {"a":1}{"b":2} -> ["{"a":1}", "{"b":2}"]
+ * If toolCallArguments is a string of JSON that can be parsed into an object
+ * with a "cmd" or "command" property that is an `Array<string>`, then returns
+ * that array. Otherwise, returns undefined.
  */
-function splitConcatenatedJSON(str: string): string[] {
-  const results: string[] = [];
-  let depth = 0;
-  let current = '';
-  let inString = false;
-  let escapeNext = false;
-
-  for (const char of str) {
-    if (escapeNext) {
-      current += char;
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === '\\') {
-      current += char;
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = !inString;
-      current += char;
-      continue;
-    }
-
-    if (!inString) {
-      if (char === '{') {
-        depth++;
-      } else if (char === '}') {
-        depth--;
-      }
-    }
-
-    current += char;
-
-    if (depth === 0 && current.trim() && !inString) {
-      results.push(current.trim());
-      current = '';
-    }
-  }
-
-  return results;
-}
-
 export function parseToolCallArguments(
   toolCallArguments: string,
 ): ParsedToolCallResult {
-  // Clean the input
-  const trimmed = toolCallArguments.trim();
-
-  if (!trimmed) {
-    return {
-      success: false,
-      error: 'Empty tool call arguments',
-    };
-  }
-
-  // Try parsing as single JSON first (fast path)
+  let json: unknown;
   try {
-    const json = JSON.parse(trimmed);
-    return validateAndBuildResult(json);
-  } catch {
-    // Not valid single JSON, try concatenated
-  }
-
-  // Handle concatenated JSON objects (parallel execution)
-  const jsonStrings = splitConcatenatedJSON(trimmed);
-
-  if (jsonStrings.length === 0) {
-    return {
-      success: false,
-      error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
-    };
-  }
-
-  if (jsonStrings.length === 1) {
-    // Single object that failed initial parse (malformed)
+    console.log("toolcall arguments:",toolCallArguments)
+    json = JSON.parse(toolCallArguments);
+  } catch (err) {
+    // Try to handle concatenated JSON objects (parallel execution format)
+    // Format: {"path":"file1"}{"path":"file2"}
     try {
-      const json = JSON.parse(jsonStrings[0]);
-      return validateAndBuildResult(json);
-    } catch (err) {
+      const toolCalls = tryExtractToolCallsFromContent(toolCallArguments);
+      console.log("parallel toolcall args:", toolCallArguments)
+      if (toolCalls.length > 1) {
+        // Return a multi-call structure if needed, or just the first for now
+        // to satisfy the current caller expectation while we investigate 
+        // full parallel support in AgentLoop.
+        // For now, let's try to just parse the first valid block.
+        const firstCall = toolCalls[0];
+        if (firstCall) {
+          json = JSON.parse(firstCall.function.arguments);
+        }
+      } else {
+        throw err;
+      }
+    } catch {
       return {
         success: false,
         error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
@@ -254,50 +192,12 @@ export function parseToolCallArguments(
     }
   }
 
-  // Multiple tool calls - parse each one
-  const results: Array<{ args?: ExecInput; data?: unknown }> = [];
-
-  for (const jsonStr of jsonStrings) {
-    try {
-      const json = JSON.parse(jsonStr);
-      const result = validateAndBuildResult(json);
-
-      if (!result.success) {
-        return result; // Return first validation error
-      }
-
-      // Handle both single and multi-call results
-      if (result.multiCall && result.results) {
-        results.push(...result.results);
-      } else {
-        results.push({
-          args: result.args,
-          data: result.data,
-        });
-      }
-    } catch (err) {
-      return {
-        success: false,
-        error: `Failed to parse one of ${jsonStrings.length} parallel tool calls: ${jsonStr}`,
-      };
-    }
-  }
-
-  // Return multi-call structure
-  return {
-    success: true,
-    multiCall: true,
-    results,
-  };
-}
-
-function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   const result = ToolCallArgsSchema.safeParse(json);
-
   if (!result.success) {
+    // Format Zod errors into a readable string for the model
     const errorMsg = result.error.errors
-      .map((e) => `${e.path.join('.')}: ${e.message}`)
-      .join('; ');
+      .map((e) => `${e.path.join(".")}: ${e.message}`)
+      .join("; ");
     return {
       success: false,
       error: `Invalid tool arguments: ${errorMsg}`,
@@ -305,33 +205,28 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   }
 
   const data = result.data;
-  const commandArray = toStringArray(data.cmd) ?? toStringArray(data.command);
-
-  // If we have a command or patch, wrap it into the ExecInput format
-  if (commandArray || typeof data.patch === 'string') {
-    const finalCmd =
-      commandArray ?? (data.patch ? ['apply_patch', data.patch] : undefined);
-
-    if (!finalCmd) {
-      return {
-        success: false,
-        error: 'Failed to construct command array for ExecInput',
-      };
-    }
-
-    const args: ExecInput = {
-      cmd: finalCmd,
-      workdir: data.workdir,
-      timeoutInMillis: data.timeout,
-    };
-
-    return {
-      success: true,
-      args,
-    };
-  }
-
-  // Otherwise, return the raw data object (for other tools)
+        const commandArray = toStringArray(data.cmd) ?? toStringArray(data.command);
+    
+        // If we have a command or patch, we wrap it into the ExecInput format
+        if (commandArray || typeof data.patch === "string") {
+          const finalCmd =
+            commandArray ?? (data.patch ? ["apply_patch", data.patch] : []);
+          if (!finalCmd) {
+            return {
+              success: false,
+              error: "Failed to construct command array for ExecInput",
+            };
+          }
+          const args: ExecInput = {
+            cmd: finalCmd,
+            workdir: data.workdir,
+            timeoutInMillis: data.timeout,
+          };
+          return {
+            success: true,
+            args,
+          };
+        }  // Otherwise, return the raw data object (for other tools like search_codebase)
   return {
     success: true,
     data: data,
@@ -358,16 +253,7 @@ export function tryExtractToolCallsFromContent(
 
     try {
       // Try to parse as JSON first
-      let json;
-      try {
-        json = JSON.parse(blockContent);
-      } catch {
-        // If direct JSON parsing fails, try multiple JSON parsing
-        const parsedObjects = parseMultipleJsonObjects(blockContent);
-        if (parsedObjects.length > 0) {
-          json = parsedObjects[0]; // Take first valid object
-        }
-      }
+      const json = JSON.parse(blockContent);
       const normalized = normalizeJsonToolCall(json, blockContent);
       if (normalized) {
         toolCalls.push({
@@ -405,30 +291,6 @@ export function tryExtractToolCallsFromContent(
   // If we found code blocks, we assume those are the intended tool calls
   if (toolCalls.length > 0) {
     return toolCalls;
-  }
-
-  // Enhanced approach using our robust JSON splitter
-  const jsonStrings = splitConcatenatedJSON(content);
-  if (jsonStrings.length > 0) {
-    // Convert each parsed object to a tool call
-    for (const jsonStr of jsonStrings) {
-      try {
-        const obj = JSON.parse(jsonStr);
-        const normalized = normalizeJsonToolCall(obj, jsonStr);
-        if (normalized) {
-          toolCalls.push({
-            id: `call_multi_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
-            type: "function",
-            function: normalized,
-          });
-        }
-      } catch {
-        // Skip invalid JSON
-      }
-    }
-    if (toolCalls.length > 0) {
-      return toolCalls;
-    }
   }
 
   // 2. Fallback to the existing brace-counting approach for raw JSON objects
@@ -503,65 +365,37 @@ export function tryExtractToolCallsFromContent(
   return toolCalls;
 }
 
-/** 
+/**
  * Splits tool calls that have multiple concatenated JSON objects in their arguments.
- * Fixed: Properly handles const arrays and tool name inheritance
  */
 export function flattenToolCalls(
   toolCalls: Array<ChatCompletionMessageToolCall>,
 ): Array<ChatCompletionMessageToolCall> {
   const result: Array<ChatCompletionMessageToolCall> = [];
-
   for (const tc of toolCalls) {
     if (tc.type !== "function") {
       result.push(tc);
       continue;
     }
-
     const args = tc.function.arguments;
-
     // Heuristic: concatenated JSON objects usually have "}{"
-    if (!args.trim().includes("}{")) {
-      result.push(tc);
-      continue;
-    }
-
-    // Use the robust splitter
-    const jsonStrings = splitConcatenatedJSON(args);
-
-    if (jsonStrings.length <= 1) {
-      result.push(tc);
-      continue;
-    }
-
-    // Create separate tool calls for each JSON object
-    for (const jsonStr of jsonStrings) {
-      try {
-        const json = JSON.parse(jsonStr);
-        const normalized = normalizeJsonToolCall(json, jsonStr);
-
-        if (normalized) {
-          // If the extracted call has a generic 'shell' name but parent has specific name, inherit it
-          const toolName = (normalized.name === "shell" && tc.function.name && tc.function.name !== "shell") 
-            ? tc.function.name 
-            : normalized.name;
-
-          result.push({
-            id: `call_flatten_${Math.random().toString(36).slice(2, 11)}_${result.length}`,
-            type: "function",
-            function: {
-              name: toolName,
-              arguments: normalized.arguments,
-            },
-          });
+    if (args.trim().includes("}{")) {
+      const extracted = tryExtractToolCallsFromContent(args);
+      if (extracted.length > 1) {
+        for (const ex of extracted) {
+          // If the extracted call doesn't have a specific name, 
+          // or has a generic 'shell' name, try to inherit from the parent tool call.
+          if ((ex.function.name === "shell" || !ex.function.name) && 
+              tc.function.name && tc.function.name !== "shell") {
+            ex.function.name = tc.function.name;
+          }
+          result.push(ex);
         }
-      } catch {
-        // If parsing fails for this segment, skip it or add original?
-        // We'll skip to avoid duplicating the original broken call
+        continue;
       }
     }
+    result.push(tc);
   }
-
   return result;
 }
 
