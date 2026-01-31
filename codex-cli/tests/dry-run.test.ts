@@ -1,8 +1,9 @@
 import { test, expect, vi } from "vitest";
 import { handleExecCommand } from "../src/utils/agent/handle-exec-command";
-import { AgentLoop } from "../src/utils/agent/agent-loop";
+import { handleWriteFile } from "../src/utils/agent/tool-handlers";
 import { AutoApprovalMode } from "../src/utils/auto-approval-mode";
 import { ReviewDecision } from "../src/utils/agent/review";
+import type { AgentContext } from "../src/utils/agent/types";
 
 test("handleExecCommand returns dry run message when dryRun is enabled", async () => {
   const config = {
@@ -22,25 +23,21 @@ test("handleExecCommand returns dry run message when dryRun is enabled", async (
   expect(result.metadata.dry_run).toBe(true);
 });
 
-test("AgentLoop.handleWriteFile returns dry run message when dryRun is enabled", async () => {
+test("handleWriteFile returns dry run message when dryRun is enabled", async () => {
   const config = {
     dryRun: true,
     apiKey: "dummy-key",
   };
   
-  const agent = new AgentLoop({
-    model: "test-model",
+  const ctx: AgentContext = {
     config: config as any,
-    instructions: "",
     approvalPolicy: AutoApprovalMode.FULL_AUTO,
-    onItem: vi.fn(),
-    onLoading: vi.fn(),
-    onReset: vi.fn(),
+    execAbortController: new AbortController(),
     getCommandConfirmation: async () => ({ review: ReviewDecision.YES }),
-  });
+    onItem: vi.fn(),
+  };
 
-  // Accessing private method for testing
-  const result = await (agent as any).handleWriteFile(JSON.stringify({
+  const result = await handleWriteFile(ctx, JSON.stringify({
     path: "test.txt",
     content: "hello world"
   }));
