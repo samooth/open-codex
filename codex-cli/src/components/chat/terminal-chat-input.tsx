@@ -39,6 +39,7 @@ export default function TerminalChatInput({
   active,
   allowAlwaysPatch,
   awaitingContinueConfirmation,
+  queuedPromptsCount,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -64,6 +65,7 @@ export default function TerminalChatInput({
   active: boolean;
   allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: boolean;
+  queuedPromptsCount: number;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -299,13 +301,7 @@ export default function TerminalChatInput({
   return (
     <Box flexDirection="column">
       <Box borderStyle="round">
-        {loading ? (
-          <TerminalChatInputThinking
-            onInterrupt={interruptAgent}
-            active={active}
-            partialReasoning={partialReasoning}
-          />
-        ) : awaitingContinueConfirmation ? (
+        {awaitingContinueConfirmation ? (
           <Box paddingX={1} flexDirection="column">
             <Text>Allow agent to proceed?</Text>
             <Box paddingX={2}>
@@ -348,6 +344,15 @@ export default function TerminalChatInput({
           </Box>
         )}
       </Box>
+      {loading && (
+        <Box borderStyle="round" borderColor="dimGray" paddingLeft={1}>
+          <TerminalChatInputThinking
+            onInterrupt={interruptAgent}
+            active={active}
+            partialReasoning={partialReasoning}
+          />
+        </Box>
+      )}
       <Box paddingX={2} marginBottom={1}>
         <Text dimColor>
           {isNew && !input ? (
@@ -375,6 +380,14 @@ export default function TerminalChatInput({
                   {" — "}
                   <Text color="red">
                     {Math.round(contextLeftPercent)}% context left
+                  </Text>
+                </>
+              )}
+              {queuedPromptsCount > 0 && (
+                <>
+                  {" — "}
+                  <Text color="yellow">
+                    {queuedPromptsCount} prompt(s) queued
                   </Text>
                 </>
               )}

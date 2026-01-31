@@ -377,6 +377,7 @@ export default function TerminalChat({
             openPromptOverlay={() => setOverlayMode("prompt")}
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
+            queuedPromptsCount={promptQueue.length}
             interruptAgent={() => {
               if (!agent) {
                 return;
