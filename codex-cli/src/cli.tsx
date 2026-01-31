@@ -153,6 +153,11 @@ const cli = meow(
         type: "boolean",
         description: "Preview changes without applying them",
       },
+      allowAlwaysPatch: {
+        type: "boolean",
+        description:
+          "Allow the 'always approve' option for the apply_patch command",
+      },
 
       // Experimental mode where whole directory is loaded in context and model is requested
       // to make code edits in a single pass.
@@ -251,6 +256,7 @@ config = {
   model: model ?? config.model,
   provider: provider ?? config.provider,
   dryRun: Boolean(cli.flags.dryRun),
+  allowAlwaysPatch: Boolean(cli.flags.allowAlwaysPatch),
 };
 
 // Check for updates after loading config

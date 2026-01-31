@@ -8,6 +8,8 @@ import type {
 import type { reasoningeffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
+import { join } from "path";
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
 import {
@@ -1119,7 +1121,10 @@ export class AgentLoop {
               //   reasoning.summary = "auto";
               // }
             }
-            const mergedInstructions = [prefix, this.instructions]
+            const dryRunInfo = this.config.dryRun
+              ? "\n\n--- DRY RUN ACTIVE ---\nThe system is currently in DRY RUN mode. Your changes will NOT be persisted to disk. Use this turn to plan, verify logic, and explain your intended changes to the user."
+              : "";
+            const mergedInstructions = [prefix, this.instructions, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {

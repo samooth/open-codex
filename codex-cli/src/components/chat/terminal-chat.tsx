@@ -331,6 +331,7 @@ export default function TerminalChat({
               agent.run(inputs, prevItems);
               return {};
             }}
+            allowAlwaysPatch={config.allowAlwaysPatch}
           />
         )}
         {overlayMode === "history" && (

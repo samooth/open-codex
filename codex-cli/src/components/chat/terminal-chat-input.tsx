@@ -35,6 +35,7 @@ export default function TerminalChatInput({
   openConfigOverlay,
   interruptAgent,
   active,
+  allowAlwaysPatch,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -56,6 +57,7 @@ export default function TerminalChatInput({
   openConfigOverlay: () => void;
   interruptAgent: () => void;
   active: boolean;
+  allowAlwaysPatch?: boolean;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -257,6 +259,7 @@ export default function TerminalChatInput({
       <TerminalChatCommandReview
         confirmationPrompt={confirmationPrompt}
         onReviewCommand={submitConfirmation}
+        allowAlwaysPatch={allowAlwaysPatch}
       />
     );
   }

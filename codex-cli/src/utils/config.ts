@@ -209,6 +209,7 @@ export type AppConfig = {
   fullAutoErrorMode?: FullAutoErrorMode;
   memory?: MemoryConfig;
   dryRun?: boolean;
+  allowAlwaysPatch?: boolean;
 };
 
 // ---------------------------------------------------------------------------

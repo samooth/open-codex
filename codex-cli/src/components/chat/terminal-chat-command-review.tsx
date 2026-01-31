@@ -15,9 +15,11 @@ const DEFAULT_DENY_MESSAGE =
 export function TerminalChatCommandReview({
   confirmationPrompt,
   onReviewCommand,
+  allowAlwaysPatch,
 }: {
   confirmationPrompt: React.ReactNode;
   onReviewCommand: (decision: ReviewDecision, customMessage?: string) => void;
+  allowAlwaysPatch?: boolean;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -32,6 +34,10 @@ export function TerminalChatCommandReview({
   // -------------------------------------------------------------------------
 
   const showAlwaysApprove = React.useMemo(() => {
+    if (allowAlwaysPatch) {
+      return true;
+    }
+
     if (
       React.isValidElement(confirmationPrompt) &&
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
