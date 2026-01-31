@@ -23,6 +23,7 @@ const slashCommands = [
   { name: "/model", description: "switch model" },
   { name: "/clear", description: "clear context" },
   { name: "/history", description: "show history" },
+  { name: "/memory", description: "manage project memory" },
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
   { name: "/prompt", description: "edit system instructions" },
@@ -42,6 +43,7 @@ export default function TerminalChatInput({
   openOverlay,
   openModelOverlay,
   openApprovalOverlay,
+  openMemoryOverlay,
   openHelpOverlay,
   openConfigOverlay,
   openPromptOverlay,
@@ -72,6 +74,7 @@ export default function TerminalChatInput({
   openOverlay: () => void;
   openModelOverlay: () => void;
   openApprovalOverlay: () => void;
+  openMemoryOverlay: () => void;
   openHelpOverlay: () => void;
   openConfigOverlay: () => void;
   openPromptOverlay: () => void;
@@ -214,6 +217,12 @@ export default function TerminalChatInput({
       if (inputValue === "/help") {
         setInput("");
         openHelpOverlay();
+        return;
+      }
+
+      if (inputValue === "/memory") {
+        setInput("");
+        openMemoryOverlay();
         return;
       }
 

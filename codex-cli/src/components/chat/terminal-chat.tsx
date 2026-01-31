@@ -25,6 +25,7 @@ import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
 import PromptOverlay from "../prompt-overlay.js";
+import MemoryOverlay from "../memory-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { inspect } from "util";
@@ -73,7 +74,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -388,6 +389,7 @@ export default function TerminalChat({
             openOverlay={() => setOverlayMode("history")}
             openModelOverlay={() => setOverlayMode("model")}
             openApprovalOverlay={() => setOverlayMode("approval")}
+            openMemoryOverlay={() => setOverlayMode("memory")}
             openHelpOverlay={() => setOverlayMode("help")}
             openConfigOverlay={() => setOverlayMode("config")}
             openPromptOverlay={() => setOverlayMode("prompt")}
@@ -546,6 +548,10 @@ export default function TerminalChat({
             }}
             onExit={() => setOverlayMode("none")}
           />
+        )}
+
+        {overlayMode === "memory" && (
+          <MemoryOverlay onExit={() => setOverlayMode("none")} />
         )}
       </Box>
     </Box>

@@ -26,6 +26,12 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **`forget_memory` tool:** The agent can now identfy and remove outdated or incorrect entries from the project memory.
     *   **Automatic Context Injection:** Important facts in memory are automatically summarized and can be explicitly retrieved by the agent to maintain project-wide knowledge.
 
+### Future Memory Improvements:
+*   **[DONE] Memory Visualization Overlay:** A dedicated `/memory` overlay (similar to `/history`) has been implemented. it displays all stored facts, grouped by category, with an interactive interface to search and delete them.
+*   **Automated Memory Maintenance:** Implement a periodic "garbage collection" where the LLM reviews stored facts and suggests merging duplicates or archiving outdated information.
+*   **Context-Aware Memory Search:** Automatically perform a low-latency "semantic search" on the project memory for every user prompt, injecting only the most relevant snippets to save context tokens.
+*   **Rich Memory Metadata:** Store additional metadata for each memory entry, such as the date added, the source file/context, and a "confidence" score.
+
 ## 4. Actionable Feedback and Error Handling
 
 *   **[DONE] Guidance for LLM Failures:** Loop detection logic is implemented. If a tool call fails twice with the same error, the agent stops and asks for clarification, providing an explicit error message about the loop.
