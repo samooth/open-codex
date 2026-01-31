@@ -373,6 +373,8 @@ export class AgentLoop {
         getCommandConfirmation: this.getCommandConfirmation,
         onItem: this.onItem,
         onFileAccess: this.onFileAccess,
+        oai: this.oai,
+        model: this.model,
       };
 
       if (
@@ -449,6 +451,10 @@ export class AgentLoop {
         metadata = result.metadata;
       } else if (name === "forget_memory") {
         const result = await handlers.handleForgetMemory(rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "maintain_memory") {
+        const result = await handlers.handleMaintainMemory(ctx);
         outputText = result.outputText;
         metadata = result.metadata;
       } else if (name === "read_file_lines") {

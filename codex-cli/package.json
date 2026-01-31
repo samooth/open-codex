@@ -1,6 +1,6 @@
 {
   "name": "@samooth/open-codex",
-  "version": "0.1.49",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "bin": {
     "open-codex": "dist/cli.js"

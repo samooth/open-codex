@@ -28,9 +28,8 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 
 ### Future Memory Improvements:
 *   **[DONE] Memory Visualization Overlay:** A dedicated `/memory` overlay (similar to `/history`) has been implemented. it displays all stored facts, grouped by category, with an interactive interface to search and delete them.
-*   **Automated Memory Maintenance:** Implement a periodic "garbage collection" where the LLM reviews stored facts and suggests merging duplicates or archiving outdated information.
-*   **[DONE] Context-Aware Memory Search:** Automatically performs a low-latency "semantic search" on the project memory for every user prompt using OpenAI embeddings (with local caching). Only the most relevant snippets are injected into the context, saving tokens and improving focus.
-*   **Rich Memory Metadata:** Store additional metadata for each memory entry, such as the date added, the source file/context, and a "confidence" score.
+*   **[DONE] Automated Memory Maintenance:** Implement a periodic "garbage collection" where the LLM reviews stored facts and suggests merging duplicates or archiving outdated information. Users can trigger this manually via \`/memory maintain\`.
+*   **Context-Aware Memory Search:** Automatically perform a low-latency "semantic search" on the project memory for every user prompt, injecting only the most relevant snippets to save context tokens.
 
 ## 4. Actionable Feedback and Error Handling
 

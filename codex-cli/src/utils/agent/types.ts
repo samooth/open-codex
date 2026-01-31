@@ -3,6 +3,8 @@ import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import OpenAI from "openai";
+
 export type CommandConfirmation = {
   review: ReviewDecision;
   applyPatch?: ApplyPatchCommand | undefined;
@@ -37,5 +39,7 @@ export interface AgentContext {
   ) => Promise<CommandConfirmation>;
   onItem: (item: ChatCompletionMessageParam) => void;
   onFileAccess?: (path: string) => void;
+  oai: OpenAI;
+  model: string;
 }
 

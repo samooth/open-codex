@@ -289,6 +289,19 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "maintain_memory",
+      description: "Performs automated maintenance on the project memory. It identifies and merges duplicates, resolves contradictions, and removes outdated information using the LLM.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "read_file_lines",
       description:
         "Reads specific line ranges from a file. Useful for large files to avoid exceeding context limits.",

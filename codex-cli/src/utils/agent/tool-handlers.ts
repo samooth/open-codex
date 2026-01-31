@@ -474,6 +474,61 @@ export async function handleForgetMemory(
   }
 }
 
+export async function handleMaintainMemory(
+  ctx: AgentContext,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    if (!existsSync(memoryPath)) {
+      return { outputText: "No memory file found to maintain.", metadata: { exit_code: 0 } };
+    }
+
+    const content = readFileSync(memoryPath, "utf-8");
+    if (content.trim().length === 0) {
+      return { outputText: "Memory is empty, nothing to maintain.", metadata: { exit_code: 0 } };
+    }
+
+    const maintenancePrompt = `
+You are a project memory maintenance assistant. Your task is to review the following list of project facts and perform "garbage collection".
+
+RULES:
+1. Identify and MERGE duplicate facts.
+2. Resolve CONTRADICTIONS (if any, keep the most recent or more detailed one).
+3. REMOVE outdated or redundant information.
+4. MAINTAIN the format: - [timestamp] [category] fact
+5. Ensure categories are consistent.
+6. Return ONLY the cleaned-up list of facts, one per line. If no changes are needed, return the original list.
+
+CURRENT MEMORY ENTRIES:
+${content}
+`;
+
+    const response = await ctx.oai.chat.completions.create({
+      model: ctx.model,
+      messages: [{ role: "user", content: maintenancePrompt }],
+    });
+
+    const cleanedContent = response.choices[0]?.message?.content?.trim();
+    if (cleanedContent && cleanedContent !== content) {
+      writeFileSync(memoryPath, cleanedContent, "utf-8");
+      return {
+        outputText: `Memory maintenance complete. Memory has been cleaned up and consolidated.`,
+        metadata: { exit_code: 0, original_size: content.length, new_size: cleanedContent.length },
+      };
+    }
+
+    return {
+      outputText: "Memory maintenance complete. No changes were necessary.",
+      metadata: { exit_code: 0 },
+    };
+  } catch (err) {
+    return { outputText: `Error during memory maintenance: ${String(err)}`, metadata: { exit_code: 1 } };
+  }
+}
+
 export async function handleReadFileLines(
   ctx: AgentContext,
   rawArgs: string,

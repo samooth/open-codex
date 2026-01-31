@@ -24,6 +24,7 @@ const slashCommands = [
   { name: "/clear", description: "clear context" },
   { name: "/history", description: "show history" },
   { name: "/memory", description: "manage project memory" },
+  { name: "/memory maintain", description: "perform automated memory cleanup" },
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
   { name: "/prompt", description: "edit system instructions" },
@@ -223,6 +224,17 @@ export default function TerminalChatInput({
       if (inputValue === "/memory") {
         setInput("");
         openMemoryOverlay();
+        return;
+      }
+
+      if (inputValue === "/memory maintain") {
+        setInput("");
+        submitInput([
+          {
+            role: "user",
+            content: [{ type: "text", text: "Please perform memory maintenance." }],
+          },
+        ]);
         return;
       }
 
