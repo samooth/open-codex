@@ -13,6 +13,7 @@ import { join } from "path";
 import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
 import {
+  flattenToolCalls,
   parseToolCallArguments,
   tryExtractToolCallsFromContent,
 } from "../parsers.js";
@@ -1124,7 +1125,13 @@ export class AgentLoop {
             const dryRunInfo = this.config.dryRun
               ? "\n\n--- DRY RUN ACTIVE ---\nThe system is currently in DRY RUN mode. Your changes will NOT be persisted to disk. Use this turn to plan, verify logic, and explain your intended changes to the user."
               : "";
-            const mergedInstructions = [prefix, this.instructions, dryRunInfo]
+            // If the instructions already contain the core identity string from the prefix,
+            // we assume the user has fine-tuned the entire prompt and we should not
+            // prepend the default prefix again.
+            const basePrefix = this.instructions?.includes("You are operating as and within OpenCodex")
+              ? ""
+              : prefix;
+            const mergedInstructions = [basePrefix, this.instructions, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {
@@ -1800,6 +1807,9 @@ export class AgentLoop {
 
                 // Process completed tool calls
                 if (message?.tool_calls?.[0]) {
+                  // Flatten tool calls if they contain concatenated JSON
+                  message.tool_calls = flattenToolCalls(message.tool_calls);
+
                   stageItem(message);
                   const results = await this.handleFunctionCall(message);
                   if (results.length > 0) {

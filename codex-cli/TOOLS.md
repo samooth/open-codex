@@ -21,9 +21,9 @@ This is the "brain" of the agent. It controls:
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
 Controls the execution of shell commands:
-- **Authorization**: Manages the session-level "Always Allow" list. It exports `authorizeCommand()` which is used by the `--allow` CLI flag.
+- **Authorization**: Manages the session-level "Always Allow" list. It exports `authorizeCommand()` which is used by the `--allow` CLI flag and the new `--allow-always-patch` flag which permits authorizing all future file modifications in a session.
 - **Sandbox Decisions**: Determines if a command should run in a restricted environment based on the current policy.
-- **Dry Run**: If `dryRun` is enabled in config, it intercepts commands and returns a preview message instead of executing. This can be toggled in-session via `/config`.
+- **Dry Run**: If `dryRun` is enabled in config, it intercepts commands and returns a preview message instead of executing. The system prompt is also dynamically updated to inform the model when this mode is active. This can be toggled in-session via `/config`.
 - **Key Derivation**: The `deriveCommandKey()` function extracts the base command (e.g., `pytest` from `bash -lc "pytest ..."`) to ensure that authorizing a command works across different shell invocations.
 
 ### 3. `src/components/chat/terminal-chat-response-item.tsx`

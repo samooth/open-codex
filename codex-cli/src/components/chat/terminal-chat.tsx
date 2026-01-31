@@ -14,6 +14,7 @@ import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
+import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { CLI_VERSION } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
@@ -70,6 +71,24 @@ export default function TerminalChat({
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
+
+  const awaitingContinueConfirmation = useMemo(() => {
+    const lastItem = items[items.length - 1];
+    if (lastItem && lastItem.role === "assistant" && !loading) {
+      const content =
+        typeof lastItem.content === "string"
+          ? lastItem.content
+          : Array.isArray(lastItem.content)
+          ? lastItem.content
+              .map((c) => (c.type === "text" ? c.text : ""))
+              .join("")
+          : "";
+      return content.includes(
+        "**Continue?** Would you like me to proceed in a specific order?",
+      );
+    }
+    return false;
+  }, [items, loading]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
 
@@ -334,6 +353,7 @@ export default function TerminalChat({
               return {};
             }}
             allowAlwaysPatch={config.allowAlwaysPatch}
+            awaitingContinueConfirmation={awaitingContinueConfirmation}
           />
         )}
         {overlayMode === "history" && (
@@ -435,7 +455,11 @@ export default function TerminalChat({
 
         {overlayMode === "prompt" && (
           <PromptOverlay
-            currentInstructions={config.instructions || ""}
+            currentInstructions={
+              config.instructions?.includes("You are operating as and within OpenCodex")
+                ? config.instructions
+                : [prefix, config.instructions].filter(Boolean).join("\n\n")
+            }
             onSave={(newInstructions) => {
               agent?.cancel();
               setLoading(false);

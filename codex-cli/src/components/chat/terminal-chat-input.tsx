@@ -6,6 +6,8 @@ import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
+// @ts-expect-error select.js is JavaScript and has no types
+import { Select } from "../vendor/ink-select/select";
 import Spinner from "../vendor/ink-spinner.js";
 import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput, useStdin } from "ink";
@@ -37,6 +39,7 @@ export default function TerminalChatInput({
   interruptAgent,
   active,
   allowAlwaysPatch,
+  awaitingContinueConfirmation,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -60,6 +63,7 @@ export default function TerminalChatInput({
   interruptAgent: () => void;
   active: boolean;
   allowAlwaysPatch?: boolean;
+  awaitingContinueConfirmation?: boolean;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -70,6 +74,25 @@ export default function TerminalChatInput({
 
   useInput(
     (_input, _key) => {
+      if (awaitingContinueConfirmation && active && !loading) {
+        if (_input === "y") {
+          const item = {
+            role: "user" as const,
+            content: [{ type: "text" as const, text: "Yes" }],
+          };
+          submitInput([item]);
+          return;
+        }
+        if (_input === "n") {
+          const item = {
+            role: "user" as const,
+            content: [{ type: "text" as const, text: "No" }],
+          };
+          submitInput([item]);
+          return;
+        }
+      }
+
       if (!confirmationPrompt && !loading) {
         if (_key.upArrow) {
           if (history.length > 0) {
@@ -281,6 +304,25 @@ export default function TerminalChatInput({
             onInterrupt={interruptAgent}
             active={active}
           />
+        ) : awaitingContinueConfirmation ? (
+          <Box paddingX={1} flexDirection="column">
+            <Text>Allow agent to proceed?</Text>
+            <Box paddingX={2}>
+              <Select
+                options={[
+                  { label: "Yes (y)", value: "Yes" },
+                  { label: "No (n)", value: "No" },
+                ]}
+                onChange={(value: string) => {
+                  const item = {
+                    role: "user" as const,
+                    content: [{ type: "text" as const, text: value }],
+                  };
+                  submitInput([item]);
+                }}
+              />
+            </Box>
+          </Box>
         ) : (
           <Box paddingX={1}>
             <TextInput

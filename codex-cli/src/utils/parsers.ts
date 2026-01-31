@@ -158,10 +158,28 @@ export function parseToolCallArguments(
   try {
     json = JSON.parse(toolCallArguments);
   } catch (err) {
-    return {
-      success: false,
-      error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
-    };
+    // Try to handle concatenated JSON objects (parallel execution format)
+    // Format: {"path":"file1"}{"path":"file2"}
+    try {
+      const toolCalls = tryExtractToolCallsFromContent(toolCallArguments);
+      if (toolCalls.length > 1) {
+        // Return a multi-call structure if needed, or just the first for now
+        // to satisfy the current caller expectation while we investigate 
+        // full parallel support in AgentLoop.
+        // For now, let's try to just parse the first valid block.
+        const firstCall = toolCalls[0];
+        if (firstCall) {
+          json = JSON.parse(firstCall.function.arguments);
+        }
+      } else {
+        throw err;
+      }
+    } catch {
+      return {
+        success: false,
+        error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
+      };
+    }
   }
 
   const result = ToolCallArgsSchema.safeParse(json);
@@ -327,6 +345,40 @@ export function tryExtractToolCallsFromContent(
   }
 
   return toolCalls;
+}
+
+/**
+ * Splits tool calls that have multiple concatenated JSON objects in their arguments.
+ */
+export function flattenToolCalls(
+  toolCalls: Array<ChatCompletionMessageToolCall>,
+): Array<ChatCompletionMessageToolCall> {
+  const result: Array<ChatCompletionMessageToolCall> = [];
+  for (const tc of toolCalls) {
+    if (tc.type !== "function") {
+      result.push(tc);
+      continue;
+    }
+    const args = tc.function.arguments;
+    // Heuristic: concatenated JSON objects usually have "}{"
+    if (args.trim().includes("}{")) {
+      const extracted = tryExtractToolCallsFromContent(args);
+      if (extracted.length > 1) {
+        for (const ex of extracted) {
+          // If the extracted call doesn't have a specific name, 
+          // or has a generic 'shell' name, try to inherit from the parent tool call.
+          if ((ex.function.name === "shell" || !ex.function.name) && 
+              tc.function.name && tc.function.name !== "shell") {
+            ex.function.name = tc.function.name;
+          }
+          result.push(ex);
+        }
+        continue;
+      }
+    }
+    result.push(tc);
+  }
+  return result;
 }
 
 /**

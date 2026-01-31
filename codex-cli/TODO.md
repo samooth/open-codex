@@ -14,3 +14,6 @@
 * **Interactive Config:** Added `/config` command to toggle session settings (Dry Run, Debug) without restart.
 * **Enhanced Memory Management:** Added categories to \`persistent_memory\` and a \`summarize_memory\` tool to manage context bloat.
 * **Loop Protection Strategy:** Implemented automatic detection of repetitive failing tool calls and updated system prompt to discourage retries.
+* **Always-Allow for Patches:** Added `--allow-always-patch` flag to permit session-level auto-approval of file modifications.
+* **Live Instruction Editing:** Implemented `/prompt` command to adjust system instructions during a session.
+* **Dry-Run Awareness:** Injected explicit session status into the system prompt when `--dry-run` is active.
