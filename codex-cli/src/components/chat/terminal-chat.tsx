@@ -16,7 +16,7 @@ import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
-import { CLI_VERSION } from "../../utils/session.js";
+import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";

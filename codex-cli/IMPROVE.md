@@ -59,6 +59,22 @@
    18. [DONE] Empty Command Default:
        * Empty command arrays `{"cmd":[]}` now default to `ls -F`.
 
+   19. [DONE] Ollama Customization:
+       * Supported `OLLAMA_BASE_URL` environment variable for remote Ollama servers.
+       * Added `embeddingModel` configuration to allow custom local embedding models (defaults to `nomic-embed-text:latest`).
+
+   20. [DONE] Performance Optimizations:
+       * Resolved memory leaks and `MaxListenersExceededWarning` by implementing a global shared terminal size hook.
+       * Optimized session history restoration to handle hundreds of sessions without crashing.
+
+   19. [DONE] Ollama Customization:
+       * Supported `OLLAMA_BASE_URL` environment variable for remote Ollama servers.
+       * Added `embeddingModel` configuration to allow custom local embedding models (defaults to `nomic-embed-text:latest`).
+
+   20. [DONE] Performance Optimizations:
+       * Resolved memory leaks and `MaxListenersExceededWarning` by implementing a global shared terminal size hook.
+       * Optimized session history restoration to handle hundreds of sessions without crashing.
+
     opencodex
     ⚠️  Connection closed prematurely while waiting for the model. Please try again.
 

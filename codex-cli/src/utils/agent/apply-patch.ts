@@ -442,10 +442,24 @@ function peek_next_section(
 // -----------------------------------------------------------------------------
 
 /**
+ * Decodes common HTML entities that might appear due to double-encoding.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\\u003c/g, "<")
+    .replace(/\\u003e/g, ">");
+}
+
+/**
  * Normalizes patch text to ensure it has the required markers and handles markdown blocks.
  */
 function normalizePatchText(text: string): string {
-  let cleaned = text.trim();
+  let cleaned = decodeHtmlEntities(text).trim();
 
   // Remove markdown code blocks if present
   if (cleaned.startsWith("```")) {
@@ -458,6 +472,9 @@ function normalizePatchText(text: string): string {
     }
     cleaned = lines.join("\n").trim();
   }
+
+  // Handle mixed escaping by ensuring real newlines
+  cleaned = cleaned.replace(/\\n/g, "\n");
 
   const hasBegin = cleaned.includes("*** Begin Patch");
   const hasEnd = cleaned.includes("*** End Patch");
@@ -480,17 +497,38 @@ function normalizePatchText(text: string): string {
 
   // If it's a "bare" unified diff (starting with ---/+++ or just a hunk), 
   // we try to infer the filename and wrap it as an Update File.
-  if (cleaned.startsWith("---") || cleaned.startsWith("+++") || cleaned.startsWith("@@")) {
+  if (cleaned.includes("---") || cleaned.includes("+++") || cleaned.includes("@@")) {
     const lines = cleaned.split("\n");
     let filename = "";
+    
+    // First, look for standard diff headers
     for (const line of lines) {
       if (line.startsWith("--- ") || line.startsWith("+++ ")) {
-        filename = line.slice(4).split("\t")[0]?.trim() || "";
-        if (filename && filename !== "/dev/null") break;
+        const potential = line.slice(4).split("\t")[0]?.trim() || "";
+        if (potential && potential !== "/dev/null" && potential !== "a/" && potential !== "b/") {
+          filename = potential.replace(/^[ab]\//, ""); // strip a/ or b/ prefixes
+          break;
+        }
       }
     }
+
+    // If no standard headers found, try to find any marker that might contain a path
+    if (!filename) {
+      for (const line of lines) {
+        if (line.includes("*** Update File:") || line.includes("Update File:")) {
+           filename = line.split(":").pop()?.trim() || "";
+           break;
+        }
+      }
+    }
+
     if (filename) {
-      return `*** Begin Patch\n*** Update File: ${filename}\n${cleaned}\n*** End Patch`;
+      // Ensure hunks have a valid header if they seem incomplete
+      const fixedLines = lines.map(line => {
+        if (line.trim() === "@@") return "@@ -1,1 +1,1 @@";
+        return line;
+      });
+      return `*** Begin Patch\n*** Update File: ${filename}\n${fixedLines.join("\n")}\n*** End Patch`;
     }
   }
 

@@ -44,6 +44,11 @@ export type TextInputProps = {
    * Function to call when `Enter` is pressed, where first argument is a value of the input.
    */
   readonly onSubmit?: (value: string) => void;
+
+  /**
+   * Function to call when any key is pressed.
+   */
+  readonly onKeyDown?: (input: string, key: any) => boolean | void;
 };
 
 function findPrevWordJump(prompt: string, cursorOffset: number) {
@@ -90,6 +95,7 @@ function TextInput({
   showCursor = true,
   onChange,
   onSubmit,
+  onKeyDown,
 }: TextInputProps) {
   const [state, setState] = useState({
     cursorOffset: (originalValue || "").length,
@@ -153,6 +159,9 @@ function TextInput({
 
   useInput(
     (input, key) => {
+      if (onKeyDown?.(input, key)) {
+        return;
+      }
       // ────────────────────────────────────────────────────────────────
       // Support Shift+Enter / Ctrl+Enter from terminals that have
       // modifyOtherKeys enabled.  Such terminals encode the key‑combo in a

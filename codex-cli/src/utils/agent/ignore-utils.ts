@@ -97,5 +97,7 @@ export function isPathIgnored(filePath: string): boolean {
     
   if (!relativePath) return false;
   
-  return ig.ignores(relativePath);
+  // ignore library requires forward slashes
+  const posixPath = relativePath.replace(/\\/g, "/");
+  return ig.ignores(posixPath);
 }

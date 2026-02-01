@@ -43,6 +43,10 @@ import React from "react";
 // immediately. This must be run with DEBUG=1 for logging to work.
 initLogger();
 
+// Increase MaxListeners limit on process.stdout to prevent warnings when many 
+// components use the useTerminalSize hook (e.g. during history restore).
+process.stdout.setMaxListeners(100);
+
 // TODO: migrate to new versions of quiet mode
 //
 //     -q, --quiet    Non-interactive quiet mode that only prints final message

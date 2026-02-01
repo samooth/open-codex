@@ -196,11 +196,32 @@ function splitConcatenatedJSON(str: string): string[] {
   return results;
 }
 
+/**
+ * Decodes common HTML entities that might appear due to double-encoding.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\\u003c/g, "<")
+    .replace(/\\u003e/g, ">");
+}
+
 export function parseToolCallArguments(
   toolCallArguments: string,
 ): ParsedToolCallResult {
-  // Clean the input
-  const trimmed = toolCallArguments.trim();
+  // Clean the input: handle HTML encoding and mixed escaping
+  let cleaned = decodeHtmlEntities(toolCallArguments).trim();
+  
+  // If the string contains literal newlines, JSON.parse will fail.
+  // We need to ensure that newlines inside the patch/command strings are properly escaped.
+  // This is tricky because we don't want to double-escape existing \n.
+  // However, LLMs often send raw blocks.
+  
+  const trimmed = cleaned;
 
   if (!trimmed) {
     return {
@@ -214,7 +235,18 @@ export function parseToolCallArguments(
     const json = JSON.parse(trimmed);
     return validateAndBuildResult(json);
   } catch {
-    // Not valid single JSON, try concatenated
+    // If it failed, it might be due to unescaped newlines in a "patch" or "content" field.
+    // We try a desperate attempt to escape them if we detect it looks like a JSON object.
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+       try {
+         // Escape literal newlines that are NOT preceded by a backslash
+         const escaped = trimmed.replace(/(?<!\\)\n/g, "\\n");
+         const json = JSON.parse(escaped);
+         return validateAndBuildResult(json);
+       } catch {
+         // ignore and continue to concatenated logic
+       }
+    }
   }
 
   // Handle concatenated JSON objects (parallel execution)

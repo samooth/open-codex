@@ -229,7 +229,8 @@ export async function handleListDirectory(
     const entries = readdirSync(fullPath, { withFileTypes: true })
       .filter((e) => {
         const relPath = join(dirPath, e.name);
-        return !ig.ignores(relPath);
+        const posixPath = relPath.replace(/\\/g, "/");
+        return !ig.ignores(posixPath);
       })
       .sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory()) return -1;
@@ -685,7 +686,8 @@ export async function handleListFilesRecursive(
       const entries = dirents
         .filter((e) => {
           const relPath = join(currentRelPath, e.name);
-          return !ig.ignores(relPath);
+          const posixPath = relPath.replace(/\\/g, "/");
+          return !ig.ignores(posixPath);
         })
         .sort((a, b) => {
           if (a.isDirectory() && !b.isDirectory()) return -1;

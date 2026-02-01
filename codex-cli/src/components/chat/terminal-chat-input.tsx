@@ -110,6 +110,26 @@ export default function TerminalChatInput({
     ? slashCommands.filter((c) => c.name.startsWith(input))
     : [];
 
+  const onKeyDown = (inputStr: string, key: any) => {
+    if (input.startsWith("/")) {
+      if (key.tab) {
+        if (filteredSlashCommands.length > 0) {
+          setSelectedSlashCommand((s) => (s + (key.shift ? -1 : 1) + filteredSlashCommands.length) % filteredSlashCommands.length);
+          return true;
+        }
+      } else if (key.return) {
+        const cmd = filteredSlashCommands[selectedSlashCommand]?.name || "";
+        if (cmd && input !== cmd) {
+          setInput(cmd);
+          setSelectedSlashCommand(0);
+          return true; // prevent submit on first enter
+        }
+        // if input === cmd, we return false and let TextInput's onSubmit handle it
+      }
+    }
+    return false;
+  };
+
   useInput(
     (_input, _key) => {
       if (awaitingContinueConfirmation && active && !loading) {
@@ -184,16 +204,7 @@ export default function TerminalChatInput({
         }
       }
 
-      if (input.startsWith("/")) {
-        if (_key.tab) {
-          setSelectedSlashCommand((s) => (s + (_key.shift ? -1 : 1) + filteredSlashCommands.length) % filteredSlashCommands.length);
-        } else if (_key.return && filteredSlashCommands.length > 0) {
-          const cmd = filteredSlashCommands[selectedSlashCommand]?.name || "";
-          setInput(cmd);
-          setSelectedSlashCommand(0);
-          // We don't submit immediately to allow the user to see the full command or add args
-        }
-      } else if (input.trim() === "" && isNew) {
+      if (input.trim() === "" && isNew) {
         if (_key.tab) {
           setSelectedSuggestion(
             (s) => (s + (_key.shift ? -1 : 1)) % (suggestions.length + 1),
@@ -451,6 +462,7 @@ export default function TerminalChatInput({
               }
               showCursor
               value={input}
+              onKeyDown={onKeyDown}
               onChange={(value) => {
                 setDraftInput(value);
                 if (historyIndex != null) {

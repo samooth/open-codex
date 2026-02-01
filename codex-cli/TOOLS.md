@@ -16,8 +16,9 @@ This is the "brain" of the agent. It controls:
     - `list_files_recursive`: Parallel tree-view project exploration.
     - `read_file_lines`: Reading specific line ranges to save context.
     - search_codebase: Structured search using ripgrep (`rg --json`).
-    - persistent_memory: Fact storage in `.codex/memory.md` with category support.
-    - summarize_memory: Retrieve all stored facts for review and consolidation.
+    - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
+    - `summarize_memory`: Retrieve all stored facts for review and consolidation.
+    - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
 Controls the execution of shell commands:
