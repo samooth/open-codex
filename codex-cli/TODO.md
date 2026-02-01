@@ -17,3 +17,6 @@
 * **Always-Allow for Patches:** Added `--allow-always-patch` flag to permit session-level auto-approval of file modifications.
 * **Live Instruction Editing:** Implemented `/prompt` command to adjust system instructions during a session.
 * **Dry-Run Awareness:** Injected explicit session status into the system prompt when `--dry-run` is active.
+* **Context-Aware Memory Search:** Implemented semantic search for project memory snippets.
+* **Enhanced Tool Visibility & Boxes:** Improved UI with color-coded boxed tool interactions.
+* **Custom Response Input for Choices:** Added ability to provide custom text input for interactive agent prompts.

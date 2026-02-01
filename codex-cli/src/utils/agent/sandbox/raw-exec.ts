@@ -104,17 +104,24 @@ export function exec(
           return;
         }
         try {
-          try {
-            // Send to the *process group* so grandchildren are included.
-            process.kill(-child.pid, signal);
-          } catch {
-            // Fallback: kill only the immediate child (may leave orphans on
-            // exotic kernels that lack process‑group semantics, but better
-            // than nothing).
+          if (process.platform === "win32") {
+            // On Windows, negative PIDs for process groups are not supported.
+            // We use taskkill to reliably kill the process and all its children (/T).
+            // /F forces the termination.
+            spawn("taskkill", ["/pid", child.pid.toString(), "/T", "/F"]);
+          } else {
             try {
-              child.kill(signal);
+              // Send to the *process group* so grandchildren are included.
+              process.kill(-child.pid, signal);
             } catch {
-              /* ignore */
+              // Fallback: kill only the immediate child (may leave orphans on
+              // exotic kernels that lack process‑group semantics, but better
+              // than nothing).
+              try {
+                child.kill(signal);
+              } catch {
+                /* ignore */
+              }
             }
           }
         } catch {

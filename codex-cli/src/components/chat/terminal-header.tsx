@@ -67,7 +67,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
               </Text>
             </Text>
             {initialImagePaths?.map((img, idx) => (
-              <Text key={img ?? idx} color="gray">
+              <Text key={idx} color="gray">
                 <Text color="blueBright">↳</Text> image:{" "}
                 <Text bold>{path.basename(img)}</Text>
               </Text>

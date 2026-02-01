@@ -3,9 +3,11 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
 import { loadInstructions } from "../config";
+import { getSessionId, setSessionId, getCurrentModel } from "../session";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import crypto from "crypto";
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
 
@@ -14,12 +16,19 @@ async function saveRolloutToHomeSessions(
 ): Promise<void> {
   await fs.mkdir(SESSIONS_ROOT, { recursive: true });
 
-  const sessionId = crypto.randomUUID();
+  let sessionId = getSessionId();
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    setSessionId(sessionId);
+  }
+
   const timestamp = new Date().toISOString();
-  const ts = timestamp.replace(/[:.]/g, "-").slice(0, 10);
-  const filename = `rollout-${ts}-${sessionId}.json`;
+  // We use a fixed filename for the session to overwrite it with updates
+  const filename = `session-${sessionId}.json`;
   const filePath = path.join(SESSIONS_ROOT, filename);
   const instructions = loadInstructions();
+  const model = getCurrentModel();
+
   try {
     await fs.writeFile(
       filePath,
@@ -29,6 +38,7 @@ async function saveRolloutToHomeSessions(
             timestamp,
             id: sessionId,
             instructions,
+            model,
           },
           items,
         },

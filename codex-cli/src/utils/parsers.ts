@@ -46,22 +46,7 @@ const ToolCallArgsSchema = z
     category: z.string().optional(),
     // list_files_recursive
     depth: z.number().optional(),
-  })
-  .refine(
-    (data) =>
-      data.command ||
-      data.cmd ||
-      data.patch ||
-      data.path ||
-      data.pattern ||
-      data.query ||
-      data.fact ||
-      typeof data.depth === 'number',
-    {
-      message:
-        "Missing required property: one of 'command', 'cmd', 'patch', 'path', 'pattern', 'query', 'fact', or 'depth' must be provided",
-    },
-  );
+  });
 
 // Fixed: Single, clear type definition without duplicates
 export type ParsedToolCallResult = 
@@ -684,7 +669,11 @@ function toStringArray(obj: unknown): Array<string> | undefined {
     if (arrayOfStrings.length === 1) {
       const first = arrayOfStrings[0];
       if (first && first.includes(" ")) {
-        const tokens = parse(first);
+        const tokens = parse(first, (key) => `$${key}`);
+        if (tokens.some((t) => typeof t === "object" && "op" in t)) {
+          // If it has operators, keep it as a single string
+          return [first];
+        }
         return tokens
           .map((t) => (typeof t === "string" ? t : undefined))
           .filter((t): t is string => t !== undefined);
@@ -692,8 +681,11 @@ function toStringArray(obj: unknown): Array<string> | undefined {
     }
     return arrayOfStrings;
   } else if (typeof obj === "string") {
-    // If it's a single string, parse it using shell-quote to split it correctly
-    const tokens = parse(obj);
+    const tokens = parse(obj, (key) => `$${key}`);
+    if (tokens.some((t) => typeof t === "object" && "op" in t)) {
+      // If it has operators, keep it as a single string
+      return [obj];
+    }
     return tokens
       .map((t) => (typeof t === "string" ? t : undefined))
       .filter((t): t is string => t !== undefined);

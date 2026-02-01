@@ -262,7 +262,7 @@ export class AgentLoop {
       ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
     });
 
-    this.semanticMemory = new SemanticMemory(this.oai);
+    this.semanticMemory = new SemanticMemory(this.oai, this.config.provider, this.config.embeddingModel);
 
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
@@ -338,6 +338,11 @@ export class AgentLoop {
 
       const toolCallKey = `${name}:${rawArguments}`;
       const history = this.toolCallHistory.get(toolCallKey) || { count: 0 };
+
+      if (process.env["DEBUG"] === "1") {
+        log(`[DEBUG] Tool Call: ${name}`);
+        log(`[DEBUG] Arguments: ${rawArguments}`);
+      }
 
       const result = parseToolCallArguments(rawArguments ?? "{}");
       if (isLoggingEnabled()) {
@@ -519,17 +524,27 @@ export class AgentLoop {
         outputText = result.outputText;
         metadata = result.metadata;
       } else if (name === "index_codebase") {
+        if (process.env["DEBUG"] === "1") {
+          log(`Tool call: index_codebase invoked`);
+        }
         this.onItem({
           role: "assistant",
           content: "Indexing codebase... this might take a while depending on the size.",
         });
+        let totalIndexed = 0;
         await this.indexCodebase((curr, total, file) => {
+          totalIndexed = total;
+          const progressMsg = `Indexing progress: ${curr}/${total} - ${file}`;
           if (curr % 10 === 0) {
-            log(`Indexing progress: ${curr}/${total} - ${file}`);
+            log(progressMsg);
           }
+          // Update UI with current progress
+          this.onPartialUpdate?.("", progressMsg, "index_codebase", { current: curr, total, file });
         });
-        outputText = "Codebase indexing complete.";
-        metadata = { exit_code: 0 };
+        // Clear progress from thinking indicator
+        this.onPartialUpdate?.("", "", undefined, undefined);
+        outputText = `Codebase indexing complete. Indexed ${totalIndexed} files.`;
+        metadata = { exit_code: 0, count: totalIndexed };
       } else {
         return [outputItem];
       }

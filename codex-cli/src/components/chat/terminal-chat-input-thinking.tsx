@@ -162,7 +162,7 @@ export default function TerminalChatInputThinking({
   const displayReasoning = partialReasoning || thinkingText;
 
   const [scrollOffset, setScrollOffset] = useState(0);
-  const maxDisplayLines = 3; // Maximum lines to display
+  const maxDisplayLines = activeToolName ? 5 : 3; // Show more lines if a tool is active
 
   const rawLines = (displayReasoning || "").split('\n');
   const totalLines = rawLines.length;
@@ -196,17 +196,33 @@ export default function TerminalChatInputThinking({
   });
 
   return (
-    <Box flexDirection="column" gap={1}>
+    <Box 
+      flexDirection="column" 
+      gap={1}
+      borderStyle={activeToolName ? "round" : undefined}
+      borderColor="dimGray"
+      paddingX={activeToolName ? 1 : 0}
+    >
       <Box gap={2}>
         <Spinner type="ball" />
-        <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
-          {showScrollIndicatorTop ? '▲ ' : ''}
-          {displayedLines.join('\n')}
-          {showScrollIndicatorBottom ? ' ▼' : ''}
-          {activeToolName ? ` [${activeToolName}]` : ''}
-          {activeToolArguments && ` Args: ${JSON.stringify(activeToolArguments).slice(0, 50)}...`}
-          {dots}
-        </Text>
+        <Box flexDirection="column">
+          {activeToolName && (
+            <Text bold color="magenta">
+              Working: {activeToolName}
+            </Text>
+          )}
+          <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
+            {showScrollIndicatorTop ? '▲ ' : ''}
+            {displayedLines.join('\n')}
+            {showScrollIndicatorBottom ? ' ▼' : ''}
+            {dots}
+          </Text>
+          {activeToolArguments && (
+            <Text dimColor size="small">
+              Args: {JSON.stringify(activeToolArguments).slice(0, 100)}...
+            </Text>
+          )}
+        </Box>
       </Box>
       {awaitingConfirm && (
         <Text dimColor>

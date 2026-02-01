@@ -42,11 +42,22 @@
    13. [DONE] Tool UX Overhaul:
        * Added semantic icons, labels, and intelligent argument summaries to tool calls and outputs.
 
-   14. [NEW] Interactive Proceed Confirmation:
+   14. [DONE] Interactive Proceed Confirmation:
        * Detect model questions about continuing and show a Yes/No arrow-key selection.
+       * [NEW] Added "Custom..." option to allow arbitrary user text input.
 
-   9. [NEW] Parallel Tool Call Flattening:
+   15. [DONE] Parallel Tool Call Flattening:
        * Automatically split concatenated JSON objects in tool call arguments into separate parallel executions.
+
+   16. [DONE] Context-Aware Memory Search:
+       * Automatically perform a low-latency "semantic search" on the project memory for every user prompt, injecting only the most relevant snippets to save context tokens.
+
+   17. [DONE] Enhanced Tool Visibility & Boxes:
+       * Tool calls and outputs are rendered in rounded boxes with color-coded status (red for failure).
+       * "Tool Call Details" (name and arguments) are shown on error or in debug mode.
+
+   18. [DONE] Empty Command Default:
+       * Empty command arrays `{"cmd":[]}` now default to `ls -F`.
 
     opencodex
     ⚠️  Connection closed prematurely while waiting for the model. Please try again.

@@ -28,6 +28,7 @@ type MessageHistoryProps = {
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
   batch,
+  items,
   headerProps,
   loading,
   thinkingSeconds,
@@ -61,6 +62,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
               <TerminalChatResponseItem
                 item={message}
                 fullStdout={fullStdout}
+                history={items}
               />
             </Box>
           );

@@ -81,7 +81,7 @@ describe("AgentLoop – invalid request / 4xx errors", () => {
       (i) =>
         i.role === "assistant" &&
         typeof i.content?.[0]?.text === "string" &&
-        i.content[0].text.includes("OpenAI rejected"),
+        i.content[0].text.includes("rejected the request"),
     );
 
     expect(sysMsg).toBeTruthy();

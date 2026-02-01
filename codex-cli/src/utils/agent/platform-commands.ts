@@ -16,6 +16,9 @@ const COMMAND_MAP: Record<string, string> = {
   mv: "move",
   touch: "echo.>",
   mkdir: "md",
+  rmdir: "rd",
+  clear: "cls",
+  pwd: "cd",
 };
 
 /**
@@ -23,13 +26,24 @@ const COMMAND_MAP: Record<string, string> = {
  */
 const OPTION_MAP: Record<string, Record<string, string>> = {
   ls: {
-    "-l": "/p",
+    "-l": "", // dir doesn't have a direct equivalent for long format but displays similar info
     "-a": "/a",
     "-R": "/s",
+    "-F": "", // dir doesn't have a direct equivalent for file type indicators
   },
   grep: {
     "-i": "/i",
     "-r": "/s",
+    "-v": "/v",
+    "-n": "/n",
+  },
+  rm: {
+    "-rf": "/s /q",
+    "-f": "/q",
+    "-r": "/s",
+  },
+  mkdir: {
+    "-p": "", // md creates parents by default on Windows
   },
 };
 

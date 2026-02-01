@@ -122,8 +122,13 @@ export default function TerminalChat({
         const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
         const isNearEnd = lastChoiceIndex > (content.length - 100);
         if (isNearEnd || normalized.includes("choose") || normalized.includes("select") || normalized.includes("option")) {
-          const choices = choiceMatches.map(m => m.slice(1, -1));
-          return { type: "choices" as const, choices };
+          const choices = [
+            ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
+          ].filter(Boolean);
+          
+          if (choices.length >= 2) {
+            return { type: "choices" as const, choices };
+          }
         }
       }
     }
@@ -179,7 +184,11 @@ export default function TerminalChat({
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         if (reasoning) {
-          setPartialReasoning((prev) => prev + reasoning);
+          if (activeToolName) {
+            setPartialReasoning(reasoning);
+          } else {
+            setPartialReasoning((prev) => prev + reasoning);
+          }
         } else if (content) {
           // Extract <thought> or <think> content if present
           const thoughtMatch = content.match(/<(thought|think)>([\s\S]*?)$|(<(thought|think)>[\s\S]*?<\/\4>)/g);
@@ -465,6 +474,9 @@ export default function TerminalChat({
             onSelect={(rollout) => {
               setItems(rollout.items);
               setPrevItems(rollout.items);
+              if (rollout.session?.id) {
+                setSessionId(rollout.session.id);
+              }
               // Also update config instructions if they were saved in rollout
               if (rollout.session?.instructions) {
                 setConfig(prev => ({ ...prev, instructions: rollout.session.instructions }));

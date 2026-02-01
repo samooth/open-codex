@@ -73,6 +73,13 @@ test("loads default config if files don't exist", () => {
     instructions: "",
     provider: "openai",
     apiKey: "test-api-key",
+    enableWebSearch: false,
+    enableDeepThinking: false,
+    skipSemanticMemory: false,
+    embeddingModel: undefined,
+    approvalMode: undefined,
+    fullAutoErrorMode: undefined,
+    memory: undefined,
   });
 });
 
@@ -83,6 +90,13 @@ test("saves and loads config correctly", () => {
     apiKey: "test-api-key",
     provider: "openai",
     baseURL: "https://api.openai.com/v1",
+    enableWebSearch: false,
+    enableDeepThinking: false,
+    skipSemanticMemory: false,
+    embeddingModel: undefined,
+    approvalMode: undefined,
+    fullAutoErrorMode: undefined,
+    memory: undefined,
   };
   saveConfig(testConfig, testConfigPath, testInstructionsPath);
 

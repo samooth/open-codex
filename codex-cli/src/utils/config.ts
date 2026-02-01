@@ -201,6 +201,7 @@ export const StoredConfigSchema = z.object({
   memory: MemoryConfigSchema.optional(),
   enableWebSearch: z.boolean().optional(),
   enableDeepThinking: z.boolean().optional(),
+  embeddingModel: z.string().optional(),
 });
 
 // Represents config as persisted in config.json.
@@ -223,6 +224,7 @@ export type AppConfig = {
   skipSemanticMemory?: boolean;
   enableWebSearch?: boolean;
   enableDeepThinking?: boolean;
+  embeddingModel?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -380,7 +382,6 @@ export const loadInstructions = (
   const combinedInstructions = [
     userInstructions,
     projectDoc ? `--- project-doc ---\n\n${projectDoc}` : "",
-    memoryContent ? `--- project-memory ---\n\n${memoryContent}` : "",
   ]
     .filter((s) => s && s.trim() !== "")
     .join("\n\n");
@@ -495,9 +496,10 @@ export const loadConfig = (
     approvalMode: storedConfig.approvalMode,
     fullAutoErrorMode: storedConfig.fullAutoErrorMode,
     memory: storedConfig.memory,
-    skipSemanticMemory: derivedProvider === "ollama",
-    enableWebSearch: storedConfig.enableWebSearch ?? true,
+    skipSemanticMemory: false,
+    enableWebSearch: storedConfig.enableWebSearch ?? false,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
+    embeddingModel: storedConfig.embeddingModel,
   };
 
   // -----------------------------------------------------------------------
@@ -576,6 +578,7 @@ export const saveConfig = (
     approvalMode: config.approvalMode,
     enableWebSearch: config.enableWebSearch,
     enableDeepThinking: config.enableDeepThinking,
+    embeddingModel: config.embeddingModel,
   };
   if (ext === ".yaml" || ext === ".yml") {
     writeFileSync(targetPath, dumpYaml(configToSave), "utf-8");

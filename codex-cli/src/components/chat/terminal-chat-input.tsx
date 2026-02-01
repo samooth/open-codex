@@ -104,6 +104,8 @@ export default function TerminalChatInput({
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [draftInput, setDraftInput] = useState<string>("");
 
+  const [customInputMode, setCustomInputMode] = useState(false);
+
   const filteredSlashCommands = input.startsWith("/")
     ? slashCommands.filter((c) => c.name.startsWith(input))
     : [];
@@ -131,7 +133,14 @@ export default function TerminalChatInput({
         }
       }
 
-      if (!confirmationPrompt && !loading) {
+      if (customInputMode) {
+        if (_key.escape) {
+          setCustomInputMode(false);
+          return;
+        }
+      }
+
+      if (!confirmationPrompt && !loading && !customInputMode) {
         if (_key.upArrow) {
           if (filteredSlashCommands.length > 0) {
             setSelectedSlashCommand((s) => (s - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
@@ -397,7 +406,7 @@ export default function TerminalChatInput({
   return (
     <Box flexDirection="column">
       <Box borderStyle="round">
-        {awaitingContinueConfirmation ? (
+        {awaitingContinueConfirmation && !customInputMode ? (
           <Box paddingX={1} flexDirection="column">
             <Text>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
             <Box paddingX={2}>
@@ -407,10 +416,18 @@ export default function TerminalChatInput({
                     ? [
                         { label: "Yes (y)", value: "Yes" },
                         { label: "No (n)", value: "No" },
+                        { label: "Custom...", value: "__custom__" },
                       ]
-                    : awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c }))
+                    : [
+                        ...awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c })),
+                        { label: "Custom...", value: "__custom__" }
+                      ]
                 }
                 onChange={(value: string) => {
+                  if (value === "__custom__") {
+                    setCustomInputMode(true);
+                    return;
+                  }
                   const item = {
                     role: "user" as const,
                     content: [{ type: "text" as const, text: value }],
@@ -425,7 +442,9 @@ export default function TerminalChatInput({
             <TextInput
               focus={active}
               placeholder={
-                selectedSuggestion
+                customInputMode
+                  ? "type your custom response..."
+                  : selectedSuggestion
                   ? `"${suggestions[selectedSuggestion - 1]}"`
                   : "send a message" +
                     (isNew ? " or press tab to select a suggestion" : "")
@@ -439,7 +458,12 @@ export default function TerminalChatInput({
                 }
                 setInput(value);
               }}
-              onSubmit={onSubmit}
+              onSubmit={(value) => {
+                if (customInputMode) {
+                  setCustomInputMode(false);
+                }
+                onSubmit(value);
+              }}
             />
           </Box>
         )}

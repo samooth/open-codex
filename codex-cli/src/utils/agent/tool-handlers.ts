@@ -278,7 +278,11 @@ export async function handleSearchCodebase(
       rgArgs.push(searchPath);
     }
     if (include) {
-      rgArgs.push("-g", include);
+      // Split by spaces and add each glob separately with -g
+      const globs = include.split(/\s+/).filter(Boolean);
+      for (const glob of globs) {
+        rgArgs.push("-g", glob);
+      }
     }
 
     // Add .codexignore support to ripgrep
@@ -815,6 +819,10 @@ export async function handleSemanticSearch(
         outputText: "Error: 'query' is required for semantic_search",
         metadata: { exit_code: 1 },
       };
+    }
+
+    if (process.env["DEBUG"] === "1") {
+      log(`Semantic search query: "${query}" (limit: ${limit})`);
     }
 
     const agent = ctx.agent;

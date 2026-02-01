@@ -49,7 +49,11 @@ export default function TerminalChatPastRollout({
         {React.useMemo(
           () =>
             items.map((item, key) => (
-              <TerminalChatResponseItem key={key} item={item} />
+              <TerminalChatResponseItem
+                key={key}
+                item={item}
+                history={items}
+              />
             )),
           [items],
         )}

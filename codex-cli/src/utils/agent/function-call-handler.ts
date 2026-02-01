@@ -121,6 +121,11 @@ export async function handleFunctionCall(
     }
 
     const args = result.args;
+    // Handle empty command array by defaulting to listing files
+    if (args && args.cmd && Array.isArray(args.cmd) && args.cmd.length === 0) {
+      args.cmd = ["ls", "-F"];
+    }
+
     const outputItem: ChatCompletionMessageParam = {
       role: "tool",
       tool_call_id: callId,

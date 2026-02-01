@@ -20,9 +20,11 @@ import React, { useMemo } from "react";
 export default function TerminalChatResponseItem({
   item,
   fullStdout = false,
+  history = [],
 }: {
   item: ChatCompletionMessageParam;
   fullStdout?: boolean;
+  history?: Array<ChatCompletionMessageParam>;
 }): React.ReactElement {
   switch (item.role) {
     case "user":
@@ -38,7 +40,11 @@ export default function TerminalChatResponseItem({
       );
     case "tool":
       return (
-        <TerminalChatResponseMessage message={item} fullStdout={fullStdout} />
+        <TerminalChatResponseMessage
+          message={item}
+          fullStdout={fullStdout}
+          history={history}
+        />
       );
     default:
       break;
@@ -116,9 +122,11 @@ const colorsByRole: Record<string, ForegroundColorName> = {
 function TerminalChatResponseMessage({
   message,
   fullStdout,
+  history = [],
 }: {
   message: ChatCompletionMessageParam;
   fullStdout?: boolean;
+  history?: Array<ChatCompletionMessageParam>;
 }) {
   const contentParts: Array<string> = [];
   if (typeof message.content === "string") {
@@ -144,10 +152,22 @@ function TerminalChatResponseMessage({
     return null;
   }
   if (message.role === "tool" && !("tool_calls" in message)) {
+    // Find the original tool call that this output corresponds to
+    const toolCallId = (message as any).tool_call_id;
+    const toolCallMessage = history.find(
+      (m) =>
+        m.role === "assistant" &&
+        m.tool_calls?.some((tc) => tc.id === toolCallId),
+    );
+    const toolCall = toolCallMessage?.tool_calls?.find(
+      (tc) => tc.id === toolCallId,
+    );
+
     return (
       <TerminalChatResponseToolCallOutput
         content={content}
         fullStdout={!!fullStdout}
+        toolCall={toolCall}
       />
     );
   }
@@ -264,15 +284,24 @@ function TerminalChatResponseToolCall({
   }
 
   return (
-    <Box flexDirection="column" gap={0} marginY={1}>
+    <Box
+      flexDirection="column"
+      gap={0}
+      marginY={1}
+      borderStyle="round"
+      borderColor="gray"
+      paddingX={1}
+    >
       <Box gap={1}>
         <Text color={color} bold>
           {icon} {label}
         </Text>
         <Text dimColor>{summary}</Text>
       </Box>
-      {(toolName === "shell" || toolName === "repo_browser.exec" || toolName === "apply_patch") && (
-        <Box paddingLeft={3}>
+      {(toolName === "shell" ||
+        toolName === "repo_browser.exec" ||
+        toolName === "apply_patch") && (
+        <Box paddingLeft={2}>
           <Text>
             <Text dimColor>$</Text> {details?.cmdReadableText}
           </Text>
@@ -285,12 +314,17 @@ function TerminalChatResponseToolCall({
 function TerminalChatResponseToolCallOutput({
   content,
   fullStdout,
+  toolCall,
 }: {
   content: string;
   fullStdout: boolean;
+  toolCall?: ChatCompletionMessageToolCall;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
   const { exit_code, duration_seconds, working_directory, type, url, query } = metadata as any;
+  const isDebug = process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
+  const isError = exit_code !== 0 && typeof exit_code !== "undefined";
+
   const metadataInfo = useMemo(
     () =>
       [
@@ -346,7 +380,37 @@ function TerminalChatResponseToolCallOutput({
     .join("\n");
 
   return (
-    <Box flexDirection="column" gap={0}>
+    <Box
+      flexDirection="column"
+      gap={0}
+      borderStyle="round"
+      borderColor={isError ? "red" : "gray"}
+      paddingX={1}
+      marginY={1}
+      width="100%"
+    >
+      {(isError || isDebug) && toolCall && (
+        <Box
+          flexDirection="column"
+          marginBottom={1}
+          borderStyle="single"
+          borderColor={isError ? "red" : "gray"}
+          paddingX={1}
+          width="100%"
+        >
+          <Text bold color={isError ? "red" : "gray"}>
+            {isError ? "❌ Tool Call Failed" : "🔍 Tool Call Details"}
+          </Text>
+          <Box gap={1}>
+            <Text bold>tool:</Text>
+            <Text>{toolCall.function.name}</Text>
+          </Box>
+          <Box gap={1} flexDirection="column">
+            <Text bold>arguments:</Text>
+            <Text dimColor>{toolCall.function.arguments}</Text>
+          </Box>
+        </Box>
+      )}
       <Box gap={1}>
         <Text color={labelColor} bold>
           {label}
@@ -361,7 +425,9 @@ function TerminalChatResponseToolCallOutput({
         </Box>
       )}
       <Box marginTop={1}>
-        <Text dimColor={type !== "web_fetch" && type !== "web_search"}>{colorizedContent}</Text>
+        <Text dimColor={type !== "web_fetch" && type !== "web_search"}>
+          {colorizedContent}
+        </Text>
       </Box>
     </Box>
   );
