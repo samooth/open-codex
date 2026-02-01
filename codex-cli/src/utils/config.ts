@@ -199,6 +199,8 @@ export const StoredConfigSchema = z.object({
   approvalMode: z.nativeEnum(AutoApprovalMode).optional(),
   fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
   memory: MemoryConfigSchema.optional(),
+  enableWebSearch: z.boolean().optional(),
+  enableDeepThinking: z.boolean().optional(),
 });
 
 // Represents config as persisted in config.json.
@@ -219,6 +221,8 @@ export type AppConfig = {
   dryRun?: boolean;
   allowAlwaysPatch?: boolean;
   skipSemanticMemory?: boolean;
+  enableWebSearch?: boolean;
+  enableDeepThinking?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -492,6 +496,8 @@ export const loadConfig = (
     fullAutoErrorMode: storedConfig.fullAutoErrorMode,
     memory: storedConfig.memory,
     skipSemanticMemory: derivedProvider === "ollama",
+    enableWebSearch: storedConfig.enableWebSearch ?? true,
+    enableDeepThinking: storedConfig.enableDeepThinking ?? false,
   };
 
   // -----------------------------------------------------------------------
@@ -568,6 +574,8 @@ export const saveConfig = (
   const configToSave: StoredConfig = {
     model: config.model,
     approvalMode: config.approvalMode,
+    enableWebSearch: config.enableWebSearch,
+    enableDeepThinking: config.enableDeepThinking,
   };
   if (ext === ".yaml" || ext === ".yml") {
     writeFileSync(targetPath, dumpYaml(configToSave), "utf-8");

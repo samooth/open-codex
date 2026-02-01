@@ -1,8 +1,25 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
+import { homedir } from "os";
 import { handleExecCommand } from "./handle-exec-command.js";
 import type { AgentContext } from "./types.js";
+import { getIgnoreFilter } from "./ignore-utils.js";
+
+function findGitRoot(startDir: string): string | null {
+  let dir = resolve(startDir);
+  while (true) {
+    if (existsSync(join(dir, ".git"))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return null;
+}
 
 export async function handleReadFile(
   ctx: AgentContext,
@@ -208,7 +225,12 @@ export async function handleListDirectory(
       };
     }
 
+    const ig = getIgnoreFilter();
     const entries = readdirSync(fullPath, { withFileTypes: true })
+      .filter((e) => {
+        const relPath = join(dirPath, e.name);
+        return !ig.ignores(relPath);
+      })
       .sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory()) return -1;
         if (!a.isDirectory() && b.isDirectory()) return 1;
@@ -257,6 +279,19 @@ export async function handleSearchCodebase(
     }
     if (include) {
       rgArgs.push("-g", include);
+    }
+
+    // Add .codexignore support to ripgrep
+    const gitRoot = findGitRoot(process.cwd());
+    const searchDirs = [process.cwd()];
+    if (gitRoot && gitRoot !== process.cwd()) searchDirs.push(gitRoot);
+    searchDirs.push(join(homedir(), ".codex"));
+
+    for (const dir of searchDirs) {
+      const codexIgnorePath = join(dir, ".codexignore");
+      if (existsSync(codexIgnorePath)) {
+        rgArgs.push("--ignore-file", codexIgnorePath);
+      }
     }
 
     const result = await handleExecCommand(
@@ -628,9 +663,11 @@ export async function handleListFilesRecursive(
       };
     }
 
+    const ig = getIgnoreFilter();
     const generateTree = async (
       dir: string,
       currentDepth: number,
+      currentRelPath: string = "",
     ): Promise<string> => {
       if (currentDepth > depth) return "";
 
@@ -642,7 +679,10 @@ export async function handleListFilesRecursive(
       }
 
       const entries = dirents
-        .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
+        .filter((e) => {
+          const relPath = join(currentRelPath, e.name);
+          return !ig.ignores(relPath);
+        })
         .sort((a, b) => {
           if (a.isDirectory() && !b.isDirectory()) return -1;
           if (!a.isDirectory() && b.isDirectory()) return 1;
@@ -652,9 +692,10 @@ export async function handleListFilesRecursive(
       const results = await Promise.all(
         entries.map(async (entry) => {
           const indent = "  ".repeat(currentDepth - 1);
+          const relPath = join(currentRelPath, entry.name);
           if (entry.isDirectory()) {
             let subtree = `${indent}dir: ${entry.name}/\n`;
-            subtree += await generateTree(join(dir, entry.name), currentDepth + 1);
+            subtree += await generateTree(join(dir, entry.name), currentDepth + 1, relPath);
             return subtree;
           } else {
             return `${indent}file: ${entry.name}\n`;
@@ -665,7 +706,7 @@ export async function handleListFilesRecursive(
       return results.join("");
     };
 
-    const treeResult = await generateTree(fullStartPath, 1);
+    const treeResult = await generateTree(fullStartPath, 1, startPath === "." ? "" : startPath);
 
     return {
       outputText: treeResult || "No files found.",
@@ -674,6 +715,128 @@ export async function handleListFilesRecursive(
   } catch (err) {
     return {
       outputText: `Error listing files: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleFetchUrl(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { url } = args;
+
+    if (!url) {
+      return {
+        outputText: "Error: 'url' is required for fetch_url",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const execResult = await handleExecCommand(
+      { cmd: ["lynx", "-dump", url], workdir: process.cwd(), timeoutInMillis: 30000 },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    return {
+      ...execResult,
+      metadata: { ...execResult.metadata, url, type: "web_fetch" },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error fetching URL: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleWebSearch(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { query } = args;
+
+    if (!query) {
+      return {
+        outputText: "Error: 'query' is required for web_search",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    // Use DuckDuckGo HTML version for better parsing with lynx
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+    const execResult = await handleExecCommand(
+      { cmd: ["lynx", "-dump", searchUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    return {
+      ...execResult,
+      metadata: { ...execResult.metadata, query, type: "web_search" },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error performing web search: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleSemanticSearch(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { query, limit = 5 } = args;
+
+    if (!query) {
+      return {
+        outputText: "Error: 'query' is required for semantic_search",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const agent = ctx.agent;
+    if (!agent) {
+       return { outputText: "Error: Agent not initialized", metadata: { exit_code: 1 } };
+    }
+
+    const results = await agent.searchCode(query, limit);
+    
+    if (results.length === 0) {
+      return { outputText: "No semantically relevant code found.", metadata: { exit_code: 0 } };
+    }
+
+    const outputText = results.map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`).join("\n\n---\n\n");
+
+    return {
+      outputText,
+      metadata: { exit_code: 0, query, match_count: results.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error performing semantic search: ${String(err)}`,
       metadata: { exit_code: 1 },
     };
   }

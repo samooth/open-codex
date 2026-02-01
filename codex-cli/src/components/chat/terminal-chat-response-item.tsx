@@ -197,14 +197,87 @@ function TerminalChatResponseToolCall({
   message: ChatCompletionMessageToolCall;
 }) {
   const details = parseToolCallChatCompletion(message);
+  const toolName = message.function?.name || "";
+  const rawArgs = message.function?.arguments || "{}";
+  
+  let args: any = {};
+  try {
+    args = JSON.parse(rawArgs);
+  } catch {
+    // ignore
+  }
+
+  let label = "command";
+  let icon = "⚙️";
+  let color: ForegroundColorName = "magentaBright";
+  let summary = details?.cmdReadableText;
+
+  // Semantic mapping for tools
+  if (toolName.includes("read_file_lines")) {
+    label = "reading lines";
+    icon = "📖";
+    summary = `${args.path} [${args.start_line}-${args.end_line}]`;
+  } else if (toolName.includes("read_file")) {
+    label = "reading file";
+    icon = "📄";
+    summary = args.path;
+  } else if (toolName.includes("write_file")) {
+    label = "writing file";
+    icon = "✍️";
+    summary = args.path;
+  } else if (toolName.includes("delete_file")) {
+    label = "deleting file";
+    icon = "🗑️";
+    color = "redBright";
+    summary = args.path;
+  } else if (toolName.includes("list_directory") || toolName.includes("list_files")) {
+    label = "listing";
+    icon = "📂";
+    summary = args.path || ".";
+  } else if (toolName.includes("search_codebase")) {
+    label = "searching";
+    icon = "🔍";
+    summary = `"${args.pattern || args.query}" ${args.path ? `in ${args.path}` : ""}`;
+  } else if (toolName.includes("apply_patch")) {
+    label = "patching";
+    icon = "🩹";
+    summary = "applying changes";
+  } else if (toolName === "web_search") {
+    label = "searching web";
+    icon = "🌐";
+    color = "blueBright";
+    summary = `"${args.query}"`;
+  } else if (toolName === "fetch_url") {
+    label = "fetching web";
+    icon = "🌐";
+    color = "blueBright";
+    summary = args.url;
+  } else if (toolName.includes("memory")) {
+    label = "memory";
+    icon = "🧠";
+    color = "cyanBright";
+    summary = args.fact || args.query || args.pattern || "maintenance";
+  } else if (toolName === "shell" || toolName === "repo_browser.exec") {
+    label = "shell";
+    icon = "🐚";
+    summary = details?.cmdReadableText;
+  }
+
   return (
-    <Box flexDirection="column" gap={1}>
-      <Text color="magentaBright" bold>
-        command
-      </Text>
-      <Text>
-        <Text dimColor>$</Text> {details?.cmdReadableText}
-      </Text>
+    <Box flexDirection="column" gap={0} marginY={1}>
+      <Box gap={1}>
+        <Text color={color} bold>
+          {icon} {label}
+        </Text>
+        <Text dimColor>{summary}</Text>
+      </Box>
+      {(toolName === "shell" || toolName === "repo_browser.exec" || toolName === "apply_patch") && (
+        <Box paddingLeft={3}>
+          <Text>
+            <Text dimColor>$</Text> {details?.cmdReadableText}
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -217,7 +290,7 @@ function TerminalChatResponseToolCallOutput({
   fullStdout: boolean;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
-  const { exit_code, duration_seconds, working_directory } = metadata;
+  const { exit_code, duration_seconds, working_directory, type, url, query } = metadata as any;
   const metadataInfo = useMemo(
     () =>
       [
@@ -231,6 +304,21 @@ function TerminalChatResponseToolCallOutput({
         .join(", "),
     [exit_code, duration_seconds, working_directory],
   );
+
+  let label = "command.stdout";
+  let labelColor: ForegroundColorName = "magenta";
+  let headerContent: string | undefined;
+
+  if (type === "web_fetch") {
+    label = "web.fetch";
+    labelColor = "blueBright";
+    headerContent = url;
+  } else if (type === "web_search") {
+    label = "web.search";
+    labelColor = "blueBright";
+    headerContent = `query: ${query}`;
+  }
+
   let displayedContent = output;
   if (!fullStdout) {
     const lines = displayedContent.split("\n");
@@ -243,10 +331,6 @@ function TerminalChatResponseToolCallOutput({
 
   // -------------------------------------------------------------------------
   // Colorize diff output: lines starting with '-' in red, '+' in green.
-  // This makes patches and other diff‑like stdout easier to read.
-  // We exclude the typical diff file headers ('---', '+++') so they retain
-  // the default color. This is a best‑effort heuristic and should be safe for
-  // non‑diff output – only the very first character of a line is inspected.
   // -------------------------------------------------------------------------
   const colorizedContent = displayedContent
     .split("\n")
@@ -260,13 +344,25 @@ function TerminalChatResponseToolCallOutput({
       return line;
     })
     .join("\n");
+
   return (
-    <Box flexDirection="column" gap={1}>
-      <Text color="magenta" bold>
-        command.stdout{" "}
+    <Box flexDirection="column" gap={0}>
+      <Box gap={1}>
+        <Text color={labelColor} bold>
+          {label}
+        </Text>
         <Text dimColor>{metadataInfo ? `(${metadataInfo})` : ""}</Text>
-      </Text>
-      <Text dimColor>{colorizedContent}</Text>
+      </Box>
+      {headerContent && (
+        <Box marginBottom={0}>
+          <Text italic color="cyan">
+            {headerContent}
+          </Text>
+        </Box>
+      )}
+      <Box marginTop={1}>
+        <Text dimColor={type !== "web_fetch" && type !== "web_search"}>{colorizedContent}</Text>
+      </Box>
     </Box>
   );
 }

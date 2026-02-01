@@ -5,19 +5,27 @@ import React, { useState } from "react";
 type Props = {
   dryRun: boolean;
   debug: boolean;
+  enableWebSearch: boolean;
+  enableDeepThinking: boolean;
   onToggleDryRun: () => void;
   onToggleDebug: () => void;
+  onToggleWebSearch: () => void;
+  onToggleDeepThinking: () => void;
   onExit: () => void;
 };
 
 export default function ConfigOverlay({
   dryRun,
   debug,
+  enableWebSearch,
+  enableDeepThinking,
   onToggleDryRun,
   onToggleDebug,
+  onToggleWebSearch,
+  onToggleDeepThinking,
   onExit,
 }: Props): JSX.Element {
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex] = useState(0);
 
   const items = [
     {
@@ -29,12 +37,20 @@ export default function ConfigOverlay({
       value: "debug",
     },
     {
+      label: `Web Search (Lynx): ${enableWebSearch ? "ON" : "OFF"}`,
+      value: "webSearch",
+    },
+    {
+      label: `Deep Thinking Prefix: ${enableDeepThinking ? "ON" : "OFF"}`,
+      value: "deepThinking",
+    },
+    {
       label: "Close",
       value: "exit",
     },
   ];
 
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (key.escape) {
       onExit();
     }
@@ -45,6 +61,10 @@ export default function ConfigOverlay({
       onToggleDryRun();
     } else if (item.value === "debug") {
       onToggleDebug();
+    } else if (item.value === "webSearch") {
+      onToggleWebSearch();
+    } else if (item.value === "deepThinking") {
+      onToggleDeepThinking();
     } else if (item.value === "exit") {
       onExit();
     }

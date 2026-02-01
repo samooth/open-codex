@@ -158,13 +158,13 @@ export function isErrorNetworkOrServer(error: any): boolean {
 /**
  * Creates a system message for network errors
  */
-export function createNetworkErrorSystemMessage(): ChatCompletionMessageParam {
+export function createNetworkErrorSystemMessage(provider: string = "AI"): ChatCompletionMessageParam {
   return {
     role: "assistant",
     content: [
       {
         type: "text",
-        text: "⚠️  Network error while contacting OpenAI. Please check your connection and try again.",
+        text: `⚠️  Network error while contacting ${provider}. Please check your connection and try again.`,
       },
     ],
   };
@@ -203,7 +203,7 @@ export function createTokenLimitErrorSystemMessage(): ChatCompletionMessageParam
 /**
  * Creates a system message for invalid request errors
  */
-export function createInvalidRequestErrorSystemMessage(error: any): ChatCompletionMessageParam {
+export function createInvalidRequestErrorSystemMessage(error: any, provider: string = "AI"): ChatCompletionMessageParam {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const e: any = error;
 
@@ -219,7 +219,7 @@ export function createInvalidRequestErrorSystemMessage(error: any): ChatCompleti
     `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
   ].join(", ");
 
-  const msgText = `⚠️  OpenAI rejected the request${
+  const msgText = `⚠️  ${provider} rejected the request${
     reqId ? ` (request ID: ${reqId})` : ""
   }. Error details: ${errorDetails}. Please verify your settings and try again.`;
 

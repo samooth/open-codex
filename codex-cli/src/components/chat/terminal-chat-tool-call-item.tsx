@@ -1,7 +1,7 @@
 import { parseApplyPatch } from "../../parse-apply-patch";
 import { shortenPath } from "../../utils/short-path";
 import chalk from "chalk";
-import { Text } from "ink";
+import { Box, Text } from "ink";
 import React from "react";
 
 export function TerminalChatToolCallCommand({
@@ -9,13 +9,7 @@ export function TerminalChatToolCallCommand({
 }: {
   commandForDisplay: string;
 }): React.ReactElement {
-  // -------------------------------------------------------------------------
-  // Colorize diff output inside the command preview: we detect individual
-  // lines that begin with '+' or '-' (excluding the typical diff headers like
-  // '+++', '---', '++', '--') and apply green/red coloring.  This mirrors
-  // how Git shows diffs and makes the patch easier to review.
-  // -------------------------------------------------------------------------
-
+  // ... (keep colorizedCommand logic same)
   const colorizedCommand = commandForDisplay
     .split("\n")
     .map((line) => {
@@ -29,13 +23,19 @@ export function TerminalChatToolCallCommand({
     })
     .join("\n");
 
+  const isPatch = commandForDisplay.includes("apply_patch") || commandForDisplay.startsWith("*** Begin Patch");
+
   return (
-    <>
-      <Text bold>Shell Command</Text>
-      <Text>
-        <Text dimColor>$</Text> {colorizedCommand}
+    <Box flexDirection="column" gap={0}>
+      <Text bold color={isPatch ? "magentaBright" : "yellow"}>
+        {isPatch ? "🩹 Apply Patch" : "🐚 Shell Command"}
       </Text>
-    </>
+      <Box paddingLeft={2} marginTop={1}>
+        <Text>
+          <Text dimColor>$</Text> {colorizedCommand}
+        </Text>
+      </Box>
+    </Box>
   );
 }
 

@@ -41,5 +41,6 @@ export interface AgentContext {
   onFileAccess?: (path: string) => void;
   oai: OpenAI;
   model: string;
+  agent: any; // Add reference to AgentLoop
 }
 

@@ -27,7 +27,22 @@
    8. [DONE] Interactive Prompt Selection:
        * Allow user to select from multiple system prompt files with `/prompts`.
 
-   9. [NEW] Interactive Proceed Confirmation:
+   9. [DONE] Ignore File Support:
+       * Implemented `.codexignore` support across directory listing and search tools.
+
+   10. [DONE] Session Persistence:
+       * Implemented automatic session saving and `/history restore` command for continuing past work.
+
+   11. [DONE] Web Search Integration:
+       * Added `web_search` and `fetch_url` tools using Lynx with specialized UI rendering.
+
+   12. [DONE] Deep Thinking Toggle:
+       * Added configuration to enable/disable the default "Deep Thinking" prompt prefix.
+
+   13. [DONE] Tool UX Overhaul:
+       * Added semantic icons, labels, and intelligent argument summaries to tool calls and outputs.
+
+   14. [NEW] Interactive Proceed Confirmation:
        * Detect model questions about continuing and show a Yes/No arrow-key selection.
 
    9. [NEW] Parallel Tool Call Flattening:

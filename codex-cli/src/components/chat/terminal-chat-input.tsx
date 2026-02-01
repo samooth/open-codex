@@ -22,11 +22,13 @@ const suggestions = [
 const slashCommands = [
   { name: "/model", description: "switch model" },
   { name: "/clear", description: "clear context" },
-  { name: "/history", description: "show history" },
+  { name: "/history", description: "show current history" },
+  { name: "/history restore", description: "restore a past session" },
   { name: "/memory", description: "manage project memory" },
   { name: "/memory maintain", description: "perform automated memory cleanup" },
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
+  { name: "/index", description: "index codebase for semantic search" },
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/help", description: "show help" },
@@ -43,6 +45,7 @@ export default function TerminalChatInput({
   setActiveFiles,
   contextLeftPercent,
   openOverlay,
+  openHistorySelectOverlay,
   openModelOverlay,
   openApprovalOverlay,
   openMemoryOverlay,
@@ -75,6 +78,7 @@ export default function TerminalChatInput({
   setActiveFiles: React.Dispatch<React.SetStateAction<Set<string>>>;
   contextLeftPercent: number;
   openOverlay: () => void;
+  openHistorySelectOverlay: () => void;
   openModelOverlay: () => void;
   openApprovalOverlay: () => void;
   openMemoryOverlay: () => void;
@@ -220,6 +224,12 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (inputValue === "/history restore") {
+        setInput("");
+        openHistorySelectOverlay();
+        return;
+      }
+
       if (inputValue === "/help") {
         setInput("");
         openHelpOverlay();
@@ -258,6 +268,17 @@ export default function TerminalChatInput({
       if (inputValue.startsWith("/config")) {
         setInput("");
         openConfigOverlay();
+        return;
+      }
+
+      if (inputValue === "/index") {
+        setInput("");
+        submitInput([
+          {
+            role: "user",
+            content: [{ type: "text", text: "Please index the codebase for semantic search." }],
+          },
+        ]);
         return;
       }
 
@@ -353,6 +374,7 @@ export default function TerminalChatInput({
       setHistory,
       setHistoryIndex,
       openOverlay,
+      openHistorySelectOverlay,
       openApprovalOverlay,
       openModelOverlay,
       openHelpOverlay,

@@ -170,6 +170,14 @@ export class AgentLoop {
     }
   }
 
+  public async indexCodebase(onProgress?: (current: number, total: number, file: string) => void): Promise<void> {
+    return this.semanticMemory.indexCodebase(onProgress);
+  }
+
+  public async searchCode(query: string, limit: number = 5): Promise<any[]> {
+    return this.semanticMemory.search(query, limit);
+  }
+
   /**
    * Hard‑stop the agent loop. After calling this method the instance becomes
    * unusable: any in‑flight operations are aborted and subsequent invocations
@@ -298,17 +306,27 @@ export class AgentLoop {
           name = name.trim();
         }
 
-        // Map repo_browser aliases to standard names
-        if (name === "repo_browser.exec") {name = "shell";}
-        if (name === "repo_browser.read_file") {name = "read_file";}
-        if (name === "repo_browser.write_file") {name = "write_file";}
-        if (name === "repo_browser.read_file_lines") {name = "read_file_lines";}
-        if (name === "repo_browser.list_files") {name = "list_files_recursive";}
-        if (name === "repo_browser.print_tree") {name = "list_files_recursive";}
-        if (name === "repo_browser.list_directory") {name = "list_directory";}
-        if (name === "repo_browser.search") {name = "search_codebase";}
-      }
+                    // Map repo_browser aliases to standard names
 
+                    if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary") {name = "shell";}
+
+                    if (name === "repo_browser.read_file" || name === "repo_browser.open_file" || name === "repo_browser.cat" || name === "repo_browser.read_file<|channel|>commentary" || name === "repo_browser.open_file<|channel|>commentary") {name = "read_file";}
+
+                    if (name === "repo_browser.write_file" || name === "repo_browser.write_file<|channel|>commentary") {name = "write_file";}
+
+                    if (name === "repo_browser.read_file_lines" || name === "repo_browser.read_file_lines<|channel|>commentary") {name = "read_file_lines";}
+
+                    if (name === "repo_browser.list_files" || name === "repo_browser.list_files<|channel|>commentary") {name = "list_files_recursive";}
+
+                    if (name === "repo_browser.print_tree" || name === "repo_browser.print_tree<|channel|>commentary") {name = "list_files_recursive";}
+
+                    if (name === "repo_browser.list_directory" || name === "repo_browser.ls" || name === "repo_browser.list_directory<|channel|>commentary" || name === "repo_browser.ls<|channel|>commentary") {name = "list_directory";}
+
+                    if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary") {name = "search_codebase";}
+
+                    if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary") {name = "delete_file";}              if (name === "repo_browser.web_search") {name = "web_search";}
+              if (name === "repo_browser.fetch_url") {name = "fetch_url";}
+            }
       const rawArguments: string | undefined = isChatStyle
         ? (toolCall as any).function?.arguments
         : (toolCall as any).arguments;
@@ -367,17 +385,17 @@ export class AgentLoop {
       let metadata: Record<string, unknown>;
       let additionalItems: Array<ChatCompletionMessageParam> | undefined;
 
-      const ctx: AgentContext = {
-        config: this.config,
-        approvalPolicy: this.approvalPolicy,
-        execAbortController: this.execAbortController,
-        getCommandConfirmation: this.getCommandConfirmation,
-        onItem: this.onItem,
-        onFileAccess: this.onFileAccess,
-        oai: this.oai,
-        model: this.model,
-      };
-
+              const ctx: AgentContext = {
+                config: this.config,
+                approvalPolicy: this.approvalPolicy,
+                execAbortController: this.execAbortController,
+                getCommandConfirmation: this.getCommandConfirmation,
+                onItem: this.onItem,
+                onFileAccess: this.onFileAccess,
+                oai: this.oai,
+                model: this.model,
+                agent: this,
+              };
       if (
         (name === "container.exec" ||
           name === "shell" ||
@@ -488,6 +506,30 @@ export class AgentLoop {
         outputText = result.outputText;
         metadata = result.metadata;
         additionalItems = result.additionalItems;
+      } else if (name === "web_search") {
+        const result = await handlers.handleWebSearch(ctx, rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "fetch_url") {
+        const result = await handlers.handleFetchUrl(ctx, rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "semantic_search") {
+        const result = await handlers.handleSemanticSearch(ctx, rawArguments ?? "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+      } else if (name === "index_codebase") {
+        this.onItem({
+          role: "assistant",
+          content: "Indexing codebase... this might take a while depending on the size.",
+        });
+        await this.indexCodebase((curr, total, file) => {
+          if (curr % 10 === 0) {
+            log(`Indexing progress: ${curr}/${total} - ${file}`);
+          }
+        });
+        outputText = "Codebase indexing complete.";
+        metadata = { exit_code: 0 };
       } else {
         return [outputItem];
       }
@@ -659,8 +701,8 @@ export class AgentLoop {
               : "";
             // If the instructions already contain the core identity string from the prefix,
             // we assume the user has fine-tuned the entire prompt and we should not
-            // prepend the default prefix again.
-            const basePrefix = this.instructions?.includes("You are operating as and within OpenCodex")
+            // prepend the default prefix again. Also skip if enableDeepThinking is false.
+            const basePrefix = (this.instructions?.includes("You are operating as and within OpenCodex") || this.config.enableDeepThinking === false)
               ? ""
               : prefix;
 
@@ -703,7 +745,12 @@ export class AgentLoop {
                 ) as Array<ChatCompletionMessageParam>),
               ],
               reasoning_effort: reasoning,
-              tools: tools,
+              tools: tools.filter(tool => {
+                if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                  return !!this.config.enableWebSearch;
+                }
+                return true;
+              }),
             });
             break;
           } catch (error) {
@@ -728,8 +775,9 @@ export class AgentLoop {
               (isTimeout || isServerError || isConnectionError) &&
               attempt < MAX_RETRIES
             ) {
+              const provider = this.config.provider || "AI";
               log(
-                `OpenAI request failed (attempt ${attempt}/${MAX_RETRIES}), retrying...`,
+                `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}), retrying...`,
               );
               continue;
             }
@@ -775,7 +823,7 @@ export class AgentLoop {
                   }
                 }
                 log(
-                  `OpenAI rate limit exceeded (attempt ${attempt}/${MAX_RETRIES}), retrying in ${Math.round(
+                  `${this.config.provider || "AI"} rate limit exceeded (attempt ${attempt}/${MAX_RETRIES}), retrying in ${Math.round(
                     delayMs,
                   )} ms...`,
                 );
@@ -845,7 +893,8 @@ export class AgentLoop {
                         `Type: ${errCtx.type || "unknown"}`,
                         `Message: ${errCtx.message || "unknown"}`,
                       ].join(", ");
-                      return `⚠️  OpenAI rejected the request${
+                      const provider = this.config.provider || "AI";
+                      return `⚠️  ${provider} rejected the request${
                         reqId ? ` (request ID: ${reqId})` : ""
                       }. Error details: ${errorDetails}. Please verify your settings and try again.`;
                     })(),
@@ -1196,14 +1245,12 @@ export class AgentLoop {
 
       if (isNetworkOrServerError) {
         try {
-          const msgText =
-            "⚠️  Network error while contacting OpenAI. Please check your connection and try again.";
           this.onItem({
             role: "assistant",
             content: [
               {
                 type: "text",
-                text: msgText,
+                text: `⚠️  Network error while contacting ${this.config.provider || "AI"}. Please check your connection and try again.`,
               },
             ],
           });
@@ -1244,16 +1291,27 @@ export class AgentLoop {
             (e.cause && e.cause.request_id) ??
             (e.cause && e.cause.requestId);
 
-          const errorDetails = [
-            `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
-            `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
-            `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
-            `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
-          ].join(", ");
+                                const errorDetails = [
 
-          const msgText = `⚠️  OpenAI rejected the request${
-            reqId ? ` (request ID: ${reqId})` : ""
-          }. Error details: ${errorDetails}. Please verify your settings and try again.`;
+                                  `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
+
+                                  `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
+
+                                  `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
+
+                                  `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
+
+                                ].join(", ");
+
+          
+
+                                const provider = this.config.provider || "AI";
+
+                                const msgText = `⚠️  ${provider} rejected the request${
+
+                                  reqId ? ` (request ID: ${reqId})` : ""
+
+                                }. Error details: ${errorDetails}. Please verify your settings and try again.`;
 
           this.onItem({
             role: "assistant",

@@ -45,6 +45,34 @@ async function saveRolloutToHomeSessions(
 let debounceTimer: NodeJS.Timeout | null = null;
 let pendingItems: Array<ChatCompletionMessageParam> | null = null;
 
+export async function loadRollouts(): Promise<Array<{ path: string; session: any }>> {
+  try {
+    if (!(await fs.stat(SESSIONS_ROOT).catch(() => null))) {
+      return [];
+    }
+    const files = await fs.readdir(SESSIONS_ROOT);
+    const rollouts = await Promise.all(
+      files
+        .filter((f) => f.endsWith(".json"))
+        .map(async (f) => {
+          const filePath = path.join(SESSIONS_ROOT, f);
+          try {
+            const content = await fs.readFile(filePath, "utf-8");
+            const data = JSON.parse(content);
+            return { path: filePath, session: data.session, items: data.items };
+          } catch {
+            return null;
+          }
+        }),
+    );
+    return rollouts
+      .filter((r): r is any => r !== null)
+      .sort((a, b) => new Date(b.session.timestamp).getTime() - new Date(a.session.timestamp).getTime());
+  } catch {
+    return [];
+  }
+}
+
 export function saveRollout(items: Array<ChatCompletionMessageParam>): void {
   pendingItems = items;
   if (debounceTimer) {

@@ -82,6 +82,36 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "repo_browser.open_file<|channel|>commentary",
+      description: "Alias for read_file.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+        },
+        required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.open_file",
+      description: "Alias for read_file.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+        },
+        required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "repo_browser.read_file",
       description: "Alias for read_file.",
       strict: false,
@@ -91,6 +121,37 @@ export const tools: Array<ChatCompletionTool> = [
           path: { type: "string" },
         },
         required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.cat",
+      description: "Alias for read_file.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+        },
+        required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.write_file<|channel|>commentary",
+      description: "Alias for write_file.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          content: { type: "string" },
+        },
+        required: ["path", "content"],
       },
     },
   },
@@ -107,6 +168,20 @@ export const tools: Array<ChatCompletionTool> = [
           content: { type: "string" },
         },
         required: ["path", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.list_directory<|channel|>commentary",
+      description: "Alias for list_directory.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+        },
       },
     },
   },
@@ -141,14 +216,46 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.list_files",
-      description: "Alias for list_files_recursive.",
+      name: "repo_browser.ls<|channel|>commentary",
+      description: "Alias for list_directory.",
       strict: false,
       parameters: {
         type: "object",
         properties: {
           path: { type: "string" },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.ls",
+      description: "Alias for list_directory.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "repo_browser.search<|channel|>commentary",
+      description: "Alias for search_codebase.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string" },
+          query: { type: "string" },
+          path: { type: "string" },
+        },
+        required: [],
+        additionalProperties: true,
       },
     },
   },
@@ -430,6 +537,25 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "repo_browser.rm",
+      description: "Alias for delete_file.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "The path to the file to delete.",
+          },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_directory",
       description: "Lists the contents of a directory (non-recursive).",
       strict: false,
@@ -442,6 +568,80 @@ export const tools: Array<ChatCompletionTool> = [
           },
         },
         required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fetch_url",
+      description: "Fetches the text content of a URL using the lynx browser.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "The URL to fetch.",
+          },
+        },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Performs a web search using DuckDuckGo and returns the results as text.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query.",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "semantic_search",
+      description: "Searches the codebase using natural language (semantic search). Requires the codebase to be indexed.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query in natural language.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of results to return (default: 5).",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "index_codebase",
+      description: "Indexes the current codebase to enable semantic search. This is required before using semantic_search.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {},
         additionalProperties: false,
       },
     },

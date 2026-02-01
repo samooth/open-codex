@@ -26,6 +26,7 @@ import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
 import PromptOverlay from "../prompt-overlay.js";
 import PromptSelectOverlay from "../prompt-select-overlay.js";
+import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
@@ -35,6 +36,7 @@ type Props = {
   config: AppConfig;
   prompt?: string;
   imagePaths?: Array<string>;
+  rollout?: { items: Array<ChatCompletionMessageParam>; session: any };
   approvalPolicy: ApprovalPolicy;
   fullStdout: boolean;
 };
@@ -49,15 +51,18 @@ export default function TerminalChat({
   config: initialConfig,
   prompt: _initialPrompt,
   imagePaths: _initialImagePaths,
+  rollout: initialRollout,
   approvalPolicy: initialApprovalPolicy,
   fullStdout,
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AppConfig>(initialConfig);
   const [model, setModel] = useState<string>(config.model);
   const [prevItems, setPrevItems] = useState<Array<ChatCompletionMessageParam>>(
-    [],
+    initialRollout?.items || [],
   );
-  const [items, setItems] = useState<Array<ChatCompletionMessageParam>>([]);
+  const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
+    initialRollout?.items || [],
+  );
   const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
@@ -75,7 +80,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -413,6 +418,7 @@ export default function TerminalChat({
             }
             contextLeftPercent={contextLeftPercent}
             openOverlay={() => setOverlayMode("history")}
+            openHistorySelectOverlay={() => setOverlayMode("history-select")}
             openModelOverlay={() => setOverlayMode("model")}
             openApprovalOverlay={() => setOverlayMode("approval")}
             openMemoryOverlay={() => setOverlayMode("memory")}
@@ -453,6 +459,20 @@ export default function TerminalChat({
         )}
         {overlayMode === "history" && (
           <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} />
+        )}
+        {overlayMode === "history-select" && (
+          <HistorySelectOverlay
+            onSelect={(rollout) => {
+              setItems(rollout.items);
+              setPrevItems(rollout.items);
+              // Also update config instructions if they were saved in rollout
+              if (rollout.session?.instructions) {
+                setConfig(prev => ({ ...prev, instructions: rollout.session.instructions }));
+              }
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
         )}
         {overlayMode === "model" && (
           <ModelOverlay
@@ -532,6 +552,8 @@ export default function TerminalChat({
           <ConfigOverlay
             dryRun={!!config.dryRun}
             debug={!!process.env["DEBUG"]}
+            enableWebSearch={!!config.enableWebSearch}
+            enableDeepThinking={!!config.enableDeepThinking}
             onToggleDryRun={() => {
               setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
             }}
@@ -544,6 +566,12 @@ export default function TerminalChat({
               // Force update to reflect debug status in UI if needed
               forceUpdate();
             }}
+            onToggleWebSearch={() => {
+              setConfig((prev) => ({ ...prev, enableWebSearch: !prev.enableWebSearch }));
+            }}
+            onToggleDeepThinking={() => {
+              setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
+            }}
             onExit={() => setOverlayMode("none")}
           />
         )}
@@ -551,7 +579,7 @@ export default function TerminalChat({
         {overlayMode === "prompt" && (
           <PromptOverlay
             currentInstructions={
-              config.instructions?.includes("You are operating as and within OpenCodex")
+              (config.instructions?.includes("You are operating as and within OpenCodex") || config.enableDeepThinking === false)
                 ? config.instructions
                 : [prefix, config.instructions].filter(Boolean).join("\n\n")
             }

@@ -67,6 +67,19 @@ Use the `/prompts` command to open an interactive selector. OpenCodex scans the 
 
 This is useful for switching between different roles (e.g., "Senior Security Auditor", "Documentation Specialist", "Performance Optimizer") without restarting the CLI.
 
+### Session Restoration (`/history restore`)
+If you need to pick up where you left off, you can restore previous sessions. OpenCodex saves every session automatically. Use the `/history restore` command to browse and select a past rollout. This is particularly helpful for long-running projects where you want to keep the agent's memory of past decisions and discussions intact.
+
+### Ignoring Files (`.codexignore`)
+To keep OpenCodex focused and prevent it from accessing sensitive or irrelevant data, you can use `.codexignore` files. These files support standard glob patterns and work alongside your existing `.gitignore`.
+
+Common use cases for `.codexignore`:
+- Excluding large data files or binaries that might confuse the agent.
+- Hiding sensitive configuration files or environment variables.
+- Filtering out build artifacts or temporary directories.
+
+OpenCodex automatically ignores standard directories like `node_modules` and `.git` by default.
+
 
 ## Prompting techniques
 We recently published a [GPT 4.1 prompting guide](https://cookbook.openai.com/examples/gpt4-1_prompting_guide) which contains excellent intuitions for getting the most out of our latest models. It also contains content for how to build agentic workflows from scratch, which may be useful when customizing OpenCodex for your needs. OpenCodex is a reference implementation for agentic coding, and puts into practice many of the ideas in that document.

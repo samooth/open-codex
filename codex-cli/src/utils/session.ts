@@ -1,4 +1,33 @@
-export const CLI_VERSION = "0.1.49"; // Must be in sync with package.json.
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function getVersion(): string {
+  try {
+    // Try to find package.json by walking up from current file
+    let currentDir = __dirname;
+    while (currentDir !== "/" && currentDir !== ".") {
+      const pkgPath = join(currentDir, "package.json");
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+        if (pkg.version) return pkg.version;
+      } catch {
+        // continue walking up
+      }
+      const parent = dirname(currentDir);
+      if (parent === currentDir) break;
+      currentDir = parent;
+    }
+  } catch {
+    // fallback
+  }
+  return "0.0.0";
+}
+
+export const CLI_VERSION = getVersion();
 export const ORIGIN = "codex_cli_ts";
 
 export type TerminalChatSession = {
