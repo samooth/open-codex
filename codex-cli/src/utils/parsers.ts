@@ -59,7 +59,6 @@ export function parseToolCallOutput(toolCallOutput: string): {
   metadata: ExecOutputMetadata;
 } {
   try {
-    console.log("tool output:", toolCallOutput)
     const { output, metadata } = JSON.parse(toolCallOutput);
     return {
       output,

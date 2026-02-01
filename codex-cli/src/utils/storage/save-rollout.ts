@@ -29,6 +29,18 @@ async function saveRolloutToHomeSessions(
   const instructions = loadInstructions();
   const model = getCurrentModel();
 
+  // Extract a summary from the first user prompt
+  const firstUserMsg = items.find(i => i.role === "user");
+  let summary = "";
+  if (firstUserMsg) {
+    const content = typeof firstUserMsg.content === "string" 
+      ? firstUserMsg.content 
+      : Array.isArray(firstUserMsg.content) 
+        ? firstUserMsg.content.find(c => c.type === "text")?.text || ""
+        : "";
+    summary = content.slice(0, 100);
+  }
+
   try {
     await fs.writeFile(
       filePath,
@@ -39,6 +51,7 @@ async function saveRolloutToHomeSessions(
             id: sessionId,
             instructions,
             model,
+            summary,
           },
           items,
         },
@@ -61,25 +74,49 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
       return [];
     }
     const files = await fs.readdir(SESSIONS_ROOT);
-    const rollouts = await Promise.all(
-      files
-        .filter((f) => f.endsWith(".json"))
-        .map(async (f) => {
-          const filePath = path.join(SESSIONS_ROOT, f);
-          try {
-            const content = await fs.readFile(filePath, "utf-8");
-            const data = JSON.parse(content);
-            return { path: filePath, session: data.session, items: data.items };
-          } catch {
-            return null;
-          }
-        }),
-    );
+    const jsonFiles = files.filter((f) => f.endsWith(".json"));
+    
+    const rollouts: any[] = [];
+    for (const f of jsonFiles) {
+      const filePath = path.join(SESSIONS_ROOT, f);
+      try {
+        const content = await fs.readFile(filePath, "utf-8");
+        if (content.length < 10) continue;
+        const data = JSON.parse(content);
+        if (data.session) {
+          // We intentionally don't return data.items here to save memory
+          rollouts.push({ path: filePath, session: data.session });
+        }
+      } catch (err) {
+        if (isLoggingEnabled()) {
+          log(`Failed to load rollout metadata from ${filePath}: ${err}`);
+        }
+      }
+    }
+
     return rollouts
-      .filter((r): r is any => r !== null)
-      .sort((a, b) => new Date(b.session.timestamp).getTime() - new Date(a.session.timestamp).getTime());
-  } catch {
+      .sort((a, b) => {
+        const tA = new Date(a.session?.timestamp || 0).getTime();
+        const tB = new Date(b.session?.timestamp || 0).getTime();
+        return tB - tA;
+      });
+  } catch (err) {
+    if (isLoggingEnabled()) {
+      log(`Error in loadRollouts: ${err}`);
+    }
     return [];
+  }
+}
+
+export async function loadRollout(filePath: string): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {
+  try {
+    const content = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(content);
+  } catch (err) {
+    if (isLoggingEnabled()) {
+      log(`Failed to load rollout detail from ${filePath}: ${err}`);
+    }
+    return null;
   }
 }
 

@@ -2,7 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "./vendor/ink-select/select.js";
-import { loadRollouts } from "../utils/storage/save-rollout.js";
+import { loadRollouts, loadRollout } from "../utils/storage/save-rollout.js";
 
 export default function HistorySelectOverlay({
   onSelect,
@@ -13,6 +13,7 @@ export default function HistorySelectOverlay({
 }) {
   const [rollouts, setRollouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     loadRollouts().then((loaded) => {
@@ -27,10 +28,10 @@ export default function HistorySelectOverlay({
     }
   });
 
-  if (loading) {
+  if (loading || restoring) {
     return (
       <Box borderStyle="round" borderColor="blue" paddingX={1}>
-        <Text italic>Loading session history...</Text>
+        <Text italic>{restoring ? "Restoring session..." : "Loading session history..."}</Text>
       </Box>
     );
   }
@@ -51,15 +52,10 @@ export default function HistorySelectOverlay({
 
   const options = rollouts.map((r, i) => {
     const date = new Date(r.session.timestamp).toLocaleString();
-    const itemCount = r.items.length;
-    // Extract first user prompt as a summary if possible
-    const firstPrompt = r.items.find((item: any) => item.role === "user")?.content;
-    const summary = typeof firstPrompt === "string" 
-      ? (firstPrompt.length > 40 ? firstPrompt.slice(0, 37) + "..." : firstPrompt)
-      : "No prompt";
+    const summary = r.session.summary || "No prompt summary available";
 
     return {
-      label: `${date} (${itemCount} msgs) - ${summary}`,
+      label: `${date} - ${summary}`,
       value: i.toString(),
     };
   });
@@ -72,10 +68,16 @@ export default function HistorySelectOverlay({
       <Box borderStyle="single" paddingX={1}>
         <Select
           options={options}
-          onChange={(value: string) => {
-            const selected = rollouts[parseInt(value)];
-            if (selected) {
-              onSelect(selected);
+          onChange={async (value: string) => {
+            const meta = rollouts[parseInt(value)];
+            if (meta) {
+              setRestoring(true);
+              const fullRollout = await loadRollout(meta.path);
+              if (fullRollout) {
+                onSelect(fullRollout);
+              } else {
+                setRestoring(false);
+              }
             }
           }}
         />

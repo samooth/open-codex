@@ -20,11 +20,11 @@ import React, { useMemo } from "react";
 export default function TerminalChatResponseItem({
   item,
   fullStdout = false,
-  history = [],
+  toolCallMap = new Map(),
 }: {
   item: ChatCompletionMessageParam;
   fullStdout?: boolean;
-  history?: Array<ChatCompletionMessageParam>;
+  toolCallMap?: Map<string, any>;
 }): React.ReactElement {
   switch (item.role) {
     case "user":
@@ -43,7 +43,7 @@ export default function TerminalChatResponseItem({
         <TerminalChatResponseMessage
           message={item}
           fullStdout={fullStdout}
-          history={history}
+          toolCallMap={toolCallMap}
         />
       );
     default:
@@ -122,11 +122,11 @@ const colorsByRole: Record<string, ForegroundColorName> = {
 function TerminalChatResponseMessage({
   message,
   fullStdout,
-  history = [],
+  toolCallMap = new Map(),
 }: {
   message: ChatCompletionMessageParam;
   fullStdout?: boolean;
-  history?: Array<ChatCompletionMessageParam>;
+  toolCallMap?: Map<string, any>;
 }) {
   const contentParts: Array<string> = [];
   if (typeof message.content === "string") {
@@ -154,14 +154,7 @@ function TerminalChatResponseMessage({
   if (message.role === "tool" && !("tool_calls" in message)) {
     // Find the original tool call that this output corresponds to
     const toolCallId = (message as any).tool_call_id;
-    const toolCallMessage = history.find(
-      (m) =>
-        m.role === "assistant" &&
-        m.tool_calls?.some((tc) => tc.id === toolCallId),
-    );
-    const toolCall = toolCallMessage?.tool_calls?.find(
-      (tc) => tc.id === toolCallId,
-    );
+    const toolCall = toolCallMap.get(toolCallId);
 
     return (
       <TerminalChatResponseToolCallOutput

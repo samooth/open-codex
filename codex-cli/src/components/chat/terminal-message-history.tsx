@@ -34,10 +34,17 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   thinkingSeconds,
   fullStdout,
 }) => {
-  const [messages, debug] = useMemo(
-    () => [batch.map(({ item }) => item!), process.env["DEBUG"]],
-    [batch],
-  );
+  const [messages, debug, toolCallMap] = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const item of items) {
+      if (item.role === "assistant" && item.tool_calls) {
+        for (const tc of item.tool_calls) {
+          map.set(tc.id, tc);
+        }
+      }
+    }
+    return [batch.map(({ item }) => item!), process.env["DEBUG"], map];
+  }, [batch, items]);
 
   return (
     <Box flexDirection="column">
@@ -62,7 +69,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
               <TerminalChatResponseItem
                 item={message}
                 fullStdout={fullStdout}
-                history={items}
+                toolCallMap={toolCallMap}
               />
             </Box>
           );

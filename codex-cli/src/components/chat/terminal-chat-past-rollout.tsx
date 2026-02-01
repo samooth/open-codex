@@ -46,17 +46,23 @@ export default function TerminalChatPastRollout({
         </Text>
       </Box>
       <Box flexDirection="column" gap={1}>
-        {React.useMemo(
-          () =>
-            items.map((item, key) => (
-              <TerminalChatResponseItem
-                key={key}
-                item={item}
-                history={items}
-              />
-            )),
-          [items],
-        )}
+        {React.useMemo(() => {
+          const map = new Map<string, any>();
+          for (const item of items) {
+            if (item.role === "assistant" && item.tool_calls) {
+              for (const tc of item.tool_calls) {
+                map.set(tc.id, tc);
+              }
+            }
+          }
+          return items.map((item, key) => (
+            <TerminalChatResponseItem
+              key={key}
+              item={item}
+              toolCallMap={map}
+            />
+          ));
+        }, [items])}
       </Box>
     </Box>
   );
