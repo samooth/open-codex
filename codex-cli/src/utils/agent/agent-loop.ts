@@ -32,6 +32,7 @@ import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { prefix } from "./system-prompt.js";
 import { join } from "path";
 import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
+export type { AgentContext, AgentLoopParams, CommandConfirmation };
 import { SemanticMemory } from "./semantic-memory.js";
 
 // Wait time before retrying after rate limit errors (ms).

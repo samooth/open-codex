@@ -57,6 +57,16 @@ Project-specific instructions loaded from the current directory or Git root. Use
 
 **Example:** “All React components live in `src/components/`".
 
+### Prompt Selection (`/prompts`)
+Beyond the static instruction files above, you can maintain a library of specialized system prompts and switch between them dynamically during a session.
+
+Use the `/prompts` command to open an interactive selector. OpenCodex scans the following locations for `.md` or `.txt` files:
+1. `./prompts/`
+2. `./.codex/prompts/`
+3. `~/.codex/prompts/`
+
+This is useful for switching between different roles (e.g., "Senior Security Auditor", "Documentation Specialist", "Performance Optimizer") without restarting the CLI.
+
 
 ## Prompting techniques
 We recently published a [GPT 4.1 prompting guide](https://cookbook.openai.com/examples/gpt4-1_prompting_guide) which contains excellent intuitions for getting the most out of our latest models. It also contains content for how to build agentic workflows from scratch, which may be useful when customizing OpenCodex for your needs. OpenCodex is a reference implementation for agentic coding, and puts into practice many of the ideas in that document.

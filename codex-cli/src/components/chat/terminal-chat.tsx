@@ -25,6 +25,7 @@ import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
 import ModelOverlay from "../model-overlay.js";
 import PromptOverlay from "../prompt-overlay.js";
+import PromptSelectOverlay from "../prompt-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
@@ -74,7 +75,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -92,11 +93,36 @@ export default function TerminalChat({
               .map((c) => (c.type === "text" ? c.text : ""))
               .join("")
           : "";
-      return content.includes(
-        "**Continue?** Would you like me to proceed in a specific order?",
-      );
+      
+      const normalized = content.trim().toLowerCase();
+      
+      // Simple Yes/No detection
+      if (normalized.includes("continue?") || 
+          normalized.includes("proceed?") || 
+          normalized.includes("(yes/no)") ||
+          normalized.endsWith("?") && (
+            normalized.includes("should i") || 
+            normalized.includes("do you want me to") ||
+            normalized.includes("allow me to") ||
+            normalized.includes("is this correct?") ||
+            normalized.includes("is this okay?") ||
+            normalized.includes("can i proceed?")
+          )) {
+        return { type: "yes-no" as const };
+      }
+
+      // Detection for multiple choices like [Option A] [Option B]
+      const choiceMatches = content.match(/\[(.*?)\]/g);
+      if (choiceMatches && choiceMatches.length >= 2) {
+        const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
+        const isNearEnd = lastChoiceIndex > (content.length - 100);
+        if (isNearEnd || normalized.includes("choose") || normalized.includes("select") || normalized.includes("option")) {
+          const choices = choiceMatches.map(m => m.slice(1, -1));
+          return { type: "choices" as const, choices };
+        }
+      }
     }
-    return false;
+    return null;
   }, [items, loading]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
@@ -139,7 +165,7 @@ export default function TerminalChat({
         setPrevItems([]);
         setActiveFiles(new Set());
       },
-      onFileAccess: (path) => {
+      onFileAccess: (path: string) => {
         setActiveFiles((prev) => {
           const next = new Set(prev);
           next.add(path);
@@ -167,7 +193,7 @@ export default function TerminalChat({
         setActiveToolName(activeToolName);
         setActiveToolArguments(activeToolArguments);
       },
-      onItem: (item) => {
+      onItem: (item: ChatCompletionMessageParam) => {
         log(`onItem: ${JSON.stringify(item)}`);
         setItems((prev) => {
           // If it's a streaming tool update, try to update the existing item
@@ -221,7 +247,7 @@ export default function TerminalChat({
           return [...prev, item];
         });
       },
-      onLoading: (isLoading) => {
+      onLoading: (isLoading: boolean) => {
         if (isLoading) {
           setPartialReasoning("");
         }
@@ -393,6 +419,7 @@ export default function TerminalChat({
             openHelpOverlay={() => setOverlayMode("help")}
             openConfigOverlay={() => setOverlayMode("config")}
             openPromptOverlay={() => setOverlayMode("prompt")}
+            openPromptsOverlay={() => setOverlayMode("prompts")}
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
             activeFiles={activeFiles}
@@ -540,6 +567,30 @@ export default function TerminalChat({
                     {
                       type: "text",
                       text: `Updated system instructions.`,
+                    },
+                  ],
+                },
+              ]);
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
+        )}
+
+        {overlayMode === "prompts" && (
+          <PromptSelectOverlay
+            onSelect={(newInstructions, name) => {
+              agent?.cancel();
+              setLoading(false);
+              setConfig((prev) => ({ ...prev, instructions: newInstructions }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched system instructions to prompt: ${name}`,
                     },
                   ],
                 },

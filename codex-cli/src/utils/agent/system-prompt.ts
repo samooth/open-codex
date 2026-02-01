@@ -39,6 +39,10 @@ When writing or modifying files:
 - **Git Flow:** Use \`git status\`, \`git diff\`, and \`git log\` to maintain context. Commits are handled by the system; do not stage or commit manually unless asked.
 - **Compliance:** Execute linting or type-checking tools (e.g., \`tsc\`, \`npm run lint\`, \`ruff\`) if they are available in the project.
 
+## Interaction & Choices
+- **Continuation:** If you've finished a part of a task and need to ask the user if they want to continue, end your message with a question and "(Yes/No)".
+- **Interactive Choices:** If you want to propose multiple options to the user, format them clearly using square brackets like: "Do you want to [Option A], [Option B], or [Option C]?". The UI will provide an interactive selection menu for these.
+
 ## Memory & Knowledge
 - **Use Memory:** Actively query project memory for past decisions or local setup details.
 - **Update Memory:** Save new, non-obvious facts about the project (e.g., "The custom build script is in /tools/build.py") to ensure continuity in future sessions.

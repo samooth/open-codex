@@ -28,6 +28,7 @@ const slashCommands = [
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
   { name: "/prompt", description: "edit system instructions" },
+  { name: "/prompts", description: "select from available system prompts" },
   { name: "/help", description: "show help" },
 ];
 
@@ -48,6 +49,7 @@ export default function TerminalChatInput({
   openHelpOverlay,
   openConfigOverlay,
   openPromptOverlay,
+  openPromptsOverlay,
   interruptAgent,
   partialReasoning,
   active,
@@ -79,16 +81,17 @@ export default function TerminalChatInput({
   openHelpOverlay: () => void;
   openConfigOverlay: () => void;
   openPromptOverlay: () => void;
+  openPromptsOverlay: () => void;
   interruptAgent: () => void;
   partialReasoning?: string;
   active: boolean;
   allowAlwaysPatch?: boolean;
-  awaitingContinueConfirmation?: boolean;
+  awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
   queuedPromptsCount: number;
   activeFiles: Set<string>;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
-}): React.ReactElement {
+}) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<number>(0);
@@ -104,21 +107,23 @@ export default function TerminalChatInput({
   useInput(
     (_input, _key) => {
       if (awaitingContinueConfirmation && active && !loading) {
-        if (_input === "y") {
-          const item = {
-            role: "user" as const,
-            content: [{ type: "text" as const, text: "Yes" }],
-          };
-          submitInput([item]);
-          return;
-        }
-        if (_input === "n") {
-          const item = {
-            role: "user" as const,
-            content: [{ type: "text" as const, text: "No" }],
-          };
-          submitInput([item]);
-          return;
+        if (awaitingContinueConfirmation.type === "yes-no") {
+          if (_input === "y") {
+            const item = {
+              role: "user" as const,
+              content: [{ type: "text" as const, text: "Yes" }],
+            };
+            submitInput([item]);
+            return;
+          }
+          if (_input === "n") {
+            const item = {
+              role: "user" as const,
+              content: [{ type: "text" as const, text: "No" }],
+            };
+            submitInput([item]);
+            return;
+          }
         }
       }
 
@@ -256,9 +261,15 @@ export default function TerminalChatInput({
         return;
       }
 
-      if (inputValue.startsWith("/prompt")) {
+      if (inputValue === "/prompt") {
         setInput("");
         openPromptOverlay();
+        return;
+      }
+
+      if (inputValue === "/prompts") {
+        setInput("");
+        openPromptsOverlay();
         return;
       }
 
@@ -347,6 +358,7 @@ export default function TerminalChatInput({
       openHelpOverlay,
       openConfigOverlay,
       openPromptOverlay,
+      openPromptsOverlay,
     ],
   );
 
@@ -365,13 +377,17 @@ export default function TerminalChatInput({
       <Box borderStyle="round">
         {awaitingContinueConfirmation ? (
           <Box paddingX={1} flexDirection="column">
-            <Text>Allow agent to proceed?</Text>
+            <Text>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
             <Box paddingX={2}>
               <Select
-                options={[
-                  { label: "Yes (y)", value: "Yes" },
-                  { label: "No (n)", value: "No" },
-                ]}
+                options={
+                  awaitingContinueConfirmation.type === "yes-no"
+                    ? [
+                        { label: "Yes (y)", value: "Yes" },
+                        { label: "No (n)", value: "No" },
+                      ]
+                    : awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c }))
+                }
                 onChange={(value: string) => {
                   const item = {
                     role: "user" as const,
@@ -463,7 +479,8 @@ export default function TerminalChatInput({
               </>
             )}
           </Text>
-          <Box marginLeft="auto" gap={1}>
+          <Box flexGrow={1} />
+          <Box gap={1}>
             <Text dimColor>context: </Text>
             <Text color={contextLeftPercent < 10 ? "red" : contextLeftPercent < 25 ? "yellow" : "green"}>
               {"[".padEnd(1 + Math.round((100 - contextLeftPercent) / 10), "■").padEnd(11, " ").concat("]")}

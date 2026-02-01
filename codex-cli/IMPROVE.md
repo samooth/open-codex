@@ -21,10 +21,13 @@
    6. Knowledge of the "Project Memory":
        * Remind the agent that it can save important facts using the persistent_memory tool so it doesn't have to re-discover them in future sessions.
 
-   7. [NEW] Interactive Prompt Adjustment:
+   7. [DONE] Interactive Prompt Adjustment:
        * Allow user to adjust the system prompt given to the LLM with `/prompt`.
 
-   8. [NEW] Interactive Proceed Confirmation:
+   8. [DONE] Interactive Prompt Selection:
+       * Allow user to select from multiple system prompt files with `/prompts`.
+
+   9. [NEW] Interactive Proceed Confirmation:
        * Detect model questions about continuing and show a Yes/No arrow-key selection.
 
    9. [NEW] Parallel Tool Call Flattening:

@@ -21,6 +21,7 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 
 *   **[DONE] Dynamic Context Window Usage:** A visual progress bar for context usage is now always visible in the status line, changing color (green/yellow/red) as the context window fills up.
 *   **[DONE] Active File Context Display:** The UI now displays a list of "Files in context," showing which files the agent has recently accessed (read, written, or patched) in the current session.
+*   **[DONE] Interactive Choices UX:** The UI now detects when the agent asks for confirmation (Yes/No) or proposes multiple choices formatted like `[Option A] [Option B]`. These are rendered as an interactive selection menu, allowing users to choose an option with a single keystroke.
 *   **[DONE] Enhanced Memory Management:**
     *   **`query_memory` tool:** The agent can now specifically search the project memory for relevant facts.
     *   **`forget_memory` tool:** The agent can now identfy and remove outdated or incorrect entries from the project memory.
