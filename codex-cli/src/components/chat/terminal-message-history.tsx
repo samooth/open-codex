@@ -4,7 +4,8 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";
-import { Box, Static, Text } from "ink";
+import ThinkingTimer from "./thinking-timer.js";
+import { Box, Static } from "ink";
 import React, { useMemo } from "react";
 import type { Theme } from "../../utils/theme.js";
 
@@ -22,7 +23,6 @@ type MessageHistoryProps = {
   userMsgCount: number;
   confirmationPrompt: React.ReactNode;
   loading: boolean;
-  thinkingSeconds: number;
   headerProps: TerminalHeaderProps;
   fullStdout: boolean;
   theme: Theme;
@@ -34,7 +34,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   items,
   headerProps,
   loading,
-  thinkingSeconds,
   fullStdout,
   theme,
   streamingMessage,
@@ -97,7 +96,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
       )}
       {loading && debug && (
         <Box marginTop={1} marginLeft={4}>
-          <Text color={theme.warning}>{`(${thinkingSeconds}s)`}</Text>
+          <ThinkingTimer loading={loading} theme={theme} />
         </Box>
       )}
     </Box>

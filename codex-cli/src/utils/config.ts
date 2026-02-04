@@ -9,6 +9,7 @@
 import { log, isLoggingEnabled } from "./agent/log.js";
 import { AutoApprovalMode, FullAutoErrorMode } from "./auto-approval-mode.js";
 import { reportMissingAPIKeyForProvider } from "./model-utils.js";
+import { ThemeSchema } from "./theme.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { load as loadYaml, dump as dumpYaml } from "js-yaml";
 import { homedir } from "os";
@@ -226,7 +227,7 @@ export const StoredConfigSchema = z.object({
   enableDeepThinking: z.boolean().optional(),
   embeddingModel: z.string().optional(),
   contextSize: z.number().optional(),
-  theme: z.string().optional(),
+  theme: z.union([z.string(), ThemeSchema]).optional(),
 });
 
 // Represents config as persisted in config.json.
@@ -253,7 +254,7 @@ export type AppConfig = {
   enableDeepThinking?: boolean;
   embeddingModel?: string;
   contextSize?: number;
-  theme?: string;
+  theme?: string | z.infer<typeof ThemeSchema>;
 };
 
 // ---------------------------------------------------------------------------

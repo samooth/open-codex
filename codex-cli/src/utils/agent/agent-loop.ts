@@ -115,16 +115,23 @@ export class AgentLoop {
       const parts: any[] = [];
 
       if (msg.role === "assistant") {
-        if ((msg as any).reasoning_content) {
+        const assistant = msg as any;
+        if (assistant.reasoning_content) {
           parts.push({
-            text: (msg as any).reasoning_content,
+            text: assistant.reasoning_content,
             thought: true,
-            thoughtSignature: (msg as any).thought_signature,
           });
         }
+        
+        const thoughtSignature = assistant.thought_signature;
+
         if (msg.content && typeof msg.content === "string") {
-          parts.push({ text: msg.content });
+          parts.push({ 
+            text: msg.content,
+            ...(thoughtSignature ? { thoughtSignature } : {})
+          });
         }
+        
         if (msg.tool_calls) {
           for (const tc of msg.tool_calls as any[]) {
             let args = {};
@@ -137,8 +144,11 @@ export class AgentLoop {
               functionCall: {
                 name: tc.function.name,
                 args,
-                thoughtSignature: (tc as any).thought_signature,
               },
+              // The thoughtSignature must be at the Part level, alongside functionCall.
+              ...(tc.thought_signature || thoughtSignature ? { 
+                thoughtSignature: tc.thought_signature || thoughtSignature 
+              } : {}),
             });
           }
         }
@@ -251,7 +261,6 @@ export class AgentLoop {
               name: part.functionCall.name,
               arguments: JSON.stringify(part.functionCall.args),
             },
-            thought_signature: lastThoughtSignature,
           });
         }
       }
@@ -262,6 +271,7 @@ export class AgentLoop {
             {
               delta,
               finish_reason: candidate?.finishReason?.toLowerCase() || null,
+              thought_signature: lastThoughtSignature,
             },
           ],
         };
@@ -1256,6 +1266,7 @@ export class AgentLoop {
             const content = delta?.content;
             const reasoning = (delta as any)?.reasoning_content;
             const tool_call = delta?.tool_calls?.[0];
+            const thought_signature = (chunk?.choices?.[0] as any)?.thought_signature;
 
             if (
               content ||
@@ -1284,6 +1295,9 @@ export class AgentLoop {
                 ChatCompletionChunk,
                 { role: "assistant" }
               >;
+              if (thought_signature) {
+                (message as any).thought_signature = thought_signature;
+              }
             } else {
               if (content) {
                 message.content = (message.content ?? "") + content;
@@ -1291,23 +1305,25 @@ export class AgentLoop {
               if (reasoning) {
                 (message as any).reasoning_content = ((message as any).reasoning_content ?? "") + reasoning;
               }
-              if ((delta as any).thought_signature) {
-                (message as any).thought_signature = (delta as any).thought_signature;
+              if (thought_signature) {
+                (message as any).thought_signature = thought_signature;
               }
               if (message && !message.tool_calls && tool_call) {
                 // @ts-expect-error FIXME
                 message.tool_calls = [tool_call];
-              } else if (tool_call) {
+                if (thought_signature) {
+                  (message.tool_calls[0] as any).thought_signature = thought_signature;
+                }
+              } else if (tool_call && message.tool_calls) {
+                const tc = message.tool_calls[0];
                 if (tool_call.function?.name) {
-                  message.tool_calls![0]!.function.name +=
-                    tool_call.function.name;
+                  tc.function.name += tool_call.function.name;
                 }
                 if (tool_call.function?.arguments) {
-                  message.tool_calls![0]!.function.arguments +=
-                    tool_call.function.arguments;
+                  tc.function.arguments += tool_call.function.arguments;
                 }
-                if ((tool_call as any).thought_signature) {
-                  (message.tool_calls![0] as any).thought_signature = (tool_call as any).thought_signature;
+                if (thought_signature) {
+                  (tc as any).thought_signature = thought_signature;
                 }
               }
             }

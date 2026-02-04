@@ -139,5 +139,8 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] File Pinning:** Users can now use `/pin` and `/unpin` to keep critical files always in the context window, regardless of conversation length.
     *   **[DONE] Context Breakdown Toggle:** A new `ctrl+b` shortcut toggles a detailed view of token usage, broken down by System instructions, History, and Tools.
     *   **[DONE] Ignored Files Visibility:** The `/ignored` command provides instant visibility into which files are being filtered out by Git/Codex ignore rules.
+*   **[DONE] Customization & Productivity:**
+    *   **[DONE] Dynamic JSON Theming:** Users can now define custom color mappings in their `config.json` to personalize the terminal UI.
+    *   **[DONE] Prompt Recipes:** A new `/recipes` system provides a library of pre-defined prompt templates for common engineering tasks (testing, documentation, security, etc.).
 ---
 *Last Updated: 2026-02-04*

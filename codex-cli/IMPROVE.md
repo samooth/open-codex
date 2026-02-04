@@ -22,6 +22,10 @@ Potential Improvements:
        * Added detailed context token breakdown (`ctrl+b`) for precise monitoring.
        * Integrated ignored files preview (`/ignored`) to debug context exclusion.
 
+   27. [DONE] Customization:
+       * Supported dynamic JSON themes in `config.json` for custom ANSI color mapping.
+       * Implemented `/recipes` for a curated library of common prompt templates.
+
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.
 

@@ -32,6 +32,7 @@ import PromptOverlay from "../prompt-overlay.js";
 import PromptSelectOverlay from "../prompt-select-overlay.js";
 import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
+import RecipesOverlay from "../recipes-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
 import { Box, Text } from "ink";
@@ -75,25 +76,35 @@ export default function TerminalChat({
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     initialApprovalPolicy,
   );
-  const [thinkingSeconds, setThinkingSeconds] = useState(0);
-  const [partialReasoning, setPartialReasoning] = useState<string>("");
-  const [partialContent, setPartialContent] = useState<string>("");
   
-  // Throttled states for rendering to avoid flickering
-  const [renderedPartialContent, setRenderedPartialContent] = useState("");
-  const [renderedPartialReasoning, setRenderedPartialReasoning] = useState("");
+  // Use a ref for incoming partial data to avoid re-rendering TerminalChat on every chunk.
+  // We only re-render when the throttled "rendered" state is updated via useInterval.
+  const partialDataRef = React.useRef({
+    content: "",
+    reasoning: "",
+    activeToolName: undefined as string | undefined,
+    activeToolArguments: undefined as Record<string, any> | undefined,
+  });
+
+  // Throttled state for rendering to avoid flickering
+  const [renderedPartialData, setRenderedPartialData] = useState({
+    content: "",
+    reasoning: "",
+    activeToolName: undefined as string | undefined,
+    activeToolArguments: undefined as Record<string, any> | undefined,
+  });
 
   useInterval(() => {
-    if (renderedPartialContent !== partialContent) {
-      setRenderedPartialContent(partialContent);
+    if (
+      renderedPartialData.content !== partialDataRef.current.content ||
+      renderedPartialData.reasoning !== partialDataRef.current.reasoning ||
+      renderedPartialData.activeToolName !== partialDataRef.current.activeToolName ||
+      renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments
+    ) {
+      setRenderedPartialData({ ...partialDataRef.current });
     }
-    if (renderedPartialReasoning !== partialReasoning) {
-      setRenderedPartialReasoning(partialReasoning);
-    }
-  }, loading ? 100 : null);
+  }, loading ? 150 : null);
 
-  const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
-  const [activeToolArguments, setActiveToolArguments] = useState<Record<string, any> | undefined>(undefined);
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
   >([]);
@@ -101,7 +112,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -198,12 +209,12 @@ export default function TerminalChat({
         setPrevItems([]);
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
-        setPartialContent(content);
+        partialDataRef.current.content = content;
         if (reasoning) {
           if (activeToolName) {
-            setPartialReasoning(reasoning);
+            partialDataRef.current.reasoning = reasoning;
           } else {
-            setPartialReasoning((prev) => prev + reasoning);
+            partialDataRef.current.reasoning += reasoning;
           }
         } else if (content) {
           // Extract <thought> or <think> content if present
@@ -215,19 +226,25 @@ export default function TerminalChat({
                  .replace(/<\/?(thought|think)>/g, "")
                  .trim();
                if (cleanThought) {
-                 setPartialReasoning(cleanThought);
+                 partialDataRef.current.reasoning = cleanThought;
                }
              }
           }
         }
-        setActiveToolName(activeToolName);
-        setActiveToolArguments(activeToolArguments);
+        partialDataRef.current.activeToolName = activeToolName;
+        partialDataRef.current.activeToolArguments = activeToolArguments;
       },
       onItem: (item: ChatCompletionMessageParam) => {
         log(`onItem: ${JSON.stringify(item)}`);
         // Clear partials when a full item is received
-        setPartialContent("");
-        setPartialReasoning("");
+        partialDataRef.current = {
+          content: "",
+          reasoning: "",
+          activeToolName: undefined,
+          activeToolArguments: undefined,
+        };
+        setRenderedPartialData({ ...partialDataRef.current });
+
         setItems((prev) => {
           // If it's a streaming tool update, try to update the existing item
           if (item.role === "tool" && "tool_call_id" in item) {
@@ -282,8 +299,13 @@ export default function TerminalChat({
       },
       onLoading: (isLoading: boolean) => {
         if (isLoading) {
-          setPartialReasoning("");
-          setPartialContent("");
+          partialDataRef.current = {
+            content: "",
+            reasoning: "",
+            activeToolName: undefined,
+            activeToolArguments: undefined,
+          };
+          setRenderedPartialData({ ...partialDataRef.current });
         }
         setLoading(isLoading);
       },
@@ -320,31 +342,6 @@ export default function TerminalChat({
       forceUpdate(); // re‑render after teardown too
     };
   }, [model, config, approvalPolicy, requestConfirmation]);
-
-  // whenever loading starts/stops, reset or start a timer — but pause the
-  // timer while a confirmation overlay is displayed so we don't trigger a
-  // re‑render every second during apply_patch reviews.
-  useEffect(() => {
-    let handle: ReturnType<typeof setInterval> | null = null;
-    // Only tick the "thinking…" timer when the agent is actually processing
-    // a request *and* the user is not being asked to review a command.
-    if (loading && confirmationPrompt == null) {
-      setThinkingSeconds(0);
-      handle = setInterval(() => {
-        setThinkingSeconds((s) => s + 1);
-      }, 1000);
-    } else {
-      if (handle) {
-        clearInterval(handle);
-      }
-      setThinkingSeconds(0);
-    }
-    return () => {
-      if (handle) {
-        clearInterval(handle);
-      }
-    };
-  }, [loading, confirmationPrompt]);
 
   // Let's also track whenever the ref becomes available
   const agent = agentRef.current;
@@ -439,7 +436,6 @@ export default function TerminalChat({
           userMsgCount={userMsgCount}
           confirmationPrompt={confirmationPrompt}
           loading={loading}
-          thinkingSeconds={thinkingSeconds}
           fullStdout={fullStdout}
           theme={activeTheme}
           headerProps={{
@@ -452,15 +448,15 @@ export default function TerminalChat({
             agent,
             initialImagePaths,
           }}
-          streamingMessage={loading && (renderedPartialContent || renderedPartialReasoning) ? {
+          streamingMessage={loading && (renderedPartialData.content || renderedPartialData.reasoning) ? {
             role: "assistant",
             content: (() => {
-              const content = renderedPartialContent;
+              const content = renderedPartialData.content;
               // If reasoning is already embedded in content with tags, don't double wrap
               if (content.includes("<thought>") || content.includes("<think>")) {
                 return content;
               }
-              return content + (renderedPartialReasoning ? `<thought>${renderedPartialReasoning}</thought>` : "");
+              return content + (renderedPartialData.reasoning ? `<thought>${renderedPartialData.reasoning}</thought>` : "");
             })()
           } : undefined}
         />
@@ -492,11 +488,11 @@ export default function TerminalChat({
           openApprovalOverlay={() => setOverlayMode("approval")}
           openMemoryOverlay={() => setOverlayMode("memory")}
           openHelpOverlay={() => setOverlayMode("help")}
-          openConfigOverlay={() => setOverlayMode("config")}
-          openPromptOverlay={() => setOverlayMode("prompt")}
-          openPromptsOverlay={() => setOverlayMode("prompts")}
-          onPin={(path) => {
-            setConfig((prev) => ({
+                      openConfigOverlay={() => setOverlayMode("config")}
+                      openPromptOverlay={() => setOverlayMode("prompt")}
+                      openPromptsOverlay={() => setOverlayMode("prompts")}
+                      openRecipesOverlay={() => setOverlayMode("recipes")}
+                      onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
@@ -534,9 +530,9 @@ export default function TerminalChat({
             setLoading(false);
           }}
           active={overlayMode === "none"}
-          partialReasoning={partialReasoning}
-          activeToolName={activeToolName}
-          activeToolArguments={activeToolArguments}
+          partialReasoning={renderedPartialData.reasoning}
+          activeToolName={renderedPartialData.activeToolName}
+          activeToolArguments={renderedPartialData.activeToolArguments}
           submitInput={(inputs) => {
             // If agent is not loading, run immediately. Otherwise, queue.
             if (!loading) {
@@ -740,8 +736,8 @@ export default function TerminalChat({
 
         {overlayMode === "theme" && (
           <ThemeOverlay
-            currentTheme={config.theme || "default"}
-            onSelect={(newTheme) => {
+            currentTheme={typeof config.theme === 'string' ? config.theme : 'custom'}
+            onSelect={(newTheme: any) => {
               setConfig((prev) => ({ ...prev, theme: newTheme }));
               setItems((prev) => [
                 ...prev,
@@ -750,11 +746,36 @@ export default function TerminalChat({
                   content: [
                     {
                       type: "text",
-                      text: `Switched theme to ${newTheme}`,
+                      text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
                     },
                   ],
                 },
               ]);
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
+        )}
+
+        {overlayMode === "recipes" && (
+          <RecipesOverlay
+            onSelect={(recipe) => {
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "user",
+                  content: [{ type: "text", text: recipe.prompt }],
+                },
+              ]);
+              agent?.run(
+                [
+                  {
+                    role: "user",
+                    content: [{ type: "text", text: recipe.prompt }],
+                  },
+                ],
+                prevItems,
+              );
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}

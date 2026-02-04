@@ -20,7 +20,7 @@ import React, { useMemo } from "react";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { Theme } from "../../utils/theme.js";
 
-export default function TerminalChatResponseItem({
+function TerminalChatResponseItem({
   item,
   group,
   fullStdout = false,
@@ -82,6 +82,8 @@ export default function TerminalChatResponseItem({
   // Fallback for any other message type
   return <TerminalChatResponseGenericMessage message={item} />;
 }
+
+export default React.memo(TerminalChatResponseItem);
 
 // TODO: this should be part of `ResponseReasoningItem`. Also it doesn't work.
 // ---------------------------------------------------------------------------
@@ -149,7 +151,7 @@ const colorsByRole: Record<string, ForegroundColorName> = {
   user: "blueBright",
 };
 
-function TerminalChatResponseMessage({
+const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMessage({
   message,
   fullStdout,
   toolCallMap = new Map(),
@@ -266,7 +268,7 @@ function TerminalChatResponseMessage({
       )}
     </Box>
   );
-}
+});
 
 function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   const details = parseToolCallChatCompletion(message);
@@ -344,7 +346,7 @@ function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   return { label, icon, color, summary, toolName, details };
 }
 
-function TerminalChatResponseToolCall({
+const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToolCall({
   message,
   loading = false,
   theme,
@@ -380,9 +382,9 @@ function TerminalChatResponseToolCall({
       )}
     </Box>
   );
-}
+});
 
-function TerminalChatResponseToolCallOutput({
+const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatResponseToolCallOutput({
   content,
   fullStdout,
   toolCall,
@@ -568,7 +570,7 @@ function TerminalChatResponseToolCallOutput({
       </Box>
     </Box>
   );
-}
+});
 
 export function TerminalChatResponseGenericMessage({
   message,

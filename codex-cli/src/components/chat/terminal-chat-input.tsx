@@ -34,6 +34,7 @@ const slashCommands = [
   { name: "/pin", description: "pin a file to the context" },
   { name: "/unpin", description: "unpin a file from the context" },
   { name: "/ignored", description: "show ignored files" },
+  { name: "/recipes", description: "select a prompt template" },
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/help", description: "show help" },
@@ -56,6 +57,7 @@ export default function TerminalChatInput({
   openConfigOverlay,
   openPromptOverlay,
   openPromptsOverlay,
+  openRecipesOverlay,
   onPin,
   onUnpin,
   interruptAgent,
@@ -87,6 +89,7 @@ export default function TerminalChatInput({
   openConfigOverlay: () => void;
   openPromptOverlay: () => void;
   openPromptsOverlay: () => void;
+  openRecipesOverlay: () => void;
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
   interruptAgent: () => void;
@@ -405,6 +408,12 @@ export default function TerminalChatInput({
       if (inputValue === "/prompts") {
         setInput("");
         openPromptsOverlay();
+        return;
+      }
+
+      if (inputValue === "/recipes") {
+        setInput("");
+        openRecipesOverlay();
         return;
       }
 
