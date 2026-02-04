@@ -476,6 +476,36 @@ function normalizePatchText(text: string): string {
   // Handle mixed escaping by ensuring real newlines
   cleaned = cleaned.replace(/\\n/g, "\n");
 
+  // Gemini and other models sometimes output "--- filename" and "+++ filename" 
+  // without the leading markers we expect. Let's fix those before checking for Begin/End markers.
+  const lines = cleaned.split("\n");
+  const processedLines: string[] = [];
+  let currentFile: string | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.startsWith("--- ") || line.startsWith("+++ ")) {
+      const potential = line.slice(4).split("\t")[0]?.trim() || "";
+      if (potential && potential !== "/dev/null" && potential !== "a/" && potential !== "b/") {
+        const filename = potential.replace(/^[ab]\//, "");
+        if (filename !== currentFile) {
+          processedLines.push(`*** Update File: ${filename}`);
+          currentFile = filename;
+        }
+        continue; // Skip the standard ---/+++ lines
+      }
+    }
+    
+    // Fix cases where models put a space before @@
+    if (line.trim().startsWith("@@")) {
+      processedLines.push(line.trim());
+      continue;
+    }
+
+    processedLines.push(line);
+  }
+  cleaned = processedLines.join("\n").trim();
+
   const hasBegin = cleaned.includes("*** Begin Patch");
   const hasEnd = cleaned.includes("*** End Patch");
 
@@ -495,44 +525,7 @@ function normalizePatchText(text: string): string {
     return `*** Begin Patch\n${cleaned}\n*** End Patch`;
   }
 
-  // If it's a "bare" unified diff (starting with ---/+++ or just a hunk), 
-  // we try to infer the filename and wrap it as an Update File.
-  if (cleaned.includes("---") || cleaned.includes("+++") || cleaned.includes("@@")) {
-    const lines = cleaned.split("\n");
-    let filename = "";
-    
-    // First, look for standard diff headers
-    for (const line of lines) {
-      if (line.startsWith("--- ") || line.startsWith("+++ ")) {
-        const potential = line.slice(4).split("\t")[0]?.trim() || "";
-        if (potential && potential !== "/dev/null" && potential !== "a/" && potential !== "b/") {
-          filename = potential.replace(/^[ab]\//, ""); // strip a/ or b/ prefixes
-          break;
-        }
-      }
-    }
-
-    // If no standard headers found, try to find any marker that might contain a path
-    if (!filename) {
-      for (const line of lines) {
-        if (line.includes("*** Update File:") || line.includes("Update File:")) {
-           filename = line.split(":").pop()?.trim() || "";
-           break;
-        }
-      }
-    }
-
-    if (filename) {
-      // Ensure hunks have a valid header if they seem incomplete
-      const fixedLines = lines.map(line => {
-        if (line.trim() === "@@") return "@@ -1,1 +1,1 @@";
-        return line;
-      });
-      return `*** Begin Patch\n*** Update File: ${filename}\n${fixedLines.join("\n")}\n*** End Patch`;
-    }
-  }
-
-  return text; // Return original if we can't normalize
+  return cleaned; // Return whatever we managed to clean up
 }
 
 export function text_to_patch(
