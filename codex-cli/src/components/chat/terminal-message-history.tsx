@@ -6,6 +6,7 @@ import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";
 import { Box, Static, Text } from "ink";
 import React, { useMemo } from "react";
+import type { Theme } from "../../utils/theme.js";
 
 // A batch entry can either be a standalone response item or a grouped set of
 // items (e.g. auto‑approved tool‑call batches) that should be rendered
@@ -24,6 +25,8 @@ type MessageHistoryProps = {
   thinkingSeconds: number;
   headerProps: TerminalHeaderProps;
   fullStdout: boolean;
+  theme: Theme;
+  streamingMessage?: ChatCompletionMessageParam;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -33,6 +36,8 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   loading,
   thinkingSeconds,
   fullStdout,
+  theme,
+  streamingMessage,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -43,38 +48,58 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         }
       }
     }
-    return [batch.map(({ item }) => item!), process.env["DEBUG"], map];
+    return [batch, process.env["DEBUG"], map];
   }, [batch, items]);
 
   return (
     <Box flexDirection="column">
       {loading && debug && (
         <Box marginTop={1}>
-          <Text color="yellow">{`(${thinkingSeconds}s)`}</Text>
+          <Text color={theme.warning}>{`(${thinkingSeconds}s)`}</Text>
         </Box>
       )}
       <Static items={["header", ...messages]}>
-        {(item, index) => {
-          if (item === "header") {
+        {(entry, index) => {
+          if (entry === "header") {
             return <TerminalHeader key="header" {...headerProps} />;
           }
-          const message = item as ChatCompletionMessageParam;
+          const { item, group } = entry as BatchEntry;
+          const role = item?.role || (group?.items[0] as any)?.role;
+
           return (
             <Box
               key={index}
               flexDirection="column"
-              marginLeft={message.role === "user" ? 0 : 4}
-              marginTop={message.role === "user" ? 0 : 1}
+              marginLeft={role === "user" ? 0 : 4}
+              marginTop={role === "user" ? 0 : 1}
             >
               <TerminalChatResponseItem
-                item={message}
+                item={item!}
+                group={group}
                 fullStdout={fullStdout}
                 toolCallMap={toolCallMap}
+                loading={false}
+                theme={theme}
               />
             </Box>
           );
         }}
       </Static>
+      {streamingMessage && (
+        <Box
+          flexDirection="column"
+          marginLeft={4}
+          marginTop={1}
+        >
+          <TerminalChatResponseItem
+            item={streamingMessage}
+            fullStdout={fullStdout}
+            toolCallMap={toolCallMap}
+            loading={loading}
+            theme={theme}
+          />
+        </Box>
+      )}
     </Box>
   );
 };

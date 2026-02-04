@@ -21,12 +21,15 @@ export function useConfirmation(): {
 } {
   // The current prompt is just the head of the queue
   const [current, setCurrent] = useState<ConfirmationItem | null>(null);
+  // Using a ref to track current state for synchronous checks in the callback
+  const currentRef = useRef<ConfirmationItem | null>(null);
   // The entire queue is stored in a ref to avoid re-renders
   const queueRef = useRef<Array<ConfirmationItem>>([]);
 
   // Move queue forward to the next prompt
   const advanceQueue = useCallback(() => {
     const next = queueRef.current.shift() ?? null;
+    currentRef.current = next;
     setCurrent(next);
   }, []);
 
@@ -34,11 +37,10 @@ export function useConfirmation(): {
   const requestConfirmation = useCallback(
     (prompt: React.ReactNode) => {
       return new Promise<ConfirmationResult>((resolve) => {
-        const wasEmpty = queueRef.current.length === 0;
         queueRef.current.push({ prompt, resolve });
 
-        // If the queue was empty, we need to kick off the first prompt
-        if (wasEmpty) {
+        // Only start the first prompt if none are currently active
+        if (!currentRef.current) {
           advanceQueue();
         }
       });

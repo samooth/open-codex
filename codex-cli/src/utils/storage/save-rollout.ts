@@ -8,6 +8,7 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
+import { log, isLoggingEnabled } from "../agent/log.js";
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
 

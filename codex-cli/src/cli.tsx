@@ -39,7 +39,7 @@ import meow from "meow";
 import path from "path";
 import React from "react";
 
-// Call this early so `tail -F "$TMPDIR/oai-codex/codex-cli-latest.log"` works
+// Call this early so `tail -F "$TMPDIR/open-codex/codex-cli-latest.log"` works
 // immediately. This must be run with DEBUG=1 for logging to work.
 initLogger();
 
@@ -61,7 +61,7 @@ const cli = meow(
   Options
     -h, --help                 Show usage and exit
     -v, --version              Print the version and exit
-    -m  --provider <provider>  Provider to use for completions (default: openai, options: openai, gemini, openrouter, ollama, xai)
+    -m  --provider <provider>  Provider to use for completions (default: openai, options: openai, gemini, google, openrouter, ollama, xai)
     -m, --model <model>        Model to use for completions (default: o4-mini)
     -i, --image <path>         Path(s) to image files to include as input
     -v, --view <rollout>       Inspect a previously saved rollout instead of starting a session
@@ -77,6 +77,8 @@ const cli = meow(
     --full-stdout              Do not truncate stdout/stderr from command outputs
     --allow <command>          Pre-authorize a specific command (e.g., 'ls', 'pytest') for the session
     --dry-run                  Preview changes without applying them
+    --think                    Enable "Deep Thinking" mode (adds extra identity and protocol prefix to system prompt)
+    --context-size <tokens>    Manually set the context window size in tokens
 
   Dangerous options
     --dangerously-auto-approve-everything
@@ -156,6 +158,14 @@ const cli = meow(
       dryRun: {
         type: "boolean",
         description: "Preview changes without applying them",
+      },
+      think: {
+        type: "boolean",
+        description: "Enable deep thinking mode",
+      },
+      contextSize: {
+        type: "number",
+        description: "Manually set the context window size in tokens",
       },
       allowAlwaysPatch: {
         type: "boolean",
@@ -259,6 +269,8 @@ config = {
   provider: provider ?? config.provider,
   dryRun: Boolean(cli.flags.dryRun),
   allowAlwaysPatch: Boolean(cli.flags.allowAlwaysPatch),
+  enableDeepThinking: cli.flags.think !== undefined ? Boolean(cli.flags.think) : config.enableDeepThinking,
+  contextSize: cli.flags.contextSize ?? config.contextSize,
 };
 
 // Check for updates after loading config

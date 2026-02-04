@@ -88,4 +88,30 @@ describe('flattenToolCalls', () => {
     expect(flattened[1].function.name).toBe('read_file');
     expect(flattened[2].function.name).toBe('read_file');
   });
+
+  it('normalizes concatenated tool calls with command alias', () => {
+    const toolCalls: Array<ChatCompletionMessageToolCall> = [
+      {
+        id: 'call_1',
+        type: 'function',
+        function: {
+          name: 'shell',
+          arguments: '{"command":["ls"]}{"cmd":["pwd"]}'
+        }
+      }
+    ];
+
+    const flattened = flattenToolCalls(toolCalls);
+    expect(flattened).toHaveLength(2);
+    
+    const args1 = JSON.parse(flattened[0].function.arguments);
+    expect(args1).toHaveProperty('cmd');
+    expect(args1.cmd).toEqual(['ls']);
+    // verify 'command' property is removed/normalized away
+    expect(args1).not.toHaveProperty('command');
+
+    const args2 = JSON.parse(flattened[1].function.arguments);
+    expect(args2).toHaveProperty('cmd');
+    expect(args2.cmd).toEqual(['pwd']);
+  });
 });

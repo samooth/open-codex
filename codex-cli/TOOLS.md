@@ -7,15 +7,15 @@ This document explains in detail how OpenCodex defines, registers, and executes 
 ### 1. `src/utils/agent/agent-loop.ts`
 This is the "brain" of the agent. It controls:
 - **Registration**: The `run()` method contains the `tools` array passed to the OpenAI API. This defines the JSON schema for every tool the model is aware of.
-- **Routing & Parallelism**: The `handleFunctionCall()` method initiates all model-requested tool calls in **parallel** using `Promise.all()`, significantly reducing latency for multi-file operations.
-- **Loop Protection**: Tracks the history of tool calls in the current session. If the exact same tool call (name and arguments) fails more than twice, the system intercepts the third attempt and returns a "Loop detected" error, forcing the model to stop and ask for help.
+- **Routing & Parallelism**: The `handleFunctionCall()` method initiates all model-requested tool calls in **parallel** using `Promise.all()`, significantly reducing latency for multi-file operations. It also handles parameter normalization (e.g., mapping `command` to `cmd`).
+- **Loop Protection & Logging**: Tracks the history of tool calls in the current session. If the exact same tool call (name and arguments) fails more than twice, the system intercepts the third attempt and returns a "Loop detected" error. All failed tool calls are logged to `opencodex.error.log` with provider and model metadata.
 - **Normalization**: This file handles tool aliasing (e.g., mapping `repo_browser.read_file` to the internal `read_file` handler) and strips model-specific suffixes like `<|channel|>`.
 - **High-Level Handlers**: Implements specialized tools directly using high-performance asynchronous I/O:
     - `read_file`, `write_file`, `delete_file`: Basic FS operations.
     - `list_directory`: Non-recursive directory listing.
     - `list_files_recursive`: Parallel tree-view project exploration.
-    - `read_file_lines`: Reading specific line ranges to save context.
-    - search_codebase: Structured search using ripgrep (`rg --json`).
+    - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
+    - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
     - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
     - `summarize_memory`: Retrieve all stored facts for review and consolidation.
     - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
@@ -29,7 +29,8 @@ Controls the execution of shell commands:
 
 ### 3. `src/components/chat/terminal-chat-response-item.tsx`
 Handles the rendering of agent responses:
-- **Syntax Highlighting**: Uses `cli-highlight` to provide full color support for code blocks and unified diffs within the terminal UI.
+- **Integrated UI**: Tool calls and responses are integrated into a single visual unit, showing semantic icons, labels, and argument summaries alongside the output.
+- **Syntax Highlighting**: Uses `cli-highlight` to provide language-aware highlighting for file contents, search results, and unified diffs within the terminal UI.
 - **Markdown Rendering**: Integrates `marked-terminal` with custom highlighting for a polished developer experience.
 
 ### 4. `src/approvals.ts`

@@ -1,4 +1,4 @@
-  Potential Improvements:
+Potential Improvements:
 
    1. [DONE] Tool-Specific Advice:
        * Explicitly mention the new parallel execution capability. If the model needs information from multiple files, it should call multiple read_file tools in one turn to save time.
@@ -41,10 +41,11 @@
 
    13. [DONE] Tool UX Overhaul:
        * Added semantic icons, labels, and intelligent argument summaries to tool calls and outputs.
+       * [NEW] Integrated tool call and response into unified boxes.
 
    14. [DONE] Interactive Proceed Confirmation:
        * Detect model questions about continuing and show a Yes/No arrow-key selection.
-       * [NEW] Added "Custom..." option to allow arbitrary user text input.
+       * Added "Custom..." option to allow arbitrary user text input.
 
    15. [DONE] Parallel Tool Call Flattening:
        * Automatically split concatenated JSON objects in tool call arguments into separate parallel executions.
@@ -61,87 +62,21 @@
 
    19. [DONE] Ollama Customization:
        * Supported `OLLAMA_BASE_URL` environment variable for remote Ollama servers.
-       * Added `embeddingModel` configuration to allow custom local embedding models (defaults to `nomic-embed-text:latest`).
+       * Added `embeddingModel` configuration to allow custom local embedding models.
 
    20. [DONE] Performance Optimizations:
        * Resolved memory leaks and `MaxListenersExceededWarning` by implementing a global shared terminal size hook.
        * Optimized session history restoration to handle hundreds of sessions without crashing.
 
-   19. [DONE] Ollama Customization:
-       * Supported `OLLAMA_BASE_URL` environment variable for remote Ollama servers.
-       * Added `embeddingModel` configuration to allow custom local embedding models (defaults to `nomic-embed-text:latest`).
+   21. [DONE] Persistent Status Bar:
+       * Real-time status bar showing model, provider, mode, context usage, and session ID.
 
-   20. [DONE] Performance Optimizations:
-       * Resolved memory leaks and `MaxListenersExceededWarning` by implementing a global shared terminal size hook.
-       * Optimized session history restoration to handle hundreds of sessions without crashing.
+   22. [DONE] Interactive History Search:
+       * Filtered search for both current history and past session restoration.
 
-    opencodex
-    ⚠️  Connection closed prematurely while waiting for the model. Please try again.
+   23. [DONE] Syntax Highlighting for Tool Output:
+       * Automatic language-aware highlighting for file contents and search results.
 
-    ⚠️  OpenAI rejected the request. Error details: Status: unknown, Code: tool_use_failed, Type: invalid_request_error, Message: Failed to parse tool call arguments as JSON. Please verify your settings
-    and try again.
-
-
-    [DONE] Allow option to always allow apply-patch
-
-
-
-
-    opencodex
-    I'll help you check if the dashboard is in Spanish. Let me first explore the codebase to understand the project structure and locate the dashboard files.
-
-    <function=repo_browser.list_directory>
-    <parameter=path>
-    .
-    </parameter>
-    </function>
-    </tool_call>
-
-
-
-
-
-    Now I need to update the server.js file to make sure it serves the Spanish admin dashboard instead of the English one by default:
-    command
-
-    $ apply_patch "*** server.js
-    --- server.js
-    +++ server.js
-    @@ -101,7 +101,7 @@
-     // Admin dashboard
-     app.get('/admin/dashboard', (req, res) => {
-    -  res.sendFile(path.join(__dirname, 'admin-dashboard.html'));
-    +  res.sendFile(path.join(__dirname, 'admin-dashboard-es.html'));
-     });
-
-     // Admin bookings page"
-
-    command.stdout (code: 1, duration: 0s, pwd: /home/t0m4s/repos/2026/Maca/web)
-
-
-
-
-
-   opencodex
-    Let me also update the index.html file to ensure it defaults to Spanish:
-    command
-
-    $ apply_patch '*** index.html
-    --- index.html
-    +++ index.html
-    @@ -1,7 +1,7 @@
-     <!DOCTYPE html>
-    -<html lang="en">
-    +<html lang="es">
-     <head>
-         <meta charset="UTF-8">
-         <meta name="viewport" content="width=device-width, initial-scale=1.0">'
-
-    command.stdout (code: 1, duration: 0s, pwd: /home/t0m4s/repos/2026/Maca/web)
-
-    Patch must start with *** Begin Patch
-
-
-
-
-
+   24. [DONE] Tool Robustness:
+       * Parameter heuristics for `search_codebase` and aliases for `read_file_lines`.
+       * Error logging to `opencodex.error.log`.

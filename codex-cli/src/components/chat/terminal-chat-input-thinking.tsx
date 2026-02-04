@@ -162,7 +162,7 @@ export default function TerminalChatInputThinking({
   const displayReasoning = partialReasoning || thinkingText;
 
   const [scrollOffset, setScrollOffset] = useState(0);
-  const maxDisplayLines = activeToolName ? 5 : 3; // Show more lines if a tool is active
+  const maxDisplayLines = activeToolName ? 3 : 1; // Minimal lines here as full reasoning is in history
 
   const rawLines = (displayReasoning || "").split('\n');
   const totalLines = rawLines.length;
@@ -204,7 +204,7 @@ export default function TerminalChatInputThinking({
       paddingX={activeToolName ? 1 : 0}
     >
       <Box gap={2}>
-        <Spinner type="ball" />
+        <Spinner type="dots" color={activeToolName ? "magentaBright" : "cyan"} />
         <Box flexDirection="column">
           {activeToolName && (
             <Text bold color="magenta">
@@ -218,9 +218,12 @@ export default function TerminalChatInputThinking({
             {dots}
           </Text>
           {activeToolArguments && (
-            <Text dimColor size="small">
-              Args: {JSON.stringify(activeToolArguments).slice(0, 100)}...
-            </Text>
+            <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
+              <Text dimColor size="small">
+                {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
+                {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
+              </Text>
+            </Box>
           )}
         </Box>
       </Box>

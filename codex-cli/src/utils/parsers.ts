@@ -37,6 +37,10 @@ const ToolCallArgsSchema = z
     // read_file_lines
     start_line: z.number().optional(),
     end_line: z.number().optional(),
+    start: z.number().optional(),
+    end: z.number().optional(),
+    line_start: z.number().optional(),
+    line_end: z.number().optional(),
     // search_codebase / query_memory
     pattern: z.string().optional(),
     query: z.string().optional(),

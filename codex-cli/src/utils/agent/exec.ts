@@ -12,7 +12,7 @@ import { parse, quote } from "shell-quote";
 
 const DEFAULT_TIMEOUT_MS = 10_000; // 10 seconds
 
-function requiresShell(cmd: Array<string>): boolean {
+export function requiresShell(cmd: Array<string>): boolean {
   // On Windows, we almost always want a shell to handle .cmd/.bat files
   // and built-ins correctly.
   if (process.platform === "win32") {

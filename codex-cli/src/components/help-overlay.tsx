@@ -74,6 +74,9 @@ export default function HelpOverlay({
           <Text color="yellow">Up/Down</Text> – scroll prompt history
         </Text>
         <Text>
+          <Text color="yellow">@</Text> – trigger file path autocomplete
+        </Text>
+        <Text>
           <Text color="yellow">
             Esc<Text dimColor>(✕2)</Text>
           </Text>{" "}

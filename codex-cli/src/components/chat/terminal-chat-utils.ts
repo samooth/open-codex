@@ -47,9 +47,10 @@ export function maxTokensForModel(model: string): number {
 export function calculateContextPercentRemaining(
   items: Array<ChatCompletionMessageParam>,
   model: string,
+  forcedMaxTokens?: number,
 ): number {
   const used = approximateTokensUsed(items);
-  const max = maxTokensForModel(model);
+  const max = forcedMaxTokens || maxTokensForModel(model);
   const remaining = Math.max(0, max - used);
   return (remaining / max) * 100;
 }

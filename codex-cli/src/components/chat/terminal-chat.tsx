@@ -9,6 +9,7 @@ import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
 import { calculateContextPercentRemaining } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
+import TerminalStatusBar from "./terminal-status-bar.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
@@ -28,8 +29,11 @@ import PromptOverlay from "../prompt-overlay.js";
 import PromptSelectOverlay from "../prompt-select-overlay.js";
 import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
+import ThemeOverlay from "../theme-overlay.js";
+import { getTheme } from "../../utils/theme.js";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
+import { useInterval } from "use-interval";
 import { inspect } from "util";
 
 type Props = {
@@ -70,6 +74,21 @@ export default function TerminalChat({
   );
   const [thinkingSeconds, setThinkingSeconds] = useState(0);
   const [partialReasoning, setPartialReasoning] = useState<string>("");
+  const [partialContent, setPartialContent] = useState<string>("");
+  
+  // Throttled states for rendering to avoid flickering
+  const [renderedPartialContent, setRenderedPartialContent] = useState("");
+  const [renderedPartialReasoning, setRenderedPartialReasoning] = useState("");
+
+  useInterval(() => {
+    if (renderedPartialContent !== partialContent) {
+      setRenderedPartialContent(partialContent);
+    }
+    if (renderedPartialReasoning !== partialReasoning) {
+      setRenderedPartialReasoning(partialReasoning);
+    }
+  }, loading ? 100 : null);
+
   const [activeFiles, setActiveFiles] = useState<Set<string>>(new Set());
   const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
   const [activeToolArguments, setActiveToolArguments] = useState<Record<string, any> | undefined>(undefined);
@@ -80,7 +99,7 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -105,13 +124,15 @@ export default function TerminalChat({
       if (normalized.includes("continue?") || 
           normalized.includes("proceed?") || 
           normalized.includes("(yes/no)") ||
+          normalized.includes("want me to continue") ||
+          normalized.includes("should i go ahead") ||
           normalized.endsWith("?") && (
             normalized.includes("should i") || 
-            normalized.includes("do you want me to") ||
+            normalized.includes("do you want") ||
             normalized.includes("allow me to") ||
-            normalized.includes("is this correct?") ||
-            normalized.includes("is this okay?") ||
-            normalized.includes("can i proceed?")
+            normalized.includes("is this correct") ||
+            normalized.includes("is this okay") ||
+            normalized.includes("can i proceed")
           )) {
         return { type: "yes-no" as const };
       }
@@ -183,6 +204,7 @@ export default function TerminalChat({
         });
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
+        setPartialContent(content);
         if (reasoning) {
           if (activeToolName) {
             setPartialReasoning(reasoning);
@@ -209,6 +231,9 @@ export default function TerminalChat({
       },
       onItem: (item: ChatCompletionMessageParam) => {
         log(`onItem: ${JSON.stringify(item)}`);
+        // Clear partials when a full item is received
+        setPartialContent("");
+        setPartialReasoning("");
         setItems((prev) => {
           // If it's a streaming tool update, try to update the existing item
           if (item.role === "tool" && "tool_call_id" in item) {
@@ -264,6 +289,7 @@ export default function TerminalChat({
       onLoading: (isLoading: boolean) => {
         if (isLoading) {
           setPartialReasoning("");
+          setPartialContent("");
         }
         setLoading(isLoading);
       },
@@ -277,6 +303,7 @@ export default function TerminalChat({
           await requestConfirmation(
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
+              applyPatch={applyPatch}
             />,
           );
         return { review, customDenyMessage, applyPatch };
@@ -369,15 +396,44 @@ export default function TerminalChat({
     processInitialInputItems();
   }, [agent, initialPrompt, initialImagePaths, prevItems]);
 
-  // Just render every item in order, no grouping/collapse
-  const lastMessageBatch = items.map((item) => ({ item }));
+  // Group consecutive tool messages into batches
+  const lastMessageBatch = useMemo(() => {
+    const batches: Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }> = [];
+    let currentGroup: GroupedResponseItem | null = null;
+
+    for (const item of items) {
+      if (item.role === "tool") {
+        if (!currentGroup) {
+          currentGroup = {
+            label: "Tool Batch",
+            items: [item as any],
+          };
+        } else {
+          currentGroup.items.push(item as any);
+        }
+      } else {
+        if (currentGroup) {
+          batches.push({ group: currentGroup });
+          currentGroup = null;
+        }
+        batches.push({ item });
+      }
+    }
+    if (currentGroup) {
+      batches.push({ group: currentGroup });
+    }
+    return batches;
+  }, [items]);
+
   const groupCounts: Record<string, number> = {};
   const userMsgCount = items.filter((i) => i.role === "user").length;
 
   const contextLeftPercent = useMemo(
-    () => calculateContextPercentRemaining(items, model),
-    [items, model],
+    () => calculateContextPercentRemaining(items, model, config.contextSize),
+    [items, model, config.contextSize],
   );
+
+  const activeTheme = getTheme(config.theme);
 
   return (
     <Box flexDirection="column">
@@ -392,6 +448,7 @@ export default function TerminalChat({
             loading={loading}
             thinkingSeconds={thinkingSeconds}
             fullStdout={fullStdout}
+            theme={activeTheme}
             headerProps={{
               terminalRows,
               version: CLI_VERSION,
@@ -402,12 +459,35 @@ export default function TerminalChat({
               agent,
               initialImagePaths,
             }}
+            streamingMessage={loading && (renderedPartialContent || renderedPartialReasoning) ? {
+              role: "assistant",
+              content: (() => {
+                const content = renderedPartialContent;
+                // If reasoning is already embedded in content with tags, don't double wrap
+                if (content.includes("<thought>") || content.includes("<think>")) {
+                  return content;
+                }
+                return content + (renderedPartialReasoning ? `<thought>${renderedPartialReasoning}</thought>` : "");
+              })()
+            } : undefined}
           />
         ) : (
           <Box>
             <Text color="gray">Initializing agent…</Text>
           </Box>
         )}
+
+        {agent && (
+          <TerminalStatusBar
+            model={model}
+            provider={config.provider || "openai"}
+            contextLeftPercent={contextLeftPercent}
+            sessionId={agent.sessionId}
+            approvalPolicy={approvalPolicy}
+            theme={activeTheme}
+          />
+        )}
+
         {overlayMode === "none" && agent && (
           <TerminalChatInput
             loading={loading}
@@ -435,6 +515,7 @@ export default function TerminalChat({
             openConfigOverlay={() => setOverlayMode("config")}
             openPromptOverlay={() => setOverlayMode("prompt")}
             openPromptsOverlay={() => setOverlayMode("prompts")}
+            openThemeOverlay={() => setOverlayMode("theme")}
             active={overlayMode === "none"}
             partialReasoning={partialReasoning}
             activeFiles={activeFiles}
@@ -591,9 +672,9 @@ export default function TerminalChat({
         {overlayMode === "prompt" && (
           <PromptOverlay
             currentInstructions={
-              (config.instructions?.includes("You are operating as and within OpenCodex") || config.enableDeepThinking === false)
+              config.instructions?.includes("You are operating as and within OpenCodex")
                 ? config.instructions
-                : [prefix, config.instructions].filter(Boolean).join("\n\n")
+                : [prefix, config.instructions].filter(Boolean).join("\n")
             }
             onSave={(newInstructions) => {
               agent?.cancel();
@@ -631,6 +712,29 @@ export default function TerminalChat({
                     {
                       type: "text",
                       text: `Switched system instructions to prompt: ${name}`,
+                    },
+                  ],
+                },
+              ]);
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+          />
+        )}
+
+        {overlayMode === "theme" && (
+          <ThemeOverlay
+            currentTheme={config.theme || "default"}
+            onSelect={(newTheme) => {
+              setConfig((prev) => ({ ...prev, theme: newTheme }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched theme to ${newTheme}`,
                     },
                   ],
                 },

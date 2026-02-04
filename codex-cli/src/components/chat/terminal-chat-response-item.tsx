@@ -14,27 +14,56 @@ import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
 import { parse, setOptions } from "marked";
 import TerminalRenderer from "marked-terminal";
+import Spinner from "../vendor/ink-spinner.js";
 import { highlight } from "cli-highlight";
 import React, { useMemo } from "react";
+import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type { Theme } from "../../utils/theme.js";
 
 export default function TerminalChatResponseItem({
   item,
+  group,
   fullStdout = false,
   toolCallMap = new Map(),
+  loading = false,
+  theme,
 }: {
-  item: ChatCompletionMessageParam;
+  item?: ChatCompletionMessageParam;
+  group?: GroupedResponseItem;
   fullStdout?: boolean;
   toolCallMap?: Map<string, any>;
+  loading?: boolean;
+  theme: Theme;
 }): React.ReactElement {
+  if (group) {
+    return (
+      <TerminalChatResponseToolBatch
+        group={group}
+        fullStdout={fullStdout}
+        toolCallMap={toolCallMap}
+        theme={theme}
+      />
+    );
+  }
+
+  if (!item) return <></>;
+
   switch (item.role) {
     case "user":
-      return <TerminalChatResponseMessage message={item} />;
+      return <TerminalChatResponseMessage message={item} theme={theme} />;
     case "assistant":
       return (
         <>
-          <TerminalChatResponseMessage message={item} />
+          <TerminalChatResponseMessage message={item} theme={theme} />
           {item.tool_calls?.map((toolCall, i) => {
-            return <TerminalChatResponseToolCall key={i} message={toolCall} />;
+            return (
+              <TerminalChatResponseToolCall
+                key={i}
+                message={toolCall}
+                loading={loading}
+                theme={theme}
+              />
+            );
           })}
         </>
       );
@@ -44,6 +73,7 @@ export default function TerminalChatResponseItem({
           message={item}
           fullStdout={fullStdout}
           toolCallMap={toolCallMap}
+          theme={theme}
         />
       );
     default:
@@ -123,12 +153,15 @@ function TerminalChatResponseMessage({
   message,
   fullStdout,
   toolCallMap = new Map(),
+  theme,
 }: {
   message: ChatCompletionMessageParam;
   fullStdout?: boolean;
   toolCallMap?: Map<string, any>;
+  theme: Theme;
 }) {
   const contentParts: Array<string> = [];
+  // ... (content extraction stays same)
   if (typeof message.content === "string") {
     contentParts.push(message.content);
   } else if (Array.isArray(message.content)) {
@@ -161,58 +194,85 @@ function TerminalChatResponseMessage({
         content={content}
         fullStdout={!!fullStdout}
         toolCall={toolCall}
+        theme={theme}
       />
     );
   }
 
-  // Extract <thought> or <think> blocks
+  // Extract <thought>, <think>, or <plan> blocks (handles unclosed tags during streaming)
   const thoughts: Array<string> = [];
-  const displayContent = content.replace(
-    /<(thought|think)>([\s\S]*?)<\/\1>/g,
-    (_, _tagName, thought) => {
-      thoughts.push(thought.trim());
-      return "";
-    },
-  );
+  const plans: Array<string> = [];
+  
+  const thoughtRegex = /<(thought|think)>([\s\S]*?)(?:<\/\1>|$)/gim;
+  const planRegex = /<plan>([\s\S]*?)(?:<\/plan>|$)/gim;
+
+  let displayContent = content.replace(thoughtRegex, (_, _tagName, thought) => {
+    thoughts.push(thought.trim());
+    return "";
+  });
+  
+  displayContent = displayContent.replace(planRegex, (_, plan) => {
+    plans.push(plan.trim());
+    return "";
+  });
+
+  const hasThoughts = thoughts.length > 0;
+  const hasPlans = plans.length > 0;
+  const hasContent = displayContent.trim().length > 0;
+
+  const roleColor = message.role === "assistant" ? theme.assistant : theme.user;
 
   return (
     <Box flexDirection="column">
-      <Text bold color={colorsByRole[message.role] || "gray"}>
-        {message.role === "assistant" ? "opencodex" : message.role}
-      </Text>
+      {(hasContent || (!hasThoughts && !hasPlans)) && (
+        <Text bold color={roleColor}>
+          {message.role === "assistant" ? "opencodex" : message.role}
+        </Text>
+      )}
       {thoughts.map((thought, i) => (
         <Box
           key={i}
           flexDirection="column"
           paddingLeft={2}
           borderStyle="round"
-          borderColor="gray"
-          dimColor
+          borderColor={theme.dim}
+          marginTop={hasContent ? 1 : 0}
+          marginBottom={1}
+        >
+          <Text italic color={theme.thought}>
+            thought
+          </Text>
+          <Text italic color={theme.dim}>{thought}</Text>
+        </Box>
+      ))}
+      {plans.map((plan, i) => (
+        <Box
+          key={i}
+          flexDirection="column"
+          paddingLeft={2}
+          borderStyle="round"
+          borderColor={theme.plan}
           marginTop={1}
           marginBottom={1}
         >
-          <Text italic color="cyan">
-            thought
+          <Text bold color={theme.plan}>
+            📋 plan
           </Text>
-          <Text italic>{thought}</Text>
+          <Markdown theme={theme}>{plan}</Markdown>
         </Box>
       ))}
-      {displayContent.trim().length > 0 && (
-        <Markdown>{displayContent.trim()}</Markdown>
+      {hasContent && (
+        <Markdown theme={theme}>{displayContent.trim()}</Markdown>
       )}
     </Box>
   );
 }
 
-function TerminalChatResponseToolCall({
-  message,
-}: {
-  message: ChatCompletionMessageToolCall;
-}) {
+function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   const details = parseToolCallChatCompletion(message);
   const toolName = message.function?.name || "";
   const rawArgs = message.function?.arguments || "{}";
-  
+
   let args: any = {};
   try {
     args = JSON.parse(rawArgs);
@@ -243,14 +303,19 @@ function TerminalChatResponseToolCall({
     icon = "🗑️";
     color = "redBright";
     summary = args.path;
-  } else if (toolName.includes("list_directory") || toolName.includes("list_files")) {
+  } else if (
+    toolName.includes("list_directory") ||
+    toolName.includes("list_files")
+  ) {
     label = "listing";
     icon = "📂";
     summary = args.path || ".";
   } else if (toolName.includes("search_codebase")) {
     label = "searching";
     icon = "🔍";
-    summary = `"${args.pattern || args.query}" ${args.path ? `in ${args.path}` : ""}`;
+    summary = `"${args.pattern || args.query}" ${
+      args.path ? `in ${args.path}` : ""
+    }`;
   } else if (toolName.includes("apply_patch")) {
     label = "patching";
     icon = "🩹";
@@ -276,28 +341,41 @@ function TerminalChatResponseToolCall({
     summary = details?.cmdReadableText;
   }
 
+  return { label, icon, color, summary, toolName, details };
+}
+
+function TerminalChatResponseToolCall({
+  message,
+  loading = false,
+  theme,
+}: {
+  message: ChatCompletionMessageToolCall;
+  loading?: boolean;
+  theme: Theme;
+}) {
+  const { label, icon, summary, toolName, details } =
+    getToolDisplayInfo(message);
+
   return (
-    <Box
-      flexDirection="column"
-      gap={0}
-      marginY={1}
-      borderStyle="round"
-      borderColor="gray"
-      paddingX={1}
-    >
+    <Box flexDirection="column" gap={0} marginY={0} paddingX={1} paddingLeft={2}>
       <Box gap={1}>
-        <Text color={color} bold>
-          {icon} {label}
+        {loading ? (
+          <Spinner type="dots" color={theme.toolLabel} />
+        ) : (
+          <Text color={theme.toolIcon} bold>
+            {icon}
+          </Text>
+        )}
+        <Text color={theme.toolLabel} bold>
+          {label}
         </Text>
-        <Text dimColor>{summary}</Text>
+        <Text color={theme.dim}>{summary}</Text>
       </Box>
       {(toolName === "shell" ||
         toolName === "repo_browser.exec" ||
         toolName === "apply_patch") && (
         <Box paddingLeft={2}>
-          <Text>
-            <Text dimColor>$</Text> {details?.cmdReadableText}
-          </Text>
+          <Text color={theme.dim}>$ {details?.cmdReadableText}</Text>
         </Box>
       )}
     </Box>
@@ -308,15 +386,36 @@ function TerminalChatResponseToolCallOutput({
   content,
   fullStdout,
   toolCall,
+  theme,
 }: {
   content: string;
   fullStdout: boolean;
   toolCall?: ChatCompletionMessageToolCall;
+  theme: Theme;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
-  const { exit_code, duration_seconds, working_directory, type, url, query } = metadata as any;
-  const isDebug = process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
+  const { exit_code, duration_seconds, working_directory, type, url, query } =
+    metadata as any;
+  const isDebug =
+    process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
   const isError = exit_code !== 0 && typeof exit_code !== "undefined";
+
+  const {
+    label: callLabel,
+    icon,
+    summary,
+    toolName,
+  } = useMemo(() => {
+    if (toolCall) {
+      return getToolDisplayInfo(toolCall);
+    }
+    return {
+      label: "command",
+      icon: "⚙️",
+      summary: "",
+      toolName: "",
+    };
+  }, [toolCall]);
 
   const metadataInfo = useMemo(
     () =>
@@ -333,16 +432,16 @@ function TerminalChatResponseToolCallOutput({
   );
 
   let label = "command.stdout";
-  let labelColor: ForegroundColorName = "magenta";
+  let labelColor: ForegroundColorName = theme.toolLabel;
   let headerContent: string | undefined;
 
   if (type === "web_fetch") {
     label = "web.fetch";
-    labelColor = "blueBright";
+    labelColor = theme.highlight;
     headerContent = url;
   } else if (type === "web_search") {
     label = "web.search";
-    labelColor = "blueBright";
+    labelColor = theme.highlight;
     headerContent = `query: ${query}`;
   }
 
@@ -357,68 +456,113 @@ function TerminalChatResponseToolCallOutput({
   }
 
   // -------------------------------------------------------------------------
-  // Colorize diff output: lines starting with '-' in red, '+' in green.
+  // Syntax Highlighting
   // -------------------------------------------------------------------------
-  const colorizedContent = displayedContent
-    .split("\n")
-    .map((line) => {
-      if (line.startsWith("+") && !line.startsWith("++")) {
-        return chalk.green(line);
+  const colorizedContent = useMemo(() => {
+    let language: string | undefined;
+
+    if (toolName === "search_codebase" || toolName === "semantic_search") {
+      language = "json";
+    } else if (
+      toolName === "read_file" ||
+      toolName === "read_file_lines" ||
+      toolName === "write_file"
+    ) {
+      try {
+        const args = JSON.parse(toolCall?.function.arguments || "{}");
+        const filePath = args.path || "";
+        const extension = filePath.split(".").pop()?.toLowerCase();
+        if (extension) {
+          // Map common extensions to highlight.js names if needed, 
+          // but cli-highlight/highlight.js usually handles them well.
+          language = extension;
+        }
+      } catch {
+        /* ignore */
       }
-      if (line.startsWith("-") && !line.startsWith("--")) {
-        return chalk.red(line);
+    }
+
+    if (language) {
+      try {
+        return highlight(displayedContent, {
+          language,
+          ignoreIllegals: true,
+        });
+      } catch {
+        /* fallback to regular colorization */
       }
-      return line;
-    })
-    .join("\n");
+    }
+
+    // -------------------------------------------------------------------------
+    // Fallback: Colorize diff output: lines starting with '-' in red, '+' in green.
+    // -------------------------------------------------------------------------
+    return displayedContent
+      .split("\n")
+      .map((line) => {
+        if (line.startsWith("+") && !line.startsWith("++")) {
+          return chalk.green(line);
+        }
+        if (line.startsWith("-") && !line.startsWith("--")) {
+          return chalk.red(line);
+        }
+        return line;
+      })
+      .join("\n");
+  }, [displayedContent, toolName, toolCall]);
 
   return (
     <Box
       flexDirection="column"
       gap={0}
       borderStyle="round"
-      borderColor={isError ? "red" : "gray"}
+      borderColor={isError ? theme.error : theme.dim}
       paddingX={1}
       marginY={1}
       width="100%"
     >
+      {toolCall && (
+        <Box gap={1}>
+          <Text color={theme.toolIcon} bold>
+            {icon}
+          </Text>
+          <Text color={theme.toolLabel} bold>
+            {callLabel}
+          </Text>
+          <Text color={theme.dim}>{summary}</Text>
+        </Box>
+      )}
+
       {(isError || isDebug) && toolCall && (
-        <Box
-          flexDirection="column"
-          marginBottom={1}
-          borderStyle="single"
-          borderColor={isError ? "red" : "gray"}
-          paddingX={1}
-          width="100%"
-        >
-          <Text bold color={isError ? "red" : "gray"}>
+        <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
+          <Text bold color={isError ? theme.error : theme.dim}>
             {isError ? "❌ Tool Call Failed" : "🔍 Tool Call Details"}
           </Text>
           <Box gap={1}>
-            <Text bold>tool:</Text>
-            <Text>{toolCall.function.name}</Text>
+            <Text bold color={theme.dim}>tool:</Text>
+            <Text color={theme.dim}>{toolCall.function.name}</Text>
           </Box>
-          <Box gap={1} flexDirection="column">
-            <Text bold>arguments:</Text>
-            <Text dimColor>{toolCall.function.arguments}</Text>
+          <Box gap={1}>
+            <Text bold color={theme.dim}>arguments:</Text>
+            <Text color={theme.dim}>{toolCall.function.arguments}</Text>
           </Box>
         </Box>
       )}
-      <Box gap={1}>
+
+      <Box gap={1} marginTop={toolCall ? 1 : 0}>
         <Text color={labelColor} bold>
           {label}
         </Text>
-        <Text dimColor>{metadataInfo ? `(${metadataInfo})` : ""}</Text>
+        <Text color={theme.dim}>{metadataInfo ? `(${metadataInfo})` : ""}</Text>
       </Box>
       {headerContent && (
         <Box marginBottom={0}>
-          <Text italic color="cyan">
+          <Text italic color={theme.highlight}>
             {headerContent}
           </Text>
         </Box>
       )}
       <Box marginTop={1}>
-        <Text dimColor={type !== "web_fetch" && type !== "web_search"}>
+        <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined}>
           {colorizedContent}
         </Text>
       </Box>
@@ -439,30 +583,131 @@ export type MarkdownProps = TerminalRendererOptions & {
   children: string;
 };
 
+function TerminalChatResponseToolBatch({
+  group,
+  toolCallMap,
+  fullStdout,
+  theme,
+}: {
+  group: GroupedResponseItem;
+  toolCallMap: Map<string, any>;
+  fullStdout: boolean;
+  theme: Theme;
+}) {
+  const items = group.items;
+  const isLargeBatch = items.length > 3;
+
+  return (
+    <Box flexDirection="column" gap={0} marginY={1}>
+      <Box gap={1} marginBottom={1}>
+        <Text bold color={theme.dim}>
+          🛠️ Tool Batch
+        </Text>
+        <Text color={theme.dim}>({items.length} operations)</Text>
+      </Box>
+      <Box flexDirection="column" gap={0}>
+        {items.map((item, i) => {
+          // Heuristic: If it's a large batch, show a compact summary for early items
+          if (isLargeBatch && i < items.length - 3) {
+            const toolCallId = (item as any).tool_call_id;
+            const toolCall = toolCallMap.get(toolCallId);
+            const { icon, label, summary } = toolCall
+              ? getToolDisplayInfo(toolCall)
+              : { icon: "⚙️", label: "tool", summary: "" };
+            const { metadata } = parseToolCallOutput(item.content as string);
+            const isError =
+              metadata.exit_code !== 0 && typeof metadata.exit_code !== "undefined";
+
+            return (
+              <Box key={i} gap={1} paddingLeft={2}>
+                <Text color={isError ? theme.error : theme.dim}>{isError ? "❌" : "✅"}</Text>
+                <Text color={theme.dim}>
+                  {icon} {label}
+                </Text>
+                <Text color={theme.dim} italic>
+                  {summary}
+                </Text>
+              </Box>
+            );
+          }
+
+          return (
+            <TerminalChatResponseMessage
+              key={i}
+              message={item as any}
+              fullStdout={fullStdout}
+              toolCallMap={toolCallMap}
+              theme={theme}
+            />
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 export function Markdown({
   children,
+  theme,
   ...options
-}: MarkdownProps): React.ReactElement {
+}: MarkdownProps & { theme: Theme }): React.ReactElement {
   const size = useTerminalSize();
 
   const rendered = React.useMemo(() => {
     // Configure marked for this specific render
     setOptions({
+      gfm: true,
+      breaks: true,
       // @ts-expect-error missing parser, space props
       renderer: new TerminalRenderer({
         ...options,
         width: size.columns,
+        tab: 2,
         highlight: (code: string, lang: string) => {
           return highlight(code, { language: lang, ignoreIllegals: true });
+        },
+        // Enhanced styling
+        heading: chalk[theme.assistant as ForegroundColorName].bold,
+        firstHeading: chalk[theme.assistant as ForegroundColorName].bold.underline,
+        tableOptions: {
+          style: {
+            head: [theme.highlight, "bold"],
+            border: [theme.dim],
+          },
+          chars: {
+            top: "─",
+            "top-mid": "┬",
+            "top-left": "┌",
+            "top-right": "┐",
+            bottom: "─",
+            "bottom-mid": "┴",
+            "bottom-left": "└",
+            "bottom-right": "┘",
+            left: "│",
+            "left-mid": "├",
+            mid: "─",
+            "mid-mid": "┼",
+            right: "│",
+            "right-mid": "┤",
+            middle: "│",
+          },
         },
       }),
     });
     const parsed = parse(children, { async: false }).trim();
 
-    // Remove the truncation logic
-    return parsed;
+    // Enhanced Task List Rendering (post-parse fix for reliability)
+    // Matches GFM task list patterns and replaces them with icons
+    const fixedOutput = parsed
+      .replace(/^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim, chalk[theme.success as ForegroundColorName]("✅ "))
+      .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalk[theme.dim as ForegroundColorName]("⬜ "))
+      // Handle nested task lists (up to a few levels of indentation)
+      .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
+      .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
+
+    return fixedOutput;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- options is an object of primitives
-  }, [children, size.columns, size.rows]);
+  }, [children, size.columns, size.rows, theme]);
 
   return <Text>{rendered}</Text>;
 }

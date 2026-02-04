@@ -26,9 +26,11 @@ import { handleExecCommand } from "./handle-exec-command.js";
 import { tools } from "./tool-definitions.js";
 import * as handlers from "./tool-handlers.js";
 import { validateFileSyntax } from "./validate-file.js";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
+import { appendFileSync } from "fs";
 import { randomUUID } from "node:crypto";
+
 import OpenAI, { APIConnectionTimeoutError } from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { prefix } from "./system-prompt.js";
 import { join } from "path";
 import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
@@ -54,7 +56,7 @@ export class AgentLoop {
   // type to avoid sprinkling `any` across the implementation while still allowing paths where
   // the OpenAI SDK types may not perfectly match. The `typeof OpenAI` pattern captures the
   // instance shape without resorting to `any`.
-  private oai: OpenAI;
+  private oai: any;
 
   private onItem: (item: ChatCompletionMessageParam) => void;
   private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
@@ -96,6 +98,170 @@ export class AgentLoop {
   private currentActiveToolRawArguments: string | undefined = undefined;
 
   private onReset: () => void;
+
+  private mapOpenAiToGoogleMessages(
+    messages: Array<ChatCompletionMessageParam>,
+  ): { contents: any[]; systemInstruction: any } {
+    const contents: any[] = [];
+    let systemInstruction: any = undefined;
+
+    for (const msg of messages) {
+      if (msg.role === "system") {
+        systemInstruction = { parts: [{ text: msg.content }] };
+        continue;
+      }
+
+      const role = msg.role === "assistant" ? "model" : "user";
+      const parts: any[] = [];
+
+      if (msg.role === "assistant") {
+        if (msg.content && typeof msg.content === "string") {
+          parts.push({ text: msg.content });
+        }
+        if (msg.tool_calls) {
+          for (const tc of msg.tool_calls as any[]) {
+            let args = {};
+            try {
+              args = JSON.parse(tc.function.arguments);
+            } catch {
+              /* ignore */
+            }
+            parts.push({
+              functionCall: {
+                name: tc.function.name,
+                args,
+              },
+            });
+          }
+        }
+      } else if (msg.role === "user") {
+        if (typeof msg.content === "string") {
+          parts.push({ text: msg.content });
+        } else if (Array.isArray(msg.content)) {
+          for (const part of msg.content) {
+            if (part.type === "text") {
+              parts.push({ text: part.text });
+            }
+          }
+        }
+      } else if (msg.role === "tool") {
+        let response = {};
+        try {
+          response = JSON.parse(msg.content as string);
+        } catch {
+          response = { output: msg.content };
+        }
+        // For Google GenAI SDK, functionResponse needs the name.
+        // We try to find it from previous messages if possible, but for now we'll assume it's passed or use a placeholder.
+        // Actually, the OpenAI tool message doesn't have the name, only tool_call_id.
+        // A better way is to track it, but for a simple mapping we might need to find the name from history.
+        let name = "unknown";
+        for (let i = messages.indexOf(msg) - 1; i >= 0; i--) {
+          const prev = messages[i] as any;
+          if (prev?.role === "assistant" && prev.tool_calls) {
+            const tc = prev.tool_calls.find(
+              (c: any) => (c.id || c.call_id) === msg.tool_call_id,
+            );
+            if (tc) {
+              name = tc.function.name;
+              break;
+            }
+          }
+        }
+
+        parts.push({
+          functionResponse: {
+            name,
+            response,
+          },
+        });
+      }
+
+      if (parts.length > 0) {
+        // Merge consecutive roles to satisfy Google API requirements
+        if (contents.length > 0 && contents[contents.length - 1].role === role) {
+          contents[contents.length - 1].parts.push(...parts);
+        } else {
+          contents.push({ role, parts });
+        }
+      }
+    }
+
+    return { contents, systemInstruction };
+  }
+
+  private mapOpenAiToGoogleTools(openAiTools: any[]): any[] {
+    const functionDeclarations: any[] = [];
+
+    for (const tool of openAiTools) {
+      if (tool.type === "function") {
+        functionDeclarations.push({
+          name: this.sanitizeGoogleToolName(tool.function.name),
+          description: tool.function.description,
+          parameters: tool.function.parameters,
+        });
+      }
+    }
+
+    return functionDeclarations.length > 0
+      ? [{ functionDeclarations }]
+      : [];
+  }
+
+  private async *googleToOpenAiStream(googleStream: any): AsyncGenerator<any> {
+    let first = true;
+    for await (const chunk of googleStream) {
+      const candidate = chunk.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+
+      const delta: any = {};
+      if (first) {
+        delta.role = "assistant";
+        first = false;
+      }
+      for (const part of parts) {
+        if (part.text) {
+          delta.content = (delta.content || "") + part.text;
+        }
+        if (part.functionCall) {
+          if (!delta.tool_calls) {
+            delta.tool_calls = [];
+          }
+          delta.tool_calls.push({
+            index: delta.tool_calls.length,
+            id: randomUUID(),
+            function: {
+              name: part.functionCall.name,
+              arguments: JSON.stringify(part.functionCall.args),
+            },
+          });
+        }
+      }
+
+      if (Object.keys(delta).length > 0 || candidate?.finishReason) {
+        yield {
+          choices: [
+            {
+              delta,
+              finish_reason: candidate?.finishReason?.toLowerCase() || null,
+            },
+          ],
+        };
+      }
+    }
+  }
+
+  private sanitizeGoogleToolName(name: string): string {
+    // Gemini tool names:
+    // Must start with a letter or underscore.
+    // Must be alphanumeric, underscores, dots, colons, or dashes.
+    // Max length 64.
+    let sanitized = name.replace(/[^a-zA-Z0-9_.:-]/g, "_");
+    if (sanitized.length > 64) {
+      sanitized = sanitized.slice(0, 64);
+    }
+    return sanitized;
+  }
 
   /**
    * Tracks history of tool calls in the current session to detect loops.
@@ -245,22 +411,31 @@ export class AgentLoop {
     const timeoutMs = OPENAI_TIMEOUT_MS;
     const apiKey = this.config.apiKey;
     const baseURL = this.config.baseURL;
-    this.oai = new OpenAI({
-      // The OpenAI JS SDK only requires `apiKey` when making requests against
-      // the official API.  When running unit‑tests we stub out all network
-      // calls so an undefined key is perfectly fine.  We therefore only set
-      // the property if we actually have a value to avoid triggering runtime
-      // errors inside the SDK (it validates that `apiKey` is a non‑empty
-      // string when the field is present).
-      ...(apiKey ? { apiKey } : {}),
-      ...(baseURL ? { baseURL } : {}),
-      defaultHeaders: {
-        originator: ORIGIN,
-        version: CLI_VERSION,
-        session_id: this.sessionId,
-      },
-      ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
-    });
+    if (this.config.provider === "google" || this.config.provider === "gemini") {
+      this.oai = new GoogleGenAI({
+        apiKey: apiKey || "",
+      });
+    }else{
+      this.oai = new OpenAI({
+        // The OpenAI JS SDK only requires `apiKey` when making requests against
+        // the official API.  When running unit‑tests we stub out all network
+        // calls so an undefined key is perfectly fine.  We therefore only set
+        // the property if we actually have a value to avoid triggering runtime
+        // errors inside the SDK (it validates that `apiKey` is a non‑empty
+        // string when the field is present).
+        ...(apiKey ? { apiKey } : {}),
+        ...(baseURL ? { baseURL } : {}),
+        /*defaultHeaders: {
+          "User-Agent": "opencodex/1.2.0",
+          //originator: ORIGIN,
+          //version: CLI_VERSION,
+          session_id: this.sessionId,
+        },*/
+        ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
+      });
+    }
+
+
 
     this.semanticMemory = new SemanticMemory(this.oai, this.config.provider, this.config.embeddingModel);
 
@@ -306,25 +481,29 @@ export class AgentLoop {
           name = name.trim();
         }
 
+        if (name && (this.config.provider === "google" || this.config.provider === "gemini")) {
+          name = this.sanitizeGoogleToolName(name);
+        }
+
                     // Map repo_browser aliases to standard names
 
-                    if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary") {name = "shell";}
+                    if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary" || name === "repo_browser.exec__channel__commentary") {name = "shell";}
 
-                    if (name === "repo_browser.read_file" || name === "repo_browser.open_file" || name === "repo_browser.cat" || name === "repo_browser.read_file<|channel|>commentary" || name === "repo_browser.open_file<|channel|>commentary") {name = "read_file";}
+                    if (name === "repo_browser.read_file" || name === "repo_browser.open_file" || name === "repo_browser.cat" || name === "repo_browser.read_file<|channel|>commentary" || name === "repo_browser.read_file__channel__commentary" || name === "repo_browser.open_file<|channel|>commentary" || name === "repo_browser.open_file__channel__commentary") {name = "read_file";}
 
-                    if (name === "repo_browser.write_file" || name === "repo_browser.write_file<|channel|>commentary") {name = "write_file";}
+                    if (name === "repo_browser.write_file" || name === "repo_browser.write_file<|channel|>commentary" || name === "repo_browser.write_file__channel__commentary") {name = "write_file";}
 
-                    if (name === "repo_browser.read_file_lines" || name === "repo_browser.read_file_lines<|channel|>commentary") {name = "read_file_lines";}
+                    if (name === "repo_browser.read_file_lines" || name === "repo_browser.read_file_lines<|channel|>commentary" || name === "repo_browser.read_file_lines__channel__commentary") {name = "read_file_lines";}
 
-                    if (name === "repo_browser.list_files" || name === "repo_browser.list_files<|channel|>commentary") {name = "list_files_recursive";}
+                    if (name === "repo_browser.list_files" || name === "repo_browser.list_files<|channel|>commentary" || name === "repo_browser.list_files__channel__commentary") {name = "list_files_recursive";}
 
-                    if (name === "repo_browser.print_tree" || name === "repo_browser.print_tree<|channel|>commentary") {name = "list_files_recursive";}
+                    if (name === "repo_browser.print_tree" || name === "repo_browser.print_tree<|channel|>commentary" || name === "repo_browser.print_tree__channel__commentary") {name = "list_files_recursive";}
 
-                    if (name === "repo_browser.list_directory" || name === "repo_browser.ls" || name === "repo_browser.list_directory<|channel|>commentary" || name === "repo_browser.ls<|channel|>commentary") {name = "list_directory";}
+                    if (name === "repo_browser.list_directory" || name === "repo_browser.ls" || name === "repo_browser.list_directory<|channel|>commentary" || name === "repo_browser.list_directory__channel__commentary" || name === "repo_browser.ls<|channel|>commentary" || name === "repo_browser.ls__channel__commentary") {name = "list_directory";}
 
-                    if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary") {name = "search_codebase";}
+                    if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary" || name === "repo_browser.search__channel__commentary") {name = "search_codebase";}
 
-                    if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary") {name = "delete_file";}              if (name === "repo_browser.web_search") {name = "web_search";}
+                    if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary" || name === "repo_browser.rm__channel__commentary") {name = "delete_file";}              if (name === "repo_browser.web_search") {name = "web_search";}
               if (name === "repo_browser.fetch_url") {name = "fetch_url";}
             }
       const rawArguments: string | undefined = isChatStyle
@@ -367,6 +546,10 @@ export class AgentLoop {
       }
 
       if (!result.success) {
+        try {
+          const provider = this.config.provider || "unknown";
+          appendFileSync("opencodex.error.log", `[${new Date().toISOString()}] Provider: ${provider}, Model: ${this.model}\nTool Argument Parsing Failed: ${name}\nArguments: ${rawArguments}\nError: ${result.error}\n\n`);
+        } catch { /* ignore logging errors */ }
         return [
           {
             role: "tool",
@@ -379,7 +562,7 @@ export class AgentLoop {
         ];
       }
 
-      const args = result.args;
+      const args = (result as any).args;
       const outputItem: ChatCompletionMessageParam = {
         role: "tool",
         tool_call_id: callId,
@@ -553,6 +736,11 @@ export class AgentLoop {
 
       // Update history for loop detection
       if (metadata["exit_code"] !== 0) {
+        try {
+          const provider = this.config.provider || "unknown";
+          appendFileSync("opencodex.error.log", `[${new Date().toISOString()}] Provider: ${provider}, Model: ${this.model}\nTool Execution Failed: ${name}\nArguments: ${rawArguments}\nExit Code: ${metadata["exit_code"]}\nOutput: ${outputText}\n\n`);
+        } catch { /* ignore logging errors */ }
+        
         this.toolCallHistory.set(toolCallKey, {
           count: history.count + 1,
           lastError: outputText.slice(0, 200), // Store a snippet of the error
@@ -730,7 +918,7 @@ export class AgentLoop {
                 ? latestUserInput.content.map(c => "text" in c ? c.text : "").join(" ") 
                 : "";
 
-            if (queryText && !this.config.skipSemanticMemory) {
+            if (queryText && !this.config.skipSemanticMemory && this.semanticMemory.memoryExists()) {
               const snippets = await this.semanticMemory.findRelevant(queryText);
               if (snippets.length > 0) {
                 relevantMemory = `\n\n--- Relevant Project Memory ---\n${snippets.join("\n")}`;
@@ -744,12 +932,12 @@ export class AgentLoop {
               log(
                 `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
               );
+              log(`[HTTP] Request: ${this.config.provider} completion`);
+              log(`[HTTP] Model: ${this.model}, Messages: ${prevItems.length + staged.length + 1}, Tools: ${tools.length}`);
             }
-            // eslint-disable-next-line no-await-in-loop
-            stream = await this.oai.chat.completions.create({
-              model: this.model,
-              stream: true,
-              messages: [
+
+            if (this.config.provider === "google" || this.config.provider === "gemini") {
+              const { contents, systemInstruction } = this.mapOpenAiToGoogleMessages([
                 {
                   role: "system",
                   content: mergedInstructions,
@@ -758,15 +946,51 @@ export class AgentLoop {
                 ...(staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
-              ],
-              reasoning_effort: reasoning,
-              tools: tools.filter(tool => {
+              ]);
+
+              const googleTools = this.mapOpenAiToGoogleTools(tools.filter(tool => {
                 if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
                   return !!this.config.enableWebSearch;
                 }
                 return true;
-              }),
-            });
+              }));
+
+              const googleStream = await this.oai.models.generateContentStream({
+                model: this.model,
+                contents,
+                config: {
+                  systemInstruction,
+                  tools: googleTools,
+                }
+              });
+              stream = this.googleToOpenAiStream(googleStream) as any;
+            } else {
+              // eslint-disable-next-line no-await-in-loop
+              stream = await this.oai.chat.completions.create({
+                model: this.model,
+                stream: true,
+                messages: [
+                  {
+                    role: "system",
+                    content: mergedInstructions,
+                  },
+                  ...prevItems,
+                  ...(staged.filter(
+                    Boolean,
+                  ) as Array<ChatCompletionMessageParam>),
+                ],
+                reasoning_effort: reasoning,
+                tools: tools.filter(tool => {
+                  if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                    return !!this.config.enableWebSearch;
+                  }
+                  return true;
+                }),
+              });
+            }
+            if (isLoggingEnabled()) {
+              log(`[HTTP] Response: Stream started`);
+            }
             break;
           } catch (error) {
             const isTimeout = error instanceof APIConnectionTimeoutError;
@@ -951,6 +1175,43 @@ export class AgentLoop {
           let message:
             | Extract<ChatCompletionMessageParam, { role: "assistant" }>
             | undefined;
+          let messageProcessed = false;
+
+          const finalizeMessage = async (
+            msg: Extract<ChatCompletionMessageParam, { role: "assistant" }>,
+          ) => {
+            if (messageProcessed) return;
+            messageProcessed = true;
+
+            if (thisGeneration === this.generation && !this.canceled) {
+              // If there's content but no tool_calls, try to extract one from the content.
+              if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
+                const extracted = tryExtractToolCallsFromContent(msg.content);
+                if (extracted.length > 0) {
+                  (msg as any).tool_calls = extracted;
+                  for (const call of extracted) {
+                    if (call.id) {
+                      this.pendingAborts.add(call.id);
+                    }
+                  }
+                  msg.content = "";
+                }
+              }
+
+              // Process completed tool calls
+              if (msg?.tool_calls?.[0]) {
+                msg.tool_calls = flattenToolCalls(msg.tool_calls);
+                stageItem(msg);
+                const results = await this.handleFunctionCall(msg);
+                if (results.length > 0) {
+                  turnInput.push(...results);
+                }
+              } else if (msg && Object.keys(msg).length > 0) {
+                stageItem(msg);
+              }
+            }
+          };
+
           // eslint-disable-next-line no-await-in-loop
           for await (const chunk of stream) {
             if (isLoggingEnabled()) {
@@ -961,7 +1222,12 @@ export class AgentLoop {
             const reasoning = (delta as any)?.reasoning_content;
             const tool_call = delta?.tool_calls?.[0];
 
-            if (content || reasoning || this.currentActiveToolName || this.currentActiveToolRawArguments) {
+            if (
+              content ||
+              reasoning ||
+              this.currentActiveToolName ||
+              this.currentActiveToolRawArguments
+            ) {
               let parsedArgs: Record<string, any> | undefined;
               if (this.currentActiveToolRawArguments) {
                 try {
@@ -970,7 +1236,12 @@ export class AgentLoop {
                   parsedArgs = { raw: this.currentActiveToolRawArguments };
                 }
               }
-              this.onPartialUpdate?.(message?.content as string || "", reasoning, this.currentActiveToolName, parsedArgs);
+              this.onPartialUpdate?.(
+                (message?.content as string) || "",
+                reasoning,
+                this.currentActiveToolName,
+                parsedArgs,
+              );
             }
 
             if (!message) {
@@ -980,73 +1251,37 @@ export class AgentLoop {
               >;
             } else {
               if (content) {
-                message.content = message.content ?? "";
-                message.content += content;
+                message.content = (message.content ?? "") + content;
               }
               if (message && !message.tool_calls && tool_call) {
                 // @ts-expect-error FIXME
                 message.tool_calls = [tool_call];
-              } else {
-                if (tool_call?.function?.name) {
+              } else if (tool_call) {
+                if (tool_call.function?.name) {
                   message.tool_calls![0]!.function.name +=
                     tool_call.function.name;
                 }
-                if (tool_call?.function?.arguments) {
+                if (tool_call.function?.arguments) {
                   message.tool_calls![0]!.function.arguments +=
                     tool_call.function.arguments;
                 }
               }
             }
             if (tool_call?.id) {
-              // Track outstanding tool call so we can abort later if needed.
-              // The item comes from the streaming response, therefore it has
-              // either `id` (chat) or `call_id` (responses) – we normalise
-              // by reading both.
               this.pendingAborts.add(tool_call.id);
             }
             const finish_reason = chunk?.choices?.[0]?.finish_reason;
             if (finish_reason) {
-              if (thisGeneration === this.generation && !this.canceled) {
-                // If there's content but no tool_calls, try to extract one from the content.
-                // This is a fallback for models (e.g. some Ollama models) that don't
-                // use the native tool-calling API correctly.
-                if (
-                  !message?.tool_calls?.[0] &&
-                  typeof message?.content === "string"
-                ) {
-                  const extracted = tryExtractToolCallsFromContent(
-                    message.content,
-                  );
-                  if (extracted.length > 0) {
-                    (message as any).tool_calls = extracted;
-                    // Track these tool call IDs so we can send an aborted response
-                    // if the user cancels before we finish handling them.
-                    for (const call of extracted) {
-                      if (call.id) {
-                        this.pendingAborts.add(call.id);
-                      }
-                    }
-                    // Clear the content so it's not displayed as a regular message.
-                    message.content = "";
-                  }
-                }
-
-                // Process completed tool calls
-                if (message?.tool_calls?.[0]) {
-                  // Flatten tool calls if they contain concatenated JSON
-                  message.tool_calls = flattenToolCalls(message.tool_calls);
-
-                  stageItem(message);
-                  const results = await this.handleFunctionCall(message);
-                  if (results.length > 0) {
-                    // Add results to the next turn's input
-                    turnInput.push(...results);
-                  }
-                } else if (message && Object.keys(message).length > 0) {
-                  stageItem(message);
-                }
-              }
+              await finalizeMessage(message!);
             }
+          }
+
+          // Fallback: finalize message if stream ended without finish_reason
+          if (message && !messageProcessed) {
+            if (isLoggingEnabled()) {
+              log("AgentLoop.run(): stream ended without finish_reason, triggering fallback finalization");
+            }
+            await finalizeMessage(message);
           }
         } catch (err: unknown) {
           // Gracefully handle an abort triggered via `cancel()` so that the

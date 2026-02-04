@@ -18,5 +18,10 @@
 * **Live Instruction Editing:** Implemented `/prompt` command to adjust system instructions during a session.
 * **Dry-Run Awareness:** Injected explicit session status into the system prompt when `--dry-run` is active.
 * **Context-Aware Memory Search:** Implemented semantic search for project memory snippets.
-* **Enhanced Tool Visibility & Boxes:** Improved UI with color-coded boxed tool interactions.
+* **Enhanced Tool Visibility & Boxes:** Improved UI with color-coded boxed tool interactions and integrated call/response headers.
+* **Persistent Status Bar:** Added real-time visibility of model, provider, mode, and context usage.
+* **Interactive History Search:** Integrated search/filtering into `/history` and `/history restore` overlays.
+* **Tool Output Highlighting:** Added language-aware syntax highlighting for all tool outputs.
+* **Robust Parameter Heuristics:** Automatically handles parameter confusion in `search_codebase` and added aliases for `read_file_lines`.
+* **Error Logging:** Implemented `opencodex.error.log` for detailed tool failure tracking.
 * **Custom Response Input for Choices:** Added ability to provide custom text input for interactive agent prompts.

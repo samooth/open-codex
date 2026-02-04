@@ -5,6 +5,7 @@ import { homedir } from "os";
 import { handleExecCommand } from "./handle-exec-command.js";
 import type { AgentContext } from "./types.js";
 import { getIgnoreFilter } from "./ignore-utils.js";
+import { validateFileSyntax } from "./validate-file.js";
 
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);
@@ -120,6 +121,16 @@ export async function handleWriteFile(
 
     ctx.onFileAccess?.(filePath);
     writeFileSync(fullPath, content, "utf-8");
+
+    // Automatic Syntax Validation
+    const validation = await validateFileSyntax(fullPath);
+    if (!validation.isValid) {
+      return {
+        outputText: `Error: File written, but it contains syntax errors:\n${validation.error}\nPlease fix the errors immediately.`,
+        metadata: { exit_code: 1, path: filePath, syntax_error: true },
+      };
+    }
+
     return {
       outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
       metadata: { exit_code: 0, path: filePath },
@@ -264,8 +275,25 @@ export async function handleSearchCodebase(
 }> {
   try {
     const args = JSON.parse(rawArgs);
-    const pattern = args.pattern || args.query;
-    const { path: searchPath, include } = args;
+    let pattern = args.pattern;
+    let include = args.include;
+    const query = args.query;
+
+    // Heuristic: If 'query' is present and 'pattern' looks like a glob (e.g. *.ts),
+    // and 'include' is missing, assume the user confused the parameters.
+    if (query && pattern && !include) {
+      if (pattern.trim().startsWith("*") || /\.[a-zA-Z0-9]+$/.test(pattern)) {
+        include = pattern;
+        pattern = query;
+      }
+    }
+
+    // Fallback: Use query as pattern if pattern is missing
+    if (!pattern && query) {
+      pattern = query;
+    }
+
+    const { path: searchPath } = args;
 
     if (!pattern) {
       return {
@@ -274,7 +302,14 @@ export async function handleSearchCodebase(
       };
     }
 
-    const rgArgs = ["rg", "--json", pattern];
+    // Heuristic: If pattern starts with '*' and no query is provided, assume File Listing Mode
+    // e.g. search_codebase({ pattern: "*.json" }) -> list all json files
+    const isFileListingMode = !query && pattern.trim().startsWith("*");
+
+    const rgArgs = isFileListingMode 
+      ? ["rg", "--files", "-g", pattern] 
+      : ["rg", "--json", pattern];
+
     if (searchPath) {
       rgArgs.push(searchPath);
     }
@@ -316,6 +351,14 @@ export async function handleSearchCodebase(
     }
 
     const { outputText, metadata } = result;
+
+    if (isFileListingMode) {
+      const fileList = outputText.trim();
+      return {
+        outputText: fileList || "No files found matching the pattern.",
+        metadata: { ...metadata, match_count: fileList ? fileList.split('\n').length : 0, mode: "file_listing" }
+      };
+    }
 
     // Process ripgrep JSON output to be more compact/useful for the model
     const lines = outputText.trim().split("\n");
@@ -546,10 +589,19 @@ CURRENT MEMORY ENTRIES:
 ${content}
 `;
 
+    if (process.env["DEBUG"] === "1") {
+      log(`[HTTP] Request: POST ${ctx.oai.baseURL}/chat/completions (Maintenance)`);
+      log(`[HTTP] Model: ${ctx.model}, Messages: 1`);
+    }
+
     const response = await ctx.oai.chat.completions.create({
       model: ctx.model,
       messages: [{ role: "user", content: maintenancePrompt }],
     });
+
+    if (process.env["DEBUG"] === "1") {
+      log(`[HTTP] Response: Maintenance complete`);
+    }
 
     const cleanedContent = response.choices[0]?.message?.content?.trim();
     if (cleanedContent && cleanedContent !== content) {
@@ -579,7 +631,9 @@ export async function handleReadFileLines(
 }> {
   try {
     const args = JSON.parse(rawArgs);
-    const { path: filePath, start_line, end_line } = args;
+    const filePath = args.path;
+    const start_line = args.start_line ?? args.start ?? args.line_start;
+    const end_line = args.end_line ?? args.end ?? args.line_end;
 
     if (!filePath || start_line === undefined || end_line === undefined) {
       return {

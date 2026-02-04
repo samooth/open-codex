@@ -60,6 +60,10 @@ export class SemanticMemory {
     }
   }
 
+  public memoryExists(): boolean {
+    return existsSync(this.memoryPath);
+  }
+
   private saveCache() {
     try {
       const dir = dirname(this.cachePath);
@@ -97,13 +101,18 @@ export class SemanticMemory {
 
     if (process.env["DEBUG"] === "1") {
       log(`    Fetching embedding from API for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+      log(`[HTTP] Request: POST ${this.oai.baseURL}/embeddings`);
+      log(`[HTTP] Model: ${model}, Input length: ${text.length}`);
     }
 
-    const model = this.embeddingModel || (this.provider === "ollama" ? "nomic-embed-text:latest" : "text-embedding-3-small");
     const response = await this.oai.embeddings.create({
       model,
       input: text,
     });
+
+    if (process.env["DEBUG"] === "1") {
+      log(`[HTTP] Response: Embedding generated`);
+    }
 
     const embedding = response.data[0]!.embedding;
     this.cache[text] = embedding;
@@ -129,7 +138,7 @@ export class SemanticMemory {
   }
 
   async findRelevant(query: string, limit: number = 5): Promise<string[]> {
-    if (!existsSync(this.memoryPath)) return [];
+    if (!this.memoryExists()) return [];
 
     const content = readFileSync(this.memoryPath, "utf-8");
     const lines = content.split("\n").filter(l => l.trim().startsWith("- ["));

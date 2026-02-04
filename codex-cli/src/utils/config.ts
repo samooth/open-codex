@@ -31,13 +31,13 @@ export const INSTRUCTIONS_FILEPATH = join(CONFIG_DIR, "instructions.md");
 
 export const OPENAI_TIMEOUT_MS =
   parseInt(process.env["OPENAI_TIMEOUT_MS"] || "0", 10) || undefined;
-
+  
 export function getDefaultProvider(): string {
+  if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
+    return "google";
+  }
   if (process.env["OPENAI_API_KEY"]) {
     return "openai";
-  }
-  if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
-    return "gemini";
   }
   if (process.env["OLLAMA_BASE_URL"]) {
     return "ollama";
@@ -67,6 +67,7 @@ function getAPIKeyForProviderOrExit(provider: string): string {
       process.exit(1);
       break;
     case "gemini":
+    case "google":
       if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
         return process.env["GOOGLE_GENERATIVE_AI_API_KEY"];
       }
@@ -120,7 +121,9 @@ function baseURLForProvider(provider: string): string {
     case "ollama":
       return process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434/v1";
     case "gemini":
-      return "https://generativelanguage.googleapis.com/v1beta/openai/";
+    case "google":
+      // The @google/genai SDK manages its own base URL.
+      return "";
     case "openrouter":
       return "https://openrouter.ai/api/v1";
     case "xai":
@@ -146,9 +149,10 @@ function defaultModelsForProvider(provider: string): {
         fullContext: "o3",
       };
     case "gemini":
+    case "google":
       return {
-        agentic: "gemini-3-pro-preview",
-        fullContext: "gemini-2.5-pro",
+        agentic: "gemini-3-flash-preview",
+        fullContext: "gemini-3-flash-preview",
       };
     case "ollama":
       return {
@@ -202,6 +206,8 @@ export const StoredConfigSchema = z.object({
   enableWebSearch: z.boolean().optional(),
   enableDeepThinking: z.boolean().optional(),
   embeddingModel: z.string().optional(),
+  contextSize: z.number().optional(),
+  theme: z.string().optional(),
 });
 
 // Represents config as persisted in config.json.
@@ -225,6 +231,8 @@ export type AppConfig = {
   enableWebSearch?: boolean;
   enableDeepThinking?: boolean;
   embeddingModel?: string;
+  contextSize?: number;
+  theme?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -423,9 +431,16 @@ export const loadConfig = (
     }
   }
 
+  if (isLoggingEnabled()) {
+    log(`[codex] Loading config from: ${actualConfigPath} (exists: ${existsSync(actualConfigPath)})`);
+  }
+
   let storedConfig: StoredConfig = {};
   if (existsSync(actualConfigPath)) {
     const raw = readFileSync(actualConfigPath, "utf-8");
+    if (isLoggingEnabled()) {
+      log(`[codex] Config content: ${raw}`);
+    }
     const ext = extname(actualConfigPath).toLowerCase();
     try {
       let parsed: unknown;
@@ -438,7 +453,13 @@ export const loadConfig = (
       const result = StoredConfigSchema.safeParse(parsed);
       if (result.success) {
         storedConfig = result.data;
+        if (isLoggingEnabled()) {
+          log(`[codex] Config parsed successfully: ${JSON.stringify(storedConfig)}`);
+        }
       } else {
+        if (isLoggingEnabled()) {
+          log(`[codex] Config validation failed: ${result.error.message}`);
+        }
         // eslint-disable-next-line no-console
         console.warn(
           `[codex] Invalid config in ${actualConfigPath}. Using defaults.`,
@@ -500,6 +521,8 @@ export const loadConfig = (
     enableWebSearch: storedConfig.enableWebSearch ?? false,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
     embeddingModel: storedConfig.embeddingModel,
+    contextSize: storedConfig.contextSize,
+    theme: storedConfig.theme,
   };
 
   // -----------------------------------------------------------------------
@@ -579,6 +602,8 @@ export const saveConfig = (
     enableWebSearch: config.enableWebSearch,
     enableDeepThinking: config.enableDeepThinking,
     embeddingModel: config.embeddingModel,
+    contextSize: config.contextSize,
+    theme: config.theme,
   };
   if (ext === ".yaml" || ext === ".yml") {
     writeFileSync(targetPath, dumpYaml(configToSave), "utf-8");

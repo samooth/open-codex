@@ -25,7 +25,7 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "repo_browser.exec",
-      description: "Alias for shell command execution.",
+      description: "Alias for shell command execution. Use `bash -c` to chain commands.",
       strict: false,
       parameters: {
         type: "object",
@@ -281,12 +281,14 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "shell",
-      description: "Runs a shell command, and returns its output.",
+      description:
+        "Runs a single shell command and returns its output. To run multiple commands, chain them with `bash -c 'cmd1 && cmd2'`.",
       strict: false,
       parameters: {
         type: "object",
         properties: {
           command: { type: "array", items: { type: "string" } },
+          cmd: { type: "array", items: { type: "string" } },
           workdir: {
             type: "string",
             description: "The working directory for the command.",
@@ -297,8 +299,8 @@ export const tools: Array<ChatCompletionTool> = [
               "The maximum time to wait for the command to complete in milliseconds.",
           },
         },
-        required: ["command", "workdir", "timeout"],
-        additionalProperties: false,
+        required: [],
+        additionalProperties: true,
       },
     },
   },
@@ -307,7 +309,7 @@ export const tools: Array<ChatCompletionTool> = [
     function: {
       name: "search_codebase",
       description:
-        "Searches the codebase using ripgrep and returns results in a structured JSON format.",
+        "Searches the codebase using ripgrep and returns results in a structured JSON format. If pattern starts with '*' (e.g. *.ts) and no query is provided, it lists all matching files.",
       strict: false,
       parameters: {
         type: "object",
@@ -422,11 +424,11 @@ export const tools: Array<ChatCompletionTool> = [
           },
           start_line: {
             type: "number",
-            description: "The 1-based starting line number.",
+            description: "The 1-based starting line number (aliases: start, line_start).",
           },
           end_line: {
             type: "number",
-            description: "The 1-based ending line number (inclusive).",
+            description: "The 1-based ending line number inclusive (aliases: end, line_end).",
           },
         },
         required: ["path", "start_line", "end_line"],

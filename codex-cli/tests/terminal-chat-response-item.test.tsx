@@ -54,4 +54,37 @@ describe("TerminalChatResponseItem", () => {
     expect(frame.toLowerCase()).toContain("codex");
     expect(frame).toContain("Sure thing");
   });
+
+  it("renders an integrated tool response box", () => {
+    const toolCall = {
+      id: "call_1",
+      type: "function",
+      function: {
+        name: "list_directory",
+        arguments: '{"path":"."}',
+      },
+    };
+    const toolMessage = {
+      role: "tool",
+      tool_call_id: "call_1",
+      content: JSON.stringify({
+        output: "file1.txt\nfile2.txt",
+        metadata: { exit_code: 0 },
+      }),
+    } as any;
+    const toolCallMap = new Map();
+    toolCallMap.set("call_1", toolCall);
+
+    const { lastFrameStripped } = renderTui(
+      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} />,
+    );
+
+    const frame = lastFrameStripped();
+    // integrated header should show tool info (label mapping list_directory -> listing)
+    expect(frame).toContain("listing");
+    expect(frame).toContain(".");
+    // output should be shown
+    expect(frame).toContain("file1.txt");
+    expect(frame).toContain("file2.txt");
+  });
 });

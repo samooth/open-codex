@@ -11,7 +11,8 @@ import { Select } from "../vendor/ink-select/select";
 import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
-import React, { useCallback, useState, Fragment } from "react";
+import React, { useCallback, useState, Fragment, useMemo, useEffect } from "react";
+import { listAllFiles } from "../../utils/list-all-files.js";
 
 const suggestions = [
   "explain this codebase to me",
@@ -106,11 +107,63 @@ export default function TerminalChatInput({
 
   const [customInputMode, setCustomInputMode] = useState(false);
 
+  const [allFiles, setAllFiles] = useState<string[]>([]);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+
+  useEffect(() => {
+    if (active) {
+      setAllFiles(listAllFiles());
+    }
+  }, [active]);
+
+  const fileSearchMatch = useMemo(() => {
+    const lastAt = input.lastIndexOf("@");
+    if (lastAt === -1) return null;
+    
+    // Ensure it's either at the start or preceded by a space
+    if (lastAt > 0 && input[lastAt - 1] !== " ") return null;
+
+    const query = input.slice(lastAt + 1).split(" ")[0] || "";
+    return { query, startIndex: lastAt };
+  }, [input]);
+
+  const filteredFiles = useMemo(() => {
+    if (!fileSearchMatch) return [];
+    const q = fileSearchMatch.query.toLowerCase();
+    return allFiles
+      .filter((f) => f.toLowerCase().includes(q))
+      .sort((a, b) => {
+        // Boost files that start with the query
+        const aStart = a.toLowerCase().startsWith(q);
+        const bStart = b.toLowerCase().startsWith(q);
+        if (aStart && !bStart) return -1;
+        if (!aStart && bStart) return 1;
+        return a.localeCompare(b);
+      })
+      .slice(0, 10);
+  }, [allFiles, fileSearchMatch]);
+
   const filteredSlashCommands = input.startsWith("/")
     ? slashCommands.filter((c) => c.name.startsWith(input))
     : [];
 
   const onKeyDown = (inputStr: string, key: any) => {
+    if (filteredFiles.length > 0) {
+      if (key.tab) {
+        setSelectedFileIndex((s) => (s + (key.shift ? -1 : 1) + filteredFiles.length) % filteredFiles.length);
+        return true;
+      }
+      if (key.return) {
+        const file = filteredFiles[selectedFileIndex];
+        if (file && fileSearchMatch) {
+          const before = input.slice(0, fileSearchMatch.startIndex);
+          const after = input.slice(fileSearchMatch.startIndex + 1 + fileSearchMatch.query.length);
+          setInput(before + file + after);
+          return true;
+        }
+      }
+    }
+
     if (input.startsWith("/")) {
       if (key.tab) {
         if (filteredSlashCommands.length > 0) {
@@ -162,6 +215,10 @@ export default function TerminalChatInput({
 
       if (!confirmationPrompt && !loading && !customInputMode) {
         if (_key.upArrow) {
+          if (filteredFiles.length > 0) {
+            setSelectedFileIndex((s) => (s - 1 + filteredFiles.length) % filteredFiles.length);
+            return;
+          }
           if (filteredSlashCommands.length > 0) {
             setSelectedSlashCommand((s) => (s - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
             return;
@@ -184,6 +241,10 @@ export default function TerminalChatInput({
         }
 
         if (_key.downArrow) {
+          if (filteredFiles.length > 0) {
+            setSelectedFileIndex((s) => (s + 1) % filteredFiles.length);
+            return;
+          }
           if (filteredSlashCommands.length > 0) {
             setSelectedSlashCommand((s) => (s + 1) % filteredSlashCommands.length);
             return;
@@ -480,6 +541,26 @@ export default function TerminalChatInput({
           </Box>
         )}
       </Box>
+      {filteredFiles.length > 0 && (
+        <Box flexDirection="column" borderStyle="round" borderColor="magentaBright" paddingX={1} marginBottom={0} width={60}>
+          <Box marginBottom={0} justifyContent="space-between">
+            <Text bold color="magentaBright">File Autocomplete</Text>
+            <Text dimColor>{filteredFiles.length} matches</Text>
+          </Box>
+          <Box flexDirection="column" marginTop={1}>
+            {filteredFiles.map((f, i) => (
+              <Box key={f} gap={2}>
+                <Text color={i === selectedFileIndex ? "magentaBright" : "gray"} bold={i === selectedFileIndex}>
+                  {i === selectedFileIndex ? "❯" : " "} {f}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>↑↓/Tab to navigate · Enter to select</Text>
+          </Box>
+        </Box>
+      )}
       {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
         <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={0}>
           {filteredSlashCommands.map((cmd, i) => (

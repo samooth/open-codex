@@ -16,12 +16,34 @@ const spinnerTypes: Record<string, string[]> = {
     "( ●    )",
     "(●     )",
   ],
+  arc: ["◜", "◠", "◝", "◞", "◡", "◟"],
+  bouncingBar: [
+    "[    ]",
+    "[=   ]",
+    "[==  ]",
+    "[=== ]",
+    "[ ===]",
+    "[  ==]",
+    "[   =]",
+    "[    ]",
+    "[   =]",
+    "[  ==]",
+    "[ ===]",
+    "[====]",
+    "[=== ]",
+    "[==  ]",
+    "[=   ]",
+  ],
+  aesthetic: ["▰▱▱▱▱▱▱", "▰▰▱▱▱▱▱", "▰▰▰▱▱▱▱", "▰▰▰▰▱▱▱", "▰▰▰▰▰▱▱", "▰▰▰▰▰▰▱", "▰▰▰▰▰▰▰"],
+  material: ["◜", "◠", "◝", "◞", "◡", "◟"],
 };
 
 export default function Spinner({
   type = "dots",
+  color = "magentaBright",
 }: {
   type?: string;
+  color?: string;
 }): JSX.Element {
   const frames = spinnerTypes[type || "dots"] || [];
   const interval = 80;
@@ -32,5 +54,5 @@ export default function Spinner({
       return isLastFrame ? 0 : previousFrame + 1;
     });
   }, interval);
-  return <Text>{frames[frame]}</Text>;
+  return <Text color={color as any}>{frames[frame]}</Text>;
 }

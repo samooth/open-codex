@@ -39,7 +39,19 @@ export async function validateFileSyntax(filePath: string): Promise<ValidationRe
         break;
 
       case ".py":
-        execSync(`python3 -m py_compile "${filePath}"`, { stdio: "ignore" });
+        try {
+          // Use python3 to check syntax
+          const fs = await import("node:fs/promises");
+          const content = await fs.readFile(filePath, "utf-8");
+          // Escaping content for shell
+          const escapedContent = JSON.stringify(content);
+          execSync(`python3 -c "compile(${escapedContent}, '${filePath}', 'exec')"`, { stdio: "pipe" });
+        } catch (pyErr: any) {
+          return {
+            isValid: false,
+            error: pyErr.stdout?.toString() || pyErr.stderr?.toString() || pyErr.message,
+          };
+        }
         break;
 
       case ".json":

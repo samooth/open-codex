@@ -74,8 +74,8 @@ let logger: Logger;
  * Creates a .log file for this session, but also symlinks codex-cli-latest.log
  * to the current log file so you can reliably run:
  *
- * - Mac/Windows: `tail -F "$TMPDIR/oai-codex/codex-cli-latest.log"`
- * - Linux: `tail -F ~/.local/oai-codex/codex-cli-latest.log`
+ * - Mac/Windows: `tail -F "$TMPDIR/open-codex/codex-cli-latest.log"`
+ * - Linux: `tail -F ~/.local/open-codex/codex-cli-latest.log`
  */
 export function initLogger(): Logger {
   if (logger) {
@@ -89,11 +89,11 @@ export function initLogger(): Logger {
   const isWin = process.platform === "win32";
 
   // On Mac and Windows, os.tmpdir() returns a user-specific folder, so prefer
-  // it there. On Linux, use ~/.local/oai-codex so logs are not world-readable.
+  // it there. On Linux, use ~/.local/open-codex so logs are not world-readable.
   const logDir =
     isMac || isWin
-      ? path.join(os.tmpdir(), "oai-codex")
-      : path.join(os.homedir(), ".local", "oai-codex");
+      ? path.join(os.tmpdir(), "open-codex")
+      : path.join(os.homedir(), ".local", "open-codex");
   fsSync.mkdirSync(logDir, { recursive: true });
   const logFile = path.join(logDir, `codex-cli-${now()}.log`);
   // Write the empty string so the file exists and can be tail'd.

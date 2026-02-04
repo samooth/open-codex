@@ -8,6 +8,7 @@ This file provides a directory of all markdown (`.md`) files in this repository 
 - [TOOLS.md](TOOLS.md): Detailed explanation of the OpenCodex tooling architecture, how tools are registered, and executed.
 - [TODO.md](TODO.md): Roadmap of planned features and list of completed architectural improvements.
 - [IMPROVE.md](IMPROVE.md): Tracks potential improvements, loop protection strategies, and session-level features.
+- [NEW_IMPROVEMENTS.md](NEW_IMPROVEMENTS.md): Detailed status update on recent UI and context management improvements.
 
 ## Guides & Examples
 

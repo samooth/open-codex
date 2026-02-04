@@ -3,6 +3,7 @@ import type { AppConfig } from "./config";
 import { listModels } from "@huggingface/hub";
 import chalk from "chalk";
 import OpenAI from "openai";
+import { log, isLoggingEnabled } from "./agent/log.js";
 
 const MODEL_LIST_TIMEOUT_MS = 2_000; // 2 seconds
 export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
@@ -10,12 +11,10 @@ export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
 /**
  * Background model loader / cache.
  *
- * We start fetching the list of available models from OpenAI once the CLI
- * enters interactive mode.  The request is made exactly once during the
- * lifetime of the process and the results are cached for subsequent calls.
+ * We cache models per provider and base URL to avoid stale results when
+ * switching providers (e.g. switching from OpenAI to local Ollama).
  */
-
-let modelsPromise: Promise<Array<string>> | null = null;
+const modelsCache = new Map<string, Promise<Array<string>>>();
 
 async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>> {
   const models: Array<string> = [];
@@ -47,10 +46,15 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
     return [];
   }
 
+  if (isLoggingEnabled()) {
+    log(`[codex] Fetching models for provider: ${config.provider} (${config.baseURL})`);
+  }
+
   if (config.provider === "hf") {
     return fetchHuggingFaceModels(config);
   }
 
+  // Try standard OpenAI-compatible list first
   try {
     const openai = new OpenAI({
       apiKey: config.apiKey,
@@ -63,27 +67,59 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
         models.push(model.id);
       }
     }
-    return models.sort();
-  } catch {
-    return [];
+    if (models.length > 0) {
+      return models.sort();
+    }
+  } catch (err) {
+    if (isLoggingEnabled()) {
+      log(`[codex] Standard model list failed: ${err}`);
+    }
   }
+
+  // If the provider is Ollama, try the native /api/tags endpoint as fallback
+  if (config.provider === "ollama" && config.baseURL) {
+    try {
+      // BaseURL is usually ".../v1", tags is at ".../api/tags"
+      const tagsUrl = config.baseURL.replace(/\/v1\/?$/, "/api/tags");
+      if (isLoggingEnabled()) {
+        log(`[codex] Fetching Ollama models from: ${tagsUrl}`);
+      }
+      const response = await fetch(tagsUrl);
+      if (response.ok) {
+        const data = (await response.json()) as {
+          models: Array<{ name: string }>;
+        };
+        const models = data.models.map((m) => m.name);
+        return models.sort();
+      }
+    } catch (err) {
+      if (isLoggingEnabled()) {
+        log(`[codex] Ollama native tags fetch failed: ${err}`);
+      }
+    }
+  }
+
+  return [];
 }
 
 export function preloadModels(config: AppConfig): void {
-  if (!modelsPromise) {
-    // Fire‑and‑forget – callers that truly need the list should `await`
-    // `getAvailableModels()` instead.
-    void getAvailableModels(config);
-  }
+  // Fire‑and‑forget – callers that truly need the list should `await`
+  // `getAvailableModels()` instead.
+  void getAvailableModels(config);
 }
 
 export async function getAvailableModels(
   config: AppConfig,
 ): Promise<Array<string>> {
-  if (!modelsPromise) {
-    modelsPromise = fetchModels(config);
+  const cacheKey = `${config.provider}:${config.baseURL}`;
+  let promise = modelsCache.get(cacheKey);
+
+  if (!promise) {
+    promise = fetchModels(config);
+    modelsCache.set(cacheKey, promise);
   }
-  return modelsPromise;
+
+  return promise;
 }
 
 /**
@@ -142,6 +178,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
               "OPENROUTER_API_KEY",
             )} for OpenRouter models\n`;
           case "gemini":
+          case "google":
             return `- ${chalk.bold(
               "GOOGLE_GENERATIVE_AI_API_KEY",
             )} for Google Gemini models\n`;
@@ -178,6 +215,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
               chalk.underline("https://openrouter.ai/settings/keys"),
             )}\n`;
           case "gemini":
+          case "google":
             return `You can create a Google Generative AI key here: ${chalk.bold(
               chalk.underline("https://aistudio.google.com/apikey"),
             )}\n`;
