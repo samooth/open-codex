@@ -1,4 +1,3 @@
-import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type {
@@ -12,30 +11,30 @@ import { log, isLoggingEnabled } from "./log.js";
 import { OPENAI_TIMEOUT_MS } from "../config.js";
 import {
   flattenToolCalls,
-  parseToolCallArguments,
   tryExtractToolCallsFromContent,
 } from "../parsers.js";
 import {
-  ORIGIN,
-  CLI_VERSION,
-  getSessionId,
   setCurrentModel,
   setSessionId,
+  getSessionId,
 } from "../session.js";
-import { handleExecCommand } from "./handle-exec-command.js";
 import { tools } from "./tool-definitions.js";
-import * as handlers from "./tool-handlers.js";
-import { validateFileSyntax } from "./validate-file.js";
-import { appendFileSync, readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { randomUUID } from "node:crypto";
 
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { prefix } from "./system-prompt.js";
-import { join } from "path";
 import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
 export type { AgentContext, AgentLoopParams, CommandConfirmation };
 import { SemanticMemory } from "./semantic-memory.js";
+import {
+  mapOpenAiToGoogleMessages,
+  mapOpenAiToGoogleTools,
+  googleToOpenAiStream,
+  sanitizeGoogleToolName,
+} from "./google-utils.js";
+import { handleFunctionCall } from "./function-call-handler.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -98,198 +97,6 @@ export class AgentLoop {
   private currentActiveToolRawArguments: string | undefined = undefined;
 
   private onReset: () => void;
-
-  private mapOpenAiToGoogleMessages(
-    messages: Array<ChatCompletionMessageParam>,
-  ): { contents: any[]; systemInstruction: any } {
-    const contents: any[] = [];
-    let systemInstruction: any = undefined;
-
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        systemInstruction = { parts: [{ text: msg.content }] };
-        continue;
-      }
-
-      const role = msg.role === "assistant" ? "model" : "user";
-      const parts: any[] = [];
-
-      if (msg.role === "assistant") {
-        const assistant = msg as any;
-        if (assistant.reasoning_content) {
-          parts.push({
-            text: assistant.reasoning_content,
-            thought: true,
-          });
-        }
-        
-        const thoughtSignature = assistant.thought_signature;
-
-        if (msg.content && typeof msg.content === "string") {
-          parts.push({ 
-            text: msg.content,
-            ...(thoughtSignature ? { thoughtSignature } : {})
-          });
-        }
-        
-        if (msg.tool_calls) {
-          for (const tc of msg.tool_calls as any[]) {
-            let args = {};
-            try {
-              args = JSON.parse(tc.function.arguments);
-            } catch {
-              /* ignore */
-            }
-            parts.push({
-              functionCall: {
-                name: tc.function.name,
-                args,
-              },
-              // The thoughtSignature must be at the Part level, alongside functionCall.
-              ...(tc.thought_signature || thoughtSignature ? { 
-                thoughtSignature: tc.thought_signature || thoughtSignature 
-              } : {}),
-            });
-          }
-        }
-      } else if (msg.role === "user") {
-        if (typeof msg.content === "string") {
-          parts.push({ text: msg.content });
-        } else if (Array.isArray(msg.content)) {
-          for (const part of msg.content) {
-            if (part.type === "text") {
-              parts.push({ text: part.text });
-            }
-          }
-        }
-      } else if (msg.role === "tool") {
-        let response = {};
-        try {
-          response = JSON.parse(msg.content as string);
-        } catch {
-          response = { output: msg.content };
-        }
-        // For Google GenAI SDK, functionResponse needs the name.
-        // We try to find it from previous messages if possible, but for now we'll assume it's passed or use a placeholder.
-        // Actually, the OpenAI tool message doesn't have the name, only tool_call_id.
-        // A better way is to track it, but for a simple mapping we might need to find the name from history.
-        let name = "unknown";
-        for (let i = messages.indexOf(msg) - 1; i >= 0; i--) {
-          const prev = messages[i] as any;
-          if (prev?.role === "assistant" && prev.tool_calls) {
-            const tc = prev.tool_calls.find(
-              (c: any) => (c.id || c.call_id) === msg.tool_call_id,
-            );
-            if (tc) {
-              name = tc.function.name;
-              break;
-            }
-          }
-        }
-
-        parts.push({
-          functionResponse: {
-            name,
-            response,
-          },
-        });
-      }
-
-      if (parts.length > 0) {
-        // Merge consecutive roles to satisfy Google API requirements
-        if (contents.length > 0 && contents[contents.length - 1].role === role) {
-          contents[contents.length - 1].parts.push(...parts);
-        } else {
-          contents.push({ role, parts });
-        }
-      }
-    }
-
-    return { contents, systemInstruction };
-  }
-
-  private mapOpenAiToGoogleTools(openAiTools: any[]): any[] {
-    const functionDeclarations: any[] = [];
-
-    for (const tool of openAiTools) {
-      if (tool.type === "function") {
-        functionDeclarations.push({
-          name: this.sanitizeGoogleToolName(tool.function.name),
-          description: tool.function.description,
-          parameters: tool.function.parameters,
-        });
-      }
-    }
-
-    return functionDeclarations.length > 0
-      ? [{ functionDeclarations }]
-      : [];
-  }
-
-  private async *googleToOpenAiStream(googleStream: any): AsyncGenerator<any> {
-    let first = true;
-    let lastThoughtSignature: string | undefined = undefined;
-    for await (const chunk of googleStream) {
-      const candidate = chunk.candidates?.[0];
-      const parts = candidate?.content?.parts || [];
-
-      const delta: any = {};
-      if (first) {
-        delta.role = "assistant";
-        first = false;
-      }
-      for (const part of parts) {
-        if (part.text) {
-          if (part.thought) {
-            delta.reasoning_content = (delta.reasoning_content || "") + part.text;
-          } else {
-            delta.content = (delta.content || "") + part.text;
-          }
-        }
-        if (part.thoughtSignature) {
-          lastThoughtSignature = part.thoughtSignature;
-          delta.thought_signature = part.thoughtSignature;
-        }
-        if (part.functionCall) {
-          if (!delta.tool_calls) {
-            delta.tool_calls = [];
-          }
-          delta.tool_calls.push({
-            index: delta.tool_calls.length,
-            id: randomUUID(),
-            function: {
-              name: part.functionCall.name,
-              arguments: JSON.stringify(part.functionCall.args),
-            },
-          });
-        }
-      }
-
-      if (Object.keys(delta).length > 0 || candidate?.finishReason) {
-        yield {
-          choices: [
-            {
-              delta,
-              finish_reason: candidate?.finishReason?.toLowerCase() || null,
-              thought_signature: lastThoughtSignature,
-            },
-          ],
-        };
-      }
-    }
-  }
-
-  private sanitizeGoogleToolName(name: string): string {
-    // Gemini tool names:
-    // Must start with a letter or underscore.
-    // Must be alphanumeric, underscores, dots, colons, or dashes.
-    // Max length 64.
-    let sanitized = name.replace(/[^a-zA-Z0-9_.:-]/g, "_");
-    if (sanitized.length > 64) {
-      sanitized = sanitized.slice(0, 64);
-    }
-    return sanitized;
-  }
 
   /**
    * Tracks history of tool calls in the current session to detect loops.
@@ -472,340 +279,21 @@ export class AgentLoop {
 
     this.hardAbort = new AbortController();
 
-    this.hardAbort.signal.addEventListener(
-      "abort",
-      () => this.execAbortController?.abort(),
-      { once: true },
-    );
-  }
+        this.hardAbort.signal.addEventListener(
 
-  private async handleFunctionCall(
-    itemArg: ChatCompletionMessageParam,
-  ): Promise<Array<ChatCompletionMessageParam>> {
-    if (this.canceled) {
-      return [];
-    }
-    if (itemArg.role !== "assistant" || !itemArg.tool_calls) {
-      return [];
-    }
+          "abort",
 
-    const results: Array<ChatCompletionMessageParam> = [];
+          () => this.execAbortController?.abort(),
 
-    const toolCallPromises = itemArg.tool_calls.map(async (toolCall) => {
-      // Normalise the function‑call item
-      const isChatStyle = (toolCall as any).function != null;
+          { once: true },
 
-      let name: string | undefined = isChatStyle
-        ? (toolCall as any).function?.name
-        : (toolCall as any).name;
-
-      if (name) {
-        // Strip common model-specific suffixes that leak into tool names
-        name = name.split("<|")[0];
-        if (name) {
-          name = name.split("---")[0];
-        }
-        if (name) {
-          name = name.trim();
-        }
-
-        if (name && (this.config.provider === "google" || this.config.provider === "gemini")) {
-          name = this.sanitizeGoogleToolName(name);
-        }
-
-                    // Map repo_browser aliases to standard names
-
-                    if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary" || name === "repo_browser.exec__channel__commentary") {name = "shell";}
-
-                    if (name === "repo_browser.read_file" || name === "repo_browser.open_file" || name === "repo_browser.cat" || name === "repo_browser.read_file<|channel|>commentary" || name === "repo_browser.read_file__channel__commentary" || name === "repo_browser.open_file<|channel|>commentary" || name === "repo_browser.open_file__channel__commentary") {name = "read_file";}
-
-                    if (name === "repo_browser.write_file" || name === "repo_browser.write_file<|channel|>commentary" || name === "repo_browser.write_file__channel__commentary") {name = "write_file";}
-
-                    if (name === "repo_browser.read_file_lines" || name === "repo_browser.read_file_lines<|channel|>commentary" || name === "repo_browser.read_file_lines__channel__commentary") {name = "read_file_lines";}
-
-                    if (name === "repo_browser.list_files" || name === "repo_browser.list_files<|channel|>commentary" || name === "repo_browser.list_files__channel__commentary") {name = "list_files_recursive";}
-
-                    if (name === "repo_browser.print_tree" || name === "repo_browser.print_tree<|channel|>commentary" || name === "repo_browser.print_tree__channel__commentary") {name = "list_files_recursive";}
-
-                    if (name === "repo_browser.list_directory" || name === "repo_browser.ls" || name === "repo_browser.list_directory<|channel|>commentary" || name === "repo_browser.list_directory__channel__commentary" || name === "repo_browser.ls<|channel|>commentary" || name === "repo_browser.ls__channel__commentary") {name = "list_directory";}
-
-                    if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary" || name === "repo_browser.search__channel__commentary") {name = "search_codebase";}
-
-                    if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary" || name === "repo_browser.rm__channel__commentary") {name = "delete_file";}              if (name === "repo_browser.web_search") {name = "web_search";}
-              if (name === "repo_browser.fetch_url") {name = "fetch_url";}
-            }
-      const rawArguments: string | undefined = isChatStyle
-        ? (toolCall as any).function?.arguments
-        : (toolCall as any).arguments;
-
-      this.currentActiveToolName = name;
-      this.currentActiveToolRawArguments = rawArguments;
-
-      const callId: string = (toolCall as any).id || (toolCall as any).call_id;
-
-      const toolCallKey = `${name}:${rawArguments}`;
-      const history = this.toolCallHistory.get(toolCallKey) || { count: 0 };
-
-      if (process.env["DEBUG"] === "1") {
-        log(`[DEBUG] Tool Call: ${name}`);
-        log(`[DEBUG] Arguments: ${rawArguments}`);
-      }
-
-      const result = parseToolCallArguments(rawArguments ?? "{}");
-      if (isLoggingEnabled()) {
-        log(
-          `handleFunctionCall(): name=${
-            name ?? "undefined"
-          } callId=${callId} args=${rawArguments} count=${history.count}`,
         );
+
       }
 
-      if (history.count >= 2) {
-        return [
-          {
-            role: "tool",
-            tool_call_id: callId,
-            content: JSON.stringify({
-              output: `Error: Loop detected. This exact tool call has been attempted ${history.count} times already and failed with: "${history.lastError}". Please stop and ask the user for clarification instead of retrying again.`,
-              metadata: { exit_code: 1, duration_seconds: 0, loop_detected: true },
-            }),
-          } as ChatCompletionMessageParam,
-        ];
-      }
+    
 
-      if (!result.success) {
-        try {
-          const provider = this.config.provider || "unknown";
-          appendFileSync("opencodex.error.log", `[${new Date().toISOString()}] Provider: ${provider}, Model: ${this.model}\nTool Argument Parsing Failed: ${name}\nArguments: ${rawArguments}\nError: ${result.error}\n\n`);
-        } catch { /* ignore logging errors */ }
-        return [
-          {
-            role: "tool",
-            tool_call_id: callId,
-            content: JSON.stringify({
-              output: result.error,
-              metadata: { exit_code: 1, duration_seconds: 0 },
-            }),
-          } as ChatCompletionMessageParam,
-        ];
-      }
-
-      const args = (result as any).args;
-      const outputItem: ChatCompletionMessageParam = {
-        role: "tool",
-        tool_call_id: callId,
-        content: "no function found",
-      };
-
-      let outputText: string;
-      let metadata: Record<string, unknown>;
-      let additionalItems: Array<ChatCompletionMessageParam> | undefined;
-
-              const ctx: AgentContext = {
-                config: this.config,
-                approvalPolicy: this.approvalPolicy,
-                execAbortController: this.execAbortController,
-                getCommandConfirmation: this.getCommandConfirmation,
-                onItem: this.onItem,
-                onFileAccess: this.onFileAccess,
-                oai: this.oai,
-                model: this.model,
-                agent: this,
-              };
-      if (
-        (name === "container.exec" ||
-          name === "shell" ||
-          name === "apply_patch" ||
-          name === "repo_browser.exec") &&
-        args
-      ) {
-        const result = await handleExecCommand(
-          args,
-          this.config,
-          this.approvalPolicy,
-          this.getCommandConfirmation,
-          this.execAbortController?.signal,
-          (chunk) => {
-            // Emit a "thinking" update with partial output
-            this.onItem({
-              role: "tool",
-              tool_call_id: callId,
-              content: JSON.stringify({
-                output: chunk,
-                metadata: { exit_code: undefined, duration_seconds: 0 },
-                streaming: true,
-              }),
-            });
-          },
-        );
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-
-        // --- AUTO-CORRECTION LOOP for apply_patch ---
-        if (name === "apply_patch" && (args as any).patch) {
-          const { identify_files_needed, identify_files_added } = await import("./apply-patch.js");
-          const affectedFiles = [
-            ...identify_files_needed((args as any).patch),
-            ...identify_files_added((args as any).patch)
-          ];
-          
-          for (const file of affectedFiles) {
-            this.onFileAccess?.(file);
-          }
-
-          if (metadata["exit_code"] === 0) {
-            for (const file of affectedFiles) {
-              const validation = await validateFileSyntax(file);
-              if (!validation.isValid) {
-                outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
-                metadata["exit_code"] = 1;
-                metadata["syntax_error"] = true;
-                break;
-              }
-            }
-          }
-        }
-      } else if (name === "search_codebase") {
-        const result = await handlers.handleSearchCodebase(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "persistent_memory") {
-        const result = await handlers.handlePersistentMemory(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "summarize_memory") {
-        const result = await handlers.handleSummarizeMemory();
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "query_memory") {
-        const result = await handlers.handleQueryMemory(rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "forget_memory") {
-        const result = await handlers.handleForgetMemory(rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "maintain_memory") {
-        const result = await handlers.handleMaintainMemory(ctx);
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "read_file_lines") {
-        const result = await handlers.handleReadFileLines(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "list_files_recursive") {
-        const result = await handlers.handleListFilesRecursive(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "read_file") {
-        const result = await handlers.handleReadFile(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "write_file") {
-        const result = await handlers.handleWriteFile(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "delete_file") {
-        const result = await handlers.handleDeleteFile(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "list_directory") {
-        const result = await handlers.handleListDirectory(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-        additionalItems = result.additionalItems;
-      } else if (name === "web_search") {
-        const result = await handlers.handleWebSearch(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "fetch_url") {
-        const result = await handlers.handleFetchUrl(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "semantic_search") {
-        const result = await handlers.handleSemanticSearch(ctx, rawArguments ?? "{}");
-        outputText = result.outputText;
-        metadata = result.metadata;
-      } else if (name === "index_codebase") {
-        if (process.env["DEBUG"] === "1") {
-          log(`Tool call: index_codebase invoked`);
-        }
-        this.onItem({
-          role: "assistant",
-          content: "Indexing codebase... this might take a while depending on the size.",
-        });
-        let totalIndexed = 0;
-        await this.indexCodebase((curr, total, file) => {
-          totalIndexed = total;
-          const progressMsg = `Indexing progress: ${curr}/${total} - ${file}`;
-          if (curr % 10 === 0) {
-            log(progressMsg);
-          }
-          // Update UI with current progress
-          this.onPartialUpdate?.("", progressMsg, "index_codebase", { current: curr, total, file });
-        });
-        // Clear progress from thinking indicator
-        this.onPartialUpdate?.("", "", undefined, undefined);
-        outputText = `Codebase indexing complete. Indexed ${totalIndexed} files.`;
-        metadata = { exit_code: 0, count: totalIndexed };
-      } else {
-        return [outputItem];
-      }
-
-      outputItem.content = JSON.stringify({ output: outputText, metadata });
-
-      // Update history for loop detection
-      if (metadata["exit_code"] !== 0) {
-        try {
-          const provider = this.config.provider || "unknown";
-          appendFileSync("opencodex.error.log", `[${new Date().toISOString()}] Provider: ${provider}, Model: ${this.model}\nTool Execution Failed: ${name}\nArguments: ${rawArguments}\nExit Code: ${metadata["exit_code"]}\nOutput: ${outputText}\n\n`);
-        } catch { /* ignore logging errors */ }
-        
-        this.toolCallHistory.set(toolCallKey, {
-          count: history.count + 1,
-          lastError: outputText.slice(0, 200), // Store a snippet of the error
-        });
-      } else {
-        // If it succeeded, we can clear it from history or at least reset count
-        this.toolCallHistory.delete(toolCallKey);
-      }
-
-      const callResults: Array<ChatCompletionMessageParam> = [outputItem];
-      if (additionalItems) {
-        callResults.push(...additionalItems);
-      }
-      this.currentActiveToolName = undefined;
-      this.currentActiveToolRawArguments = undefined;
-      return callResults;
-    });
-
-    const allCallResults = await Promise.all(toolCallPromises);
-    for (const callResults of allCallResults) {
-      results.push(...callResults);
-    }
-
-    return results;
-  }
-
-
-
-
-
-
-
-
-
-
-
-  public async run(
+      public async run(
     input: Array<ChatCompletionMessageParam>,
     prevItems: Array<ChatCompletionMessageParam> = [],
   ): Promise<void> {
@@ -982,7 +470,7 @@ export class AgentLoop {
             }
 
             if (this.config.provider === "google" || this.config.provider === "gemini") {
-              const { contents, systemInstruction } = this.mapOpenAiToGoogleMessages([
+              const { contents, systemInstruction } = mapOpenAiToGoogleMessages([
                 {
                   role: "system",
                   content: mergedInstructions,
@@ -993,12 +481,12 @@ export class AgentLoop {
                 ) as Array<ChatCompletionMessageParam>),
               ]);
 
-              const googleTools = this.mapOpenAiToGoogleTools(tools.filter(tool => {
+              const googleTools = mapOpenAiToGoogleTools(tools.filter((tool: any) => {
                 if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
                   return !!this.config.enableWebSearch;
                 }
                 return true;
-              }));
+              }), sanitizeGoogleToolName);
 
               const googleStream = await this.oai.models.generateContentStream({
                 model: this.model,
@@ -1008,7 +496,7 @@ export class AgentLoop {
                   tools: googleTools,
                 }
               });
-              stream = this.googleToOpenAiStream(googleStream) as any;
+              stream = googleToOpenAiStream(googleStream) as any;
             } else {
               // eslint-disable-next-line no-await-in-loop
               stream = await this.oai.chat.completions.create({
@@ -1025,7 +513,7 @@ export class AgentLoop {
                   ) as Array<ChatCompletionMessageParam>),
                 ],
                 reasoning_effort: reasoning,
-                tools: tools.filter(tool => {
+                tools: tools.filter((tool: any) => {
                   if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
                     return !!this.config.enableWebSearch;
                   }
@@ -1247,7 +735,26 @@ export class AgentLoop {
               if (msg?.tool_calls?.[0]) {
                 msg.tool_calls = flattenToolCalls(msg.tool_calls);
                 stageItem(msg);
-                const results = await this.handleFunctionCall(msg);
+                const ctx: AgentContext = {
+                  config: this.config,
+                  approvalPolicy: this.approvalPolicy,
+                  execAbortController: this.execAbortController,
+                  getCommandConfirmation: this.getCommandConfirmation,
+                  onItem: this.onItem,
+                  onFileAccess: this.onFileAccess,
+                  oai: this.oai,
+                  model: this.model,
+                  agent: this,
+                };
+                const results = await handleFunctionCall(
+                  ctx,
+                  msg,
+                  this.toolCallHistory,
+                  this.onLoading,
+                  this.onPartialUpdate,
+                );
+                this.currentActiveToolName = undefined;
+                this.currentActiveToolRawArguments = undefined;
                 if (results.length > 0) {
                   turnInput.push(...results);
                 }
@@ -1311,19 +818,31 @@ export class AgentLoop {
               if (message && !message.tool_calls && tool_call) {
                 // @ts-expect-error FIXME
                 message.tool_calls = [tool_call];
-                if (thought_signature) {
-                  (message.tool_calls[0] as any).thought_signature = thought_signature;
-                }
-              } else if (tool_call && message.tool_calls) {
-                const tc = message.tool_calls[0];
                 if (tool_call.function?.name) {
-                  tc.function.name += tool_call.function.name;
+                  this.currentActiveToolName = tool_call.function.name;
                 }
                 if (tool_call.function?.arguments) {
-                  tc.function.arguments += tool_call.function.arguments;
+                  this.currentActiveToolRawArguments = tool_call.function.arguments;
                 }
-                if (thought_signature) {
-                  (tc as any).thought_signature = thought_signature;
+                if (thought_signature && message.tool_calls?.[0]) {
+                  (message.tool_calls[0] as any).thought_signature = thought_signature;
+                }
+              } else if (tool_call && message?.tool_calls) {
+                const tc = message.tool_calls[0] as any;
+                if (tc) {
+                  if (tool_call.function?.name) {
+                    if (!tc.function) tc.function = { name: "", arguments: "" };
+                    tc.function.name = (tc.function.name || "") + tool_call.function.name;
+                    this.currentActiveToolName = tc.function.name;
+                  }
+                  if (tool_call.function?.arguments) {
+                    if (!tc.function) tc.function = { name: "", arguments: "" };
+                    tc.function.arguments = (tc.function.arguments || "") + tool_call.function.arguments;
+                    this.currentActiveToolRawArguments = tc.function.arguments;
+                  }
+                  if (thought_signature) {
+                    tc.thought_signature = thought_signature;
+                  }
                 }
               }
             }
@@ -1664,8 +1183,25 @@ export class AgentLoop {
           continue;
         }
         alreadyProcessedResponses.add(item.tool_call_id);
+        const ctx: AgentContext = {
+          config: this.config,
+          approvalPolicy: this.approvalPolicy,
+          execAbortController: this.execAbortController,
+          getCommandConfirmation: this.getCommandConfirmation,
+          onItem: this.onItem,
+          onFileAccess: this.onFileAccess,
+          oai: this.oai,
+          model: this.model,
+          agent: this,
+        };
         // eslint-disable-next-line no-await-in-loop
-        const result = await this.handleFunctionCall(item);
+        const result = await handleFunctionCall(
+          ctx,
+          item,
+          this.toolCallHistory,
+          this.onLoading,
+          this.onPartialUpdate,
+        );
         turnInput.push(...result);
       }
       emitItem(item);
