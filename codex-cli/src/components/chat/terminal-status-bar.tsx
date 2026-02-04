@@ -10,6 +10,7 @@ type Props = {
   sessionId: string;
   approvalPolicy: ApprovalPolicy;
   theme: Theme;
+  queuedPromptsCount: number;
 };
 
 const TerminalStatusBar: React.FC<Props> = ({
@@ -19,13 +20,13 @@ const TerminalStatusBar: React.FC<Props> = ({
   sessionId,
   approvalPolicy,
   theme,
+  queuedPromptsCount,
 }) => {
   const shortSessionId = sessionId.slice(0, 8);
-  const usedPercent = 100 - contextLeftPercent;
   
   // Visual progress bar
   const barWidth = 10;
-  const filledWidth = Math.round((contextLeftPercent / 100) * barWidth);
+  const filledWidth = Math.round(((100 - contextLeftPercent) / 100) * barWidth);
   const bar = "█".repeat(filledWidth) + "░".repeat(barWidth - filledWidth);
 
   const getPolicyColor = (policy: ApprovalPolicy) => {
@@ -46,39 +47,47 @@ const TerminalStatusBar: React.FC<Props> = ({
   };
 
   return (
-    <Box
-      width="100%"
-      borderStyle="single"
-      borderColor={theme.dim}
-      paddingX={1}
-      gap={2}
-      flexDirection="row"
-      justifyContent="space-between"
-    >
-      <Box gap={1}>
-        <Text color={theme.statusBarModel} bold>
-          {model}
-        </Text>
-        <Text color={theme.dim}>({provider})</Text>
-      </Box>
+    <Box flexDirection="column" marginTop={0}>
+      <Box
+        width="100%"
+        paddingX={1}
+        flexDirection="row"
+        justifyContent="space-between"
+      >
+        <Box gap={1}>
+          <Text color={theme.statusBarModel} bold>
+            {model}
+          </Text>
+          <Text color={theme.dim}>({provider})</Text>
+          <Text color={theme.dim}>|</Text>
+          <Text color={theme.dim}>Mode:</Text>
+          <Text color={getPolicyColor(approvalPolicy)} bold>
+            {approvalPolicy}
+          </Text>
+          {queuedPromptsCount > 0 && (
+            <>
+              <Text color={theme.dim}>|</Text>
+              <Text color="yellow" bold>
+                {queuedPromptsCount} queued
+              </Text>
+            </>
+          )}
+        </Box>
 
-      <Box gap={1}>
-        <Text color={theme.dim}>Mode:</Text>
-        <Text color={getPolicyColor(approvalPolicy)} bold>
-          {approvalPolicy}
-        </Text>
+        <Box gap={1}>
+          <Text color={theme.dim}>Context:</Text>
+          <Text color={getContextColor(contextLeftPercent)}>
+            {bar} {Math.round(100 - contextLeftPercent)}%
+          </Text>
+          <Text color={theme.dim}>|</Text>
+          <Text color={theme.dim}>ID:</Text>
+          <Text color={theme.statusBarSession}>{shortSessionId}</Text>
+        </Box>
       </Box>
-
-      <Box gap={1}>
-        <Text color={theme.dim}>Context:</Text>
-        <Text color={getContextColor(contextLeftPercent)}>
-          {bar} {Math.round(contextLeftPercent)}%
+      <Box paddingX={1}>
+        <Text dimColor italic>
+          ctrl+c exit | /clear reset | /help commands | /model switch | /approval mode
         </Text>
-      </Box>
-
-      <Box gap={1}>
-        <Text color={theme.dim}>Session:</Text>
-        <Text color={theme.statusBarSession}>{shortSessionId}</Text>
       </Box>
     </Box>
   );

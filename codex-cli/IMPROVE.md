@@ -8,9 +8,13 @@ Potential Improvements:
        * Tell the agent about the --dry-run flag. If it's active (which we can inject into the prompt), the agent should know its changes won't be committed and it might need to explain
          its reasoning more thoroughly.
 
-   3. Provider-Specific Formatting:
-       * As noted in TODO.md, different models (Ollama vs. OpenAI vs. Gemini) prefer different tool-calling syntaxes. We could dynamically append a "best practices" section based on the
-         active provider.
+   3. [DONE] Provider-Specific Formatting:
+       * Migrated to native `@google/genai` SDK for Gemini models, ensuring optimal tool-calling and streaming performance. Implemented automatic name sanitization for Google's API.
+
+   25. [DONE] UI Reorganization:
+       * Consolidated fragmented status information into a unified, compact multi-line footer at the bottom of the screen.
+       * Simplified the main chat input area for a cleaner interface.
+       * Added persistent shortcut hints to the footer for better discoverability.
 
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.

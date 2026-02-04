@@ -25,3 +25,5 @@
 * **Robust Parameter Heuristics:** Automatically handles parameter confusion in `search_codebase` and added aliases for `read_file_lines`.
 * **Error Logging:** Implemented `opencodex.error.log` for detailed tool failure tracking.
 * **Custom Response Input for Choices:** Added ability to provide custom text input for interactive agent prompts.
+* **Native Google SDK Integration:** Migrated to `@google/genai` for better Gemini performance and reliability.
+* **UI Reorganization:** Consolidated fragmented status info into a unified footer and simplified the input area.

@@ -89,7 +89,6 @@ export default function TerminalChat({
     }
   }, loading ? 100 : null);
 
-  const [activeFiles, setActiveFiles] = useState<Set<string>>(new Set());
   const [activeToolName, setActiveToolName] = useState<string | undefined>(undefined);
   const [activeToolArguments, setActiveToolArguments] = useState<Record<string, any> | undefined>(undefined);
   const [promptQueue, setPromptQueue] = useState<
@@ -194,14 +193,6 @@ export default function TerminalChat({
       approvalPolicy,
       onReset: () => {
         setPrevItems([]);
-        setActiveFiles(new Set());
-      },
-      onFileAccess: (path: string) => {
-        setActiveFiles((prev) => {
-          const next = new Set(prev);
-          next.add(path);
-          return next;
-        });
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         setPartialContent(content);
@@ -477,24 +468,12 @@ export default function TerminalChat({
           </Box>
         )}
 
-        {agent && (
-          <TerminalStatusBar
-            model={model}
-            provider={config.provider || "openai"}
-            contextLeftPercent={contextLeftPercent}
-            sessionId={agent.sessionId}
-            approvalPolicy={approvalPolicy}
-            theme={activeTheme}
-          />
-        )}
-
         {overlayMode === "none" && agent && (
           <TerminalChatInput
             loading={loading}
             setItems={setItems}
             isNew={Boolean(items.length === 0)}
             setPrevItems={setPrevItems}
-            setActiveFiles={setActiveFiles}
             confirmationPrompt={confirmationPrompt}
             submitConfirmation={(
               decision: ReviewDecision,
@@ -505,7 +484,6 @@ export default function TerminalChat({
                 customDenyMessage,
               })
             }
-            contextLeftPercent={contextLeftPercent}
             openOverlay={() => setOverlayMode("history")}
             openHistorySelectOverlay={() => setOverlayMode("history-select")}
             openModelOverlay={() => setOverlayMode("model")}
@@ -515,13 +493,6 @@ export default function TerminalChat({
             openConfigOverlay={() => setOverlayMode("config")}
             openPromptOverlay={() => setOverlayMode("prompt")}
             openPromptsOverlay={() => setOverlayMode("prompts")}
-            openThemeOverlay={() => setOverlayMode("theme")}
-            active={overlayMode === "none"}
-            partialReasoning={partialReasoning}
-            activeFiles={activeFiles}
-            activeToolName={activeToolName}
-            activeToolArguments={activeToolArguments}
-            queuedPromptsCount={promptQueue.length}
             interruptAgent={() => {
               if (!agent) {
                 return;
@@ -534,6 +505,10 @@ export default function TerminalChat({
               agent.cancel();
               setLoading(false);
             }}
+            active={overlayMode === "none"}
+            partialReasoning={partialReasoning}
+            activeToolName={activeToolName}
+            activeToolArguments={activeToolArguments}
             submitInput={(inputs) => {
               // If agent is not loading, run immediately. Otherwise, queue.
               if (!loading) {
@@ -545,6 +520,18 @@ export default function TerminalChat({
             }}
             allowAlwaysPatch={config.allowAlwaysPatch}
             awaitingContinueConfirmation={awaitingContinueConfirmation}
+          />
+        )}
+
+        {agent && (
+          <TerminalStatusBar
+            model={model}
+            provider={config.provider || "openai"}
+            contextLeftPercent={contextLeftPercent}
+            sessionId={agent.sessionId}
+            approvalPolicy={approvalPolicy}
+            theme={activeTheme}
+            queuedPromptsCount={promptQueue.length}
           />
         )}
         {overlayMode === "history" && (

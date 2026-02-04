@@ -11,7 +11,7 @@ import { Select } from "../vendor/ink-select/select";
 import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
-import React, { useCallback, useState, Fragment, useMemo, useEffect } from "react";
+import React, { useCallback, useState, useMemo, useEffect } from "react";
 import { listAllFiles } from "../../utils/list-all-files.js";
 
 const suggestions = [
@@ -43,8 +43,6 @@ export default function TerminalChatInput({
   submitConfirmation,
   setPrevItems,
   setItems,
-  setActiveFiles,
-  contextLeftPercent,
   openOverlay,
   openHistorySelectOverlay,
   openModelOverlay,
@@ -59,8 +57,6 @@ export default function TerminalChatInput({
   active,
   allowAlwaysPatch,
   awaitingContinueConfirmation,
-  queuedPromptsCount,
-  activeFiles,
   activeToolName,
   activeToolArguments,
 }: {
@@ -76,8 +72,6 @@ export default function TerminalChatInput({
   setItems: React.Dispatch<
     React.SetStateAction<Array<ChatCompletionMessageParam>>
   >;
-  setActiveFiles: React.Dispatch<React.SetStateAction<Set<string>>>;
-  contextLeftPercent: number;
   openOverlay: () => void;
   openHistorySelectOverlay: () => void;
   openModelOverlay: () => void;
@@ -92,8 +86,6 @@ export default function TerminalChatInput({
   active: boolean;
   allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
-  queuedPromptsCount: number;
-  activeFiles: Set<string>;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
 }) {
@@ -388,7 +380,6 @@ export default function TerminalChatInput({
         setInput("");
         setSessionId("");
         setPrevItems([]);
-        setActiveFiles(new Set());
         clearTerminal();
 
         // Emit a system message to confirm the clear action.  We *append*
@@ -477,9 +468,9 @@ export default function TerminalChatInput({
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round">
+      <Box borderStyle="single" borderColor="gray" paddingX={1}>
         {awaitingContinueConfirmation && !customInputMode ? (
-          <Box paddingX={1} flexDirection="column">
+          <Box flexDirection="column">
             <Text>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
             <Box paddingX={2}>
               <Select
@@ -510,35 +501,33 @@ export default function TerminalChatInput({
             </Box>
           </Box>
         ) : (
-          <Box paddingX={1}>
-            <TextInput
-              focus={active}
-              placeholder={
-                customInputMode
-                  ? "type your custom response..."
-                  : selectedSuggestion
-                  ? `"${suggestions[selectedSuggestion - 1]}"`
-                  : "send a message" +
-                    (isNew ? " or press tab to select a suggestion" : "")
+          <TextInput
+            focus={active}
+            placeholder={
+              customInputMode
+                ? "type your custom response..."
+                : selectedSuggestion
+                ? `"${suggestions[selectedSuggestion - 1]}"`
+                : "send a message" +
+                  (isNew ? " (tab for suggestions)" : "")
+            }
+            showCursor
+            value={input}
+            onKeyDown={onKeyDown}
+            onChange={(value) => {
+              setDraftInput(value);
+              if (historyIndex != null) {
+                setHistoryIndex(null);
               }
-              showCursor
-              value={input}
-              onKeyDown={onKeyDown}
-              onChange={(value) => {
-                setDraftInput(value);
-                if (historyIndex != null) {
-                  setHistoryIndex(null);
-                }
-                setInput(value);
-              }}
-              onSubmit={(value) => {
-                if (customInputMode) {
-                  setCustomInputMode(false);
-                }
-                onSubmit(value);
-              }}
-            />
-          </Box>
+              setInput(value);
+            }}
+            onSubmit={(value) => {
+              if (customInputMode) {
+                setCustomInputMode(false);
+              }
+              onSubmit(value);
+            }}
+          />
         )}
       </Box>
       {filteredFiles.length > 0 && (
@@ -574,7 +563,7 @@ export default function TerminalChatInput({
         </Box>
       )}
       {loading && (
-        <Box borderStyle="round" borderColor="dimGray" paddingLeft={1}>
+        <Box paddingLeft={1}>
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}
             active={active}
@@ -584,55 +573,6 @@ export default function TerminalChatInput({
           />
         </Box>
       )}
-      <Box paddingX={2} marginBottom={1} flexDirection="column">
-        {activeFiles.size > 0 && (
-          <Box marginBottom={0}>
-            <Text dimColor>Files in context: </Text>
-            <Text color="cyan" wrap="truncate">
-              {Array.from(activeFiles).join(", ")}
-            </Text>
-          </Box>
-        )}
-        <Box>
-          <Text dimColor>
-            {isNew && !input ? (
-              <>
-                try:{" "}
-                {suggestions.map((m, key) => (
-                  <Fragment key={key}>
-                    {key !== 0 ? " | " : ""}
-                    <Text
-                      backgroundColor={
-                        key + 1 === selectedSuggestion ? "blackBright" : ""
-                      }
-                    >
-                      {m}
-                    </Text>
-                  </Fragment>
-                ))}
-              </>
-            ) : (
-              <>
-                send q or ctrl+c to exit | send "/clear" to reset | send "/help"
-                for commands | press enter to send
-              </>
-            )}
-          </Text>
-          <Box flexGrow={1} />
-          <Box gap={1}>
-            <Text dimColor>context: </Text>
-            <Text color={contextLeftPercent < 10 ? "red" : contextLeftPercent < 25 ? "yellow" : "green"}>
-              {"[".padEnd(1 + Math.round((100 - contextLeftPercent) / 10), "■").padEnd(11, " ").concat("]")}
-              {` ${Math.round(100 - contextLeftPercent)}%`}
-            </Text>
-            {queuedPromptsCount > 0 && (
-              <Text color="yellow">
-                {` | ${queuedPromptsCount} prompt(s) queued`}
-              </Text>
-            )}
-          </Box>
-        </Box>
-      </Box>
     </Box>
   );
 }
