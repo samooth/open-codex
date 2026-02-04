@@ -88,10 +88,13 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 *   **[DONE] Consolidated UI Footer:** Reorganized the UI to use a more compact and informative footer at the bottom of the screen, below the input box.
     *   **[DONE] Multi-line Status Bar:** The footer now spans two lines, consolidating model info, provider, approval mode, queued prompts, context usage, and session ID.
     *   **[DONE] Persistent Command Help:** Common shortcuts and slash commands are now always visible in the footer for easier discovery.
+*   **[DONE] Multi-Provider Configuration:**
+    *   **[DONE] Per-Provider Settings:** Users can now define unique API keys and base URLs for each provider (OpenAI, Google, Ollama, etc.) in their `config.json`.
 *   **[DONE] Unified Google SDK Integration:**
     *   **[DONE] @google/genai Support:** Migrated to the new unified `@google/genai` SDK for better performance and reliability with Gemini models.
     *   **[DONE] Native Streaming:** Improved streaming response handling using native SDK iterators.
-    *   **[DONE] Automatic Tool Sanitization:** Function names are now automatically sanitized to comply with Google's API requirements (alphanumeric, underscores, dots, colons, or dashes).
+    *   **[DONE] Automatic Tool Sanitization:** Function names are now automatically sanitized to comply with Google's API requirements.
+    *   **[DONE] Thought Signatures:** Fixed 400 errors by correctly capturing and restoring `thought_signature` during multi-turn Gemini conversations.
 *   **[DONE] Improved User Input and Interaction:**
     *   **[DONE] Borderless Input Box:** Simplified the input area with a cleaner single-line border for a more modern terminal feel.
     *   **[DONE] Streamlined Suggestions:** Moved initial suggestions to the input placeholder to save vertical space.

@@ -9,7 +9,8 @@ Potential Improvements:
          its reasoning more thoroughly.
 
    3. [DONE] Provider-Specific Formatting:
-       * Migrated to native `@google/genai` SDK for Gemini models, ensuring optimal tool-calling and streaming performance. Implemented automatic name sanitization for Google's API.
+       * Migrated to native `@google/genai` SDK for Gemini models, ensuring optimal tool-calling and streaming performance. Implemented automatic name sanitization and thought signature handling for Google's API.
+       * [NEW] Implemented multi-provider configuration support in `config.json`, allowing per-provider API keys and base URLs.
 
    25. [DONE] UI Reorganization:
        * Consolidated fragmented status information into a unified, compact multi-line footer at the bottom of the screen.
