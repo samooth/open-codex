@@ -20,12 +20,12 @@ export class SemanticMemory {
   private indexPath: string;
   private oai: OpenAI;
   private entries: VectorEntry[] = [];
-  private provider: string;
+  private _provider: string;
   private embeddingModel: string | undefined;
 
   constructor(oai: OpenAI, provider: string = "openai", embeddingModel?: string) {
     this.oai = oai;
-    this.provider = provider;
+    this._provider = provider;
     this.embeddingModel = embeddingModel;
     this.cachePath = join(process.cwd(), ".codex", "memory_embeddings.json");
     this.memoryPath = join(process.cwd(), ".codex", "memory.md");
@@ -98,6 +98,8 @@ export class SemanticMemory {
       }
       return this.cache[text]!;
     }
+
+    const model = this.embeddingModel || "text-embedding-3-small";
 
     if (process.env["DEBUG"] === "1") {
       log(`    Fetching embedding from API for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);

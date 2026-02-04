@@ -6,6 +6,7 @@ import { handleExecCommand } from "./handle-exec-command.js";
 import type { AgentContext } from "./types.js";
 import { getIgnoreFilter } from "./ignore-utils.js";
 import { validateFileSyntax } from "./validate-file.js";
+import { log } from "./log.js";
 
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);

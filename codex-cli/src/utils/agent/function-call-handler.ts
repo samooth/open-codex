@@ -1,6 +1,6 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import { appendFileSync } from "fs";
-import { parseToolCallArguments, flattenToolCalls } from "../parsers.js";
+import { parseToolCallArguments } from "../parsers.js";
 import { handleExecCommand } from "./handle-exec-command.js";
 import * as handlers from "./tool-handlers.js";
 import { validateFileSyntax } from "./validate-file.js";
@@ -11,7 +11,7 @@ export async function handleFunctionCall(
   ctx: AgentContext,
   itemArg: ChatCompletionMessageParam,
   toolCallHistory: Map<string, { count: number; lastError?: string }>,
-  onLoading: (loading: boolean) => void,
+  _onLoading: (loading: boolean) => void,
   onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void,
 ): Promise<Array<ChatCompletionMessageParam>> {
   if (itemArg.role !== "assistant" || !itemArg.tool_calls) {
