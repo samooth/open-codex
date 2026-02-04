@@ -57,7 +57,12 @@ export function getDefaultProvider(): string {
   return "openai";
 }
 
-function getAPIKeyForProviderOrExit(provider: string): string {
+function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string, ProviderConfig>): string {
+  const configKey = providers?.[provider]?.apiKey;
+  if (configKey) {
+    return configKey;
+  }
+
   switch (provider) {
     case "openai":
       if (process.env["OPENAI_API_KEY"]) {
@@ -114,7 +119,12 @@ function getAPIKeyForProviderOrExit(provider: string): string {
   }
 }
 
-function baseURLForProvider(provider: string): string {
+function baseURLForProvider(provider: string, providers?: Record<string, ProviderConfig>): string {
+  const configURL = providers?.[provider]?.baseURL;
+  if (configURL) {
+    return configURL;
+  }
+
   switch (provider) {
     case "openai":
       return "https://api.openai.com/v1";
@@ -196,10 +206,18 @@ export const MemoryConfigSchema = z.object({
 
 export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
 
+export const ProviderConfigSchema = z.object({
+  apiKey: z.string().optional(),
+  baseURL: z.string().optional(),
+});
+
+export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
+
 export const StoredConfigSchema = z.object({
   model: z.string().optional(),
   baseURL: z.string().optional(),
   provider: z.string().optional(),
+  providers: z.record(ProviderConfigSchema).optional(),
   approvalMode: z.nativeEnum(AutoApprovalMode).optional(),
   fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
   memory: MemoryConfigSchema.optional(),
@@ -220,6 +238,7 @@ export type AppConfig = {
   apiKey?: string;
   baseURL?: string;
   provider?: string;
+  providers?: Record<string, ProviderConfig>;
   model: string;
   instructions: string;
   approvalMode?: AutoApprovalMode;
@@ -501,17 +520,18 @@ export const loadConfig = (
       : derivedModels?.agentic);
 
   const derivedBaseURL = storedProvider
-    ? baseURLForProvider(storedProvider)
-    : storedBaseURL ?? baseURLForProvider(providerOrDefault);
+    ? baseURLForProvider(storedProvider, storedConfig.providers)
+    : storedBaseURL ?? baseURLForProvider(providerOrDefault, storedConfig.providers);
 
   const derivedProvider = storedProvider ?? providerOrDefault;
   const apiKeyForProvider =
-    options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider);
+    options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers);
 
   const config: AppConfig = {
     model: derivedModel,
     apiKey: apiKeyForProvider,
     provider: derivedProvider,
+    providers: storedConfig.providers,
     baseURL: derivedBaseURL,
     instructions: loadInstructions(instructionsPath, options),
     approvalMode: storedConfig.approvalMode,

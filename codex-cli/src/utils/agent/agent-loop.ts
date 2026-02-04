@@ -115,6 +115,12 @@ export class AgentLoop {
       const parts: any[] = [];
 
       if (msg.role === "assistant") {
+        if ((msg as any).reasoning_content) {
+          parts.push({
+            text: (msg as any).reasoning_content,
+            thought: true,
+          });
+        }
         if (msg.content && typeof msg.content === "string") {
           parts.push({ text: msg.content });
         }
@@ -130,6 +136,7 @@ export class AgentLoop {
               functionCall: {
                 name: tc.function.name,
                 args,
+                thoughtSignature: (tc as any).thought_signature,
               },
             });
           }
@@ -219,9 +226,18 @@ export class AgentLoop {
         delta.role = "assistant";
         first = false;
       }
+      let currentThoughtSignature: string | undefined = undefined;
       for (const part of parts) {
         if (part.text) {
-          delta.content = (delta.content || "") + part.text;
+          if (part.thought) {
+            delta.reasoning_content = (delta.reasoning_content || "") + part.text;
+          } else {
+            delta.content = (delta.content || "") + part.text;
+          }
+        }
+        if (part.thoughtSignature) {
+          currentThoughtSignature = part.thoughtSignature;
+          delta.thought_signature = part.thoughtSignature;
         }
         if (part.functionCall) {
           if (!delta.tool_calls) {
@@ -234,6 +250,7 @@ export class AgentLoop {
               name: part.functionCall.name,
               arguments: JSON.stringify(part.functionCall.args),
             },
+            thought_signature: currentThoughtSignature,
           });
         }
       }
@@ -1253,6 +1270,9 @@ export class AgentLoop {
               if (content) {
                 message.content = (message.content ?? "") + content;
               }
+              if (reasoning) {
+                (message as any).reasoning_content = ((message as any).reasoning_content ?? "") + reasoning;
+              }
               if (message && !message.tool_calls && tool_call) {
                 // @ts-expect-error FIXME
                 message.tool_calls = [tool_call];
@@ -1264,6 +1284,9 @@ export class AgentLoop {
                 if (tool_call.function?.arguments) {
                   message.tool_calls![0]!.function.arguments +=
                     tool_call.function.arguments;
+                }
+                if ((tool_call as any).thought_signature) {
+                  (message.tool_calls![0] as any).thought_signature = (tool_call as any).thought_signature;
                 }
               }
             }
