@@ -1,4 +1,23 @@
 import type { ForegroundColorName } from "chalk";
+import { z } from "zod";
+
+export const ThemeSchema = z.object({
+  name: z.string().optional(),
+  assistant: z.string().optional(),
+  user: z.string().optional(),
+  thought: z.string().optional(),
+  plan: z.string().optional(),
+  toolLabel: z.string().optional(),
+  toolIcon: z.string().optional(),
+  shellCommand: z.string().optional(),
+  error: z.string().optional(),
+  success: z.string().optional(),
+  warning: z.string().optional(),
+  highlight: z.string().optional(),
+  dim: z.string().optional(),
+  statusBarModel: z.string().optional(),
+  statusBarSession: z.string().optional(),
+});
 
 export type Theme = {
   name: string;
@@ -106,6 +125,18 @@ export const themes: Record<string, Theme> = {
   }
 };
 
-export function getTheme(name?: string): Theme {
-  return themes[name || "default"] || themes["default"]!;
+export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Theme {
+  if (!themeConfig) {
+    return themes["default"]!;
+  }
+
+  if (typeof themeConfig === "string") {
+    return themes[themeConfig] || themes["default"]!;
+  }
+
+  // If it's an object, merge it with the default theme
+  return {
+    ...themes["default"]!,
+    ...themeConfig,
+  } as Theme;
 }

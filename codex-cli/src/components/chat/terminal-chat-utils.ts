@@ -49,10 +49,20 @@ export function calculateContextPercentRemaining(
   model: string,
   forcedMaxTokens?: number,
 ): number {
-  const used = approximateTokensUsed(items);
+  const breakdown = approximateTokensUsed(items);
+  const used = breakdown.total;
   const max = forcedMaxTokens || maxTokensForModel(model);
   const remaining = Math.max(0, max - used);
   return (remaining / max) * 100;
+}
+
+/**
+ * Returns a detailed token usage breakdown.
+ */
+export function calculateTokenBreakdown(
+  items: Array<ChatCompletionMessageParam>,
+) {
+  return approximateTokensUsed(items);
 }
 
 /**

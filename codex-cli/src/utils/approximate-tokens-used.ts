@@ -1,5 +1,12 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+export type TokenBreakdown = {
+  total: number;
+  system: number;
+  history: number;
+  tools: number;
+};
+
 /**
  * Roughly estimate the number of language‑model tokens represented by a list
  * of OpenAI `ResponseItem`s.
@@ -15,30 +22,47 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
  */
 export function approximateTokensUsed(
   items: Array<ChatCompletionMessageParam>,
-): number {
-  let charCount = 0;
+): TokenBreakdown {
+  let systemChars = 0;
+  let historyChars = 0;
+  let toolChars = 0;
 
   for (const item of items) {
+    let itemChars = 0;
     if (typeof item.content === "string") {
-      charCount += item.content.length;
+      itemChars += item.content.length;
     }
     if (Array.isArray(item.content)) {
       for (const part of item.content) {
         if (part.type === "text") {
-          charCount += part.text.length;
+          itemChars += part.text.length;
         }
         if (part.type === "refusal") {
-          charCount += part.refusal.length;
+          itemChars += part.refusal.length;
         }
       }
     }
     if ("tool_calls" in item && item.tool_calls) {
-      for (const toolCall of item.tool_calls) {
-        charCount += toolCall.function.name.length;
-        charCount += toolCall.function.arguments.length;
+      for (const toolCall of item.tool_calls as any[]) {
+        itemChars += toolCall.function.name.length;
+        itemChars += toolCall.function.arguments.length;
       }
+    }
+
+    if (item.role === "system") {
+      systemChars += itemChars;
+    } else if (item.role === "tool") {
+      toolChars += itemChars;
+    } else {
+      historyChars += itemChars;
     }
   }
 
-  return Math.ceil(charCount / 4);
+  const system = Math.ceil(systemChars / 4);
+  const history = Math.ceil(historyChars / 4);
+  const tools = Math.ceil(toolChars / 4);
+  const total = system + history + tools;
+
+  return { total, system, history, tools };
 }
+

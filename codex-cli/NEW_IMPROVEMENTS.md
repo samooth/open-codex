@@ -1,5 +1,42 @@
 # UI Improvement Suggestions for OpenCodex CLI - Status Update
 
+
+Based on the current state of OpenCodex, here are several high-impact UI/UX improvements that could further enhance the terminal experience:
+
+  1. Advanced Input Experience
+   * External Editor Integration: Add a shortcut (e.g., Ctrl+E) to open the current prompt in your system's $EDITOR (vim, nano, vscode). This is essential for long prompts or pasting large code blocks.
+   * True Multi-line Support: Enhance the internal input component to handle newlines natively (Shift+Enter) rather than just single-line scrolling.
+   * Variable Injection: Allow users to reference environment variables or file contents directly in the prompt using syntax like fix the bug in {{src/main.ts}}.
+
+
+  2. Context Management
+   * File Pinning: A way to "pin" specific files to the context window so they are never rotated out during long conversations.
+   * Context Breakdown: A small expandable view in the status bar showing exactly how many tokens are being used by the System Prompt, History, and current "Active Files."
+   * Automatic "Ignored Files" Preview: A command to see what .codexignore is currently filtering out, to help debug why the agent might "miss" a file.
+
+
+  3. Richer Interaction
+   * Interactive Diffs: Instead of just "Yes/No" for a whole patch, allow the user to select specific "hunks" (parts of the diff) to apply or discard.
+   * Collapsible Tool Outputs: For huge shell outputs (like a long npm install), add a way to collapse the box to just the header/summary to reduce clutter.
+   * Command Re-run: An interactive history view where you can highlight a previous shell command and hit R to re-execute it.
+
+
+  4. Visibility & Feedback
+   * Latency & Cost Tracking: Show real-time latency (ms) for the last request and, if possible, an estimated cost (based on tokens) for the session.
+   * Audio Notifications: An optional "ping" sound when a long-running task (like indexing or a 30-second "Deep Thinking" step) completes.
+   * Confidence Indicators: Show a "confidence score" or a warning if the agent thinks the proposed patch might have side effects.
+
+
+  5. Customization
+   * Dynamic Theming: Support for custom JSON themes where users can map specific ANSI colors to "thoughts," "commands," and "errors."
+   * Prompt Templates: A library of "recipes" accessible via /recipes (e.g., "Unit Test Generator," "Documentation Writer," "Security Auditor").
+
+
+  6. Semantic Search 2.0
+   * Live Indexing Indicator: A more subtle, non-blocking progress bar for when the agent is updating the vector database in the background.
+   * Search "Heatmap": When using semantic_search, show a snippet of why a file was ranked highly (highlighting the matching concept).
+
+
 Here is the current state of UI improvements for the OpenCodex CLI:
 
 *   **[DONE] Support for `<think>` tags:** The UI now correctly parses and styles `<think>` blocks output by deep-thinking models, rendering them in a distinct, italicized, and dimmed box.
@@ -98,5 +135,9 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 *   **[DONE] Improved User Input and Interaction:**
     *   **[DONE] Borderless Input Box:** Simplified the input area with a cleaner single-line border for a more modern terminal feel.
     *   **[DONE] Streamlined Suggestions:** Moved initial suggestions to the input placeholder to save vertical space.
+*   **[DONE] Advanced Context Management:**
+    *   **[DONE] File Pinning:** Users can now use `/pin` and `/unpin` to keep critical files always in the context window, regardless of conversation length.
+    *   **[DONE] Context Breakdown Toggle:** A new `ctrl+b` shortcut toggles a detailed view of token usage, broken down by System instructions, History, and Tools.
+    *   **[DONE] Ignored Files Visibility:** The `/ignored` command provides instant visibility into which files are being filtered out by Git/Codex ignore rules.
 ---
 *Last Updated: 2026-02-04*

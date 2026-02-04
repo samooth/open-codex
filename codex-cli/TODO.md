@@ -27,4 +27,5 @@
 * **Custom Response Input for Choices:** Added ability to provide custom text input for interactive agent prompts.
 * **Native Google SDK Integration:** Migrated to `@google/genai` for better Gemini performance and reliability.
 * **Multi-Provider Configuration:** Supported per-provider API keys and base URLs in `config.json`.
+* **Advanced Context Management:** Implemented file pinning, detailed token breakdown, and ignored files preview.
 * **UI Reorganization:** Consolidated fragmented status info into a unified footer and simplified the input area.

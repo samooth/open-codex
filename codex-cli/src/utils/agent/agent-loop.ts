@@ -26,7 +26,7 @@ import { handleExecCommand } from "./handle-exec-command.js";
 import { tools } from "./tool-definitions.js";
 import * as handlers from "./tool-handlers.js";
 import { validateFileSyntax } from "./validate-file.js";
-import { appendFileSync } from "fs";
+import { appendFileSync, readFileSync, existsSync } from "fs";
 import { randomUUID } from "node:crypto";
 
 import OpenAI, { APIConnectionTimeoutError } from "openai";
@@ -119,6 +119,7 @@ export class AgentLoop {
           parts.push({
             text: (msg as any).reasoning_content,
             thought: true,
+            thoughtSignature: (msg as any).thought_signature,
           });
         }
         if (msg.content && typeof msg.content === "string") {
@@ -217,6 +218,7 @@ export class AgentLoop {
 
   private async *googleToOpenAiStream(googleStream: any): AsyncGenerator<any> {
     let first = true;
+    let lastThoughtSignature: string | undefined = undefined;
     for await (const chunk of googleStream) {
       const candidate = chunk.candidates?.[0];
       const parts = candidate?.content?.parts || [];
@@ -226,7 +228,6 @@ export class AgentLoop {
         delta.role = "assistant";
         first = false;
       }
-      let currentThoughtSignature: string | undefined = undefined;
       for (const part of parts) {
         if (part.text) {
           if (part.thought) {
@@ -236,7 +237,7 @@ export class AgentLoop {
           }
         }
         if (part.thoughtSignature) {
-          currentThoughtSignature = part.thoughtSignature;
+          lastThoughtSignature = part.thoughtSignature;
           delta.thought_signature = part.thoughtSignature;
         }
         if (part.functionCall) {
@@ -250,7 +251,7 @@ export class AgentLoop {
               name: part.functionCall.name,
               arguments: JSON.stringify(part.functionCall.args),
             },
-            thought_signature: currentThoughtSignature,
+            thought_signature: lastThoughtSignature,
           });
         }
       }
@@ -942,7 +943,24 @@ export class AgentLoop {
               }
             }
 
-            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, dryRunInfo]
+            // Pinned Files: Inject full contents of pinned files
+            let pinnedFilesContent = "";
+            if (this.config.pinnedFiles && this.config.pinnedFiles.length > 0) {
+              const pinnedFileSnippets = this.config.pinnedFiles.map((path) => {
+                if (existsSync(path)) {
+                  try {
+                    const content = readFileSync(path, "utf-8");
+                    return `--- pinned-file: ${path} ---\n${content}`;
+                  } catch (e) {
+                    return `--- pinned-file: ${path} (Error reading: ${e}) ---`;
+                  }
+                }
+                return `--- pinned-file: ${path} (Not found) ---`;
+              });
+              pinnedFilesContent = `\n\n--- Pinned Files ---\n${pinnedFileSnippets.join("\n\n")}`;
+            }
+
+            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, pinnedFilesContent, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {
@@ -1272,6 +1290,9 @@ export class AgentLoop {
               }
               if (reasoning) {
                 (message as any).reasoning_content = ((message as any).reasoning_content ?? "") + reasoning;
+              }
+              if ((delta as any).thought_signature) {
+                (message as any).thought_signature = (delta as any).thought_signature;
               }
               if (message && !message.tool_calls && tool_call) {
                 // @ts-expect-error FIXME

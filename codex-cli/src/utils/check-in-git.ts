@@ -29,3 +29,21 @@ export function checkInGit(workdir: string): boolean {
     return false;
   }
 }
+
+/**
+ * Returns a list of ignored files in the repository.
+ */
+export function getIgnoredFiles(workdir: string): string[] {
+  try {
+    const output = execSync("git clean -ndX", {
+      cwd: workdir,
+      encoding: "utf-8",
+    });
+    return output
+      .split("\n")
+      .filter((line) => line.startsWith("Would remove "))
+      .map((line) => line.replace("Would remove ", "").trim());
+  } catch {
+    return [];
+  }
+}

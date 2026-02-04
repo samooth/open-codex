@@ -17,6 +17,11 @@ Potential Improvements:
        * Simplified the main chat input area for a cleaner interface.
        * Added persistent shortcut hints to the footer for better discoverability.
 
+   26. [DONE] Context Management:
+       * Implemented file pinning (`/pin`, `/unpin`) to ensure core files stay in context.
+       * Added detailed context token breakdown (`ctrl+b`) for precise monitoring.
+       * Integrated ignored files preview (`/ignored`) to debug context exclusion.
+
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.
 

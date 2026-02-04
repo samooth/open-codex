@@ -13,6 +13,7 @@ import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, useMemo, useEffect } from "react";
 import { listAllFiles } from "../../utils/list-all-files.js";
+import { getIgnoredFiles } from "../../utils/check-in-git.js";
 
 const suggestions = [
   "explain this codebase to me",
@@ -30,6 +31,9 @@ const slashCommands = [
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
   { name: "/index", description: "index codebase for semantic search" },
+  { name: "/pin", description: "pin a file to the context" },
+  { name: "/unpin", description: "unpin a file from the context" },
+  { name: "/ignored", description: "show ignored files" },
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/help", description: "show help" },
@@ -52,6 +56,8 @@ export default function TerminalChatInput({
   openConfigOverlay,
   openPromptOverlay,
   openPromptsOverlay,
+  onPin,
+  onUnpin,
   interruptAgent,
   partialReasoning,
   active,
@@ -81,6 +87,8 @@ export default function TerminalChatInput({
   openConfigOverlay: () => void;
   openPromptOverlay: () => void;
   openPromptsOverlay: () => void;
+  onPin: (path: string) => void;
+  onUnpin: (path: string) => void;
   interruptAgent: () => void;
   partialReasoning?: string;
   active: boolean;
@@ -341,6 +349,39 @@ export default function TerminalChatInput({
       if (inputValue.startsWith("/config")) {
         setInput("");
         openConfigOverlay();
+        return;
+      }
+
+      if (inputValue.startsWith("/pin ")) {
+        const path = inputValue.slice(5).trim();
+        if (path) {
+          onPin(path);
+        }
+        setInput("");
+        return;
+      }
+
+      if (inputValue.startsWith("/unpin ")) {
+        const path = inputValue.slice(7).trim();
+        if (path) {
+          onUnpin(path);
+        }
+        setInput("");
+        return;
+      }
+
+      if (inputValue === "/ignored") {
+        const ignored = getIgnoredFiles(process.cwd());
+        setItems((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: ignored.length > 0 
+              ? `Ignored files:\n${ignored.map(f => `- ${f}`).join("\n")}`
+              : "No ignored files found.",
+          },
+        ]);
+        setInput("");
         return;
       }
 

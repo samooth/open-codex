@@ -53,11 +53,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
-      {loading && debug && (
-        <Box marginTop={1}>
-          <Text color={theme.warning}>{`(${thinkingSeconds}s)`}</Text>
-        </Box>
-      )}
       <Static items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {
@@ -98,6 +93,11 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             loading={loading}
             theme={theme}
           />
+        </Box>
+      )}
+      {loading && debug && (
+        <Box marginTop={1} marginLeft={4}>
+          <Text color={theme.warning}>{`(${thinkingSeconds}s)`}</Text>
         </Box>
       )}
     </Box>

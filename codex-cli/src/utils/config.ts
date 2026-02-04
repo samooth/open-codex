@@ -217,7 +217,8 @@ export const StoredConfigSchema = z.object({
   model: z.string().optional(),
   baseURL: z.string().optional(),
   provider: z.string().optional(),
-  providers: z.record(ProviderConfigSchema).optional(),
+  providers: z.record(z.string(), ProviderConfigSchema).optional(),
+  pinnedFiles: z.array(z.string()).optional(),
   approvalMode: z.nativeEnum(AutoApprovalMode).optional(),
   fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
   memory: MemoryConfigSchema.optional(),
@@ -239,6 +240,7 @@ export type AppConfig = {
   baseURL?: string;
   provider?: string;
   providers?: Record<string, ProviderConfig>;
+  pinnedFiles?: string[];
   model: string;
   instructions: string;
   approvalMode?: AutoApprovalMode;
@@ -520,18 +522,19 @@ export const loadConfig = (
       : derivedModels?.agentic);
 
   const derivedBaseURL = storedProvider
-    ? baseURLForProvider(storedProvider, storedConfig.providers)
-    : storedBaseURL ?? baseURLForProvider(providerOrDefault, storedConfig.providers);
+    ? baseURLForProvider(storedProvider, storedConfig.providers as any)
+    : storedBaseURL ?? baseURLForProvider(providerOrDefault, storedConfig.providers as any);
 
   const derivedProvider = storedProvider ?? providerOrDefault;
   const apiKeyForProvider =
-    options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers);
+    options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers as any);
 
   const config: AppConfig = {
     model: derivedModel,
     apiKey: apiKeyForProvider,
     provider: derivedProvider,
-    providers: storedConfig.providers,
+    providers: storedConfig.providers as any,
+    pinnedFiles: storedConfig.pinnedFiles || [],
     baseURL: derivedBaseURL,
     instructions: loadInstructions(instructionsPath, options),
     approvalMode: storedConfig.approvalMode,
@@ -618,6 +621,9 @@ export const saveConfig = (
   // Create the config object to save
   const configToSave: StoredConfig = {
     model: config.model,
+    provider: config.provider,
+    providers: config.providers,
+    pinnedFiles: config.pinnedFiles,
     approvalMode: config.approvalMode,
     enableWebSearch: config.enableWebSearch,
     enableDeepThinking: config.enableDeepThinking,

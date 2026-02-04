@@ -7,7 +7,10 @@ import type { ReviewDecision } from "src/utils/agent/review.ts";
 
 import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
-import { calculateContextPercentRemaining } from "./terminal-chat-utils.js";
+import {
+  calculateContextPercentRemaining,
+  calculateTokenBreakdown,
+} from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
 import TerminalStatusBar from "./terminal-status-bar.js";
 import { formatCommandForDisplay } from "../../format-command.js";
@@ -428,112 +431,138 @@ export default function TerminalChat({
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="column">
-        {agent ? (
-          <TerminalMessageHistory
-            batch={lastMessageBatch}
-            groupCounts={groupCounts}
-            items={items}
-            userMsgCount={userMsgCount}
-            confirmationPrompt={confirmationPrompt}
-            loading={loading}
-            thinkingSeconds={thinkingSeconds}
-            fullStdout={fullStdout}
-            theme={activeTheme}
-            headerProps={{
-              terminalRows,
-              version: CLI_VERSION,
-              PWD,
-              model,
-              approvalPolicy,
-              colorsByPolicy,
-              agent,
-              initialImagePaths,
-            }}
-            streamingMessage={loading && (renderedPartialContent || renderedPartialReasoning) ? {
-              role: "assistant",
-              content: (() => {
-                const content = renderedPartialContent;
-                // If reasoning is already embedded in content with tags, don't double wrap
-                if (content.includes("<thought>") || content.includes("<think>")) {
-                  return content;
-                }
-                return content + (renderedPartialReasoning ? `<thought>${renderedPartialReasoning}</thought>` : "");
-              })()
-            } : undefined}
-          />
-        ) : (
-          <Box>
-            <Text color="gray">Initializing agent…</Text>
-          </Box>
-        )}
+      {agent ? (
+        <TerminalMessageHistory
+          batch={lastMessageBatch}
+          groupCounts={groupCounts}
+          items={items}
+          userMsgCount={userMsgCount}
+          confirmationPrompt={confirmationPrompt}
+          loading={loading}
+          thinkingSeconds={thinkingSeconds}
+          fullStdout={fullStdout}
+          theme={activeTheme}
+          headerProps={{
+            terminalRows,
+            version: CLI_VERSION,
+            PWD,
+            model,
+            approvalPolicy,
+            colorsByPolicy,
+            agent,
+            initialImagePaths,
+          }}
+          streamingMessage={loading && (renderedPartialContent || renderedPartialReasoning) ? {
+            role: "assistant",
+            content: (() => {
+              const content = renderedPartialContent;
+              // If reasoning is already embedded in content with tags, don't double wrap
+              if (content.includes("<thought>") || content.includes("<think>")) {
+                return content;
+              }
+              return content + (renderedPartialReasoning ? `<thought>${renderedPartialReasoning}</thought>` : "");
+            })()
+          } : undefined}
+        />
+      ) : (
+        <Box>
+          <Text color="gray">Initializing agent…</Text>
+        </Box>
+      )}
 
-        {overlayMode === "none" && agent && (
-          <TerminalChatInput
-            loading={loading}
-            setItems={setItems}
-            isNew={Boolean(items.length === 0)}
-            setPrevItems={setPrevItems}
-            confirmationPrompt={confirmationPrompt}
-            submitConfirmation={(
-              decision: ReviewDecision,
-              customDenyMessage?: string,
-            ) =>
-              submitConfirmation({
-                decision,
-                customDenyMessage,
-              })
+      {overlayMode === "none" && agent && (
+        <TerminalChatInput
+          loading={loading}
+          setItems={setItems}
+          isNew={Boolean(items.length === 0)}
+          setPrevItems={setPrevItems}
+          confirmationPrompt={confirmationPrompt}
+          submitConfirmation={(
+            decision: ReviewDecision,
+            customDenyMessage?: string,
+          ) =>
+            submitConfirmation({
+              decision,
+              customDenyMessage,
+            })
+          }
+          openOverlay={() => setOverlayMode("history")}
+          openHistorySelectOverlay={() => setOverlayMode("history-select")}
+          openModelOverlay={() => setOverlayMode("model")}
+          openApprovalOverlay={() => setOverlayMode("approval")}
+          openMemoryOverlay={() => setOverlayMode("memory")}
+          openHelpOverlay={() => setOverlayMode("help")}
+          openConfigOverlay={() => setOverlayMode("config")}
+          openPromptOverlay={() => setOverlayMode("prompt")}
+          openPromptsOverlay={() => setOverlayMode("prompts")}
+          onPin={(path) => {
+            setConfig((prev) => ({
+              ...prev,
+              pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
+            }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Pinned file: ${path}`,
+              },
+            ]);
+          }}
+          onUnpin={(path) => {
+            setConfig((prev) => ({
+              ...prev,
+              pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
+            }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Unpinned file: ${path}`,
+              },
+            ]);
+          }}
+          interruptAgent={() => {
+            if (!agent) {
+              return;
             }
-            openOverlay={() => setOverlayMode("history")}
-            openHistorySelectOverlay={() => setOverlayMode("history-select")}
-            openModelOverlay={() => setOverlayMode("model")}
-            openApprovalOverlay={() => setOverlayMode("approval")}
-            openMemoryOverlay={() => setOverlayMode("memory")}
-            openHelpOverlay={() => setOverlayMode("help")}
-            openConfigOverlay={() => setOverlayMode("config")}
-            openPromptOverlay={() => setOverlayMode("prompt")}
-            openPromptsOverlay={() => setOverlayMode("prompts")}
-            interruptAgent={() => {
-              if (!agent) {
-                return;
-              }
-              if (isLoggingEnabled()) {
-                log(
-                  "TerminalChat: interruptAgent invoked – calling agent.cancel()",
-                );
-              }
-              agent.cancel();
-              setLoading(false);
-            }}
-            active={overlayMode === "none"}
-            partialReasoning={partialReasoning}
-            activeToolName={activeToolName}
-            activeToolArguments={activeToolArguments}
-            submitInput={(inputs) => {
-              // If agent is not loading, run immediately. Otherwise, queue.
-              if (!loading) {
-                agent.run(inputs, prevItems);
-              } else {
-                setPromptQueue((prev) => [...prev, { inputs, prevItems }]);
-              }
-              return {};
-            }}
-            allowAlwaysPatch={config.allowAlwaysPatch}
-            awaitingContinueConfirmation={awaitingContinueConfirmation}
-          />
-        )}
+            if (isLoggingEnabled()) {
+              log(
+                "TerminalChat: interruptAgent invoked – calling agent.cancel()",
+              );
+            }
+            agent.cancel();
+            setLoading(false);
+          }}
+          active={overlayMode === "none"}
+          partialReasoning={partialReasoning}
+          activeToolName={activeToolName}
+          activeToolArguments={activeToolArguments}
+          submitInput={(inputs) => {
+            // If agent is not loading, run immediately. Otherwise, queue.
+            if (!loading) {
+              agent.run(inputs, prevItems);
+            } else {
+              setPromptQueue((prev) => [...prev, { inputs, prevItems }]);
+            }
+            return {};
+          }}
+          allowAlwaysPatch={config.allowAlwaysPatch}
+          awaitingContinueConfirmation={awaitingContinueConfirmation}
+        />
+      )}
 
-        {agent && (
-          <TerminalStatusBar
-            model={model}
-            provider={config.provider || "openai"}
-            contextLeftPercent={contextLeftPercent}
-            sessionId={agent.sessionId}
-            approvalPolicy={approvalPolicy}
-            theme={activeTheme}
-            queuedPromptsCount={promptQueue.length}
-          />
-        )}
+      {agent && (
+        <TerminalStatusBar
+          model={model}
+          provider={config.provider || "openai"}
+          contextLeftPercent={contextLeftPercent}
+          tokenBreakdown={calculateTokenBreakdown(items)}
+          sessionId={agent.sessionId}
+          approvalPolicy={approvalPolicy}
+          theme={activeTheme}
+          queuedPromptsCount={promptQueue.length}
+        />
+      )}
         {overlayMode === "history" && (
           <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} />
         )}
@@ -735,7 +764,6 @@ export default function TerminalChat({
         {overlayMode === "memory" && (
           <MemoryOverlay onExit={() => setOverlayMode("none")} />
         )}
-      </Box>
     </Box>
   );
 }
