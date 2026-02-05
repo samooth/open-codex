@@ -776,13 +776,6 @@ export default function TerminalChat({
         {overlayMode === "recipes" && (
           <RecipesOverlay
             onSelect={(recipe) => {
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "user",
-                  content: [{ type: "text", text: recipe.prompt }],
-                },
-              ]);
               agent?.run(
                 [
                   {
