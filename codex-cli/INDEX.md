@@ -7,6 +7,7 @@ This file provides a directory of all markdown (`.md`) files in this repository 
 - [README.md](README.md): The main documentation for OpenCodex CLI, including installation, quickstart, CLI reference, and configuration.
 - [TOOLS.md](TOOLS.md): Detailed explanation of the OpenCodex tooling architecture, how tools are registered, and executed.
 - [TODO.md](TODO.md): Roadmap of planned features and list of completed architectural improvements.
+- [SUBLIME.md](SUBLIME.md): Integration guide for using OpenCodex within Sublime Text.
 - [IMPROVE.md](IMPROVE.md): Tracks potential improvements, loop protection strategies, and session-level features.
 - [NEW_IMPROVEMENTS.md](NEW_IMPROVEMENTS.md): Detailed status update on recent UI and context management improvements.
 

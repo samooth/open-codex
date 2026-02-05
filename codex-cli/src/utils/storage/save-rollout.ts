@@ -134,3 +134,17 @@ export function saveRollout(items: Array<ChatCompletionMessageParam>): void {
     debounceTimer = null;
   }, 2000);
 }
+
+/**
+ * Immediately save any pending rollout items.
+ */
+export async function flushRollout(): Promise<void> {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  if (pendingItems) {
+    await saveRolloutToHomeSessions(pendingItems);
+    pendingItems = null;
+  }
+}

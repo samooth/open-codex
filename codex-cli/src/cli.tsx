@@ -25,12 +25,12 @@ import {
   INSTRUCTIONS_FILEPATH,
 } from "./utils/config";
 import { createInputItem } from "./utils/input-utils";
-import { preloadModels } from "./utils/model-utils.js";
 import {
   parseToolCallOutput,
   parseToolCallChatCompletion,
 } from "./utils/parsers";
-import { CLI_VERSION } from "./utils/session";
+import { CLI_VERSION, setSessionId } from "./utils/session";
+import { loadRollouts, loadRollout, flushRollout } from "./utils/storage/save-rollout";
 import { onExit, setInkRenderer } from "./utils/terminal";
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -38,6 +38,7 @@ import { render } from "ink";
 import meow from "meow";
 import path from "path";
 import React from "react";
+import { Readable } from "stream";
 
 // Call this early so `tail -F "$TMPDIR/open-codex/codex-cli-latest.log"` works
 // immediately. This must be run with DEBUG=1 for logging to work.
@@ -118,6 +119,11 @@ const cli = meow(
         type: "boolean",
         aliases: ["q"],
         description: "Non-interactive quiet mode",
+      },
+      json: {
+        type: "boolean",
+        aliases: ["j"],
+        description: "Output as JSON in quiet mode",
       },
       config: {
         type: "boolean",
@@ -263,7 +269,6 @@ const provider = cli.flags.provider;
     provider: provider,
   });
 
-const prompt = cli.input[0];
 const model = cli.flags.model;
 const imagePaths = cli.flags.image as Array<string> | undefined;
 const allowedCommands = (cli.flags.allow as Array<string>) || [];
@@ -282,9 +287,52 @@ config = {
   contextSize: cli.flags.contextSize ?? config.contextSize,
 };
 
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) {
+    return "";
+  }
+
+  return new Promise((resolve) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    
+    const onData = (chunk: string) => {
+      data += chunk;
+    };
+    
+    const onEnd = () => {
+      process.stdin.removeListener("data", onData);
+      resolve(data.trim());
+    };
+
+    process.stdin.on("data", onData);
+    process.stdin.on("end", onEnd);
+    
+    // Safety timeout for non-closed pipes
+    setTimeout(onEnd, 1000);
+  });
+}
+
+let prompt = cli.input.join(cli.input.length > 1 ? "\n\n" : " ");
+
+// In non-interactive mode, also check stdin for additional prompt content (e.g. IDE selection)
+if (
+  !process.stdin.isTTY &&
+  !cli.flags.view &&
+  !cli.flags.version &&
+  !cli.flags.help &&
+  cli.input[0] !== "completion"
+) {
+  const stdinPrompt = await readStdin();
+  if (stdinPrompt) {
+    // If we have both, separate them with double newlines
+    prompt = prompt ? `${prompt}\n\n${stdinPrompt}` : stdinPrompt;
+  }
+}
+
 // Check for updates after loading config
 // This is important because we write state file in the config dir
-await checkForUpdates().catch();
+checkForUpdates().catch();
 
 let rollout: AppRollout | undefined;
 
@@ -315,8 +363,32 @@ if (fullContextMode) {
 }
 
 // If we are running in --quiet mode, do that and exit.
-const quietMode = Boolean(cli.flags.quiet);
+//
+// Automatically enable quiet mode if standard input is not a TTY and a prompt
+// is provided. This allows OpenCodex to be used in non-interactive
+// environments like IDE build systems (e.g., Sublime Text) or shell pipes.
+const quietMode =
+  Boolean(cli.flags.quiet) || (!process.stdin.isTTY && Boolean(prompt));
 const fullStdout = Boolean(cli.flags.fullStdout);
+
+if (
+  !process.stdin.isTTY &&
+  !prompt &&
+  !cli.flags.view &&
+  !cli.flags.version &&
+  !cli.flags.help &&
+  cli.input[0] !== "completion"
+) {
+  // eslint-disable-next-line no-console
+  console.error(
+    "Error: Standard input is not a TTY and no prompt was provided.",
+  );
+  // eslint-disable-next-line no-console
+  console.error(
+    "Interactive mode requires a TTY. If you want to run in non-interactive mode, please provide a prompt.",
+  );
+  process.exit(1);
+}
 
 if (quietMode) {
   process.env["CODEX_QUIET_MODE"] = "1";
@@ -341,7 +413,9 @@ if (quietMode) {
     imagePaths: imagePaths || [],
     approvalPolicy: quietApprovalPolicy,
     config,
+    jsonMode: Boolean(cli.flags.json),
   });
+  await flushRollout();
   onExit();
   process.exit(0);
 }
@@ -366,7 +440,9 @@ const approvalPolicy: ApprovalPolicy =
     ? AutoApprovalMode.AUTO_EDIT
     : config.approvalMode || AutoApprovalMode.SUGGEST;
 
-preloadModels(config);
+if (process.stdin.isTTY) {
+  process.stdout.write("Loading OpenCodex...                    \r");
+}
 
 const instance = render(
   <App
@@ -379,14 +455,23 @@ const instance = render(
   />,
   {
     patchConsole: process.env["DEBUG"] ? false : true,
+    // Prevents "Raw mode is not supported" errors in non-TTY environments like IDE panels.
+    // We only enable stdin if it's a real TTY.
+    stdin: process.stdin.isTTY
+      ? process.stdin
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (new Readable({
+          read() {},
+        }) as any),
   },
 );
 setInkRenderer(instance);
 
 function formatChatCompletionMessageParamForQuietMode(
   item: ChatCompletionMessageParam,
+  jsonMode: boolean,
 ): string {
-  if (!PRETTY_PRINT) {
+  if (jsonMode) {
     return JSON.stringify(item);
   }
   const parts: Array<string> = [];
@@ -424,21 +509,35 @@ function formatChatCompletionMessageParamForQuietMode(
         prefix.push(`duration: ${metadata.duration_seconds}s`);
       }
       parts.push(
-        `command.stdout${
+        `[Tool Result]${
           prefix.length > 0 ? ` (${prefix.join(", ")})` : ""
         }\n${output}`,
       );
     } else {
-      parts.push(`${item.role}: ${content}`);
+      const roleLabel =
+        item.role === "assistant"
+          ? "Assistant"
+          : item.role === "user"
+          ? "User"
+          : item.role;
+      
+      let displayContent = content;
+      if (item.role === "user" && content.length > 200) {
+        const lines = content.split("\n");
+        const firstLine = lines[0]?.trim() || "";
+        displayContent = `${firstLine.slice(0, 100)}${firstLine.length > 100 ? "..." : ""} (${lines.length} lines, ${content.length} chars)`;
+      }
+      
+      parts.push(`[${roleLabel}] ${displayContent}`);
     }
   }
   if ("tool_calls" in item && item.tool_calls) {
     for (const toolCall of item.tool_calls) {
       const details = parseToolCallChatCompletion(toolCall);
       if (details) {
-        parts.push(`$ ${details.cmdReadableText}`);
+        parts.push(`$ Running ${details.cmdReadableText}...`);
       } else {
-        parts.push(`$ ${(toolCall as any).function.name}`);
+        parts.push(`$ Running ${(toolCall as any).function.name}...`);
       }
     }
   }
@@ -453,12 +552,34 @@ async function runQuietMode({
   imagePaths,
   approvalPolicy,
   config,
+  jsonMode,
 }: {
   prompt: string;
   imagePaths: Array<string>;
   approvalPolicy: ApprovalPolicy;
   config: AppConfig;
+  jsonMode: boolean;
 }): Promise<void> {
+  let prevItems: Array<ChatCompletionMessageParam> = [];
+
+  // Try to load the latest session to support multi-turn conversations
+  try {
+    const rollouts = await loadRollouts();
+    if (rollouts.length > 0 && rollouts[0]?.path) {
+      const latest = await loadRollout(rollouts[0].path);
+      if (latest) {
+        prevItems = latest.items;
+        if (latest.session?.id) {
+          setSessionId(latest.session.id);
+        }
+      }
+    }
+  } catch (err) {
+    if (isLoggingEnabled()) {
+      log(`[quiet-mode] Failed to load latest session: ${err}`);
+    }
+  }
+
   const agent = new AgentLoop({
     model: config.model,
     config: config,
@@ -466,7 +587,7 @@ async function runQuietMode({
     approvalPolicy,
     onItem: (item: ChatCompletionMessageParam) => {
       // eslint-disable-next-line no-console
-      console.log(formatChatCompletionMessageParamForQuietMode(item));
+      console.log(formatChatCompletionMessageParamForQuietMode(item, jsonMode));
     },
     onLoading: () => {
       /* intentionally ignored in quiet mode */
@@ -487,7 +608,7 @@ async function runQuietMode({
   });
 
   const inputItem = await createInputItem(prompt, imagePaths);
-  await agent.run([inputItem]);
+  await agent.run([inputItem], prevItems);
 }
 
 const exit = () => {

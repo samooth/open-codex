@@ -251,7 +251,7 @@ DEBUG=true open-codex
 
 You can integrate OpenCodex into your favorite text editor for a seamless workflow.
 
-- **Sublime Text**: Use build systems or the Terminus plugin to run Codex directly from your editor. See the [Sublime Text Integration Guide](codex-cli/SUBLIME.md) for details.
+- **Sublime Text**: Use build systems or the Terminus plugin to run Codex directly from your editor. See the [Sublime Text Integration Guide](SUBLIME.md) for details.
 
 ---
 
