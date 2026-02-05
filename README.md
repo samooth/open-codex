@@ -257,6 +257,10 @@ DEBUG=true open-codex
 
 You can integrate OpenCodex into your favorite text editor for a seamless workflow.
 
+### External Editor (Ctrl+E)
+
+You can hit `Ctrl+E` at any time while typing in the chat to open your current prompt in your system's default editor (defined by the `$EDITOR` environment variable, like Vim, Nano, or VS Code). This is ideal for writing long instructions or pasting large blocks of code.
+
 - **Sublime Text**: Use build systems or the Terminus plugin to run Codex directly from your editor. See the [Sublime Text Integration Guide](codex-cli/SUBLIME.md) for details.
 
 ---
