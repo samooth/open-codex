@@ -18,10 +18,10 @@ describe('flattenToolCalls', () => {
     const flattened = flattenToolCalls(toolCalls);
 
     expect(flattened).toHaveLength(2);
-    expect(flattened[0].function.name).toBe('read_file_lines');
-    expect(JSON.parse(flattened[0].function.arguments).path).toBe('file1.md');
-    expect(flattened[1].function.name).toBe('read_file_lines');
-    expect(JSON.parse(flattened[1].function.arguments).path).toBe('file2.md');
+    expect((flattened[0] as any).function.name).toBe('read_file_lines');
+    expect(JSON.parse((flattened[0] as any).function.arguments).path).toBe('file1.md');
+    expect((flattened[1] as any).function.name).toBe('read_file_lines');
+    expect(JSON.parse((flattened[1] as any).function.arguments).path).toBe('file2.md');
   });
 
   it('inherits name from parent if extracted call is generic', () => {
@@ -39,8 +39,8 @@ describe('flattenToolCalls', () => {
     const flattened = flattenToolCalls(toolCalls);
 
     expect(flattened).toHaveLength(2);
-    expect(flattened[0].function.name).toBe('read_file');
-    expect(flattened[1].function.name).toBe('read_file');
+    expect((flattened[0] as any).function.name).toBe('read_file');
+    expect((flattened[1] as any).function.name).toBe('read_file');
   });
 
   it('does not split valid single JSON object', () => {
@@ -84,9 +84,9 @@ describe('flattenToolCalls', () => {
     const flattened = flattenToolCalls(toolCalls);
 
     expect(flattened).toHaveLength(3);
-    expect(flattened[0].function.name).toBe('ls');
-    expect(flattened[1].function.name).toBe('read_file');
-    expect(flattened[2].function.name).toBe('read_file');
+    expect((flattened[0] as any).function.name).toBe('ls');
+    expect((flattened[1] as any).function.name).toBe('read_file');
+    expect((flattened[2] as any).function.name).toBe('read_file');
   });
 
   it('normalizes concatenated tool calls with command alias', () => {
@@ -104,13 +104,13 @@ describe('flattenToolCalls', () => {
     const flattened = flattenToolCalls(toolCalls);
     expect(flattened).toHaveLength(2);
     
-    const args1 = JSON.parse(flattened[0].function.arguments);
+    const args1 = JSON.parse((flattened[0] as any).function.arguments);
     expect(args1).toHaveProperty('cmd');
     expect(args1.cmd).toEqual(['ls']);
     // verify 'command' property is removed/normalized away
     expect(args1).not.toHaveProperty('command');
 
-    const args2 = JSON.parse(flattened[1].function.arguments);
+    const args2 = JSON.parse((flattened[1] as any).function.arguments);
     expect(args2).toHaveProperty('cmd');
     expect(args2.cmd).toEqual(['pwd']);
   });

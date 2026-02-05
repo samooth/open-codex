@@ -64,6 +64,7 @@ export async function handleFunctionCall(
       : (toolCall as any).arguments;
 
     const callId: string = (toolCall as any).id || (toolCall as any).call_id;
+    const thought_signature: string | undefined = (toolCall as any).thought_signature;
 
     const toolCallKey = `${name}:${rawArguments}`;
     const history = toolCallHistory.get(toolCallKey) || { count: 0 };
@@ -270,6 +271,9 @@ export async function handleFunctionCall(
     }
 
     outputItem.content = JSON.stringify({ output: outputText, metadata });
+    if (thought_signature) {
+      (outputItem as any).thought_signature = thought_signature;
+    }
 
     // Update history for loop detection
     if (metadata["exit_code"] !== 0) {
@@ -289,6 +293,11 @@ export async function handleFunctionCall(
 
     const callResults: Array<ChatCompletionMessageParam> = [outputItem];
     if (additionalItems) {
+      if (thought_signature) {
+        for (const item of additionalItems) {
+          (item as any).thought_signature = thought_signature;
+        }
+      }
       callResults.push(...additionalItems);
     }
     return callResults;

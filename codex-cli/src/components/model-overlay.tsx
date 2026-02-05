@@ -5,6 +5,7 @@ import {
   getAvailableModels,
   RECOMMENDED_MODELS,
 } from "../utils/model-utils.js";
+import { log, isLoggingEnabled } from "../utils/agent/log.js";
 import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 
@@ -37,7 +38,13 @@ export default function ModelOverlay({
 
   useEffect(() => {
     (async () => {
+      if (isLoggingEnabled()) {
+        log(`[codex] ModelOverlay: fetching models for provider ${config.provider}`);
+      }
       const models = await getAvailableModels(config);
+      if (isLoggingEnabled()) {
+        log(`[codex] ModelOverlay: received ${models.length} models`);
+      }
 
       // Split the list into recommended and “other” models.
       const recommended = RECOMMENDED_MODELS.filter((m) => models.includes(m));
@@ -45,14 +52,19 @@ export default function ModelOverlay({
 
       const ordered = [...recommended, ...others.sort()];
 
-      setItems(
-        ordered.map((m) => ({
-          label: recommended.includes(m) ? `⭐ ${m}` : m,
-          value: m,
-        })),
-      );
+      const newItems = ordered.map((m) => ({
+        label: recommended.includes(m) ? `⭐ ${m}` : m,
+        value: m,
+      }));
+
+      if (newItems.length === 0) {
+        // Fallback: always include at least the current model
+        newItems.push({ label: `(current) ${currentModel}`, value: currentModel });
+      }
+
+      setItems(newItems);
     })();
-  }, [config]);
+  }, [config, currentModel]);
 
   // ---------------------------------------------------------------------------
   // If the conversation already contains a response we cannot change the model

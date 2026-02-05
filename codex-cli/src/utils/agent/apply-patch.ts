@@ -11,7 +11,7 @@ import {
   PATCH_SUFFIX,
   UPDATE_FILE_PREFIX,
   HUNK_ADD_LINE_PREFIX,
-  PATCH_PREFIX,
+  PATCH_PREFIX as _PATCH_PREFIX,
 } from "src/parse-apply-patch";
 
 // -----------------------------------------------------------------------------
@@ -583,7 +583,7 @@ export function identify_files_added(text: string): Array<string> {
 function _get_updated_file(
   text: string,
   action: PatchAction,
-  path: string,
+  _path: string,
 ): string {
   if (action.type !== ActionType.UPDATE) {
     throw new Error("Expected UPDATE action");

@@ -20,7 +20,7 @@ test("handleExecCommand returns dry run message when dryRun is enabled", async (
   );
 
   expect(result.outputText).toContain("[Dry Run] Would execute: ls -la");
-  expect(result.metadata.dry_run).toBe(true);
+  expect((result.metadata as any).dry_run).toBe(true);
 });
 
 test("handleWriteFile returns dry run message when dryRun is enabled", async () => {
@@ -35,7 +35,7 @@ test("handleWriteFile returns dry run message when dryRun is enabled", async () 
     execAbortController: new AbortController(),
     getCommandConfirmation: async () => ({ review: ReviewDecision.YES }),
     onItem: vi.fn(),
-  };
+  } as any;
 
   const result = await handleWriteFile(ctx, JSON.stringify({
     path: "test.txt",
@@ -43,5 +43,5 @@ test("handleWriteFile returns dry run message when dryRun is enabled", async () 
   }));
 
   expect(result.outputText).toContain("[Dry Run] Would write 11 characters to test.txt");
-  expect(result.metadata.dry_run).toBe(true);
+  expect((result.metadata as any).dry_run).toBe(true);
 });

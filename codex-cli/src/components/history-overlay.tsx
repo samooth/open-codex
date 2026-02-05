@@ -125,7 +125,9 @@ export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
             );
           })
         ) : (
-          <Text color="yellow" paddingLeft={2}>No matches found.</Text>
+          <Box paddingLeft={2}>
+            <Text color="yellow">No matches found.</Text>
+          </Box>
         )}
       </Box>
       <Box paddingX={1}>

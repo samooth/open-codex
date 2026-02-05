@@ -34,11 +34,11 @@ export const OPENAI_TIMEOUT_MS =
   parseInt(process.env["OPENAI_TIMEOUT_MS"] || "0", 10) || undefined;
   
 export function getDefaultProvider(): string {
-  if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
-    return "google";
-  }
   if (process.env["OPENAI_API_KEY"]) {
     return "openai";
+  }
+  if (process.env["GEMINI_API_KEY"]) {
+    return "google";
   }
   if (process.env["OLLAMA_BASE_URL"]) {
     return "ollama";
@@ -74,8 +74,8 @@ function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string,
       break;
     case "gemini":
     case "google":
-      if (process.env["GOOGLE_GENERATIVE_AI_API_KEY"]) {
-        return process.env["GOOGLE_GENERATIVE_AI_API_KEY"];
+      if (process.env["GEMINI_API_KEY"]) {
+        return process.env["GEMINI_API_KEY"];
       }
       reportMissingAPIKeyForProvider(provider);
       process.exit(1);
@@ -162,8 +162,8 @@ function defaultModelsForProvider(provider: string): {
     case "gemini":
     case "google":
       return {
-        agentic: "gemini-3-flash-preview",
-        fullContext: "gemini-3-flash-preview",
+        agentic: "gemini-2.5-flash",
+        fullContext: "gemini-2.5-flash",
       };
     case "ollama":
       return {
@@ -376,7 +376,6 @@ export const loadInstructions = (
 
   let projectDoc = "";
   let projectDocPath: string | null = null;
-  let memoryContent = "";
   if (shouldLoadProjectDoc) {
     const cwd = options.cwd ?? process.cwd();
     projectDoc = loadProjectDoc(cwd, options.projectDocPath);
@@ -384,18 +383,6 @@ export const loadInstructions = (
       ? resolvePath(cwd, options.projectDocPath)
       : discoverProjectDocPath(cwd);
     
-    // Load project memory
-    if (!options.skipMemory) {
-      const memoryPath = join(cwd, ".codex", "memory.md");
-      if (existsSync(memoryPath)) {
-        try {
-          memoryContent = readFileSync(memoryPath, "utf-8");
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
     if (projectDocPath) {
       if (isLoggingEnabled()) {
         log(

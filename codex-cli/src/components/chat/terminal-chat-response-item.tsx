@@ -107,8 +107,10 @@ export default React.memo(TerminalChatResponseItem);
 
 export function TerminalChatResponseReasoning({
   message,
+  theme,
 }: {
   message: ResponseReasoningItem & { duration_ms?: number };
+  theme: Theme;
 }): React.ReactElement | null {
   // prefer the real duration if present
   const thinkingTime = message.duration_ms
@@ -138,18 +140,13 @@ export function TerminalChatResponseReasoning({
         return (
           <Box key={key} flexDirection="column">
             {s.headline && <Text bold>{s.headline}</Text>}
-            <Markdown>{s.text}</Markdown>
+            <Markdown theme={theme}>{s.text}</Markdown>
           </Box>
         );
       })}
     </Box>
   );
 }
-
-const colorsByRole: Record<string, ForegroundColorName> = {
-  assistant: "magentaBright",
-  user: "blueBright",
-};
 
 const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMessage({
   message,
@@ -272,8 +269,8 @@ const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMess
 
 function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   const details = parseToolCallChatCompletion(message);
-  const toolName = message.function?.name || "";
-  const rawArgs = message.function?.arguments || "{}";
+  const toolName = (message as any).function?.name || "";
+  const rawArgs = (message as any).function?.arguments || "{}";
 
   let args: any = {};
   try {
@@ -385,191 +382,381 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
 });
 
 const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatResponseToolCallOutput({
+
   content,
+
   fullStdout,
+
   toolCall,
+
   theme,
+
 }: {
+
   content: string;
+
   fullStdout: boolean;
+
   toolCall?: ChatCompletionMessageToolCall;
+
   theme: Theme;
+
 }) {
+
+  const size = useTerminalSize();
+
   const { output, metadata } = parseToolCallOutput(content);
+
   const { exit_code, duration_seconds, working_directory, type, url, query } =
+
     metadata as any;
+
+
+
   const isDebug =
+
     process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
+
   const isError = exit_code !== 0 && typeof exit_code !== "undefined";
 
+
+
   const {
+
     label: callLabel,
+
     icon,
+
     summary,
+
     toolName,
+
   } = useMemo(() => {
+
     if (toolCall) {
+
       return getToolDisplayInfo(toolCall);
+
     }
+
     return {
+
       label: "command",
+
       icon: "⚙️",
+
       summary: "",
+
       toolName: "",
+
     };
+
   }, [toolCall]);
 
+
+
   const metadataInfo = useMemo(
+
     () =>
+
       [
+
         typeof exit_code !== "undefined" ? `code: ${exit_code}` : "",
+
         typeof duration_seconds !== "undefined"
+
           ? `duration: ${duration_seconds}s`
+
           : "",
+
         working_directory ? `pwd: ${working_directory}` : "",
+
       ]
+
         .filter(Boolean)
+
         .join(", "),
+
     [exit_code, duration_seconds, working_directory],
+
   );
+
+
 
   let label = "command.stdout";
+
   let labelColor: ForegroundColorName = theme.toolLabel;
+
   let headerContent: string | undefined;
 
+
+
   if (type === "web_fetch") {
+
     label = "web.fetch";
+
     labelColor = theme.highlight;
+
     headerContent = url;
+
   } else if (type === "web_search") {
+
     label = "web.search";
+
     labelColor = theme.highlight;
+
     headerContent = `query: ${query}`;
+
   }
+
+
 
   let displayedContent = output;
+
   if (!fullStdout) {
+
     const lines = displayedContent.split("\n");
+
     if (lines.length > 4) {
+
       const head = lines.slice(0, 4);
+
       const remaining = lines.length - 4;
+
       displayedContent = [...head, `... (${remaining} more lines)`].join("\n");
+
     }
+
   }
 
+
+
   // -------------------------------------------------------------------------
+
   // Syntax Highlighting
+
   // -------------------------------------------------------------------------
+
   const colorizedContent = useMemo(() => {
+
     let language: string | undefined;
 
+
+
     if (toolName === "search_codebase" || toolName === "semantic_search") {
+
       language = "json";
+
     } else if (
+
       toolName === "read_file" ||
+
       toolName === "read_file_lines" ||
+
       toolName === "write_file"
+
     ) {
+
       try {
-        const args = JSON.parse(toolCall?.function.arguments || "{}");
+
+        const args = JSON.parse((toolCall as any)?.function.arguments || "{}");
+
         const filePath = args.path || "";
+
         const extension = filePath.split(".").pop()?.toLowerCase();
+
         if (extension) {
+
           // Map common extensions to highlight.js names if needed, 
+
           // but cli-highlight/highlight.js usually handles them well.
+
           language = extension;
+
         }
+
       } catch {
+
         /* ignore */
+
       }
+
     }
+
+
 
     if (language) {
+
       try {
+
         return highlight(displayedContent, {
+
           language,
+
           ignoreIllegals: true,
+
         });
+
       } catch {
+
         /* fallback to regular colorization */
+
       }
+
     }
 
+
+
     // -------------------------------------------------------------------------
+
     // Fallback: Colorize diff output: lines starting with '-' in red, '+' in green.
+
     // -------------------------------------------------------------------------
+
     return displayedContent
+
       .split("\n")
+
       .map((line) => {
+
         if (line.startsWith("+") && !line.startsWith("++")) {
+
           return chalk.green(line);
+
         }
+
         if (line.startsWith("-") && !line.startsWith("--")) {
+
           return chalk.red(line);
+
         }
+
         return line;
+
       })
+
       .join("\n");
+
   }, [displayedContent, toolName, toolCall]);
 
+
+
   return (
-    <Box
-      flexDirection="column"
-      gap={0}
-      borderStyle="round"
-      borderColor={isError ? theme.error : theme.dim}
-      paddingX={1}
-      marginY={1}
-      width="100%"
-    >
-      {toolCall && (
-        <Box gap={1}>
-          <Text color={theme.toolIcon} bold>
-            {icon}
-          </Text>
-          <Text color={theme.toolLabel} bold>
-            {callLabel}
-          </Text>
-          <Text color={theme.dim}>{summary}</Text>
-        </Box>
-      )}
 
-      {(isError || isDebug) && toolCall && (
-        <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
-          <Text bold color={isError ? theme.error : theme.dim}>
-            {isError ? "❌ Tool Call Failed" : "🔍 Tool Call Details"}
-          </Text>
-          <Box gap={1}>
-            <Text bold color={theme.dim}>tool:</Text>
-            <Text color={theme.dim}>{toolCall.function.name}</Text>
-          </Box>
-          <Box gap={1}>
-            <Text bold color={theme.dim}>arguments:</Text>
-            <Text color={theme.dim}>{toolCall.function.arguments}</Text>
-          </Box>
-        </Box>
-      )}
+        <Box
 
-      <Box gap={1} marginTop={toolCall ? 1 : 0}>
-        <Text color={labelColor} bold>
-          {label}
-        </Text>
-        <Text color={theme.dim}>{metadataInfo ? `(${metadataInfo})` : ""}</Text>
-      </Box>
-      {headerContent && (
-        <Box marginBottom={0}>
-          <Text italic color={theme.highlight}>
-            {headerContent}
-          </Text>
+          flexDirection="column"
+
+          gap={0}
+
+          borderStyle="round"
+
+          borderColor={isError ? theme.error : theme.dim}
+
+          paddingX={1}
+
+          marginY={1}
+
+          width={size.columns - 4}
+
+        >
+
+          {toolCall && (
+
+            <Box gap={1}>
+
+              <Text color={theme.toolIcon} bold>
+
+                {icon}
+
+              </Text>
+
+              <Text color={theme.toolLabel} bold>
+
+                {callLabel}
+
+              </Text>
+
+              <Text color={theme.dim} wrap="wrap">{summary}</Text>
+
+            </Box>
+
+          )}
+
+    
+
+          {(isError || isDebug) && toolCall && (
+
+            <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
+
+              <Text bold color={isError ? theme.error : theme.dim}>
+
+                {isError ? "❌ Tool Call Failed" : "🔍 Tool Call Details"}
+
+              </Text>
+
+                            <Box gap={1}>
+
+                              <Text bold color={theme.dim}>tool:</Text>
+
+                              <Text color={theme.dim}>{(toolCall as any).function.name}</Text>
+
+                            </Box>
+
+                            <Box gap={1}>
+
+                              <Text bold color={theme.dim}>arguments:</Text>
+
+                              <Text color={theme.dim} wrap="wrap">{(toolCall as any).function.arguments}</Text>
+
+                            </Box>
+
+            </Box>
+
+          )}
+
+    
+
+          <Box gap={1} marginTop={toolCall ? 1 : 0}>
+
+            <Text color={labelColor} bold wrap="wrap">
+
+              {label}
+
+            </Text>
+
+            <Text color={theme.dim} wrap="wrap">{metadataInfo ? `(${metadataInfo})` : ""}</Text>
+
+          </Box>
+
+          {headerContent && (
+
+            <Box marginBottom={0}>
+
+              <Text italic color={theme.highlight} wrap="wrap">
+
+                {headerContent}
+
+              </Text>
+
+            </Box>
+
+          )}
+
+          <Box marginTop={1}>
+
+            <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
+
+              {colorizedContent}
+
+            </Text>
+
+          </Box>
+
         </Box>
-      )}
-      <Box marginTop={1}>
-        <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined}>
-          {colorizedContent}
-        </Text>
-      </Box>
-    </Box>
+
   );
+
 });
 
 export function TerminalChatResponseGenericMessage({
@@ -616,7 +803,7 @@ function TerminalChatResponseToolBatch({
             const { icon, label, summary } = toolCall
               ? getToolDisplayInfo(toolCall)
               : { icon: "⚙️", label: "tool", summary: "" };
-            const { metadata } = parseToolCallOutput(item.content as string);
+            const { metadata } = parseToolCallOutput((item as any).content as string);
             const isError =
               metadata.exit_code !== 0 && typeof metadata.exit_code !== "undefined";
 
@@ -694,7 +881,7 @@ export function Markdown({
             middle: "│",
           },
         },
-      }),
+      } as any),
     });
     const parsed = parse(children, { async: false }).trim();
 

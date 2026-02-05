@@ -42,8 +42,6 @@ const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
   10,
 );
 
-const alreadyProcessedResponses = new Set();
-
 export class AgentLoop {
   private model: string;
   private instructions?: string;
@@ -272,7 +270,7 @@ export class AgentLoop {
 
 
 
-    this.semanticMemory = new SemanticMemory(this.oai, this.config.provider, this.config.embeddingModel);
+    this.semanticMemory = new SemanticMemory(this.oai, this.config.provider, this.config.embeddingModel, this.config.apiKey);
 
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
@@ -772,7 +770,7 @@ export class AgentLoop {
             const delta = chunk?.choices?.[0]?.delta;
             const content = delta?.content;
             const reasoning = (delta as any)?.reasoning_content;
-            const tool_call = delta?.tool_calls?.[0];
+            const tool_calls = delta?.tool_calls;
             const thought_signature = (chunk?.choices?.[0] as any)?.thought_signature;
 
             if (
@@ -815,39 +813,43 @@ export class AgentLoop {
               if (thought_signature) {
                 (message as any).thought_signature = thought_signature;
               }
-              if (message && !message.tool_calls && tool_call) {
-                // @ts-expect-error FIXME
-                message.tool_calls = [tool_call];
-                if (tool_call.function?.name) {
-                  this.currentActiveToolName = tool_call.function.name;
+              
+              if (tool_calls) {
+                if (!message.tool_calls) {
+                  message.tool_calls = [];
                 }
-                if (tool_call.function?.arguments) {
-                  this.currentActiveToolRawArguments = tool_call.function.arguments;
-                }
-                if (thought_signature && message.tool_calls?.[0]) {
-                  (message.tool_calls[0] as any).thought_signature = thought_signature;
-                }
-              } else if (tool_call && message?.tool_calls) {
-                const tc = message.tool_calls[0] as any;
-                if (tc) {
+                
+                for (const tool_call of tool_calls) {
+                  const index = tool_call.index ?? 0;
+                  if (!message.tool_calls[index]) {
+                    message.tool_calls[index] = tool_call as any;
+                  } else {
+                    const tc = message.tool_calls[index] as any;
+                    if (tool_call.function?.name) {
+                      tc.function.name = (tc.function.name || "") + tool_call.function.name;
+                    }
+                    if (tool_call.function?.arguments) {
+                      tc.function.arguments = (tc.function.arguments || "") + tool_call.function.arguments;
+                    }
+                  }
+                  
+                  if (thought_signature) {
+                    (message.tool_calls[index] as any).thought_signature = thought_signature;
+                  }
+                  
+                  if (tool_call.id) {
+                    this.pendingAborts.add(tool_call.id);
+                  }
+                  
+                  // Update active tool info for UI (last tool call in chunk)
                   if (tool_call.function?.name) {
-                    if (!tc.function) tc.function = { name: "", arguments: "" };
-                    tc.function.name = (tc.function.name || "") + tool_call.function.name;
-                    this.currentActiveToolName = tc.function.name;
+                    this.currentActiveToolName = tool_call.function.name;
                   }
                   if (tool_call.function?.arguments) {
-                    if (!tc.function) tc.function = { name: "", arguments: "" };
-                    tc.function.arguments = (tc.function.arguments || "") + tool_call.function.arguments;
-                    this.currentActiveToolRawArguments = tc.function.arguments;
-                  }
-                  if (thought_signature) {
-                    tc.thought_signature = thought_signature;
+                    this.currentActiveToolRawArguments = tool_call.function.arguments;
                   }
                 }
               }
-            }
-            if (tool_call?.id) {
-              this.pendingAborts.add(tool_call.id);
             }
             const finish_reason = chunk?.choices?.[0]?.finish_reason;
             if (finish_reason) {
@@ -1179,10 +1181,6 @@ export class AgentLoop {
     const turnInput: Array<ChatCompletionMessageParam> = [];
     for (const item of output) {
       if (item.role === "tool") {
-        if (alreadyProcessedResponses.has(item.tool_call_id)) {
-          continue;
-        }
-        alreadyProcessedResponses.add(item.tool_call_id);
         const ctx: AgentContext = {
           config: this.config,
           approvalPolicy: this.approvalPolicy,

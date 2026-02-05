@@ -1,3 +1,4 @@
+// @ts-ignore
 import { parseMultipleJSON } from "./parse_multiple_json.js";
 
 /**
@@ -6,6 +7,7 @@ import { parseMultipleJSON } from "./parse_multiple_json.js";
  * @returns Parsed objects with error handling
  */
 function parseMultipleJsonObjects(input: string) {
+  // @ts-ignore
   const result = parseMultipleJSON(input, { strict: false });
   return result.objects;
 }
@@ -103,7 +105,7 @@ export function parseToolCallChatCompletion(
       cmdReadableText: toolCall.function.arguments,
     };
   }
-  if (result.args) {
+  if (!result.multiCall && result.args) {
     const cmd = result.args.cmd;
     if (cmd) {
       const cmdReadableText = formatCommandForDisplay(cmd);
@@ -133,7 +135,7 @@ export function parseToolCall(
     };
   }
 
-  if (result.args) {
+  if (!result.multiCall && result.args) {
     const cmd = result.args.cmd;
     if (cmd) {
       const cmdReadableText = formatCommandForDisplay(cmd);
@@ -266,7 +268,7 @@ export function parseToolCallArguments(
   if (jsonStrings.length === 1) {
     // Single object that failed initial parse (malformed)
     try {
-      const json = JSON.parse(jsonStrings[0]);
+      const json = JSON.parse(jsonStrings[0]!);
       return validateAndBuildResult(json);
     } catch (err) {
       return {
@@ -288,14 +290,16 @@ export function parseToolCallArguments(
         return result; // Return first validation error
       }
 
-      // Handle both single and multi-call results
-      if (result.multiCall && result.results) {
-        results.push(...result.results);
-      } else {
-        results.push({
-          args: result.args,
-          data: result.data,
-        });
+      if (result.success) {
+        // Handle both single and multi-call results
+        if (result.multiCall) {
+          results.push(...result.results);
+        } else {
+          results.push({
+            args: result.args,
+            data: result.data,
+          });
+        }
       }
     } catch (err) {
       return {
@@ -317,8 +321,9 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   const result = ToolCallArgsSchema.safeParse(json);
 
   if (!result.success) {
+    // @ts-ignore
     const errorMsg = result.error.errors
-      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .map((e: any) => `${e.path.join('.')}: ${e.message}`)
       .join('; ');
     return {
       success: false,
@@ -357,7 +362,7 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   return {
     success: true,
     data: data,
-  };
+  } as ParsedToolCallResult;
 }
 
 /**
@@ -396,7 +401,7 @@ export function tryExtractToolCallsFromContent(
           id: `call_mb_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
           type: "function",
           function: normalized,
-        });
+        } as any);
         continue;
       }
     } catch {
@@ -408,7 +413,7 @@ export function tryExtractToolCallsFromContent(
       const result = parseToolCallArguments(
         JSON.stringify({ cmd: blockContent }),
       );
-      if (result.success && result.args) {
+      if (result.success && !result.multiCall && result.args) {
         toolCalls.push({
           id: `call_mb_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
           type: "function",
@@ -418,7 +423,7 @@ export function tryExtractToolCallsFromContent(
               cmd: result.args.cmd,
             }),
           },
-        });
+        } as any);
       }
     }
   }
@@ -441,7 +446,7 @@ export function tryExtractToolCallsFromContent(
             id: `call_multi_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
             type: "function",
             function: normalized,
-          });
+          } as any);
         }
       } catch {
         // Skip invalid JSON
@@ -486,7 +491,7 @@ export function tryExtractToolCallsFromContent(
                   }`,
                   type: "function",
                   function: normalized,
-                });
+                } as any);
               }
             }
           }
@@ -503,7 +508,7 @@ export function tryExtractToolCallsFromContent(
   while ((match = patchRegex.exec(content)) !== null) {
     const patchText = match[0];
     // Avoid duplicates if this was already captured by JSON or Code Block logic
-    if (toolCalls.some((tc) => tc.function.arguments.includes(patchText))) {
+    if (toolCalls.some((tc) => (tc as any).function?.arguments?.includes(patchText))) {
       continue;
     }
 
@@ -518,7 +523,7 @@ export function tryExtractToolCallsFromContent(
           cmd: ["apply_patch", patchText],
         }),
       },
-    });
+    } as any);
   }
 
   return toolCalls;
@@ -539,7 +544,11 @@ export function flattenToolCalls(
       continue;
     }
 
-    const args = tc.function.arguments;
+    const args = (tc as any).function?.arguments;
+    if (!args) {
+      result.push(tc);
+      continue;
+    }
 
     // Heuristic: concatenated JSON objects usually have "}{"
     if (!args.trim().includes("}{")) {
@@ -563,8 +572,8 @@ export function flattenToolCalls(
 
         if (normalized) {
           // If the extracted call has a generic 'shell' name but parent has specific name, inherit it
-          const toolName = (normalized.name === "shell" && tc.function.name && tc.function.name !== "shell") 
-            ? tc.function.name 
+          const toolName = (normalized.name === "shell" && (tc as any).function.name && (tc as any).function.name !== "shell") 
+            ? (tc as any).function.name 
             : normalized.name;
 
           result.push({
@@ -574,7 +583,8 @@ export function flattenToolCalls(
               name: toolName,
               arguments: normalized.arguments,
             },
-          });
+            ...((tc as any).thought_signature ? { thought_signature: (tc as any).thought_signature } : {}),
+          } as any);
         }
       } catch {
         // If parsing fails for this segment, skip it or add original?
@@ -626,7 +636,7 @@ function normalizeJsonToolCall(
     }
 
     const result = parseToolCallArguments(argsStr);
-    if (result.success) {
+    if (result.success && !result.multiCall) {
       const parsedArgs = result.args;
       if (!parsedArgs) {
         // If it's a known tool name but failed to construct ExecInput args,
@@ -649,7 +659,7 @@ function normalizeJsonToolCall(
   // Case 2: Direct command or arguments without name
   else if (json.cmd || json.command || json.patch || json.path || json.pattern || json.query || json.fact || json.depth) {
     const result = parseToolCallArguments(rawStr);
-    if (result.success) {
+    if (result.success && !result.multiCall) {
       // Infer tool name
       let toolName = "shell";
       if (json.pattern) {
@@ -704,8 +714,8 @@ function toStringArray(obj: unknown): Array<string> | undefined {
     if (arrayOfStrings.length === 1) {
       const first = arrayOfStrings[0];
       if (first && first.includes(" ")) {
-        const tokens = parse(first, (key) => `$${key}`);
-        if (tokens.some((t) => typeof t === "object" && "op" in t)) {
+        const tokens = parse(first, {} as Record<string, string>);
+        if (tokens.some((t) => typeof t === "object" && "op" in (t as any))) {
           // If it has operators, keep it as a single string
           return [first];
         }
@@ -716,8 +726,8 @@ function toStringArray(obj: unknown): Array<string> | undefined {
     }
     return arrayOfStrings;
   } else if (typeof obj === "string") {
-    const tokens = parse(obj, (key) => `$${key}`);
-    if (tokens.some((t) => typeof t === "object" && "op" in t)) {
+    const tokens = parse(obj, {} as Record<string, string>);
+    if (tokens.some((t) => typeof t === "object" && "op" in (t as any))) {
       // If it has operators, keep it as a single string
       return [obj];
     }

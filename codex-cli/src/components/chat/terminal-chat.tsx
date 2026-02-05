@@ -13,6 +13,7 @@ import {
 } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
 import TerminalStatusBar from "./terminal-status-bar.js";
+import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
@@ -84,6 +85,7 @@ export default function TerminalChat({
     reasoning: "",
     activeToolName: undefined as string | undefined,
     activeToolArguments: undefined as Record<string, any> | undefined,
+    activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
   });
 
   // Throttled state for rendering to avoid flickering
@@ -92,6 +94,7 @@ export default function TerminalChat({
     reasoning: "",
     activeToolName: undefined as string | undefined,
     activeToolArguments: undefined as Record<string, any> | undefined,
+    activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
   });
 
   useInterval(() => {
@@ -99,7 +102,8 @@ export default function TerminalChat({
       renderedPartialData.content !== partialDataRef.current.content ||
       renderedPartialData.reasoning !== partialDataRef.current.reasoning ||
       renderedPartialData.activeToolName !== partialDataRef.current.activeToolName ||
-      renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments
+      renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments ||
+      renderedPartialData.activeBlockType !== partialDataRef.current.activeBlockType
     ) {
       setRenderedPartialData({ ...partialDataRef.current });
     }
@@ -217,13 +221,15 @@ export default function TerminalChat({
             partialDataRef.current.reasoning += reasoning;
           }
         } else if (content) {
-          // Extract <thought> or <think> content if present
-          const thoughtMatch = content.match(/<(thought|think)>([\s\S]*?)$|(<(thought|think)>[\s\S]*?<\/\4>)/g);
+          // Extract <thought>, <think>, or <plan> content if present
+          const thoughtMatch = content.match(/<(thought|think|plan)>([\s\S]*?)$|(<(thought|think|plan)>([\s\S]*?)<\/\4>)/g);
           if (thoughtMatch && thoughtMatch.length > 0) {
-             const lastThought = thoughtMatch[thoughtMatch.length - 1];
-             if (lastThought) {
-               const cleanThought = lastThought
-                 .replace(/<\/?(thought|think)>/g, "")
+             const lastMatch = thoughtMatch[thoughtMatch.length - 1];
+             if (lastMatch) {
+               const type = lastMatch.startsWith("<thought") ? "thought" : lastMatch.startsWith("<think") ? "think" : "plan";
+               partialDataRef.current.activeBlockType = type;
+               const cleanThought = lastMatch
+                 .replace(/<\/?(thought|think|plan)>/g, "")
                  .trim();
                if (cleanThought) {
                  partialDataRef.current.reasoning = cleanThought;
@@ -242,6 +248,7 @@ export default function TerminalChat({
           reasoning: "",
           activeToolName: undefined,
           activeToolArguments: undefined,
+          activeBlockType: undefined,
         };
         setRenderedPartialData({ ...partialDataRef.current });
 
@@ -304,6 +311,7 @@ export default function TerminalChat({
             reasoning: "",
             activeToolName: undefined,
             activeToolArguments: undefined,
+            activeBlockType: undefined,
           };
           setRenderedPartialData({ ...partialDataRef.current });
         }
@@ -320,6 +328,7 @@ export default function TerminalChat({
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
               applyPatch={applyPatch}
+              terminalRows={terminalRows}
             />,
           );
         return { review, customDenyMessage, applyPatch };
@@ -492,6 +501,7 @@ export default function TerminalChat({
                       openPromptOverlay={() => setOverlayMode("prompt")}
                       openPromptsOverlay={() => setOverlayMode("prompts")}
                       openRecipesOverlay={() => setOverlayMode("recipes")}
+                      openThemeOverlay={() => setOverlayMode("theme")}
                       onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
@@ -531,6 +541,7 @@ export default function TerminalChat({
           }}
           active={overlayMode === "none"}
           partialReasoning={renderedPartialData.reasoning}
+          activeBlockType={renderedPartialData.activeBlockType}
           activeToolName={renderedPartialData.activeToolName}
           activeToolArguments={renderedPartialData.activeToolArguments}
           submitInput={(inputs) => {

@@ -1,5 +1,6 @@
 import { renderTui } from "./ui-test-helpers.js";
 import TerminalChatResponseItem from "../src/components/chat/terminal-chat-response-item.js";
+import { themes } from "../src/utils/theme.js";
 import React from "react";
 import { describe, it, expect } from "vitest";
 
@@ -36,7 +37,7 @@ function assistantMessage(text: string) {
 describe("TerminalChatResponseItem", () => {
   it("renders a user message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={userMessage("Hello world")} />,
+      <TerminalChatResponseItem item={userMessage("Hello world")} theme={themes["default"]!} />,
     );
 
     const frame = lastFrameStripped();
@@ -46,7 +47,7 @@ describe("TerminalChatResponseItem", () => {
 
   it("renders an assistant message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={assistantMessage("Sure thing")} />,
+      <TerminalChatResponseItem item={assistantMessage("Sure thing")} theme={themes["default"]!} />,
     );
 
     const frame = lastFrameStripped();
@@ -76,7 +77,7 @@ describe("TerminalChatResponseItem", () => {
     toolCallMap.set("call_1", toolCall);
 
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} />,
+      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} theme={themes["default"]!} />,
     );
 
     const frame = lastFrameStripped();

@@ -152,15 +152,17 @@ export default function MemoryOverlay({ onExit }: Props): JSX.Element {
             const absIdx = firstVisible + idx;
             const selected = absIdx === cursor;
             return (
-              <Box key={absIdx}>
-                <Text color={selected ? "cyan" : undefined}>
-                  {selected ? "› " : "  "}
-                </Text>
-                <Box width={15}>
-                  <Text color="blue">[{entry.category}]</Text>
+              <Box key={absIdx} justifyContent="space-between">
+                <Box>
+                  <Text color={selected ? "cyan" : undefined}>
+                    {selected ? "› " : "  "}
+                  </Text>
+                  <Box width={15}>
+                    <Text color="blue">[{entry.category}]</Text>
+                  </Box>
+                  <Text color={selected ? "white" : "gray"}>{entry.fact}</Text>
                 </Box>
-                <Text color={selected ? "white" : "gray"}>{entry.fact}</Text>
-                <Box marginLeft="auto">
+                <Box>
                   <Text dimColor>[{entry.timestamp}]</Text>
                 </Box>
               </Box>

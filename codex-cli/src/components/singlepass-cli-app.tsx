@@ -398,7 +398,7 @@ export function SinglePassApp({
         baseURL: config.baseURL || "",
         timeout: OPENAI_TIMEOUT_MS,
       });
-      const chatResp = await openai.beta.chat.completions.parse({
+      const chatResp = await (openai.beta as any).chat.completions.parse({
         model: config.model,
         messages: [
           {

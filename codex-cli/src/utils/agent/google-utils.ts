@@ -1,4 +1,4 @@
-import type { ChatCompletionMessageParam, ChatCompletionChunk } from "openai/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import { randomUUID } from "node:crypto";
 
 export function mapOpenAiToGoogleMessages(
@@ -18,14 +18,16 @@ export function mapOpenAiToGoogleMessages(
 
     if (msg.role === "assistant") {
       const assistant = msg as any;
+      const thoughtSignature = assistant.thought_signature;
+
       if (assistant.reasoning_content) {
         parts.push({
           text: assistant.reasoning_content,
           thought: true,
+          // Propagate thought signature to the reasoning part if available
+          ...(thoughtSignature ? { thoughtSignature } : {})
         });
       }
-      
-      const thoughtSignature = assistant.thought_signature;
 
       if (msg.content && typeof msg.content === "string") {
         parts.push({ 
@@ -94,6 +96,8 @@ export function mapOpenAiToGoogleMessages(
           name,
           response,
         },
+        // If the tool message has a thought_signature, or we found one earlier, include it.
+        ...((msg as any).thought_signature ? { thoughtSignature: (msg as any).thought_signature } : {}),
       });
     }
 
@@ -163,6 +167,8 @@ export async function* googleToOpenAiStream(googleStream: any): AsyncGenerator<a
             name: part.functionCall.name,
             arguments: JSON.stringify(part.functionCall.args),
           },
+          // Ensure thought_signature is attached to the tool call delta if available
+          ...(lastThoughtSignature ? { thought_signature: lastThoughtSignature } : {}),
         });
       }
     }

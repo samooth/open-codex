@@ -1,7 +1,8 @@
 // Main runner file that orchestrates the agent loop execution
 // This file would contain the run method that was in the original agent-loop.ts
 
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+/*
 import { handleFunctionCall } from "./function-call-handler.js";
 import { 
   isErrorTimeout,
@@ -21,12 +22,13 @@ import {
 } from "./error-handling.js";
 import { tools } from "./tool-definitions.js";
 import { prefix } from "./system-prompt.js";
+*/
 
 // This would be the main run method implementation
 export async function runAgentLoop(
-  input: Array<ChatCompletionMessageParam>,
-  prevItems: Array<ChatCompletionMessageParam> = [],
-  agentLoopInstance: any // This would be the actual AgentLoop instance
+  _input: Array<ChatCompletionMessageParam>,
+  _prevItems: Array<ChatCompletionMessageParam> = [],
+  _agentLoopInstance: any // This would be the actual AgentLoop instance
 ): Promise<void> {
   // Implementation would go here - this is a placeholder for the actual logic
   // that was in the original run method

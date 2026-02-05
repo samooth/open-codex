@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
 import { join, dirname, relative } from "path";
 import { log } from "./log.js";
@@ -19,14 +20,16 @@ export class SemanticMemory {
   private memoryPath: string;
   private indexPath: string;
   private oai: OpenAI;
+  private genAI?: GoogleGenAI;
   private entries: VectorEntry[] = [];
-  private _provider: string;
   private embeddingModel: string | undefined;
 
-  constructor(oai: OpenAI, provider: string = "openai", embeddingModel?: string) {
+  constructor(oai: OpenAI, _provider: string = "openai", embeddingModel?: string, apiKey?: string) {
     this.oai = oai;
-    this._provider = provider;
     this.embeddingModel = embeddingModel;
+    if (_provider === "google" || _provider === "gemini") {
+      this.genAI = new GoogleGenAI({ apiKey: apiKey || "" });
+    }
     this.cachePath = join(process.cwd(), ".codex", "memory_embeddings.json");
     this.memoryPath = join(process.cwd(), ".codex", "memory.md");
     this.indexPath = join(process.cwd(), ".codex", "code_index.json");
@@ -99,10 +102,43 @@ export class SemanticMemory {
       return this.cache[text]!;
     }
 
+    if (this.genAI) {
+      const model = this.embeddingModel || "text-embedding-004";
+      if (process.env["DEBUG"] === "1") {
+        log(`    Fetching Google embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+        log(`    Model: ${model}`);
+      }
+      
+      try {
+        // Use the exact pattern provided: ai.models.embedContent({ model, contents: text })
+        const result = await (this.genAI as any).models.embedContent({
+          model,
+          contents: text
+        });
+        
+        // The user snippet logs result.embeddings. 
+        // We'll extract the values from the first embedding in the list or the single embedding field.
+        const embedding = result.embeddings?.[0]?.values || result.embedding?.values || (Array.isArray(result.embeddings) ? result.embeddings[0] : result.embeddings);
+        
+        if (!embedding) {
+          throw new Error("No embedding values found in response");
+        }
+        
+        this.cache[text] = embedding;
+        this.saveCache();
+        return embedding;
+      } catch (err) {
+        if (process.env["DEBUG"] === "1") {
+          log(`    Google embedding failed: ${err}`);
+        }
+        throw err;
+      }
+    }
+
     const model = this.embeddingModel || "text-embedding-3-small";
 
     if (process.env["DEBUG"] === "1") {
-      log(`    Fetching embedding from API for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+      log(`    Fetching OpenAI embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
       log(`[HTTP] Request: POST ${this.oai.baseURL}/embeddings`);
       log(`[HTTP] Model: ${model}, Input length: ${text.length}`);
     }
@@ -194,14 +230,28 @@ export class SemanticMemory {
 
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);
-        const relPath = relative(root, fullPath);
+        let relPath = relative(root, fullPath);
         
-        if (ig.ignores(relPath)) continue;
+        // ignore library requires forward slashes and trailing slash for directories
+        let posixPath = relPath.replace(/\\/g, "/");
+        if (entry.isDirectory()) {
+          posixPath += "/";
+        }
+        
+        if (ig.ignores(posixPath)) {
+          if (process.env["DEBUG"] === "1") {
+            log(`    Ignoring: ${posixPath}`);
+          }
+          continue;
+        }
 
         if (entry.isDirectory()) {
           traverse(fullPath);
         } else if (entry.isFile()) {
           if (/\.(ts|tsx|js|jsx|py|md|txt|go|rs|c|cpp|h|java|sh|yaml|json)$/i.test(entry.name)) {
+            if (process.env["DEBUG"] === "1") {
+              log(`    Found: ${posixPath}`);
+            }
             files.push(fullPath);
           }
         }
@@ -247,14 +297,18 @@ export class SemanticMemory {
             log(`  Embedding chunk ${k + 1}/${chunks.length} (${chunk.length} chars)`);
           }
 
-          const embedding = await this.getEmbedding(textToEmbed);
-          
-          this.entries.push({
-            id: `${relPath}#${k}`,
-            path: relPath,
-            content: chunk,
-            embedding: embedding
-          });
+          try {
+            const embedding = await this.getEmbedding(textToEmbed);
+            
+            this.entries.push({
+              id: `${relPath}#${k}`,
+              path: relPath,
+              content: chunk,
+              embedding: embedding
+            });
+          } catch (chunkErr) {
+            log(`    Failed to embed chunk ${k} of ${relPath}: ${String(chunkErr)}`);
+          }
         }
       } catch (err) {
         log(`Failed to index file ${file}: ${String(err)}`);

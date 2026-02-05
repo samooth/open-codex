@@ -15,7 +15,7 @@ import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
 import { authorizeCommand } from "./utils/agent/handle-exec-command";
-import { initLogger } from "./utils/agent/log";
+import { initLogger, log, isLoggingEnabled } from "./utils/agent/log";
 import { ReviewDecision } from "./utils/agent/review";
 import { AutoApprovalMode } from "./utils/auto-approval-mode";
 import { checkForUpdates } from "./utils/check-updates";
@@ -42,6 +42,14 @@ import React from "react";
 // Call this early so `tail -F "$TMPDIR/open-codex/codex-cli-latest.log"` works
 // immediately. This must be run with DEBUG=1 for logging to work.
 initLogger();
+
+process.on("unhandledRejection", (reason) => {
+  if (isLoggingEnabled()) {
+    log(`[codex] Unhandled Rejection: ${reason}`);
+  }
+  // eslint-disable-next-line no-console
+  console.error("\n⚠️  An unexpected error occurred. Please check the logs for details.");
+});
 
 // Increase MaxListeners limit on process.stdout to prevent warnings when many 
 // components use the useTerminalSize hook (e.g. during history restore).
@@ -252,6 +260,7 @@ const provider = cli.flags.provider;
     cwd: process.cwd(),
     skipMemory: true,
     isFullContext: fullContextMode,
+    provider: provider,
   });
 
 const prompt = cli.input[0];
@@ -429,7 +438,7 @@ function formatChatCompletionMessageParamForQuietMode(
       if (details) {
         parts.push(`$ ${details.cmdReadableText}`);
       } else {
-        parts.push(`$ ${toolCall.function.name}`);
+        parts.push(`$ ${(toolCall as any).function.name}`);
       }
     }
   }

@@ -1,5 +1,6 @@
 import { renderTui } from "./ui-test-helpers.js";
 import { Markdown } from "../src/components/chat/terminal-chat-response-item.js";
+import { themes } from "../src/utils/theme.js";
 import React from "react";
 import { it, expect } from "vitest";
 
@@ -7,7 +8,7 @@ import { it, expect } from "vitest";
  * We strip ANSI codes, so the output should contain the raw words. */
 it("renders basic markdown", () => {
   const { lastFrameStripped } = renderTui(
-    <Markdown>**bold** _italic_</Markdown>,
+    <Markdown theme={themes["default"]!}>**bold** _italic_</Markdown>,
   );
 
   const frame = lastFrameStripped();

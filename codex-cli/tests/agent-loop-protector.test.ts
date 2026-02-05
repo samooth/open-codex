@@ -18,7 +18,11 @@ describe('AgentLoop Protector (Loop Detection)', () => {
     vi.clearAllMocks();
     agent = new AgentLoop({
       model: 'test-model',
-      apiKey: 'dummy-key',
+      config: {
+        model: 'test-model',
+        apiKey: 'dummy-key',
+        instructions: '',
+      },
       approvalPolicy: 'full-auto',
       onItem,
       onLoading,

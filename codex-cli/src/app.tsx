@@ -7,6 +7,7 @@ import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollou
 import { checkInGit } from "./utils/check-in-git";
 import { CLI_VERSION, type TerminalChatSession } from "./utils/session.js";
 import { onExit } from "./utils/terminal";
+import { getTheme } from "./utils/theme";
 import { ConfirmInput } from "@inkjs/ui";
 import { Box, Text, useApp, useStdin } from "ink";
 import React, { useMemo, useState } from "react";
@@ -42,11 +43,14 @@ export default function App({
   const { internal_eventEmitter } = useStdin();
   internal_eventEmitter.setMaxListeners(20);
 
+  const activeTheme = useMemo(() => getTheme(config.theme), [config.theme]);
+
   if (rollout) {
     return (
       <TerminalChatPastRollout
         session={rollout.session}
         items={rollout.items}
+        theme={activeTheme}
       />
     );
   }

@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { readdirSync, existsSync, appendFileSync } from "fs";
+import { readdirSync } from "fs";
 import { join, relative } from "path";
 import { getIgnoreFilter } from "./agent/ignore-utils.js";
 

@@ -1,5 +1,6 @@
 import { parseApplyPatch } from "../../parse-apply-patch";
 import { shortenPath } from "../../utils/short-path";
+import { useTerminalSize } from "../../hooks/use-terminal-size";
 import chalk from "chalk";
 import { Box, Text } from "ink";
 import React from "react";
@@ -7,10 +8,13 @@ import React from "react";
 export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
+  terminalRows = 40,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
+  terminalRows?: number;
 }): React.ReactElement {
+  const size = useTerminalSize();
   const isPatch =
     !!applyPatch ||
     commandForDisplay.includes("apply_patch") ||
@@ -26,52 +30,82 @@ export function TerminalChatToolCallCommand({
   }, [applyPatch, commandForDisplay]);
 
   if (isPatch && ops) {
+    // Calculate a reasonable max lines for the entire patch preview
+    // We want to leave some space for the confirmation options and header.
+    const maxTotalLines = Math.max(10, terminalRows - 15);
+    let totalLinesRendered = 0;
+
     return (
-      <Box flexDirection="column" gap={0}>
-        <Text bold color="magentaBright">
+      <Box flexDirection="column" gap={0} width={size.columns - 4}>
+        <Text bold color="magentaBright" wrap="wrap">
           🩹 Apply Patch
         </Text>
-        {ops.map((op, i) => (
-          <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor="gray">
-            <Box gap={1}>
-              <Text bold color={op.type === "delete" ? "red" : "cyan"}>
-                {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
-              </Text>
-              <Text bold>{shortenPath(op.path)}</Text>
-              {op.type === "update" && (
-                <Text dimColor>
-                  ({op.added} added, {op.deleted} deleted)
+        {ops.map((op, i) => {
+          if (totalLinesRendered >= maxTotalLines) return null;
+
+          const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
+            .split("\n");
+          
+          const availableLines = maxTotalLines - totalLinesRendered - 3; // -3 for headers/padding
+          const showTruncated = lines.length > availableLines && availableLines > 0;
+          const linesToDisplay = showTruncated ? lines.slice(0, availableLines) : lines;
+          
+          totalLinesRendered += linesToDisplay.length + 3;
+
+          return (
+            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor="gray">
+              <Box gap={1}>
+                <Text bold color={op.type === "delete" ? "red" : "cyan"}>
+                  {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
                 </Text>
-              )}
+                <Text bold wrap="wrap">{shortenPath(op.path)}</Text>
+                {op.type === "update" && (
+                  <Text dimColor>
+                    ({op.added} added, {op.deleted} deleted)
+                  </Text>
+                )}
+              </Box>
+              <Box marginTop={1} flexDirection="column">
+                {op.type === "delete" && (
+                  <Text color="red" italic>File will be deleted</Text>
+                )}
+                {linesToDisplay
+                  .map((line, j) => {
+                    if (!line && op.type === "update") return null; 
+                    const displayLine = op.type === "create" ? `+${line}` : line;
+                    if (displayLine.startsWith("+") && !displayLine.startsWith("++")) {
+                      return <Text key={j} color="green" wrap="wrap">{displayLine}</Text>;
+                    }
+                    if (displayLine.startsWith("-") && !displayLine.startsWith("--")) {
+                      return <Text key={j} color="red" wrap="wrap">{displayLine}</Text>;
+                    }
+                    if (displayLine.startsWith("@@")) {
+                      return <Text key={j} color="cyan" dimColor wrap="wrap">{displayLine}</Text>;
+                    }
+                    return <Text key={j} wrap="wrap">{displayLine}</Text>;
+                  })}
+                {showTruncated && (
+                  <Text dimColor italic>... ({lines.length - availableLines} more lines truncated)</Text>
+                )}
+              </Box>
             </Box>
-            <Box marginTop={1} flexDirection="column">
-              {op.type === "delete" && (
-                <Text color="red" italic>File will be deleted</Text>
-              )}
-              {(op.type === "create" ? op.content : op.type === "update" ? op.update : "")
-                .split("\n")
-                .map((line, j) => {
-                  if (!line && op.type === "update") return null; // skip trailing newline from split if update is empty
-                  const displayLine = op.type === "create" ? `+${line}` : line;
-                  if (displayLine.startsWith("+") && !displayLine.startsWith("++")) {
-                    return <Text key={j} color="green">{displayLine}</Text>;
-                  }
-                  if (displayLine.startsWith("-") && !displayLine.startsWith("--")) {
-                    return <Text key={j} color="red">{displayLine}</Text>;
-                  }
-                  if (displayLine.startsWith("@@")) {
-                    return <Text key={j} color="cyan" dimColor>{displayLine}</Text>;
-                  }
-                  return <Text key={j}>{displayLine}</Text>;
-                })}
-            </Box>
-          </Box>
-        ))}
+          );
+        })}
+        {ops.length > 0 && totalLinesRendered >= maxTotalLines && (
+           <Box paddingLeft={2} marginTop={1}>
+             <Text dimColor italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
+           </Box>
+        )}
       </Box>
     );
   }
 
-  const colorizedCommand = commandForDisplay
+  const maxTotalLines = Math.max(10, terminalRows - 15);
+  const commandLines = commandForDisplay.split("\n");
+  const showTruncatedCmd = commandLines.length > maxTotalLines;
+  const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;
+
+  const colorizedCommand = commandToDisplay
     .split("\n")
     .map((line) => {
       if (line.startsWith("+") && !line.startsWith("++")) {
@@ -85,14 +119,17 @@ export function TerminalChatToolCallCommand({
     .join("\n");
 
   return (
-    <Box flexDirection="column" gap={0}>
-      <Text bold color="yellow">
+    <Box flexDirection="column" gap={0} width={size.columns - 4}>
+      <Text bold color="yellow" wrap="wrap">
         🐚 Shell Command
       </Text>
-      <Box paddingLeft={2} marginTop={1}>
-        <Text>
+      <Box paddingLeft={2} marginTop={1} flexDirection="column">
+        <Text wrap="wrap">
           <Text dimColor>$</Text> {colorizedCommand}
         </Text>
+        {showTruncatedCmd && (
+          <Text dimColor italic>... ({commandLines.length - maxTotalLines} more lines truncated)</Text>
+        )}
       </Box>
     </Box>
   );

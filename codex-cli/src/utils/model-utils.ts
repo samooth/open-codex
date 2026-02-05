@@ -3,6 +3,7 @@ import type { AppConfig } from "./config";
 import { listModels } from "@huggingface/hub";
 import chalk from "chalk";
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { log, isLoggingEnabled } from "./agent/log.js";
 
 const MODEL_LIST_TIMEOUT_MS = 2_000; // 2 seconds
@@ -16,19 +17,72 @@ export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
  */
 const modelsCache = new Map<string, Promise<Array<string>>>();
 
+async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
+  try {
+    const genAI = new GoogleGenAI({ apiKey: config.apiKey || "" });
+    const modelList: any[] = [];
+    
+    // Exact code provided by user
+    const result = await (genAI as any).models.list(); 
+    for await (const model of result) {
+      modelList.push(model);
+    }
+    const devModels=new Set(modelList
+      .filter((m: any) => {
+        // 1. MUST be able to generate text (Chat)
+        const canChat = m.supportedGenerationMethods?.includes("generateContent");
+        // 2. REMOVE legacy models (Gemini is better for coding)
+        const isModern = m.name?.toLowerCase().includes("gemini");
+        return m && m.name && canChat && isModern;
+      })
+      .map((m: any) => m.name.replace("models/", ""))
+    );
+    return Array.from(devModels).sort();
+  } catch (error) {
+    if (isLoggingEnabled()) {
+      log(`[codex] Google SDK models.list() failed: ${error}`);
+    }
+    // Minimal fallback to direct fetch if SDK fails
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${config.apiKey}`, {
+          signal: controller.signal
+        });
+        if (resp.ok) {
+          const data = await resp.json() as any;
+          return (data.models || [])
+            .filter((m: any) => {
+              const canChat = m.supportedGenerationMethods?.includes("generateContent");
+              const isModern = m.name?.toLowerCase().includes("gemini");
+              return m && m.name && canChat && isModern;
+            })
+            .map((m: any) => m.name.replace("models/", ""))
+            .sort();
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (e) { /* ignore */ }
+    return [];
+  }
+}
+
 async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>> {
   const models: Array<string> = [];
   try {
+    // @ts-ignore HF Hub types are mismatched
     for await (const model of listModels({
-      credentials: { accessToken: config.apiKey },
+      credentials: { accessToken: config.apiKey || "" },
       filter: {
         tag: "tool-use",
         task: "text-generation",
-      },
-      sort: "downloads",
+      } as any,
+      sort: "downloads" as any,
       direction: -1,
       limit: 50,
-    })) {
+    }) as any) {
       // Double-check the pipeline tag to be absolutely sure it's a text-generation LLM
       if (model.pipeline_tag === "text-generation") {
         models.push(model.name);
@@ -42,7 +96,7 @@ async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>>
 
 async function fetchModels(config: AppConfig): Promise<Array<string>> {
   // If the user has not configured an API key we cannot hit the network.
-  if (!config.apiKey) {
+  if (!config.apiKey && config.provider !== "ollama") {
     return [];
   }
 
@@ -54,10 +108,14 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
     return fetchHuggingFaceModels(config);
   }
 
+  if (config.provider === "google" || config.provider === "gemini") {
+    return fetchGoogleModels(config);
+  }
+
   // Try standard OpenAI-compatible list first
   try {
     const openai = new OpenAI({
-      apiKey: config.apiKey,
+      apiKey: config.apiKey || "none",
       baseURL: config.baseURL,
     });
     const list = await openai.models.list();
@@ -84,13 +142,19 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
       if (isLoggingEnabled()) {
         log(`[codex] Fetching Ollama models from: ${tagsUrl}`);
       }
-      const response = await fetch(tagsUrl);
-      if (response.ok) {
-        const data = (await response.json()) as {
-          models: Array<{ name: string }>;
-        };
-        const models = data.models.map((m) => m.name);
-        return models.sort();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(tagsUrl, { signal: controller.signal });
+        if (response.ok) {
+          const data = (await response.json()) as {
+            models: Array<{ name: string }>;
+          };
+          const models = data.models.map((m) => m.name);
+          return models.sort();
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (err) {
       if (isLoggingEnabled()) {
@@ -105,7 +169,11 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
 export function preloadModels(config: AppConfig): void {
   // Fire‑and‑forget – callers that truly need the list should `await`
   // `getAvailableModels()` instead.
-  void getAvailableModels(config);
+  getAvailableModels(config).catch((err) => {
+    if (isLoggingEnabled()) {
+      log(`[codex] Model preloading failed: ${err}`);
+    }
+  });
 }
 
 export async function getAvailableModels(
@@ -180,7 +248,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
           case "gemini":
           case "google":
             return `- ${chalk.bold(
-              "GOOGLE_GENERATIVE_AI_API_KEY",
+              "GEMINI_API_KEY",
             )} for Google Gemini models\n`;
           case "xai":
             return `- ${chalk.bold("XAI_API_KEY")} for xAI models\n`;
@@ -194,7 +262,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
                 `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models`,
                 `- ${chalk.bold("OPENROUTER_API_KEY")} for OpenRouter models`,
                 `- ${chalk.bold(
-                  "GOOGLE_GENERATIVE_AI_API_KEY",
+                  "GEMINI_API_KEY",
                 )} for Google Gemini models`,
                 `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
                 `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,

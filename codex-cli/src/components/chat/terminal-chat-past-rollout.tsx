@@ -4,13 +4,16 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import TerminalChatResponseItem from "./terminal-chat-response-item";
 import { Box, Text } from "ink";
 import React from "react";
+import type { Theme } from "../../utils/theme.js";
 
 export default function TerminalChatPastRollout({
   session,
   items,
+  theme,
 }: {
   session: TerminalChatSession;
   items: Array<ChatCompletionMessageParam>;
+  theme: Theme;
 }): React.ReactElement {
   const { version, id: sessionId, model } = session;
   return (
@@ -60,9 +63,10 @@ export default function TerminalChatPastRollout({
               key={key}
               item={item}
               toolCallMap={map}
+              theme={theme}
             />
           ));
-        }, [items])}
+        }, [items, theme])}
       </Box>
     </Box>
   );

@@ -37,6 +37,7 @@ const slashCommands = [
   { name: "/recipes", description: "select a prompt template" },
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
+  { name: "/theme", description: "change UI theme" },
   { name: "/help", description: "show help" },
 ];
 
@@ -58,10 +59,12 @@ export default function TerminalChatInput({
   openPromptOverlay,
   openPromptsOverlay,
   openRecipesOverlay,
+  openThemeOverlay,
   onPin,
   onUnpin,
   interruptAgent,
   partialReasoning,
+  activeBlockType,
   active,
   allowAlwaysPatch,
   awaitingContinueConfirmation,
@@ -90,10 +93,12 @@ export default function TerminalChatInput({
   openPromptOverlay: () => void;
   openPromptsOverlay: () => void;
   openRecipesOverlay: () => void;
+  openThemeOverlay: () => void;
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
   interruptAgent: () => void;
   partialReasoning?: string;
+  activeBlockType?: "thought" | "think" | "plan";
   active: boolean;
   allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
@@ -150,7 +155,7 @@ export default function TerminalChatInput({
     ? slashCommands.filter((c) => c.name.startsWith(input))
     : [];
 
-  const onKeyDown = (inputStr: string, key: any) => {
+  const onKeyDown = (_inputStr: string, key: any) => {
     if (filteredFiles.length > 0) {
       if (key.tab) {
         setSelectedFileIndex((s) => (s + (key.shift ? -1 : 1) + filteredFiles.length) % filteredFiles.length);
@@ -417,6 +422,12 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (inputValue === "/theme") {
+        setInput("");
+        openThemeOverlay();
+        return;
+      }
+
       if (inputValue === "q" || inputValue === ":q" || inputValue === "exit") {
         setInput("");
         // wait one 60ms frame
@@ -503,6 +514,7 @@ export default function TerminalChatInput({
       openConfigOverlay,
       openPromptOverlay,
       openPromptsOverlay,
+      openThemeOverlay,
     ],
   );
 
@@ -618,6 +630,7 @@ export default function TerminalChatInput({
             onInterrupt={interruptAgent}
             active={active}
             partialReasoning={partialReasoning}
+            activeBlockType={activeBlockType}
             activeToolName={activeToolName}
             activeToolArguments={activeToolArguments}
           />

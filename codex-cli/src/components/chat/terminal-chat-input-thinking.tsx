@@ -68,12 +68,14 @@ export default function TerminalChatInputThinking({
   onInterrupt,
   active,
   partialReasoning,
+  activeBlockType,
   activeToolName,
   activeToolArguments,
 }: {
   onInterrupt: () => void;
   active: boolean;
   partialReasoning?: string;
+  activeBlockType?: "thought" | "think" | "plan";
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
 }): React.ReactElement {
@@ -162,7 +164,7 @@ export default function TerminalChatInputThinking({
   const displayReasoning = partialReasoning || thinkingText;
 
   const [scrollOffset, setScrollOffset] = useState(0);
-  const maxDisplayLines = activeToolName ? 3 : 1; // Minimal lines here as full reasoning is in history
+  const maxDisplayLines = (activeToolName || activeBlockType === "plan") ? 3 : 1; // Minimal lines here as full reasoning is in history
 
   const rawLines = (displayReasoning || "").split('\n');
   const totalLines = rawLines.length;
@@ -199,16 +201,16 @@ export default function TerminalChatInputThinking({
     <Box 
       flexDirection="column" 
       gap={1}
-      borderStyle={activeToolName ? "round" : undefined}
+      borderStyle={(activeToolName || activeBlockType === "plan") ? "round" : undefined}
       borderColor="dimGray"
-      paddingX={activeToolName ? 1 : 0}
+      paddingX={(activeToolName || activeBlockType === "plan") ? 1 : 0}
     >
       <Box gap={2}>
-        <Spinner type="dots" color={activeToolName ? "magentaBright" : "cyan"} />
+        <Spinner type="dots" color={(activeToolName || activeBlockType === "plan") ? "magentaBright" : "cyan"} />
         <Box flexDirection="column">
-          {activeToolName && (
+          {(activeToolName || activeBlockType === "plan") && (
             <Text bold color="magenta">
-              Working: {activeToolName}
+              {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
             </Text>
           )}
           <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
@@ -219,7 +221,7 @@ export default function TerminalChatInputThinking({
           </Text>
           {activeToolArguments && (
             <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
-              <Text dimColor size="small">
+              <Text dimColor>
                 {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
                 {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
               </Text>

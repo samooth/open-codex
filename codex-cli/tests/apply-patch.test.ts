@@ -2,7 +2,6 @@ import {
   ActionType,
   apply_commit,
   assemble_changes,
-  DiffError,
   identify_files_added,
   identify_files_needed,
   load_files,
@@ -218,7 +217,7 @@ test("process_patch - invalid patch throws DiffError", () => {
   // Should NOT throw anymore because load_files is now lenient
   const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn);
   expect(result).toBe("Done!");
-  expect(fs.files["missing.txt"].trim()).toBe("something");
+  expect((fs.files as any)["missing.txt"].trim()).toBe("something");
 });
 
 test("process_patch - tolerates omitted space for keep line", () => {
