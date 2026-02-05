@@ -967,3 +967,44 @@ export async function handleNpmSearch(
     };
   }
 }
+
+export async function handleSnykSearch(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { package: packageName } = args;
+
+    if (!packageName) {
+      return {
+        outputText: "Error: 'package' is required for snyk_search",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    // Use direct search URL on security.snyk.io
+    const searchUrl = `https://security.snyk.io/vuln/?search=${encodeURIComponent(packageName)}`;
+
+    const execResult = await handleExecCommand(
+      { cmd: ["lynx", "-dump", searchUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    return {
+      ...execResult,
+      metadata: { ...execResult.metadata, package: packageName, type: "snyk_search" },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error performing Snyk search: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
