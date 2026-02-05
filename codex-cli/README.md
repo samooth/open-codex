@@ -600,7 +600,7 @@ To publish a new version of the CLI, run the release scripts defined in `codex-c
 
 ## Security & Responsible AI
 
-Have you discovered a vulnerability or have concerns about model output? Please e‑mail **security@openai.com** and we will respond promptly.
+Have you discovered a vulnerability or have concerns about model output? Please **open a GitHub issue** or submit a pull request with a fix. We take security seriously and will respond promptly.
 
 ---
 
