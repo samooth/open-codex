@@ -408,12 +408,23 @@ Inside the interactive chat, you can use several slash commands to manage your s
 | `/help`     | Show the help overlay with all available commands and shortcuts.             |
 | `/model`    | Open the model picker to switch the current AI model.                       |
 | `/index`    | Index the current codebase for semantic search.                             |
+| `/pin <path>`| Pin a file to the context window (it will always be included in the prompt).|
+| `/unpin <path>`| Unpin a file from the context window.                                     |
 | `/approval` | Change the current approval mode (Suggest, Auto Edit, Full Auto).            |
 | `/config`   | Toggle settings like Dry Run and Debug mode.                                |
 | `/history`  | View and select from your prompt history.                                   |
 | `/memory`   | View and manage the agent's persistent project memory.                       |
 | `/theme`    | Change the UI theme (Default, Nord, One Dark, Synthwave, Gruvbox, Cyberpunk).|
 | `/clear`    | Clear the chat history (start a fresh session).                             |
+
+#### File Pinning
+
+File pinning allows you to ensure that specific files are always included in the agent's context window, regardless of the conversation length. This is useful for keeping core documentation, API definitions, or complex logic always "top of mind" for the agent.
+
+- **To pin a file**: `/pin src/main.ts`
+- **To unpin a file**: `/unpin src/main.ts`
+
+Pinned files are persisted in your `~/.codex/config.json` and will be loaded in every session.
 
 #### Dynamic Model Discovery
 

@@ -49,6 +49,15 @@ export default function HelpOverlay({
         <Text color="cyan">/prompts</Text> – select from available system prompts
         <Text color="cyan">/history</Text> – view message history
         <Text>
+          <Text color="cyan">/index</Text> – index codebase for semantic search
+        </Text>
+        <Text>
+          <Text color="cyan">/pin &lt;path&gt;</Text> – pin a file to context
+        </Text>
+        <Text>
+          <Text color="cyan">/unpin &lt;path&gt;</Text> – unpin a file from context
+        </Text>
+        <Text>
           <Text color="cyan">/clear</Text> – clear screen &amp; context
         </Text>
 
