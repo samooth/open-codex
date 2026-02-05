@@ -648,4 +648,27 @@ export const tools: Array<ChatCompletionTool> = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "npm_search",
+      description: "Searches the npm registry for packages or gets detailed information about a specific package. Use this to find the latest version or dependencies of a package.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query or package name.",
+          },
+          detailed: {
+            type: "boolean",
+            description: "If true, retrieves detailed information (version, dependencies) for a specific package instead of searching.",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];

@@ -906,3 +906,64 @@ export async function handleSemanticSearch(
     };
   }
 }
+
+export async function handleNpmSearch(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { query, detailed = false } = args;
+
+    if (!query) {
+      return {
+        outputText: "Error: 'query' is required for npm_search",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const cmd = detailed 
+      ? ["npm", "view", query, "--json"] 
+      : ["npm", "search", query, "--json", "--limit", "10"];
+
+    const result = await handleExecCommand(
+      { cmd, workdir: process.cwd(), timeoutInMillis: 30000 },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (result.outputText === "aborted") {
+      return result;
+    }
+
+    // Process the output to be more readable if not already JSON
+    let outputText = result.outputText;
+    try {
+      const parsed = JSON.parse(outputText);
+      if (Array.isArray(parsed)) {
+        // Format search results
+        outputText = parsed.map((p: any) => `- ${p.name} (v${p.version}): ${p.description || "No description"}`).join("\n");
+      } else if (detailed && parsed.name) {
+        // Format detailed view
+        outputText = `Package: ${parsed.name}\nLatest Version: ${parsed.version}\nDescription: ${parsed.description}\nDependencies: ${JSON.stringify(parsed.dependencies || {}, null, 2)}`;
+      }
+    } catch {
+      // Keep original output if parsing fails
+    }
+
+    return {
+      outputText: outputText || "No results found.",
+      metadata: result.metadata,
+    };
+  } catch (err) {
+    return {
+      outputText: `Error performing npm search: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}

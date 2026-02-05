@@ -368,6 +368,14 @@ export function isSafeCommand(
         reason: "Locate command",
         group: "Searching",
       };
+    case "npm":
+      if (cmd1 === "search" || cmd1 === "view") {
+        return {
+          reason: "NPM package search",
+          group: "Searching",
+        };
+      }
+      break;
     case "git":
       switch (cmd1) {
         case "status":
