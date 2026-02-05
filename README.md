@@ -194,6 +194,11 @@ The hardening mechanism Codex uses depends on your OS:
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
 
+Key keyboard shortcuts:
+- `Ctrl+E`: Open the current prompt in your system's `$EDITOR` (e.g., Vim, Nano) for easier multi-line editing.
+- `Ctrl+J`: Insert a newline in the chat input.
+- `@`: Trigger file path autocomplete.
+
 Key flags:
 - `--provider / -p`: AI provider to use.
 - `--model / -m`: Model to use for completions.
@@ -258,7 +263,7 @@ You can integrate OpenCodex into your favorite text editor for a seamless workfl
 
 ## Recipes
 
-Below are a few bite‑size examples you can copy‑paste. Replace the text in quotes with your own task. See the [prompting guide](https://github.com/openai/codex/blob/main/codex-cli/examples/prompting_guide.md) for more tips and usage patterns.
+Below are a few bite‑size examples you can copy‑paste. Replace the text in quotes with your own task. See the [prompting guide](https://github.com/samooth/open-codex/blob/main/codex-cli/examples/prompting_guide.md) for more tips and usage patterns.
 
 | ✨  | What you type                                                                   | What happens                                                               |
 | --- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
