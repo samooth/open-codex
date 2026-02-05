@@ -72,7 +72,6 @@ async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
 async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>> {
   const models: Array<string> = [];
   try {
-    // @ts-ignore HF Hub types are mismatched
     for await (const model of listModels({
       credentials: { accessToken: config.apiKey || "" },
       filter: {
@@ -82,9 +81,9 @@ async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>>
       sort: "downloads" as any,
       direction: -1,
       limit: 50,
-    }) as any) {
+    } as any)) {
       // Double-check the pipeline tag to be absolutely sure it's a text-generation LLM
-      if (model.pipeline_tag === "text-generation") {
+      if ((model as any).pipeline_tag === "text-generation") {
         models.push(model.name);
       }
     }

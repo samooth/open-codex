@@ -79,6 +79,10 @@ test("loads default config if files don't exist", () => {
     approvalMode: undefined,
     fullAutoErrorMode: undefined,
     memory: undefined,
+    pinnedFiles: [],
+    providers: undefined,
+    theme: undefined,
+    contextSize: undefined,
   });
 });
 
@@ -96,6 +100,10 @@ test("saves and loads config correctly", () => {
     approvalMode: undefined,
     fullAutoErrorMode: undefined,
     memory: undefined,
+    pinnedFiles: [],
+    providers: undefined,
+    theme: undefined,
+    contextSize: undefined,
   };
   saveConfig(testConfig, testConfigPath, testInstructionsPath);
 

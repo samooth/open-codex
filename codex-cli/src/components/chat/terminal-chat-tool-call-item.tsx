@@ -1,6 +1,7 @@
 import { parseApplyPatch } from "../../parse-apply-patch";
 import { shortenPath } from "../../utils/short-path";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
+import type { Theme } from "../../utils/theme";
 import chalk from "chalk";
 import { Box, Text } from "ink";
 import React from "react";
@@ -9,10 +10,12 @@ export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
   terminalRows = 40,
+  theme,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
   terminalRows?: number;
+  theme: Theme;
 }): React.ReactElement {
   const size = useTerminalSize();
   const isPatch =
@@ -37,7 +40,7 @@ export function TerminalChatToolCallCommand({
 
     return (
       <Box flexDirection="column" gap={0} width={size.columns - 4}>
-        <Text bold color="magentaBright" wrap="wrap">
+        <Text bold color={theme.toolLabel} wrap="wrap">
           🩹 Apply Patch
         </Text>
         {ops.map((op, i) => {
@@ -53,39 +56,39 @@ export function TerminalChatToolCallCommand({
           totalLinesRendered += linesToDisplay.length + 3;
 
           return (
-            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor="gray">
+            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor={theme.dim}>
               <Box gap={1}>
-                <Text bold color={op.type === "delete" ? "red" : "cyan"}>
+                <Text bold color={op.type === "delete" ? theme.error : theme.highlight}>
                   {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
                 </Text>
                 <Text bold wrap="wrap">{shortenPath(op.path)}</Text>
                 {op.type === "update" && (
-                  <Text dimColor>
+                  <Text color={theme.dim}>
                     ({op.added} added, {op.deleted} deleted)
                   </Text>
                 )}
               </Box>
               <Box marginTop={1} flexDirection="column">
                 {op.type === "delete" && (
-                  <Text color="red" italic>File will be deleted</Text>
+                  <Text color={theme.error} italic>File will be deleted</Text>
                 )}
                 {linesToDisplay
                   .map((line, j) => {
                     if (!line && op.type === "update") return null; 
                     const displayLine = op.type === "create" ? `+${line}` : line;
                     if (displayLine.startsWith("+") && !displayLine.startsWith("++")) {
-                      return <Text key={j} color="green" wrap="wrap">{displayLine}</Text>;
+                      return <Text key={j} color={theme.success} wrap="wrap">{displayLine}</Text>;
                     }
                     if (displayLine.startsWith("-") && !displayLine.startsWith("--")) {
-                      return <Text key={j} color="red" wrap="wrap">{displayLine}</Text>;
+                      return <Text key={j} color={theme.error} wrap="wrap">{displayLine}</Text>;
                     }
                     if (displayLine.startsWith("@@")) {
-                      return <Text key={j} color="cyan" dimColor wrap="wrap">{displayLine}</Text>;
+                      return <Text key={j} color={theme.highlight} dimColor wrap="wrap">{displayLine}</Text>;
                     }
-                    return <Text key={j} wrap="wrap">{displayLine}</Text>;
+                    return <Text key={j} wrap="wrap" color={theme.dim}>{displayLine}</Text>;
                   })}
                 {showTruncated && (
-                  <Text dimColor italic>... ({lines.length - availableLines} more lines truncated)</Text>
+                  <Text color={theme.dim} italic>... ({lines.length - availableLines} more lines truncated)</Text>
                 )}
               </Box>
             </Box>
@@ -93,7 +96,7 @@ export function TerminalChatToolCallCommand({
         })}
         {ops.length > 0 && totalLinesRendered >= maxTotalLines && (
            <Box paddingLeft={2} marginTop={1}>
-             <Text dimColor italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
+             <Text color={theme.dim} italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
            </Box>
         )}
       </Box>
@@ -109,10 +112,10 @@ export function TerminalChatToolCallCommand({
     .split("\n")
     .map((line) => {
       if (line.startsWith("+") && !line.startsWith("++")) {
-        return chalk.green(line);
+        return chalk[theme.success](line);
       }
       if (line.startsWith("-") && !line.startsWith("--")) {
-        return chalk.red(line);
+        return chalk[theme.error](line);
       }
       return line;
     })
@@ -120,15 +123,15 @@ export function TerminalChatToolCallCommand({
 
   return (
     <Box flexDirection="column" gap={0} width={size.columns - 4}>
-      <Text bold color="yellow" wrap="wrap">
+      <Text bold color={theme.warning} wrap="wrap">
         🐚 Shell Command
       </Text>
       <Box paddingLeft={2} marginTop={1} flexDirection="column">
         <Text wrap="wrap">
-          <Text dimColor>$</Text> {colorizedCommand}
+          <Text color={theme.dim}>$</Text> {colorizedCommand}
         </Text>
         {showTruncatedCmd && (
-          <Text dimColor italic>... ({commandLines.length - maxTotalLines} more lines truncated)</Text>
+          <Text color={theme.dim} italic>... ({commandLines.length - maxTotalLines} more lines truncated)</Text>
         )}
       </Box>
     </Box>

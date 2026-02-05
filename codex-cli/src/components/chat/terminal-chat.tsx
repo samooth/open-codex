@@ -23,6 +23,7 @@ import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
+import { clearTerminal } from "../../utils/terminal.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
@@ -329,6 +330,7 @@ export default function TerminalChat({
               commandForDisplay={commandForDisplay}
               applyPatch={applyPatch}
               terminalRows={terminalRows}
+              theme={activeTheme}
             />,
           );
         return { review, customDenyMessage, applyPatch };
@@ -456,6 +458,7 @@ export default function TerminalChat({
             colorsByPolicy,
             agent,
             initialImagePaths,
+            theme: activeTheme,
           }}
           streamingMessage={loading && (renderedPartialData.content || renderedPartialData.reasoning) ? {
             role: "assistant",
@@ -555,6 +558,7 @@ export default function TerminalChat({
           }}
           allowAlwaysPatch={config.allowAlwaysPatch}
           awaitingContinueConfirmation={awaitingContinueConfirmation}
+          theme={activeTheme}
         />
       )}
 
@@ -749,6 +753,7 @@ export default function TerminalChat({
           <ThemeOverlay
             currentTheme={typeof config.theme === 'string' ? config.theme : 'custom'}
             onSelect={(newTheme: any) => {
+              clearTerminal();
               setConfig((prev) => ({ ...prev, theme: newTheme }));
               setItems((prev) => [
                 ...prev,

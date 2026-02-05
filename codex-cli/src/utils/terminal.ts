@@ -43,6 +43,9 @@ export function clearTerminal(): void {
     return;
   }
 
+  // Raw ANSI clear sequence: \x1Bc (full reset) or \x1B[2J\x1B[3J\x1B[H
+  process.stdout.write("\x1B[2J\x1B[3J\x1B[H");
+
   // When using the alternate screen the content never scrolls, so we rarely
   // need a full clear. Still expose the behaviour when explicitly requested
   // (e.g. via Ctrl‑L) but avoid unnecessary clears on every render to minimise

@@ -52,10 +52,10 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
-      <Static items={["header", ...messages]}>
+      <Static key={theme.name} items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {
-            return <TerminalHeader key="header" {...headerProps} />;
+            return <TerminalHeader key="header" {...headerProps} theme={theme} />;
           }
           const { item, group } = entry as BatchEntry;
           const role = item?.role || (group?.items[0] as any)?.role;
@@ -65,7 +65,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
               key={index}
               flexDirection="column"
               marginLeft={role === "user" ? 0 : 4}
-              marginTop={role === "user" ? 0 : 1}
+              marginTop={0}
             >
               <TerminalChatResponseItem
                 item={item!}

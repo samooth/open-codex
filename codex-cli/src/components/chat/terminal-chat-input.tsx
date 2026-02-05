@@ -1,5 +1,6 @@
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import type { Theme } from "../../utils/theme.js";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
@@ -70,6 +71,7 @@ export default function TerminalChatInput({
   awaitingContinueConfirmation,
   activeToolName,
   activeToolArguments,
+  theme,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -104,6 +106,7 @@ export default function TerminalChatInput({
   awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
+  theme: Theme;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -530,10 +533,10 @@ export default function TerminalChatInput({
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="single" borderColor="gray" paddingX={1}>
+      <Box borderStyle="single" borderColor={theme.dim} paddingX={1}>
         {awaitingContinueConfirmation && !customInputMode ? (
           <Box flexDirection="column">
-            <Text>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
+            <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
             <Box paddingX={2}>
               <Select
                 options={
@@ -593,33 +596,33 @@ export default function TerminalChatInput({
         )}
       </Box>
       {filteredFiles.length > 0 && (
-        <Box flexDirection="column" borderStyle="round" borderColor="magentaBright" paddingX={1} marginBottom={0} width={60}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
           <Box marginBottom={0} justifyContent="space-between">
-            <Text bold color="magentaBright">File Autocomplete</Text>
-            <Text dimColor>{filteredFiles.length} matches</Text>
+            <Text bold color={theme.highlight}>File Autocomplete</Text>
+            <Text color={theme.dim}>{filteredFiles.length} matches</Text>
           </Box>
           <Box flexDirection="column" marginTop={1}>
             {filteredFiles.map((f, i) => (
               <Box key={f} gap={2}>
-                <Text color={i === selectedFileIndex ? "magentaBright" : "gray"} bold={i === selectedFileIndex}>
+                <Text color={i === selectedFileIndex ? theme.highlight : theme.dim} bold={i === selectedFileIndex}>
                   {i === selectedFileIndex ? "❯" : " "} {f}
                 </Text>
               </Box>
             ))}
           </Box>
           <Box marginTop={1}>
-            <Text dimColor>↑↓/Tab to navigate · Enter to select</Text>
+            <Text color={theme.dim}>↑↓/Tab to navigate · Enter to select</Text>
           </Box>
         </Box>
       )}
       {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
-        <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginBottom={0}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
           {filteredSlashCommands.map((cmd, i) => (
             <Box key={cmd.name} gap={2}>
-              <Text color={i === selectedSlashCommand ? "cyan" : "gray"} bold={i === selectedSlashCommand}>
+              <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>
                 {i === selectedSlashCommand ? "❯" : " "} {cmd.name.padEnd(10)}
               </Text>
-              <Text dimColor={i !== selectedSlashCommand}>{cmd.description}</Text>
+              <Text color={theme.dim} italic={i !== selectedSlashCommand}>{cmd.description}</Text>
             </Box>
           ))}
         </Box>
