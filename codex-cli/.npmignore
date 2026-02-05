@@ -1,0 +1,27 @@
+# Mirror .gitignore but ensure README.md is NOT ignored for NPM
+node_modules/
+dist/
+build/
+out/
+.vscode/
+.idea/
+.history/
+*.swp
+*~
+CLAUDE.md
+.claude/
+.cache/
+.turbo/
+.parcel-cache/
+.eslintcache
+.nyc_output/
+.jest/
+*.tsbuildinfo
+*.log
+.env*
+*.tgz
+coverage/
+.DS_Store
+
+# Explicitly un-ignore README.md so it gets published
+!README.md
