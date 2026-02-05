@@ -59,7 +59,12 @@ export function getDefaultProvider(): string {
 }
 
 function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string, ProviderConfig>): string {
-  const configKey = providers?.[provider]?.apiKey;
+  let configKey = providers?.[provider]?.apiKey;
+  
+  if (!configKey && (provider === "google" || provider === "gemini")) {
+    configKey = providers?.["google"]?.apiKey || providers?.["gemini"]?.apiKey;
+  }
+
   if (configKey) {
     return configKey;
   }
@@ -497,11 +502,9 @@ export const loadConfig = (
       ? storedConfig.baseURL.trim()
       : undefined;
 
-  const providerOrDefault = options.provider ?? getDefaultProvider();
+  const effectiveProvider = options.provider ?? storedProvider ?? getDefaultProvider();
 
-  const derivedModels = storedProvider
-    ? defaultModelsForProvider(storedProvider)
-    : defaultModelsForProvider(providerOrDefault);
+  const derivedModels = defaultModelsForProvider(effectiveProvider);
 
   const derivedModel =
     storedModel ||
@@ -509,11 +512,12 @@ export const loadConfig = (
       ? derivedModels?.fullContext
       : derivedModels?.agentic);
 
-  const derivedBaseURL = storedProvider
-    ? baseURLForProvider(storedProvider, storedConfig.providers as any)
-    : storedBaseURL ?? baseURLForProvider(providerOrDefault, storedConfig.providers as any);
+  const derivedBaseURL =
+    baseURLForProvider(effectiveProvider, storedConfig.providers as any) ||
+    (effectiveProvider === (storedProvider ?? getDefaultProvider()) ? storedBaseURL : undefined) ||
+    baseURLForProvider(effectiveProvider);
 
-  const derivedProvider = storedProvider ?? providerOrDefault;
+  const derivedProvider = effectiveProvider;
   const apiKeyForProvider =
     options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers as any);
 
