@@ -30,3 +30,4 @@
 * **Advanced Context Management:** Implemented file pinning, detailed token breakdown, and ignored files preview.
 * **UI Personalization:** Added dynamic JSON theming and a `/recipes` prompt template library.
 * **UI Reorganization:** Consolidated fragmented status info into a unified footer and simplified the input area.
+* **External Editor Integration:** Implemented Ctrl+E shortcut to open the current prompt in the system's $EDITOR for easier multi-line editing.

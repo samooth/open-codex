@@ -72,13 +72,10 @@ export default function HelpOverlay({
         <Text>
           <Text color="yellow">Ctrl+J</Text> – insert newline
         </Text>
-        {/* Re-enable once we re-enable new input */}
-        {/*
         <Text>
-          <Text color="yellow">Ctrl+X</Text>/<Text color="yellow">Ctrl+E</Text>
+          <Text color="yellow">Ctrl+E</Text>
           &nbsp;– open external editor ($EDITOR)
         </Text>
-        */}
         <Text>
           <Text color="yellow">Up/Down</Text> – scroll prompt history
         </Text>

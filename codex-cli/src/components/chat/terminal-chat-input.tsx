@@ -4,7 +4,7 @@ import type { Theme } from "../../utils/theme.js";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
-import { createInputItem } from "../../utils/input-utils.js";
+import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
@@ -274,6 +274,13 @@ export default function TerminalChatInput({
           }
           return;
         }
+      }
+
+      if (_key.ctrl && _input === "e") {
+        openExternalEditor(input).then((newContent) => {
+          setInput(newContent);
+        });
+        return;
       }
 
       if (input.trim() === "" && isNew) {
