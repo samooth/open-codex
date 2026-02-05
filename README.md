@@ -24,6 +24,7 @@
 - [CLI Reference](#clireference)
 - [Memory & Project Docs](#memoryprojectdocs)
 - [Non‑interactive / CI mode](#noninteractivecimode)
+- [Editor Integration](#editor-integration)
 - [Recipes](#recipes)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -112,6 +113,7 @@ development_ that understands and executes your repo.
 - **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
+- **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
 - **Planning Visibility** — real-time display of agent `<plan>` blocks in the UI thinking state 📋
