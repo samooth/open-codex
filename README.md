@@ -114,6 +114,8 @@ development_ that understands and executes your repo.
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
+- **Planning Visibility** — real-time display of agent `<plan>` blocks in the UI thinking state 📋
+- **UI Stability** — intelligent truncation of large patches/commands to prevent flickering and overflow 🛠️
 - **Dry Run mode** — preview all changes without actually modifying files or running commands!
 - **Interactive Config** — toggle settings like dry-run and debug mode in-session with `/config` ⚙️
 - **Loop Protection** — automatic detection and prevention of repetitive failing tool calls 🔄
@@ -340,6 +342,41 @@ To use a different provider, set the `provider` key in your config file:
 
 OR use the `--provider` flag. eg. `codex --provider gemini`
 
+### Semantic Search & Indexing
+
+Codex can index your codebase to provide better context during chat. This allows the agent to "find" relevant code snippets even if they aren't explicitly pinned or open.
+
+- **`/index`**: Run this command inside the chat to start indexing your current directory.
+- **How it works**: Codex generates vector embeddings for your files and stores them locally in `.codex/`.
+- **Default Embedding Models**:
+  - **OpenAI**: `text-embedding-3-small`
+  - **Gemini**: `text-embedding-004`
+  - **Ollama**: `nomic-embed-text`
+
+You can override the embedding model in your `config.json`:
+
+```json
+{
+  "embeddingModel": "text-embedding-004"
+}
+```
+
+### Slash Commands
+
+Inside the interactive chat, you can use several slash commands to manage your session:
+
+| Command     | Description                                                                 |
+| ----------- | --------------------------------------------------------------------------- |
+| `/help`     | Show the help overlay with all available commands and shortcuts.             |
+| `/model`    | Open the model picker to switch the current AI model.                       |
+| `/index`    | Index the current codebase for semantic search.                             |
+| `/approval` | Change the current approval mode (Suggest, Auto Edit, Full Auto).            |
+| `/config`   | Toggle settings like Dry Run and Debug mode.                                |
+| `/history`  | View and select from your prompt history.                                   |
+| `/memory`   | View and manage the agent's persistent project memory.                       |
+| `/theme`    | Change the UI theme (Default, Nord, One Dark, Synthwave, Gruvbox, Cyberpunk).|
+| `/clear`    | Clear the chat history (start a fresh session).                             |
+
 #### Dynamic Model Discovery
 
 For many providers, you can use the `/models` command within the interactive chat to see a list of available models and switch between them. For the **Hugging Face** provider, this dynamically fetches the latest `tool-use` compatible models directly from the Hugging Face Hub.
@@ -349,7 +386,7 @@ Here's a list of all the providers and their default models:
 | Provider   | Environment Variable Required | Default Agentic Model        | Default Full Context Model |
 | ---------- | ----------------------------- | ---------------------------- | -------------------------- |
 | openai     | OPENAI_API_KEY                | o4-mini                      | o3                         |
-| gemini     | GOOGLE_GENERATIVE_AI_API_KEY  | gemini-3-pro-preview         | gemini-2.5-pro             |
+| gemini     | GEMINI_API_KEY                | gemini-2.5-flash             | gemini-2.5-flash           |
 | openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
 | ollama     | Not required                  | User must specify            | User must specify          |
 | xai        | XAI_API_KEY                   | grok-3-mini-beta             | grok-3-beta                |
@@ -359,7 +396,7 @@ Here's a list of all the providers and their default models:
 #### When using an alternative provider, make sure you have the correct environment variables set.
 
 ```bash
-export GOOGLE_GENERATIVE_AI_API_KEY="your-gemini-api-key-here"
+export GEMINI_API_KEY="your-gemini-api-key-here"
 ```
 
 ---

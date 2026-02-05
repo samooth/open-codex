@@ -1,0 +1,1 @@
+[{"id":"file1.ts#0","path":"file1.ts","content":"content of file one","embedding":[0.1,0.2,0.3]},{"id":"file2.ts#0","path":"file2.ts","content":"content of file two","embedding":[0.1,0.2,0.3]}]
