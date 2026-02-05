@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join, dirname, relative } from "path";
 import { log } from "./log.js";
 import { getIgnoreFilter } from "./ignore-utils.js";
@@ -12,9 +12,11 @@ interface VectorEntry {
   path: string;
   content: string;
   embedding: number[];
+  mtime?: number;
 }
 
 export class SemanticMemory {
+// ... existing private members ...
   private cache: EmbeddingCache = {};
   private cachePath: string;
   private memoryPath: string;
@@ -38,6 +40,7 @@ export class SemanticMemory {
   }
 
   private loadCache() {
+// ... existing loadCache ...
     if (existsSync(this.cachePath)) {
       try {
         this.cache = JSON.parse(readFileSync(this.cachePath, "utf-8"));
@@ -51,6 +54,7 @@ export class SemanticMemory {
   }
 
   private loadIndex() {
+// ... existing loadIndex ...
     if (existsSync(this.indexPath)) {
       try {
         this.entries = JSON.parse(readFileSync(this.indexPath, "utf-8"));
@@ -67,7 +71,12 @@ export class SemanticMemory {
     return existsSync(this.memoryPath);
   }
 
+  public hasIndex(): boolean {
+    return this.entries.length > 0;
+  }
+
   private saveCache() {
+// ... existing saveCache ...
     try {
       const dir = dirname(this.cachePath);
       if (!existsSync(dir)) {
@@ -80,6 +89,7 @@ export class SemanticMemory {
   }
 
   private saveIndex() {
+// ... existing saveIndex ...
     try {
       const dir = dirname(this.indexPath);
       if (!existsSync(dir)) {
@@ -95,6 +105,7 @@ export class SemanticMemory {
   }
 
   private async getEmbedding(text: string): Promise<number[]> {
+// ... existing getEmbedding ...
     if (this.cache[text]) {
       if (process.env["DEBUG"] === "1") {
         log(`    Embedding cache hit`);
@@ -159,6 +170,7 @@ export class SemanticMemory {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
+// ... existing cosineSimilarity ...
     let dotProduct = 0;
     let mA = 0;
     let mB = 0;
@@ -176,6 +188,7 @@ export class SemanticMemory {
   }
 
   async findRelevant(query: string, limit: number = 5): Promise<string[]> {
+// ... existing findRelevant ...
     if (!this.memoryExists()) return [];
 
     const content = readFileSync(this.memoryPath, "utf-8");
@@ -264,6 +277,7 @@ export class SemanticMemory {
       log(`Traversal complete. Found ${files.length} files to index.`);
     }
 
+    const oldEntries = this.entries;
     this.entries = [];
     const total = files.length;
     
@@ -277,6 +291,19 @@ export class SemanticMemory {
       }
 
       try {
+        const stats = statSync(file);
+        const mtime = stats.mtimeMs;
+
+        // Check if we can reuse existing entries for this file
+        const matchingOldEntries = oldEntries.filter(e => e.path === relPath);
+        if (matchingOldEntries.length > 0 && matchingOldEntries[0]?.mtime === mtime) {
+          if (process.env["DEBUG"] === "1") {
+            log(`  Skipping unchanged file: ${relPath}`);
+          }
+          this.entries.push(...matchingOldEntries);
+          continue;
+        }
+
         const content = readFileSync(file, "utf-8");
         if (!content.trim()) continue;
 
@@ -304,7 +331,8 @@ export class SemanticMemory {
               id: `${relPath}#${k}`,
               path: relPath,
               content: chunk,
-              embedding: embedding
+              embedding: embedding,
+              mtime: mtime
             });
           } catch (chunkErr) {
             log(`    Failed to embed chunk ${k} of ${relPath}: ${String(chunkErr)}`);
@@ -323,6 +351,7 @@ export class SemanticMemory {
   }
 
   async search(query: string, limit: number = 5): Promise<any[]> {
+// ... existing search ...
     if (this.entries.length === 0) return [];
     
     try {

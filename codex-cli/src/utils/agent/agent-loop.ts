@@ -177,6 +177,10 @@ export class AgentLoop {
     return this.semanticMemory.search(query, limit);
   }
 
+  public hasIndex(): boolean {
+    return this.semanticMemory.hasIndex();
+  }
+
   /**
    * Hard‑stop the agent loop. After calling this method the instance becomes
    * unusable: any in‑flight operations are aborted and subsequent invocations

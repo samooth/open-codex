@@ -248,9 +248,12 @@ export async function handleFunctionCall(
       if (process.env["DEBUG"] === "1") {
         log(`Tool call: index_codebase invoked`);
       }
+      const existing = ctx.agent.hasIndex();
       ctx.onItem({
         role: "assistant",
-        content: "Indexing codebase... this might take a while depending on the size.",
+        content: existing 
+          ? "Refreshing existing index... reusing cached embeddings for unchanged files."
+          : "Indexing codebase... this might take a while depending on the size.",
       });
       let totalIndexed = 0;
       await ctx.agent.indexCodebase((curr: number, total: number, file: string) => {
