@@ -29,10 +29,10 @@ Potential Improvements:
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.
 
-   5. Structured Planing:
+   5. [DONE] Structured Planing:
        * For complex tasks, encourage the model to output a <plan> block before executing, helping the user (and the model) track milestones.
 
-   6. Knowledge of the "Project Memory":
+   6. [DONE] Knowledge of the "Project Memory":
        * Remind the agent that it can save important facts using the persistent_memory tool so it doesn't have to re-discover them in future sessions.
 
    7. [DONE] Interactive Prompt Adjustment:
