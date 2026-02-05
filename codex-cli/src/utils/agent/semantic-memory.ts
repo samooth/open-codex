@@ -16,7 +16,6 @@ interface VectorEntry {
 }
 
 export class SemanticMemory {
-// ... existing private members ...
   private cache: EmbeddingCache = {};
   private cachePath: string;
   private memoryPath: string;
@@ -25,11 +24,13 @@ export class SemanticMemory {
   private genAI?: GoogleGenAI;
   private entries: VectorEntry[] = [];
   private embeddingModel: string | undefined;
+  private provider: string;
 
-  constructor(oai: OpenAI, _provider: string = "openai", embeddingModel?: string, apiKey?: string) {
+  constructor(oai: OpenAI, provider: string = "openai", embeddingModel?: string, apiKey?: string) {
     this.oai = oai;
+    this.provider = provider;
     this.embeddingModel = embeddingModel;
-    if (_provider === "google" || _provider === "gemini") {
+    if (provider === "google" || provider === "gemini") {
       this.genAI = new GoogleGenAI({ apiKey: apiKey || "" });
     }
     this.cachePath = join(process.cwd(), ".codex", "memory_embeddings.json");
@@ -121,20 +122,12 @@ export class SemanticMemory {
       }
       
       try {
-        // Use the exact pattern provided: ai.models.embedContent({ model, contents: text })
         const result = await (this.genAI as any).models.embedContent({
           model,
           contents: text
         });
-        
-        // The user snippet logs result.embeddings. 
-        // We'll extract the values from the first embedding in the list or the single embedding field.
         const embedding = result.embeddings?.[0]?.values || result.embedding?.values || (Array.isArray(result.embeddings) ? result.embeddings[0] : result.embeddings);
-        
-        if (!embedding) {
-          throw new Error("No embedding values found in response");
-        }
-        
+        if (!embedding) throw new Error("No embedding values found in response");
         this.cache[text] = embedding;
         this.saveCache();
         return embedding;
@@ -146,27 +139,35 @@ export class SemanticMemory {
       }
     }
 
-    const model = this.embeddingModel || "text-embedding-3-small";
+    const isOllama = this.provider === "ollama" || this.oai.baseURL?.includes("localhost") || this.oai.baseURL?.includes("ollama");
+    const model = this.embeddingModel || (isOllama ? "nomic-embed-text" : "text-embedding-3-small");
 
     if (process.env["DEBUG"] === "1") {
-      log(`    Fetching OpenAI embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+      log(`    Fetching ${isOllama ? "Ollama" : "OpenAI"} embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
       log(`[HTTP] Request: POST ${this.oai.baseURL}/embeddings`);
       log(`[HTTP] Model: ${model}, Input length: ${text.length}`);
     }
 
-    const response = await this.oai.embeddings.create({
-      model,
-      input: text,
-    });
+    try {
+      const response = await this.oai.embeddings.create({
+        model,
+        input: text,
+      });
 
-    if (process.env["DEBUG"] === "1") {
-      log(`[HTTP] Response: Embedding generated`);
+      if (process.env["DEBUG"] === "1") {
+        log(`[HTTP] Response: Embedding generated`);
+      }
+
+      const embedding = response.data[0]!.embedding;
+      this.cache[text] = embedding;
+      this.saveCache();
+      return embedding;
+    } catch (err: any) {
+      if (isOllama && err.status === 404) {
+        throw new Error(`Embedding model "${model}" not found on Ollama server. Please run "ollama pull ${model}" or configure a different "embeddingModel" in config.json.`);
+      }
+      throw err;
     }
-
-    const embedding = response.data[0]!.embedding;
-    this.cache[text] = embedding;
-    this.saveCache();
-    return embedding;
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
@@ -280,8 +281,10 @@ export class SemanticMemory {
     const oldEntries = this.entries;
     this.entries = [];
     const total = files.length;
+    let lastError: string | undefined;
     
     for (let i = 0; i < files.length; i++) {
+      // ... same progress reporting ...
       const file = files[i]!;
       const relPath = relative(root, file);
       onProgress?.(i + 1, total, relPath);
@@ -335,12 +338,18 @@ export class SemanticMemory {
               mtime: mtime
             });
           } catch (chunkErr) {
-            log(`    Failed to embed chunk ${k} of ${relPath}: ${String(chunkErr)}`);
+            lastError = String(chunkErr);
+            log(`    Failed to embed chunk ${k} of ${relPath}: ${lastError}`);
           }
         }
       } catch (err) {
-        log(`Failed to index file ${file}: ${String(err)}`);
+        lastError = String(err);
+        log(`Failed to index file ${file}: ${lastError}`);
       }
+    }
+
+    if (files.length > 0 && this.entries.length === 0 && lastError) {
+      throw new Error(`Indexing failed: ${lastError}`);
     }
 
     this.saveIndex();
