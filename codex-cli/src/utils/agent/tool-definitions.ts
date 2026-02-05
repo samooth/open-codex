@@ -671,4 +671,23 @@ export const tools: Array<ChatCompletionTool> = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "snyk_search",
+      description: "Searches the Snyk Vulnerability Database for known security issues in a specific package or library. Returns a list of vulnerabilities with descriptions and severity levels.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          package: {
+            type: "string",
+            description: "The name of the package or library to search for (e.g., 'express', 'lodash').",
+          },
+        },
+        required: ["package"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];

@@ -1,6 +1,6 @@
 {
   "name": "@samooth/open-codex",
-  "version": "0.3.8",
+  "version": "0.3.12",
   "license": "Apache-2.0",
   "bin": {
     "open-codex": "dist/cli.js"
@@ -85,6 +85,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/samooth/codex"
+    "url": "https://github.com/samooth/open-codex"
   }
 }

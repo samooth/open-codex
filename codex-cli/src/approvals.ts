@@ -376,6 +376,11 @@ export function isSafeCommand(
         };
       }
       break;
+    case "lynx":
+      return {
+        reason: "Web search or fetch",
+        group: "Searching",
+      };
     case "git":
       switch (cmd1) {
         case "status":

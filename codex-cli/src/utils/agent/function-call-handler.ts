@@ -248,6 +248,10 @@ export async function handleFunctionCall(
       const result = await handlers.handleNpmSearch(ctx, rawArguments ?? "{}");
       outputText = result.outputText;
       metadata = result.metadata;
+    } else if (name === "snyk_search") {
+      const result = await handlers.handleSnykSearch(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
     } else if (name === "index_codebase") {
       if (process.env["DEBUG"] === "1") {
         log(`Tool call: index_codebase invoked`);
