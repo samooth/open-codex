@@ -18,7 +18,7 @@ export const recipes: Recipe[] = [
   {
     name: "Security Auditor",
     description: "Scans for common security vulnerabilities and best practice violations.",
-    prompt: "Perform a security audit of this module. Look for common vulnerabilities (e.g., injection, insecure dependencies, sensitive data leaks) and suggest mitigations following best practices.",
+    prompt: "Perform a security audit of this module. Look for common vulnerabilities (e.g., injection, insecure dependencies, sensitive data leaks). Use the snyk_search tool to check for known vulnerabilities in the used libraries and suggest mitigations following best practices.",
   },
   {
     name: "Refactor Expert",
@@ -34,5 +34,15 @@ export const recipes: Recipe[] = [
     name: "Performance Optimizer",
     description: "Identifies bottlenecks and suggests faster alternatives.",
     prompt: "Profile the code mentally and identify potential performance bottlenecks. Suggest and implement optimizations to reduce execution time and memory usage.",
+  },
+  {
+    name: "Dependency Auditor",
+    description: "Checks for outdated npm dependencies and suggests updates.",
+    prompt: "Scan the package.json file. Use the npm_search tool to check for the latest versions of all dependencies and suggest updates where appropriate.",
+  },
+  {
+    name: "Vulnerability Scanner (Snyk)",
+    description: "Uses Snyk to find known vulnerabilities in your project dependencies.",
+    prompt: "Identify all top-level dependencies in this project. For each major dependency, use the snyk_search tool to check for known security vulnerabilities and provide a summary report with mitigation advice.",
   },
 ];
