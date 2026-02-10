@@ -1,8 +1,7 @@
 // Based on reference implementation from
 // https://cookbook.openai.com/examples/gpt4-1_prompting_guide#reference-implementation-apply_patchpy
 
-import fs from "fs";
-import path from "path";
+import { dirname } from "path";
 import {
   ADD_FILE_PREFIX,
   DELETE_FILE_PREFIX,
@@ -148,7 +147,7 @@ class Parser {
         }
         const moveTo = this.read_str(MOVE_FILE_TO_PREFIX);
         const text = this.current_files[path];
-        const action = this.parse_update_file(text ?? "");
+        const action = this.parse_update_file(text ?? "", path);
         action.move_path = moveTo || undefined;
         this.patch.actions[path] = action;
         continue;
@@ -185,7 +184,7 @@ class Parser {
 
   // FIXED: Better new file detection
 
-private parse_update_file(text: string, filePath: string): PatchAction {
+private parse_update_file(text: string, _filePath: string): PatchAction {
   const action: PatchAction = { type: ActionType.UPDATE, chunks: [] };
   const fileLines = text.split("\n");
   let index = 0;
@@ -217,7 +216,7 @@ private parse_update_file(text: string, filePath: string): PatchAction {
     let hunkOldCount = 0;
     if (defStr) {
       const match = defStr.match(/@@ -(\d+),(\d+) \+(\d+),(\d+) @@/);
-      if (match) {
+      if (match && match[1] && match[2]) {
         hunkStartLine = parseInt(match[1], 10) - 1; // Convert to 0-indexed
         hunkOldCount = parseInt(match[2], 10);
       }
@@ -533,7 +532,6 @@ function normalizePatchText(text: string): string {
   const lines = cleaned.split("\n");
   const processedLines: string[] = [];
   let currentFile: string | null = null;
-  let inHunk = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -543,7 +541,6 @@ function normalizePatchText(text: string): string {
       const potential = line.slice(4).split("\t")[0]?.trim() || "";
       // Skip /dev/null (means file is being deleted)
       if (potential === "/dev/null") {
-        inHunk = false;
         continue;
       }
       // Extract filename, removing a/ or b/ prefix if present
@@ -551,7 +548,6 @@ function normalizePatchText(text: string): string {
       if (filename && filename !== currentFile) {
         processedLines.push(`*** Update File: ${filename}`);
         currentFile = filename;
-        inHunk = true;
       }
       continue;
     }
@@ -565,7 +561,6 @@ function normalizePatchText(text: string): string {
           processedLines.pop(); // Remove the update file we just added
           processedLines.push(`*** Delete File: ${currentFile}`);
         }
-        inHunk = false;
         continue;
       }
       // Otherwise, this is just the new file confirmation, skip it

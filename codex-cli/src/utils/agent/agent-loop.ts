@@ -633,7 +633,7 @@ export class AgentLoop {
                   content: [
                     {
                       type: "text",
-                      text: `⚠️  Rate limit reached. Error details: ${errorDetails?.error?.message}. Please try again later.`,
+                      text: `⚠️  Rate limit reached. Error details: ${errorDetails}. Please try again later.`,
                     },
                   ],
                 });

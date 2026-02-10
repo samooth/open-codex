@@ -25,9 +25,9 @@ export async function validateFileSyntax(filePath: string): Promise<ValidationRe
             stdio: "pipe",
             timeout: 10000,
           });
-        }catch (err){
+        }catch (err: any){
           // Check if it's a child process error with stdout/stderr
-          const msg = err instanceof Error && typeof err.stdout === "string"
+          const msg = typeof err.stdout !== "undefined"
               ? `${err.message}\n${err.stdout}\n${err.stderr || ''}`
               : String(err);
 

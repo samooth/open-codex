@@ -92,7 +92,7 @@ export function execApplyPatch(patchText: string): ExecResult {
       (p) => fs.unlinkSync(p),
     );
     return {
-      stdout: result,
+      stdout: result.message,
       stderr: "",
       exitCode: 0,
     };

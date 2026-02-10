@@ -283,12 +283,12 @@ export async function handleFunctionCall(
     } else if (name === "show_context") {
       const { tool_name } = args;
       if (tool_name) {
-        const tool = tools.find((t) => t.function.name === tool_name);
+        const tool = tools.find((t) => (t as any).function.name === tool_name);
         if (tool) {
           outputText = `CONTEXT FOR TOOL: ${tool_name}\n\nDescription: ${
-            tool.function.description
+            (tool as any).function.description
           }\n\nParameters: ${JSON.stringify(
-            tool.function.parameters,
+            (tool as any).function.parameters,
             null,
             2,
           )}`;
@@ -297,7 +297,7 @@ export async function handleFunctionCall(
         }
       } else {
         const availableTools = tools
-          .map((t) => `- ${t.function.name}`)
+          .map((t) => `- ${(t as any).function.name}`)
           .join("\n");
         outputText = `AGENT CONTEXT:\n\nCORE PROTOCOL:\n${prefix}\n\nAVAILABLE TOOLS:\n${availableTools}\n\nTo get help for a specific tool, call show_context({tool_name: 'tool_name'}).`;
       }
