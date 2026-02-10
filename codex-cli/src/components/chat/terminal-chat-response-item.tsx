@@ -64,6 +64,9 @@ function TerminalChatResponseItem({
   toolCallMap = new Map(),
   loading = false,
   theme,
+  showRole = true,
+  previousRole,
+  isStreaming = false,
 }: {
   item?: ChatCompletionMessageParam;
   group?: GroupedResponseItem;
@@ -71,6 +74,9 @@ function TerminalChatResponseItem({
   toolCallMap?: Map<string, any>;
   loading?: boolean;
   theme: Theme;
+  showRole?: boolean;
+  previousRole?: string;
+  isStreaming?: boolean;
 }): React.ReactElement {
   if (group) {
     return (
@@ -85,13 +91,24 @@ function TerminalChatResponseItem({
 
   if (!item) return <></>;
 
+  // Suppress role if:
+  // 1. Explicitly disabled (showRole=false)
+  // 2. Previous role is the same as current role
+  // 3. Previous role was 'tool' and current is 'assistant' (merges tool output with assistant text)
+  const currentShowRole = showRole && (previousRole !== item.role) && !(previousRole === "tool" && item.role === "assistant");
+
   switch (item.role) {
     case "user":
-      return <TerminalChatResponseMessage message={item} theme={theme} />;
+      return <TerminalChatResponseMessage message={item} theme={theme} showRole={currentShowRole} />;
     case "assistant":
       return (
         <>
-          <TerminalChatResponseMessage message={item} theme={theme} />
+          <TerminalChatResponseMessage 
+            message={item} 
+            theme={theme} 
+            showRole={currentShowRole} 
+            disableMarkdown={isStreaming} 
+          />
           {item.tool_calls?.map((toolCall, i) => {
             return (
               <TerminalChatResponseToolCall
@@ -111,6 +128,7 @@ function TerminalChatResponseItem({
           fullStdout={fullStdout}
           toolCallMap={toolCallMap}
           theme={theme}
+          showRole={false}
         />
       );
     default:
@@ -185,16 +203,20 @@ export function TerminalChatResponseReasoning({
   );
 }
 
-const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMessage({
+export const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMessage({
   message,
   fullStdout,
   toolCallMap = new Map(),
   theme,
+  showRole = true,
+  disableMarkdown = false,
 }: {
   message: ChatCompletionMessageParam;
   fullStdout?: boolean;
   toolCallMap?: Map<string, any>;
   theme: Theme;
+  showRole?: boolean;
+  disableMarkdown?: boolean;
 }) {
   const contentParts: Array<string> = [];
 
@@ -265,7 +287,7 @@ const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMess
 
   return (
     <Box flexDirection="column">
-      {(hasContent || (!hasThoughts && !hasPlans)) && (
+      {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
         <Text bold color={roleColor}>
           {message.role === "assistant" ? "opencodex" : message.role}
         </Text>
@@ -303,7 +325,11 @@ const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMess
         </Box>
       ))}
       {hasContent && (
-        <Markdown theme={theme}>{displayContent.trim()}</Markdown>
+        disableMarkdown ? (
+          <Text>{displayContent.trim()} <Spinner type="dots" /></Text>
+        ) : (
+          <Markdown theme={theme}>{displayContent.trim()}</Markdown>
+        )
       )}
     </Box>
   );

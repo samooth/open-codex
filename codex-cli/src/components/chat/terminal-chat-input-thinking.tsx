@@ -71,6 +71,7 @@ export default function TerminalChatInputThinking({
   activeBlockType,
   activeToolName,
   activeToolArguments,
+  isStreamingResponse,
 }: {
   onInterrupt: () => void;
   active: boolean;
@@ -78,6 +79,7 @@ export default function TerminalChatInputThinking({
   activeBlockType?: "thought" | "think" | "plan";
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
+  isStreamingResponse?: boolean;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -230,19 +232,26 @@ export default function TerminalChatInputThinking({
               {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
             </Text>
           )}
-          <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
-            {showScrollIndicatorTop ? '▲ ' : ''}
-            {displayedLines.join('\n')}
-            {showScrollIndicatorBottom ? ' ▼' : ''}
-            {dots}
-          </Text>
-          {activeToolArguments && (
-            <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
-              <Text dimColor>
-                {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
-                {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
+          {(!isStreamingResponse || activeToolName) && (
+            <>
+              <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
+                {showScrollIndicatorTop ? '▲ ' : ''}
+                {displayedLines.join('\n')}
+                {showScrollIndicatorBottom ? ' ▼' : ''}
+                {dots}
               </Text>
-            </Box>
+              {activeToolArguments && (
+                <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
+                  <Text dimColor>
+                    {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
+                    {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
+                  </Text>
+                </Box>
+              )}
+            </>
+          )}
+          {isStreamingResponse && !activeToolName && (
+            <Text color="green">Generating output...</Text>
           )}
         </Box>
       </Box>

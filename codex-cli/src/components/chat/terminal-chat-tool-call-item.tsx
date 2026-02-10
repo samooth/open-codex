@@ -31,9 +31,8 @@ export function TerminalChatToolCallCommand({
   }, [applyPatch, commandForDisplay]);
 
   if (isPatch && ops) {
-    // Calculate a reasonable max lines for the entire patch preview
-    // We want to leave some space for the confirmation options and header.
-    const maxTotalLines = Math.max(10, rows - 15);
+    // Strictly limit patch preview height to keep confirmation prompt on screen
+    const maxTotalLines = 8;
     let totalLinesRendered = 0;
 
     return (
@@ -45,13 +44,14 @@ export function TerminalChatToolCallCommand({
           if (totalLinesRendered >= maxTotalLines) return null;
 
           const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
-            .split("\n");
+            .split("\n")
+            .filter(l => l.trim().length > 0 || op.type === "create");
           
-          const availableLines = maxTotalLines - totalLinesRendered - 3; // -3 for headers/padding
-          const showTruncated = lines.length > availableLines && availableLines > 0;
+          const availableLines = Math.max(1, maxTotalLines - totalLinesRendered - 2); 
+          const showTruncated = lines.length > availableLines;
           const linesToDisplay = showTruncated ? lines.slice(0, availableLines) : lines;
           
-          totalLinesRendered += linesToDisplay.length + 3;
+          totalLinesRendered += linesToDisplay.length + 2;
 
           return (
             <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor={theme.dim}>
@@ -101,7 +101,7 @@ export function TerminalChatToolCallCommand({
     );
   }
 
-  const maxTotalLines = Math.max(10, rows - 15);
+  const maxTotalLines = 5;
   const commandLines = commandForDisplay.split("\n");
   const showTruncatedCmd = commandLines.length > maxTotalLines;
   const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;

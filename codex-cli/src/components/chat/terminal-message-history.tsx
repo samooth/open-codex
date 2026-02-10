@@ -67,6 +67,15 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           const { item, group } = entry as BatchEntry;
           const role = item?.role || (group?.items[0] as any)?.role;
 
+          // Find the role of the previous message to determine if we should show the header
+          let previousRole: string | undefined;
+          if (index > 1) { // messages start at index 1 because index 0 is "header"
+            const prevEntry = messages[index - 2];
+            if (prevEntry) {
+              previousRole = prevEntry.item?.role || (prevEntry.group?.items[0] as any)?.role;
+            }
+          }
+
           return (
             <Box
               key={index}
@@ -81,25 +90,28 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
                 toolCallMap={toolCallMap}
                 loading={false}
                 theme={theme}
+                previousRole={previousRole}
               />
             </Box>
           );
         }}
       </Static>
       {streamingMessage && (
-        <Box
-          flexDirection="column"
-          marginLeft={2}
-          marginTop={1}
-        >
-          <TerminalChatResponseItem
-            item={streamingMessage}
-            fullStdout={fullStdout}
-            toolCallMap={toolCallMap}
-            loading={loading}
-            theme={theme}
-          />
-        </Box>
+        <StreamingAssistantResponse 
+          message={streamingMessage}
+          loading={loading}
+          theme={theme}
+          fullStdout={fullStdout}
+          toolCallMap={toolCallMap}
+          showRole={true}
+          previousRole={(() => {
+            const lastEntry = messages[messages.length - 1];
+            if (lastEntry) {
+              return lastEntry.item?.role || (lastEntry.group?.items[0] as any)?.role;
+            }
+            return undefined;
+          })()}
+        />
       )}
       {confirmationPrompt && (
         <Box marginLeft={2}>
@@ -118,5 +130,42 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
     </Box>
   );
 };
+
+const StreamingAssistantResponse = React.memo(({ 
+  message, 
+  loading, 
+  theme, 
+  fullStdout, 
+  toolCallMap,
+  showRole = false,
+  previousRole
+}: { 
+  message: ChatCompletionMessageParam; 
+  loading: boolean; 
+  theme: Theme; 
+  fullStdout: boolean; 
+  toolCallMap: Map<string, any>;
+  showRole?: boolean;
+  previousRole?: string;
+}) => {
+  return (
+    <Box
+      flexDirection="column"
+      marginLeft={2}
+      marginTop={1}
+    >
+      <TerminalChatResponseItem
+        item={message}
+        fullStdout={fullStdout}
+        toolCallMap={toolCallMap}
+        loading={loading}
+        theme={theme}
+        showRole={showRole}
+        previousRole={previousRole}
+        isStreaming={true}
+      />
+    </Box>
+  );
+});
 
 export default React.memo(MessageHistory);

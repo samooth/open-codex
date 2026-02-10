@@ -73,6 +73,7 @@ export default function TerminalChatInput({
   activeToolArguments,
   theme,
   allFiles,
+  isStreamingResponse,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -109,6 +110,7 @@ export default function TerminalChatInput({
   activeToolArguments?: Record<string, any>;
   theme: Theme;
   allFiles: string[];
+  isStreamingResponse?: boolean;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -514,7 +516,26 @@ export default function TerminalChatInput({
   );
 
   if (confirmationPrompt) {
-    return null; // Confirmation UI is now handled in TerminalMessageHistory
+    return (
+      <Box flexDirection="column">
+        <Box borderStyle="single" borderColor={theme.dim} paddingX={1} height={3} justifyContent="center">
+          <Text dimColor italic>Waiting for approval above...</Text>
+        </Box>
+        {loading && (
+          <Box paddingLeft={1}>
+            <TerminalChatInputThinking
+              onInterrupt={interruptAgent}
+              active={active}
+              partialReasoning={partialReasoning}
+              activeBlockType={activeBlockType}
+              activeToolName={activeToolName}
+              activeToolArguments={activeToolArguments}
+              isStreamingResponse={isStreamingResponse}
+            />
+          </Box>
+        )}
+      </Box>
+    );
   }
 
   return (
@@ -622,6 +643,7 @@ export default function TerminalChatInput({
             activeBlockType={activeBlockType}
             activeToolName={activeToolName}
             activeToolArguments={activeToolArguments}
+            isStreamingResponse={isStreamingResponse}
           />
         </Box>
       )}

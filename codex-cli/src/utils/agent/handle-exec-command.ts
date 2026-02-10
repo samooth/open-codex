@@ -157,6 +157,14 @@ export async function handleExecCommand(
   }
 
   const { applyPatch } = safety;
+
+  if (abortSignal?.aborted) {
+    return {
+      outputText: "aborted",
+      metadata: { error: "interrupted" },
+    };
+  }
+
   const summary = await execCommand(
     args,
     applyPatch,
@@ -169,8 +177,8 @@ export async function handleExecCommand(
   // exit cleanly without emitting spurious output.
   if (abortSignal?.aborted) {
     return {
-      outputText: "",
-      metadata: {},
+      outputText: "aborted",
+      metadata: { error: "interrupted" },
     };
   }
   if (
@@ -192,6 +200,12 @@ export async function handleExecCommand(
     if (review != null) {
       return review;
     } else {
+      if (abortSignal?.aborted) {
+        return {
+          outputText: "aborted",
+          metadata: { error: "interrupted" },
+        };
+      }
       // The user has approved the command, so we will run it outside of the
       // sandbox.
       const summary = await execCommand(

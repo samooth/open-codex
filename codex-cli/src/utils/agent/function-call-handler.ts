@@ -17,6 +17,10 @@ export async function handleFunctionCall(
   _onLoading: (loading: boolean) => void,
   onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void,
 ): Promise<Array<ChatCompletionMessageParam>> {
+  if (ctx.execAbortController?.signal.aborted) {
+    return [];
+  }
+
   if (itemArg.role !== "assistant" || !itemArg.tool_calls) {
     return [];
   }

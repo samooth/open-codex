@@ -116,7 +116,7 @@ export default function TerminalChat({
     ) {
       setRenderedPartialData({ ...partialDataRef.current });
     }
-  }, loading ? 150 : null);
+  }, loading ? 200 : null);
 
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
@@ -449,6 +449,24 @@ export default function TerminalChat({
 
   const activeTheme = getTheme(config.theme);
 
+  const memoizedStreamingMessage = useMemo(() => {
+    if (!loading || (!renderedPartialData.content && !renderedPartialData.reasoning)) {
+      return undefined;
+    }
+    
+    const content = renderedPartialData.content;
+    let finalContent = content;
+    // If reasoning is already embedded in content with tags, don't double wrap
+    if (!content.includes("<thought>") && !content.includes("<think>")) {
+      finalContent = content + (renderedPartialData.reasoning ? `<thought>${renderedPartialData.reasoning}</thought>` : "");
+    }
+
+    return {
+      role: "assistant" as const,
+      content: finalContent,
+    };
+  }, [loading, renderedPartialData.content, renderedPartialData.reasoning]);
+
   return (
     <Box flexDirection="column">
       {agent ? (
@@ -481,17 +499,7 @@ export default function TerminalChat({
             initialImagePaths,
             theme: activeTheme,
           }}
-          streamingMessage={loading && (renderedPartialData.content || renderedPartialData.reasoning) ? {
-            role: "assistant",
-            content: (() => {
-              const content = renderedPartialData.content;
-              // If reasoning is already embedded in content with tags, don't double wrap
-              if (content.includes("<thought>") || content.includes("<think>")) {
-                return content;
-              }
-              return content + (renderedPartialData.reasoning ? `<thought>${renderedPartialData.reasoning}</thought>` : "");
-            })()
-          } : undefined}
+          streamingMessage={memoizedStreamingMessage}
         />
       ) : (
         <Box>
@@ -581,6 +589,7 @@ export default function TerminalChat({
           awaitingContinueConfirmation={awaitingContinueConfirmation}
           theme={activeTheme}
           allFiles={allFiles}
+          isStreamingResponse={!!memoizedStreamingMessage}
         />
       )}
 
