@@ -137,34 +137,41 @@ export default function TerminalChat({
       
       const normalized = content.trim().toLowerCase();
       
-      // Simple Yes/No detection
-      if (normalized.includes("continue?") || 
-          normalized.includes("proceed?") || 
-          normalized.includes("(yes/no)") ||
-          normalized.includes("want me to continue") ||
-          normalized.includes("should i go ahead") ||
-          normalized.endsWith("?") && (
-            normalized.includes("should i") || 
-            normalized.includes("do you want") ||
-            normalized.includes("allow me to") ||
-            normalized.includes("is this correct") ||
-            normalized.includes("is this okay") ||
-            normalized.includes("can i proceed")
-          )) {
+      // Expanded Yes/No detection keywords
+      const yesNoTriggers = [
+        "continue?", "proceed?", "go ahead?", "is this correct?", 
+        "is this okay?", "is this right?", "ready to proceed?",
+        "want me to", "should i", "allow me to", "can i",
+        "(yes/no)", "please confirm"
+      ];
+
+      const isQuestion = normalized.endsWith("?");
+      const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
+
+      if (hasTrigger || (isQuestion && (
+        normalized.includes("do you") || 
+        normalized.includes("would you") ||
+        normalized.includes("shall i")
+      ))) {
+        // If we are in full-auto mode and it's a simple continuation question,
+        // we could potentially auto-respond, but for now we'll just show the UI.
         return { type: "yes-no" as const };
       }
 
-      // Detection for multiple choices like [Option A] [Option B]
-      const choiceMatches = content.match(/\[(.*?)\]/g);
+      // Improved Multi-choice detection: looks for [Option] patterns
+      const choiceMatches = content.match(/\[([^\]]+)\]/g);
       if (choiceMatches && choiceMatches.length >= 2) {
-        const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
-        const isNearEnd = lastChoiceIndex > (content.length - 100);
-        if (isNearEnd || normalized.includes("choose") || normalized.includes("select") || normalized.includes("option")) {
-          const choices = [
-            ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
-          ].filter(Boolean);
+        const choices = [
+          ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
+        ].filter(c => c.length > 0 && c.length < 50); // Sanity check on choice length
+        
+        if (choices.length >= 2) {
+          // Only trigger if near the end of the message or if explicitly asked to choose
+          const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
+          const isNearEnd = lastChoiceIndex > (content.length - 150);
+          const asksToChoose = normalized.includes("choose") || normalized.includes("select") || normalized.includes("option");
           
-          if (choices.length >= 2) {
+          if (isNearEnd || asksToChoose) {
             return { type: "choices" as const, choices };
           }
         }

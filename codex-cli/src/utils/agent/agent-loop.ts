@@ -443,6 +443,18 @@ export class AgentLoop {
               }
             }
 
+            // Project Context Injection: Inject dependencies and environment info
+            let projectContext = "";
+            try {
+              if (existsSync("package.json")) {
+                const pkg = JSON.parse(readFileSync("package.json", "utf-8"));
+                const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+                projectContext += `\n\n--- Project Dependencies ---\n${JSON.stringify(deps, null, 2)}`;
+              }
+            } catch (e) {
+              log(`Failed to inject project context: ${e}`);
+            }
+
             // Pinned Files: Inject full contents of pinned files
             let pinnedFilesContent = "";
             if (this.config.pinnedFiles && this.config.pinnedFiles.length > 0) {
@@ -460,7 +472,7 @@ export class AgentLoop {
               pinnedFilesContent = `\n\n--- Pinned Files ---\n${pinnedFileSnippets.join("\n\n")}`;
             }
 
-            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, pinnedFilesContent, dryRunInfo]
+            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {
