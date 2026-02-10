@@ -169,7 +169,6 @@ export async function handleFunctionCall(
         if (metadata["exit_code"] === 0) {
           for (const file of affectedFiles) {
             const validation = await validateFileSyntax(file);
-            console.log( validation )
             if (!validation.isValid) {
               outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
               metadata["exit_code"] = 1;

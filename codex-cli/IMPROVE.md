@@ -26,6 +26,22 @@ Potential Improvements:
        * Supported dynamic JSON themes in `config.json` for custom ANSI color mapping.
        * Implemented `/recipes` for a curated library of common prompt templates.
 
+   28. [DONE] Grounding & Anti-Hallucination:
+       * Implemented a strict Grounding Protocol in the system prompt to prevent guessing paths or library APIs.
+       * Automatically inject `package.json` dependencies into the system prompt context to provide a factual baseline of the environment.
+
+   29. [DONE] Refined Interaction Menus:
+       * Improved regex-based detection for Yes/No questions and multi-choice `[Option]` lists.
+       * Formalized the selection protocol in the system prompt to allow the model to reliably trigger interactive UI buttons.
+
+   30. [DONE] Reasoning Persistence:
+       * Resolved an issue where `reasoning_content` (from models like o1 or o3-mini) would disappear from history once streaming finished.
+       * Added specific unit tests for reasoning-only message rendering.
+
+   31. [DONE] Type Safety & DX:
+       * Resolved 20+ core TypeScript errors across 6 files, fixing issues with tool-call union types and broken imports.
+       * Optimized system-prompt string handling to prevent template literal termination errors.
+
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.
 
@@ -94,3 +110,12 @@ Potential Improvements:
    24. [DONE] Tool Robustness:
        * Parameter heuristics for `search_codebase` and aliases for `read_file_lines`.
        * Error logging to `opencodex.error.log`.
+
+TODO List (Future Improvements):
+
+   * **Cost & Token Auditing:** Real-time price estimation per turn/session based on actual token usage and model pricing.
+   * **Deep Linter Feedback:** Automatically trigger project linters (ESLint, Ruff, cargo check) after patches and pipe errors back to the model for self-correction.
+   * **Hybrid Search:** Combine ripgrep keyword matching with semantic vector embeddings for more accurate and comprehensive code discovery.
+   * **Image Generation Support:** Integrate Imagen 4.0 models for generating UI mockups or assets directly from the CLI.
+   * **Diff Chunking:** Automatically break down extremely large patches into smaller, verifiable hunks to reduce the risk of "Invalid Context" errors.
+   * **Undo Buffer:** Implement a `/undo` command that rolls back the last file modification using git or temporary backups.

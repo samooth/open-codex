@@ -363,7 +363,7 @@ export async function handleSearchCodebase(
       }
     }
 
-    const result = await handleExecCommand(
+    const resultPromise = handleExecCommand(
       {
         cmd: rgArgs,
         workdir: process.cwd(),
@@ -374,6 +374,19 @@ export async function handleSearchCodebase(
       ctx.getCommandConfirmation,
       ctx.execAbortController?.signal,
     );
+
+    // Hybrid Search: Run semantic search in parallel if available
+    let semanticResults: any[] = [];
+    if (ctx.agent && ctx.agent.hasIndex() && !isFileListingMode && !searchPath) {
+      // Only run semantic search for global searches (no specific path) for now to avoid noise
+      try {
+        semanticResults = await ctx.agent.searchCode(query || pattern, 5);
+      } catch (e) {
+        if (process.env["DEBUG"]) log(`Semantic search failed during hybrid search: ${e}`);
+      }
+    }
+
+    const result = await resultPromise;
 
     if (result.outputText === "aborted") {
       return result;
@@ -392,20 +405,38 @@ export async function handleSearchCodebase(
     // Process ripgrep JSON output to be more compact/useful for the model
     const lines = outputText.trim().split("\n");
     const results: Array<any> = [];
+    const seenFiles = new Set<string>();
 
     for (const line of lines) {
       if (!line) continue;
       try {
         const parsed = JSON.parse(line);
         if (parsed.type === "match") {
+          const filePath = parsed.data.path.text;
+          seenFiles.add(filePath);
           results.push({
-            file: parsed.data.path.text,
+            file: filePath,
             line: parsed.data.line_number,
             text: parsed.data.lines.text.trim(),
+            source: "keyword"
           });
         }
       } catch {
         // Skip invalid JSON lines
+      }
+    }
+
+    // Merge semantic results
+    for (const sem of semanticResults) {
+      // If we haven't seen this file in exact matches, add it
+      // Or maybe we add it anyway? Let's add if not seen to provide "new" context.
+      if (!seenFiles.has(sem.path)) {
+        results.push({
+          file: sem.path,
+          line: 0, // Semantic search often gives chunks, not exact lines. 0 indicates general relevance.
+          text: `[Semantic Match] ${sem.content.slice(0, 200).replace(/\n/g, " ")}...`,
+          source: "semantic"
+        });
       }
     }
 
@@ -416,12 +447,34 @@ export async function handleSearchCodebase(
       };
     }
 
+    // Sort results: Keyword matches first, then semantic
+    // results.sort((a, b) => (a.source === "keyword" ? -1 : 1)); 
+    // Actually, preserving order might be better or sorting by file.
+    // Let's just group by file for readability.
+    
+    // Group by file
+    const grouped: Record<string, any[]> = {};
+    for (const r of results) {
+      if (!grouped[r.file]) grouped[r.file] = [];
+      grouped[r.file]!.push(r);
+    }
+
+    let finalOutput = "";
+    for (const [file, matches] of Object.entries(grouped)) {
+      finalOutput += `File: ${file}\n`;
+      for (const m of matches) {
+        if (m.source === "semantic") {
+           finalOutput += `  (Semantic) ${m.text}\n`;
+        } else {
+           finalOutput += `  ${m.line}: ${m.text}\n`;
+        }
+      }
+      finalOutput += "\n";
+    }
+
     return {
-      outputText:
-        results.length > 0
-          ? JSON.stringify(results, null, 2)
-          : "No matches found.",
-      metadata: { ...metadata, match_count: results.length },
+      outputText: finalOutput.trim() || "No matches found.",
+      metadata: { ...metadata, match_count: results.length, hybrid: semanticResults.length > 0 },
     };
   } catch (err) {
     return {
