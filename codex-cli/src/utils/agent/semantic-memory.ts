@@ -5,6 +5,20 @@ import { join, dirname, relative } from "path";
 import { log } from "./log.js";
 import { getIgnoreFilter } from "./ignore-utils.js";
 
+function isBinaryFile(filePath: string): boolean {
+  try {
+    const buffer = readFileSync(filePath, { Buffer: true } as any);
+    // Check first 1KB for null bytes which usually indicate binary
+    const checkSize = Math.min(buffer.length, 1024);
+    for (let i = 0; i < checkSize; i++) {
+      if (buffer[i] === 0) return true;
+    }
+    return false;
+  } catch {
+    return true; // Assume binary if we can't read it
+  }
+}
+
 type EmbeddingCache = Record<string, number[]>;
 
 interface VectorEntry {
@@ -263,10 +277,12 @@ export class SemanticMemory {
           traverse(fullPath);
         } else if (entry.isFile()) {
           if (/\.(ts|tsx|js|jsx|py|md|txt|go|rs|c|cpp|h|java|sh|yaml|json)$/i.test(entry.name)) {
-            if (process.env["DEBUG"] === "1") {
-              log(`    Found: ${posixPath}`);
+            if (!isBinaryFile(fullPath)) {
+              if (process.env["DEBUG"] === "1") {
+                log(`    Found: ${posixPath}`);
+              }
+              files.push(fullPath);
             }
-            files.push(fullPath);
           }
         }
       }

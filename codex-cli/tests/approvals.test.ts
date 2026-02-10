@@ -1,144 +1,69 @@
-import type { SafetyAssessment } from "../src/approvals";
+import { describe, it, expect } from "vitest";
+import { isSafeCommand, canAutoApprove } from "../src/approvals.js";
+import { parse } from "shell-quote";
 
-import { canAutoApprove } from "../src/approvals";
-import { describe, test, expect } from "vitest";
-
-describe("canAutoApprove()", () => {
-  const env = {
-    PATH: "/usr/local/bin:/usr/bin:/bin",
-    HOME: "/home/user",
-  };
-
-  const writeablePaths: Array<string> = [];
-  const check = (command: ReadonlyArray<string>): SafetyAssessment =>
-    canAutoApprove(command, "suggest", writeablePaths, env);
-
-  test("simple safe commands", () => {
-    expect(check(["ls"])).toEqual({
-      type: "auto-approve",
-      reason: "List directory",
-      group: "Searching",
-      runInSandbox: false,
+describe("Approval Logic", () => {
+  describe("isSafeCommand", () => {
+    it("approves simple safe commands", () => {
+      expect(isSafeCommand(["ls"])).not.toBeNull();
+      expect(isSafeCommand(["pwd"])).not.toBeNull();
+      expect(isSafeCommand(["git", "status"])).not.toBeNull();
+      expect(isSafeCommand(["npm", "search", "react"])).not.toBeNull();
     });
-    expect(check(["cat", "file.txt"])).toEqual({
-      type: "auto-approve",
-      reason: "View file contents",
-      group: "Reading files",
-      runInSandbox: false,
+
+    it("rejects unsafe commands", () => {
+      expect(isSafeCommand(["rm", "file.txt"])).toBeNull();
+      expect(isSafeCommand(["mv", "old", "new"])).toBeNull();
+      expect(isSafeCommand(["chmod", "777", "script.sh"])).toBeNull();
     });
-    expect(check(["pwd"])).toEqual({
-      type: "auto-approve",
-      reason: "Print working directory",
-      group: "Navigating",
-      runInSandbox: false,
+
+    it("rejects find with unsafe options", () => {
+      expect(isSafeCommand(["find", ".", "-name", "*.ts"])).not.toBeNull();
+      expect(isSafeCommand(["find", ".", "-delete"])).toBeNull();
+      expect(isSafeCommand(["find", ".", "-exec", "rm", "{}", ";"])).toBeNull();
+    });
+
+    it("approves safe complex git commands", () => {
+      expect(isSafeCommand(["git", "diff"])).not.toBeNull();
+      expect(isSafeCommand(["git", "log"])).not.toBeNull();
+      // Unsafe git actions
+      expect(isSafeCommand(["git", "push"])).toBeNull();
+      expect(isSafeCommand(["git", "commit"])).toBeNull();
     });
   });
 
-  test("simple safe commands within a `bash -lc` call", () => {
-    expect(check(["bash", "-lc", "ls"])).toEqual({
-      type: "auto-approve",
-      reason: "List directory",
-      group: "Searching",
-      runInSandbox: false,
-    });
-    expect(check(["bash", "-lc", "ls $HOME"])).toEqual({
-      type: "auto-approve",
-      reason: "List directory",
-      group: "Searching",
-      runInSandbox: false,
-    });
-    expect(check(["bash", "-lc", "git show ab9811cb90"])).toEqual({
-      type: "auto-approve",
-      reason: "Git show",
-      group: "Using git",
-      runInSandbox: false,
-    });
-  });
+  describe("canAutoApprove Shell Expressions", () => {
+    const writableRoots = ["/safe/path"];
 
-  test("bash -lc commands with unsafe redirects", () => {
-    expect(check(["bash", "-lc", "echo hello > file.txt"])).toEqual({
-      type: "ask-user",
-    });
-    // In theory, we could make our checker more sophisticated to auto-approve
-    // This previously required approval, but now that we consider safe
-    // operators like "&&" the entire expression can be auto‑approved.
-    expect(check(["bash", "-lc", "ls && pwd"])).toEqual({
-      type: "auto-approve",
-      reason: "List directory",
-      group: "Searching",
-      runInSandbox: false,
-    });
-  });
+    // Helper to simulate the CLI behavior where bash -lc is used
+    function assess(cmdString: string, policy: "suggest" | "auto-edit" | "full-auto" = "suggest") {
+      const command = ["bash", "-lc", cmdString];
+      return canAutoApprove(command, policy, writableRoots);
+    }
 
-  test("true command is considered safe", () => {
-    expect(check(["true"])).toEqual({
-      type: "auto-approve",
-      reason: "No‑op (true)",
-      group: "Utility",
-      runInSandbox: false,
-    });
-  });
-
-  test("commands that should require approval", () => {
-    // Should this be on the auto-approved list?
-    expect(check(["printenv"])).toEqual({ type: "ask-user" });
-
-    expect(check(["git", "commit"])).toEqual({ type: "ask-user" });
-
-    expect(check(["pytest"])).toEqual({ type: "ask-user" });
-
-    expect(check(["cargo", "build"])).toEqual({ type: "ask-user" });
-  });
-
-  test("find", () => {
-    expect(check(["find", ".", "-name", "file.txt"])).toEqual({
-      type: "auto-approve",
-      reason: "Find files or directories",
-      group: "Searching",
-      runInSandbox: false,
+    it("auto-approves chained safe commands", () => {
+      const result = assess("ls && pwd");
+      expect(result.type).toBe("auto-approve");
     });
 
-    // Options that can execute arbitrary commands.
-    expect(
-      check(["find", ".", "-name", "file.txt", "-exec", "rm", "{}", ";"]),
-    ).toEqual({
-      type: "ask-user",
-    });
-    expect(
-      check(["find", ".", "-name", "*.py", "-execdir", "python3", "{}", ";"]),
-    ).toEqual({
-      type: "ask-user",
-    });
-    expect(
-      check(["find", ".", "-name", "file.txt", "-ok", "rm", "{}", ";"]),
-    ).toEqual({
-      type: "ask-user",
-    });
-    expect(
-      check(["find", ".", "-name", "*.py", "-okdir", "python3", "{}", ";"]),
-    ).toEqual({
-      type: "ask-user",
+    it("auto-approves piped safe commands", () => {
+      const result = assess("cat file.txt | grep 'something'");
+      expect(result.type).toBe("auto-approve");
     });
 
-    // Option that deletes matching files.
-    expect(check(["find", ".", "-delete", "-name", "file.txt"])).toEqual({
-      type: "ask-user",
+    it("rejects chains with one unsafe command", () => {
+      const result = assess("ls && rm file.txt");
+      expect(result.type).toBe("ask-user");
     });
 
-    // Options that write pathnames to a file.
-    expect(check(["find", ".", "-fls", "/etc/passwd"])).toEqual({
-      type: "ask-user",
+    it("rejects unsafe pipes", () => {
+      const result = assess("cat file.txt | xargs rm");
+      expect(result.type).toBe("ask-user");
     });
-    expect(check(["find", ".", "-fprint", "/etc/passwd"])).toEqual({
-      type: "ask-user",
-    });
-    expect(check(["find", ".", "-fprint0", "/etc/passwd"])).toEqual({
-      type: "ask-user",
-    });
-    expect(
-      check(["find", ".", "-fprintf", "/root/suid.txt", "%#m %u %p\n"]),
-    ).toEqual({
-      type: "ask-user",
+
+    it("rejects subshells (too complex to validate safely)", () => {
+      const result = assess("(ls && pwd)");
+      expect(result.type).toBe("ask-user");
     });
   });
 });

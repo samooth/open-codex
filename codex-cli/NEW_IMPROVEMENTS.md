@@ -142,5 +142,14 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 *   **[DONE] Customization & Productivity:**
     *   **[DONE] Dynamic JSON Theming:** Users can now define custom color mappings in their `config.json` to personalize the terminal UI.
     *   **[DONE] Prompt Recipes:** A new `/recipes` system provides a library of pre-defined prompt templates for common engineering tasks (testing, documentation, security, etc.).
+
+*   **[DONE] UI/UX Stabilization & Enhancements:**
+    *   **[DONE] Collapsible Tool Outputs:** Large outputs from tools (e.g., shell commands, search results) are now automatically collapsed to prevent history clutter. Users can toggle the full view with the `c` key.
+    *   **[DONE] Stabilized Streaming:** Replaced markdown rendering during streaming with a simplified text-plus-spinner view to eliminate layout shifts and flickering. Markdown is applied only upon message completion.
+    *   **[DONE] Real-Time Latency Tracking:** The thinking indicator now displays a live timer (e.g., `(5s)`) to provide immediate feedback on model response times.
+    *   **[DONE] Layout Stability:** Fixed "jumping" of the bottom bar during confirmation prompts by maintaining a consistent placeholder height.
+    *   **[DONE] Smart Autocomplete Highlighting:** File paths selected via autocomplete (`@filename`) are now visually highlighted in the input box, and the `@` prefix is automatically stripped upon submission.
+    *   **[DONE] Multi-File Patch Review:** Interactive review for multi-file patches allows navigating between files with arrow keys and collapsing individual file diffs with `c`.
+    *   **[DONE] Parallel Tool Cancellation:** Improved `ESC` handling to reliably halt all concurrent tool executions immediately.
 ---
-*Last Updated: 2026-02-04*
+*Last Updated: 2026-02-10*

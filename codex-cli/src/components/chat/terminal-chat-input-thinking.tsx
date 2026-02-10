@@ -84,6 +84,7 @@ export default function TerminalChatInputThinking({
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [showLongDelayWarning, setShowLongDelayWarning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const [thinkingText, setThinkingText] = useState(
     () => thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)],
@@ -94,9 +95,17 @@ export default function TerminalChatInputThinking({
   React.useEffect(() => {
     // Reset warning when component mounts or active state changes
     setShowLongDelayWarning(false);
+    setElapsedSeconds(0);
     
     let warningTimeout: NodeJS.Timeout | undefined;
+    let timerInterval: NodeJS.Timeout | undefined;
+
     if (active) {
+      const startTime = Date.now();
+      timerInterval = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+
       warningTimeout = setTimeout(() => {
         setShowLongDelayWarning(true);
       }, 15000); // 15 seconds
@@ -104,6 +113,7 @@ export default function TerminalChatInputThinking({
 
     return () => {
       if (warningTimeout) clearTimeout(warningTimeout);
+      if (timerInterval) clearInterval(timerInterval);
     };
   }, [active, partialReasoning, activeToolName]);
 
@@ -227,11 +237,14 @@ export default function TerminalChatInputThinking({
       <Box gap={2}>
         <Spinner type="dots" color={(activeToolName || activeBlockType === "plan") ? "magentaBright" : "cyan"} />
         <Box flexDirection="column">
-          {(activeToolName || activeBlockType === "plan") && (
-            <Text bold color="magenta">
-              {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
-            </Text>
-          )}
+          <Box gap={1}>
+            {(activeToolName || activeBlockType === "plan") && (
+              <Text bold color="magenta">
+                {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
+              </Text>
+            )}
+            <Text dimColor>({elapsedSeconds}s)</Text>
+          </Box>
           {(!isStreamingResponse || activeToolName) && (
             <>
               <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>

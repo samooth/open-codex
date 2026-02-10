@@ -25,6 +25,7 @@ import { shortCwd } from "../../utils/short-path.js";
 import { clearTerminal } from "../../utils/terminal.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
+import { detectInteraction } from "../../utils/interactive-detection.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
 import HelpOverlay from "../help-overlay.js";
@@ -140,51 +141,11 @@ export default function TerminalChat({
           ? lastItem.content
           : Array.isArray(lastItem.content)
           ? lastItem.content
-              .map((c) => (c.type === "text" ? c.text : ""))
+              .map((c) => (c.type === "text" ? (c as any).text : ""))
               .join("")
           : "";
       
-      const normalized = content.trim().toLowerCase();
-      
-      // Expanded Yes/No detection keywords
-      const yesNoTriggers = [
-        "continue?", "proceed?", "go ahead?", "is this correct?", 
-        "is this okay?", "is this right?", "ready to proceed?",
-        "want me to", "should i", "allow me to", "can i",
-        "(yes/no)", "please confirm"
-      ];
-
-      const isQuestion = normalized.endsWith("?");
-      const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
-
-      if (hasTrigger || (isQuestion && (
-        normalized.includes("do you") || 
-        normalized.includes("would you") ||
-        normalized.includes("shall i")
-      ))) {
-        // If we are in full-auto mode and it's a simple continuation question,
-        // we could potentially auto-respond, but for now we'll just show the UI.
-        return { type: "yes-no" as const };
-      }
-
-      // Improved Multi-choice detection: looks for [Option] patterns
-      const choiceMatches = content.match(/\[([^\]]+)\]/g);
-      if (choiceMatches && choiceMatches.length >= 2) {
-        const choices = [
-          ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
-        ].filter(c => c.length > 0 && c.length < 50); // Sanity check on choice length
-        
-        if (choices.length >= 2) {
-          // Only trigger if near the end of the message or if explicitly asked to choose
-          const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
-          const isNearEnd = lastChoiceIndex > (content.length - 150);
-          const asksToChoose = normalized.includes("choose") || normalized.includes("select") || normalized.includes("option");
-          
-          if (isNearEnd || asksToChoose) {
-            return { type: "choices" as const, choices };
-          }
-        }
-      }
+      return detectInteraction(content);
     }
     return null;
   }, [items, loading]);
@@ -339,7 +300,11 @@ export default function TerminalChat({
       ): Promise<CommandConfirmation> => {
         log(`getCommandConfirmation: ${command}`);
         const commandForDisplay = formatCommandForDisplay(command);
-        const { decision: review, customDenyMessage } =
+        
+        // Attach the patch to the request function so it can be passed to the overlay
+        (requestConfirmation as any)._pendingApplyPatch = applyPatch;
+
+        const { decision: review, customDenyMessage, updatedApplyPatch } =
           await requestConfirmation(
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
@@ -347,7 +312,7 @@ export default function TerminalChat({
               theme={activeTheme}
             />,
           );
-        return { review, customDenyMessage, applyPatch };
+        return { review, customDenyMessage, applyPatch: updatedApplyPatch || applyPatch };
       },
     });
 
@@ -479,13 +444,16 @@ export default function TerminalChat({
           submitConfirmation={(
             decision: ReviewDecision,
             customDenyMessage?: string,
+            updatedApplyPatch?: ApplyPatchCommand,
           ) =>
             submitConfirmation({
               decision,
               customDenyMessage,
+              updatedApplyPatch,
             })
           }
           allowAlwaysPatch={config.allowAlwaysPatch}
+          applyPatch={confirmationPrompt ? (requestConfirmation as any)._pendingApplyPatch : undefined}
           loading={loading}
           fullStdout={fullStdout}
           theme={activeTheme}

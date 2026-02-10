@@ -13,12 +13,12 @@ import {
 import type { CommandReviewDetails } from "../../utils/parsers";
 import { formatCommandForDisplay } from '../../format-command.js';
 import chalk, { type ForegroundColorName } from "chalk";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import { parse, setOptions } from "marked";
 import TerminalRenderer from "marked-terminal";
 import Spinner from "../vendor/ink-spinner.js";
-import { highlight } from "cli-highlight";
-import React, { useMemo } from "react";
+import { highlight as syntaxHighlight } from "cli-highlight";
+import React, { useMemo, useState } from "react";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { Theme } from "../../utils/theme.js";
 import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
@@ -464,6 +464,18 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
   const { exit_code, duration_seconds, type, url, query } =
     metadata as any;
 
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (fullStdout) return false;
+    const lines = output.trim().split("\n");
+    return lines.length > 10;
+  });
+
+  useInput((input, key) => {
+    if (input === "c") {
+      setIsCollapsed(!isCollapsed);
+    }
+  });
+
   const isDebug =
     process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
   const isError = exit_code !== 0 && typeof exit_code !== "undefined";
@@ -513,18 +525,21 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
   }
 
   let displayedContent = output.trim();
-  if (!fullStdout) {
+  const lineCount = displayedContent.split("\n").length;
+  const isLargeOutput = lineCount > 10 || displayedContent.length > 9000;
+
+  if (isCollapsed) {
     const lines = displayedContent.split("\n");
     if (lines.length > 10) {
       const head = lines.slice(0, 10);
       const remaining = lines.length - 10;
-      displayedContent = [...head, chalk.gray(`... (${remaining} more lines)`)].join("\n");
+      displayedContent = [...head, chalk.gray(`... (${remaining} more lines, press 'c' to expand)`)].join("\n");
     }
     // Truncate very long outputs
     if (displayedContent.length > 9000) {
       displayedContent =
         displayedContent.slice(0, 9000) +
-        chalk.gray(`\n... (truncated, ${output.length - 9000} more characters)`);
+        chalk.gray(`\n... (truncated, ${output.length - 9000} more characters, press 'c' to expand)`);
     }
   }
 
@@ -547,7 +562,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
 
     if (language) {
       try {
-        return highlight(displayedContent, { language, ignoreIllegals: true });
+        return syntaxHighlight(displayedContent, { language, ignoreIllegals: true });
       } catch { /* ignore */ }
     }
 
@@ -614,6 +629,11 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
           {colorizedContent || chalk.italic.gray("(no output)")}
         </Text>
       </Box>
+      {!isCollapsed && isLargeOutput && (
+        <Box marginTop={0}>
+          <Text color={theme.dim} italic>(press 'c' to collapse)</Text>
+        </Box>
+      )}
     </Box>
   );
 });
@@ -710,7 +730,7 @@ export function Markdown({
         width: size.columns,
         tab: 2,
         highlight: (code: string, lang: string) => {
-          return highlight(code, { language: lang, ignoreIllegals: true });
+          return syntaxHighlight(code, { language: lang, ignoreIllegals: true });
         },
         // Enhanced styling
         heading: chalk[theme.assistant as ForegroundColorName].bold,

@@ -161,6 +161,26 @@ async function updateSessionsIndex(newSession: any) {
   await fs.writeFile(SESSIONS_INDEX, JSON.stringify(index, null, 2), "utf-8");
 }
 
+export async function renameSession(id: string, newSummary: string): Promise<void> {
+  const filePath = path.join(SESSIONS_ROOT, `session-${id}.json`);
+  try {
+    const content = await fs.readFile(filePath, "utf-8");
+    const data = JSON.parse(content);
+    if (data.session) {
+      data.session.summary = newSummary;
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+      
+      // Update index as well
+      await updateSessionsIndex(data.session);
+    }
+  } catch (err) {
+    if (isLoggingEnabled()) {
+      log(`Failed to rename session ${id}: ${err}`);
+    }
+    throw err;
+  }
+}
+
 export async function loadRollout(filePath: string): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {
   try {
     const content = await fs.readFile(filePath, "utf-8");

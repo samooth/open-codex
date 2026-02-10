@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from "react";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "./vendor/ink-select/select.js";
 import TextInput from "./vendor/ink-text-input.js";
-import { loadRollouts, loadRollout } from "../utils/storage/save-rollout.js";
+import { loadRollouts, loadRollout, renameSession } from "../utils/storage/save-rollout.js";
 
 export default function HistorySelectOverlay({
   onSelect,
@@ -17,6 +17,10 @@ export default function HistorySelectOverlay({
   const [restoring, setRestoring] = useState(false);
   const [filter, setFilter] = useState("");
   const [isSearching, setIsFiltering] = useState(false);
+  
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
     loadRollouts().then((loaded) => {
@@ -27,10 +31,29 @@ export default function HistorySelectOverlay({
 
   useInput((input, key) => {
     if (key.escape) {
-      onExit();
+      if (renamingId) {
+        setRenamingId(null);
+      } else if (isSearching) {
+        setIsFiltering(false);
+      } else {
+        onExit();
+      }
     }
-    if (input === "/" && !isSearching) {
+    if (input === "/" && !isSearching && !renamingId) {
       setIsFiltering(true);
+    }
+    if (input === "r" && !isSearching && !renamingId && filteredRollouts.length > 0) {
+      const selected = filteredRollouts[selectedIndex];
+      if (selected) {
+        setRenamingId(selected.session.id);
+        setNewName(selected.session.summary || "");
+      }
+    }
+    if (key.upArrow && !isSearching && !renamingId) {
+      setSelectedIndex(prev => (prev - 1 + filteredRollouts.length) % filteredRollouts.length);
+    }
+    if (key.downArrow && !isSearching && !renamingId) {
+      setSelectedIndex(prev => (prev + 1) % filteredRollouts.length);
     }
   });
 
@@ -110,7 +133,21 @@ export default function HistorySelectOverlay({
       </Box>
 
       <Box borderStyle="single" paddingX={1} flexDirection="column">
-        {options.length > 0 ? (
+        {renamingId ? (
+          <Box gap={1}>
+            <Text color="yellow">New Name: </Text>
+            <TextInput
+              value={newName}
+              onChange={setNewName}
+              onSubmit={async () => {
+                await renameSession(renamingId, newName);
+                const updated = await loadRollouts();
+                setRollouts(updated);
+                setRenamingId(null);
+              }}
+            />
+          </Box>
+        ) : options.length > 0 ? (
           <Select
             options={options}
             focus={!isSearching}
@@ -135,6 +172,7 @@ export default function HistorySelectOverlay({
       <Box marginTop={1}>
         <Text dimColor>
           Use arrow keys to select • Press <Text bold>Enter</Text> to restore •{" "}
+          <Text bold color="yellow">r</Text> to rename •{" "}
           <Text bold>Esc</Text> to cancel
         </Text>
       </Box>

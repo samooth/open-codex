@@ -145,6 +145,25 @@ export default function TerminalChatInput({
     setSelectedSlashCommand(0);
   }, [filteredSlashCommands]);
 
+  const highlighter = useCallback(
+    (text: string) => {
+      const colors = new Array(text.length).fill(undefined);
+      const regex = /@[\w\/\.-]+/g;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        // Simple check to avoid highlighting emails
+        const isEmail = match.index > 0 && !/[\s(\[{"'<=]/.test(text[match.index - 1]);
+        if (!isEmail) {
+          for (let i = 0; i < match[0].length; i++) {
+            colors[match.index + i] = theme.highlight;
+          }
+        }
+      }
+      return colors;
+    },
+    [theme.highlight],
+  );
+
   const onKeyDown = (_inputStr: string, key: any) => {
     if (filteredFiles.length > 0) {
       if (key.tab) {
@@ -156,7 +175,7 @@ export default function TerminalChatInput({
         if (file && fileSearchMatch) {
           const before = input.slice(0, fileSearchMatch.startIndex);
           const after = input.slice(fileSearchMatch.startIndex + 1 + fileSearchMatch.query.length);
-          setInput(before + file + after);
+          setInput(before + "@" + file + after);
           return true;
         }
       }
@@ -265,6 +284,7 @@ export default function TerminalChatInput({
 
       if (_key.ctrl && _input === "e") {
         openExternalEditor(input).then((newContent) => {
+          clearTerminal();
           setInput(newContent);
         });
         return;
@@ -456,6 +476,10 @@ export default function TerminalChatInput({
       // detect image file paths for dynamic inclusion
       const images: Array<string> = [];
       let text = inputValue;
+
+      // Clean up the '@' prefix from highlighted files before submission
+      text = text.replace(/@([\w\/\.-]+\.\w+)/g, '$1');
+
       // markdown-style image syntax: ![alt](path)
       text = text.replace(/!\[[^\]]*?\]\(([^)]+)\)/g, (_m, p1: string) => {
         images.push(p1.startsWith("file://") ? fileURLToPath(p1) : p1);
@@ -586,6 +610,7 @@ export default function TerminalChatInput({
             showCursor
             value={input}
             onKeyDown={onKeyDown}
+            highlight={highlighter}
             onChange={(value) => {
               setDraftInput(value);
               if (historyIndex != null) {

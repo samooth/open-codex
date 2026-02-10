@@ -49,6 +49,11 @@ export type TextInputProps = {
    * Explicitly set the cursor position.
    */
   readonly cursorPosition?: number;
+
+  /**
+   * Function to highlight the value. Returns a list of colors/styles for each character.
+   */
+  readonly highlight?: (value: string) => (ForegroundColorName | undefined)[];
 };
 
 function findPrevWordJump(prompt: string, cursorOffset: number) {
@@ -96,6 +101,8 @@ function TextInput({
   onChange,
   onSubmit,
   onKeyDown,
+  cursorPosition,
+  highlight,
 }: TextInputProps) {
   const [state, setState] = useState({
     cursorOffset: (originalValue || "").length,
@@ -103,6 +110,15 @@ function TextInput({
   });
 
   const { cursorOffset, cursorWidth } = state;
+
+  useEffect(() => {
+    if (cursorPosition !== undefined) {
+      setState((prev) => ({
+        ...prev,
+        cursorOffset: Math.min(cursorPosition, (originalValue || "").length),
+      }));
+    }
+  }, [cursorPosition, originalValue]);
 
   useEffect(() => {
     setState((previousState) => {
@@ -132,6 +148,7 @@ function TextInput({
   const cursorActualWidth = highlightPastedText ? cursorWidth : 0;
 
   const value = mask ? mask.repeat(originalValue.length) : originalValue;
+  const colors = highlight ? highlight(value) : [];
   let renderedValue = value;
   let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
 
@@ -142,21 +159,32 @@ function TextInput({
         ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
         : chalk.inverse(" ");
 
-    renderedValue = value.length > 0 ? "" : chalk.inverse(" ");
+    renderedValue = "";
 
     let i = 0;
 
     for (const char of value) {
+      const color = colors[i];
+      let displayChar = color ? chalk[color](char) : char;
+
       renderedValue +=
         i >= cursorOffset - cursorActualWidth && i <= cursorOffset
-          ? chalk.inverse(char)
-          : char;
+          ? chalk.inverse(displayChar)
+          : displayChar;
 
       i++;
     }
 
     if (value.length > 0 && cursorOffset === value.length) {
       renderedValue += chalk.inverse(" ");
+    }
+  } else if (highlight) {
+    renderedValue = "";
+    let i = 0;
+    for (const char of value) {
+      const color = colors[i];
+      renderedValue += color ? chalk[color](char) : char;
+      i++;
     }
   }
 

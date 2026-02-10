@@ -1,3 +1,4 @@
+import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
@@ -24,8 +25,9 @@ type MessageHistoryProps = {
   items: Array<ChatCompletionMessageParam>;
   userMsgCount: number;
   confirmationPrompt: React.ReactNode;
-  submitConfirmation: (decision: ReviewDecision, customDenyMessage?: string) => void;
+  submitConfirmation: (decision: ReviewDecision, customDenyMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
   allowAlwaysPatch?: boolean;
+  applyPatch?: ApplyPatchCommand;
   loading: boolean;
   headerProps: TerminalHeaderProps;
   fullStdout: boolean;
@@ -40,6 +42,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   confirmationPrompt,
   submitConfirmation,
   allowAlwaysPatch,
+  applyPatch,
   loading,
   fullStdout,
   theme,
@@ -119,6 +122,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             confirmationPrompt={confirmationPrompt}
             onReviewCommand={submitConfirmation}
             allowAlwaysPatch={allowAlwaysPatch}
+            applyPatch={applyPatch}
           />
         </Box>
       )}

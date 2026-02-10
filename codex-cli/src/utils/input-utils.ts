@@ -16,13 +16,23 @@ export async function openExternalEditor(initialContent: string): Promise<string
 
   await fs.writeFile(tmpFilePath, initialContent, "utf8");
 
+  const wasRaw = process.stdin.isRaw;
+
   return new Promise((resolve, reject) => {
+    if (wasRaw) {
+      process.stdin.setRawMode(false);
+    }
+
     const child = spawn(editor, [tmpFilePath], {
       stdio: "inherit",
       shell: true,
     });
 
     child.on("exit", async (code) => {
+      if (wasRaw) {
+        process.stdin.setRawMode(true);
+      }
+
       if (code === 0) {
         try {
           const content = await fs.readFile(tmpFilePath, "utf8");
@@ -38,6 +48,9 @@ export async function openExternalEditor(initialContent: string): Promise<string
     });
 
     child.on("error", (err) => {
+      if (wasRaw) {
+        process.stdin.setRawMode(true);
+      }
       reject(err);
     });
   });

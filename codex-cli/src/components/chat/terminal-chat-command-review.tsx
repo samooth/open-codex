@@ -1,4 +1,7 @@
 import { ReviewDecision } from "../../utils/agent/review";
+import { openExternalEditor } from "../../utils/input-utils.js";
+import { clearTerminal } from "../../utils/terminal.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
 // TODO: figure out why `cli-spinners` fails on Node v20.9.0
 // which is why we have to do this in the first place
 //
@@ -16,10 +19,12 @@ export function TerminalChatCommandReview({
   confirmationPrompt,
   onReviewCommand,
   allowAlwaysPatch,
+  applyPatch,
 }: {
   confirmationPrompt: React.ReactNode;
-  onReviewCommand: (decision: ReviewDecision, customMessage?: string) => void;
+  onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
   allowAlwaysPatch?: boolean;
+  applyPatch?: ApplyPatchCommand;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -77,6 +82,13 @@ export function TerminalChatCommandReview({
       });
     }
 
+    if (applyPatch) {
+      opts.push({
+        label: "View or Edit patch in $EDITOR (v)",
+        value: "view-edit" as any,
+      });
+    }
+
     opts.push(
       {
         label: "Edit or give feedback (e)",
@@ -93,12 +105,22 @@ export function TerminalChatCommandReview({
     );
 
     return opts;
-  }, [showAlwaysApprove]);
+  }, [showAlwaysApprove, applyPatch]);
 
-  useInput((input, key) => {
+  useInput(async (input, key) => {
     if (mode === "select") {
       if (input === "y") {
         onReviewCommand(ReviewDecision.YES);
+      } else if (input === "v" && applyPatch) {
+        const edited = await openExternalEditor(applyPatch.patch);
+        clearTerminal();
+        if (edited && edited !== applyPatch.patch) {
+          onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
+        } else {
+          // If no changes, just proceed or stay in menu? 
+          // Let's proceed with original if they just viewed it.
+          onReviewCommand(ReviewDecision.YES);
+        }
       } else if (input === "e") {
         setMode("input");
       } else if (input === "n") {
@@ -136,14 +158,22 @@ export function TerminalChatCommandReview({
             <Text>Allow command?</Text>
             <Box paddingX={2} flexDirection="column" gap={1}>
               <Select
-                onChange={(value: ReviewDecision | "edit") => {
+                onChange={async (value: ReviewDecision | "edit" | "view-edit") => {
                   if (value === "edit") {
                     setMode("input");
+                  } else if (value === "view-edit" && applyPatch) {
+                    const edited = await openExternalEditor(applyPatch.patch);
+                    clearTerminal();
+                    if (edited && edited !== applyPatch.patch) {
+                      onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
+                    } else {
+                      onReviewCommand(ReviewDecision.YES);
+                    }
                   } else {
-                    onReviewCommand(value);
+                    onReviewCommand(value as ReviewDecision);
                   }
                 }}
-                options={approvalOptions}
+                options={approvalOptions as any}
               />
             </Box>
           </>

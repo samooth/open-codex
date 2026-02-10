@@ -1,5 +1,5 @@
-// use-confirmation.ts
 import type { ReviewDecision } from "../utils/agent/review";
+import type { ApplyPatchCommand } from "../approvals";
 import type React from "react";
 
 import { useState, useCallback, useRef } from "react";
@@ -7,6 +7,7 @@ import { useState, useCallback, useRef } from "react";
 type ConfirmationResult = {
   decision: ReviewDecision;
   customDenyMessage?: string;
+  updatedApplyPatch?: ApplyPatchCommand;
 };
 
 type ConfirmationItem = {
