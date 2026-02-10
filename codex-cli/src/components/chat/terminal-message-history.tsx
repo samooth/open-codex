@@ -3,10 +3,12 @@ import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
+import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalHeader from "./terminal-header.js";
 import ThinkingTimer from "./thinking-timer.js";
 import { Box, Static } from "ink";
 import React, { useMemo } from "react";
+import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Theme } from "../../utils/theme.js";
 
 // A batch entry can either be a standalone response item or a grouped set of
@@ -22,6 +24,8 @@ type MessageHistoryProps = {
   items: Array<ChatCompletionMessageParam>;
   userMsgCount: number;
   confirmationPrompt: React.ReactNode;
+  submitConfirmation: (decision: ReviewDecision, customDenyMessage?: string) => void;
+  allowAlwaysPatch?: boolean;
   loading: boolean;
   headerProps: TerminalHeaderProps;
   fullStdout: boolean;
@@ -33,6 +37,9 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   batch,
   items,
   headerProps,
+  confirmationPrompt,
+  submitConfirmation,
+  allowAlwaysPatch,
   loading,
   fullStdout,
   theme,
@@ -94,7 +101,16 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           />
         </Box>
       )}
-      {loading && debug && (
+      {confirmationPrompt && (
+        <Box marginLeft={2}>
+          <TerminalChatCommandReview
+            confirmationPrompt={confirmationPrompt}
+            onReviewCommand={submitConfirmation}
+            allowAlwaysPatch={allowAlwaysPatch}
+          />
+        </Box>
+      )}
+      {loading && !confirmationPrompt && debug && (
         <Box marginTop={1} marginLeft={2}>
           <ThinkingTimer loading={loading} theme={theme} />
         </Box>

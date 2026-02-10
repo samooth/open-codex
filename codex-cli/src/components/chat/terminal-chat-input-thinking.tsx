@@ -81,12 +81,29 @@ export default function TerminalChatInputThinking({
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [showLongDelayWarning, setShowLongDelayWarning] = useState(false);
 
   const [thinkingText, setThinkingText] = useState(
     () => thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)],
   );
 
   const { stdin, setRawMode } = useStdin();
+
+  React.useEffect(() => {
+    // Reset warning when component mounts or active state changes
+    setShowLongDelayWarning(false);
+    
+    let warningTimeout: NodeJS.Timeout | undefined;
+    if (active) {
+      warningTimeout = setTimeout(() => {
+        setShowLongDelayWarning(true);
+      }, 15000); // 15 seconds
+    }
+
+    return () => {
+      if (warningTimeout) clearTimeout(warningTimeout);
+    };
+  }, [active, partialReasoning, activeToolName]);
 
   React.useEffect(() => {
     if (!active) {
@@ -229,6 +246,13 @@ export default function TerminalChatInputThinking({
           )}
         </Box>
       </Box>
+      {showLongDelayWarning && !partialReasoning && !activeToolName && (
+        <Box paddingLeft={2}>
+          <Text color="yellow">
+            ⚠️ Long delay detected. The model might be struggling to respond or the connection is slow.
+          </Text>
+        </Box>
+      )}
       {awaitingConfirm && (
         <Text dimColor>
           Press <Text bold>Esc</Text> again to interrupt and enter a new

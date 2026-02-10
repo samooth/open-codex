@@ -24,6 +24,7 @@ import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
 import { clearTerminal } from "../../utils/terminal.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
+import { listAllFiles } from "../../utils/list-all-files.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
 import HelpOverlay from "../help-overlay.js";
@@ -72,11 +73,19 @@ export default function TerminalChat({
   const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
     initialRollout?.items || [],
   );
+  const [allFiles, setAllFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     initialApprovalPolicy,
   );
+
+  useEffect(() => {
+    // Fetch all files once on mount to avoid blocking UI during chat
+    setTimeout(() => {
+      setAllFiles(listAllFiles());
+    }, 100);
+  }, []);
   
   // Use a ref for incoming partial data to avoid re-rendering TerminalChat on every chunk.
   // We only re-render when the throttled "rendered" state is updated via useInterval.
@@ -449,6 +458,16 @@ export default function TerminalChat({
           items={items}
           userMsgCount={userMsgCount}
           confirmationPrompt={confirmationPrompt}
+          submitConfirmation={(
+            decision: ReviewDecision,
+            customDenyMessage?: string,
+          ) =>
+            submitConfirmation({
+              decision,
+              customDenyMessage,
+            })
+          }
+          allowAlwaysPatch={config.allowAlwaysPatch}
           loading={loading}
           fullStdout={fullStdout}
           theme={activeTheme}
@@ -561,6 +580,7 @@ export default function TerminalChat({
           allowAlwaysPatch={config.allowAlwaysPatch}
           awaitingContinueConfirmation={awaitingContinueConfirmation}
           theme={activeTheme}
+          allFiles={allFiles}
         />
       )}
 

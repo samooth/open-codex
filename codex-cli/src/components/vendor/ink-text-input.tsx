@@ -46,9 +46,9 @@ export type TextInputProps = {
   readonly onSubmit?: (value: string) => void;
 
   /**
-   * Function to call when any key is pressed.
+   * Explicitly set the cursor position.
    */
-  readonly onKeyDown?: (input: string, key: any) => boolean | void;
+  readonly cursorPosition?: number;
 };
 
 function findPrevWordJump(prompt: string, cursorOffset: number) {
@@ -111,9 +111,12 @@ function TextInput({
       }
 
       const newValue = originalValue || "";
-      // Sets the cursor to the end of the line if the value is empty or the cursor is at the end of the line.
+      // Sets the cursor to the end of the line if the value changed significantly
+      // (longer than one character difference usually means external update or paste)
+      // or if it was at the end before.
       if (
         previousState.cursorOffset === 0 ||
+        Math.abs(previousState.cursorOffset - newValue.length) > 1 ||
         previousState.cursorOffset > newValue.length - 1
       ) {
         return {

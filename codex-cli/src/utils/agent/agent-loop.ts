@@ -779,9 +779,11 @@ export class AgentLoop {
           };
 
           // eslint-disable-next-line no-await-in-loop
+          let chunkCount = 0;
           for await (const chunk of stream) {
+            chunkCount++;
             if (isLoggingEnabled()) {
-              log(`AgentLoop.run(): completion chunk ${chunk.id}`);
+              log(`AgentLoop.run(): completion chunk ${chunk.id} (count: ${chunkCount})`);
             }
             const delta = chunk?.choices?.[0]?.delta;
             const content = delta?.content;
@@ -869,8 +871,19 @@ export class AgentLoop {
             }
             const finish_reason = chunk?.choices?.[0]?.finish_reason;
             if (finish_reason) {
+              if (isLoggingEnabled()) {
+                log(`AgentLoop.run(): stream finished with reason: ${finish_reason}`);
+              }
               await finalizeMessage(message!);
             }
+          }
+
+          if (chunkCount === 0) {
+            log("AgentLoop.run(): stream ended with ZERO chunks");
+            this.onItem({
+              role: "assistant",
+              content: "⚠️ The model returned an empty response. This can happen due to safety filters or provider issues. Please try again or switch models.",
+            });
           }
 
           // Fallback: finalize message if stream ended without finish_reason
@@ -879,6 +892,8 @@ export class AgentLoop {
               log("AgentLoop.run(): stream ended without finish_reason, triggering fallback finalization");
             }
             await finalizeMessage(message);
+          } else if (!message && chunkCount > 0) {
+            log("AgentLoop.run(): stream had chunks but no message was constructed");
           }
         } catch (err: unknown) {
           // Gracefully handle an abort triggered via `cancel()` so that the

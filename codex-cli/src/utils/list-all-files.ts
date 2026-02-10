@@ -7,9 +7,9 @@ import { getIgnoreFilter } from "./agent/ignore-utils.js";
  * Lists all files in the repository, respecting .gitignore if possible.
  */
 export function listAllFiles(cwd: string = process.cwd()): string[] {
-  // 1. Try git ls-files first
+  // 1. Try git ls-files first (including untracked files that aren't ignored)
   try {
-    const output = execSync("git ls-files", { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const output = execSync("git ls-files --cached --others --exclude-standard", { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     return output.split("\n").filter(Boolean);
   } catch (err) {
     // 2. Fallback to manual recursive listing

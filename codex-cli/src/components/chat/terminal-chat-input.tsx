@@ -5,6 +5,7 @@ import type { Theme } from "../../utils/theme.js";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
+import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
@@ -13,7 +14,6 @@ import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, useMemo, useEffect } from "react";
-import { listAllFiles } from "../../utils/list-all-files.js";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
 
 const suggestions = [
@@ -72,6 +72,7 @@ export default function TerminalChatInput({
   activeToolName,
   activeToolArguments,
   theme,
+  allFiles,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -107,6 +108,7 @@ export default function TerminalChatInput({
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   theme: Theme;
+  allFiles: string[];
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -118,45 +120,28 @@ export default function TerminalChatInput({
 
   const [customInputMode, setCustomInputMode] = useState(false);
 
-  const [allFiles, setAllFiles] = useState<string[]>([]);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
-  useEffect(() => {
-    if (active) {
-      setAllFiles(listAllFiles());
-    }
-  }, [active]);
-
   const fileSearchMatch = useMemo(() => {
-    const lastAt = input.lastIndexOf("@");
-    if (lastAt === -1) return null;
-    
-    // Ensure it's either at the start or preceded by a space
-    if (lastAt > 0 && input[lastAt - 1] !== " ") return null;
-
-    const query = input.slice(lastAt + 1).split(" ")[0] || "";
-    return { query, startIndex: lastAt };
+    return getFileSearchMatch(input);
   }, [input]);
 
   const filteredFiles = useMemo(() => {
     if (!fileSearchMatch) return [];
-    const q = fileSearchMatch.query.toLowerCase();
-    return allFiles
-      .filter((f) => f.toLowerCase().includes(q))
-      .sort((a, b) => {
-        // Boost files that start with the query
-        const aStart = a.toLowerCase().startsWith(q);
-        const bStart = b.toLowerCase().startsWith(q);
-        if (aStart && !bStart) return -1;
-        if (!aStart && bStart) return 1;
-        return a.localeCompare(b);
-      })
-      .slice(0, 10);
+    return filterFiles(allFiles, fileSearchMatch.query);
   }, [allFiles, fileSearchMatch]);
 
   const filteredSlashCommands = input.startsWith("/")
     ? slashCommands.filter((c) => c.name.startsWith(input))
     : [];
+
+  useEffect(() => {
+    setSelectedFileIndex(0);
+  }, [filteredFiles]);
+
+  useEffect(() => {
+    setSelectedSlashCommand(0);
+  }, [filteredSlashCommands]);
 
   const onKeyDown = (_inputStr: string, key: any) => {
     if (filteredFiles.length > 0) {
@@ -529,13 +514,7 @@ export default function TerminalChatInput({
   );
 
   if (confirmationPrompt) {
-    return (
-      <TerminalChatCommandReview
-        confirmationPrompt={confirmationPrompt}
-        onReviewCommand={submitConfirmation}
-        allowAlwaysPatch={allowAlwaysPatch}
-      />
-    );
+    return null; // Confirmation UI is now handled in TerminalMessageHistory
   }
 
   return (
