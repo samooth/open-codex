@@ -7,10 +7,10 @@ import type { ResponseReasoningItem } from "openai/resources/responses/responses
 
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import {
-  getCommandReviewDetails,
   parseToolCallOutput,
   parseToolCallArguments
 } from "../../utils/parsers";
+import type { CommandReviewDetails } from "../../utils/parsers";
 import { formatCommandForDisplay } from '../../format-command.js';
 import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
@@ -197,7 +197,12 @@ const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMess
   theme: Theme;
 }) {
   const contentParts: Array<string> = [];
-  // ... (content extraction stays same)
+
+  // Capture reasoning content if present (common in models like o1, o3-mini)
+  if ((message as any).reasoning_content) {
+    contentParts.push(`<thought>${(message as any).reasoning_content}</thought>`);
+  }
+
   if (typeof message.content === "string") {
     contentParts.push(message.content);
   } else if (Array.isArray(message.content)) {

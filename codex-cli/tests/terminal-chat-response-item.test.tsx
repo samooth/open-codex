@@ -88,4 +88,20 @@ describe("TerminalChatResponseItem", () => {
     expect(frame).toContain("file1.txt");
     expect(frame).toContain("file2.txt");
   });
+
+  it("renders an assistant message with only reasoning_content", () => {
+    const item = {
+      role: "assistant",
+      content: "",
+      reasoning_content: "I am thinking deeply",
+    } as any;
+
+    const { lastFrameStripped } = renderTui(
+      <TerminalChatResponseItem item={item} theme={themes["default"]!} />,
+    );
+
+    const frame = lastFrameStripped();
+    expect(frame.toLowerCase()).toContain("thought");
+    expect(frame).toContain("I am thinking deeply");
+  });
 });
