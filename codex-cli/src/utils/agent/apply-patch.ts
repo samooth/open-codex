@@ -183,85 +183,105 @@ class Parser {
     this.index += 1;
   }
 
-  private parse_update_file(text: string): PatchAction {
-    const action: PatchAction = { type: ActionType.UPDATE, chunks: [] };
-    const fileLines = text.split("\n");
-    let index = 0;
+  // FIXED: Better new file detection
 
-    while (
-      !this.is_done([
-        PATCH_SUFFIX,
-        UPDATE_FILE_PREFIX,
-        DELETE_FILE_PREFIX,
-        ADD_FILE_PREFIX,
-        END_OF_FILE_PREFIX,
-      ])
-    ) {
-      const defStr = this.read_str("@@ ");
-      let sectionStr = "";
-      if (!defStr && this.lines[this.index] === "@@") {
-        sectionStr = this.lines[this.index]!;
-        this.index += 1;
-      }
-      if (!(defStr || sectionStr || index === 0)) {
-        throw new DiffError(`Invalid Line:\n${this.lines[this.index]}`);
-      }
-      const isNewFileHunk = defStr.includes("-0,0") || defStr.includes("-1,1") || text === "" || text === undefined;
-      if (defStr.trim()) {
-        let found = false;
-        if (!fileLines.slice(0, index).some((s) => s === defStr)) {
-          for (let i = index; i < fileLines.length; i++) {
-            if (fileLines[i] === defStr) {
-              index = i + 1;
-              found = true;
-              break;
-            }
-          }
-        }
-        if (
-          !found &&
-          !fileLines.slice(0, index).some((s) => s.trim() === defStr.trim())
-        ) {
-          for (let i = index; i < fileLines.length; i++) {
-            if (fileLines[i]!.trim() === defStr.trim()) {
-              index = i + 1;
-              this.fuzz += 1;
-              found = true;
-              break;
-            }
-          }
-        }
-      }
+private parse_update_file(text: string, filePath: string): PatchAction {
+  const action: PatchAction = { type: ActionType.UPDATE, chunks: [] };
+  const fileLines = text.split("\n");
+  let index = 0;
+  
+  // BETTER: Check if file is actually empty/new based on content, not heuristics
+  const isNewFile = text === "" || fileLines.length === 0 || fileLines.every(line => line.trim() === "");
 
-      const [nextChunkContext, chunks, endPatchIndex, eof] = peek_next_section(
-        this.lines,
-        this.index,
-        isNewFileHunk,
-      );
-      const [newIndex, fuzz] = find_context(
-        fileLines,
-        nextChunkContext,
-        index,
-        eof,
-      );
-      if (newIndex === -1) {
-        const ctxText = nextChunkContext.join("\n");
-        if (eof) {
-          throw new DiffError(`Invalid EOF Context ${index}:\n${ctxText}`);
-        } else {
-          throw new DiffError(`Invalid Context ${index}:\n${ctxText}`);
-        }
-      }
-      this.fuzz += fuzz;
-      for (const ch of chunks) {
-        ch.orig_index += newIndex;
-        action.chunks.push(ch);
-      }
-      index = newIndex + nextChunkContext.length;
-      this.index = endPatchIndex;
+  while (
+    !this.is_done([
+      PATCH_SUFFIX,
+      UPDATE_FILE_PREFIX,
+      DELETE_FILE_PREFIX,
+      ADD_FILE_PREFIX,
+      END_OF_FILE_PREFIX,
+    ])
+  ) {
+    const defStr = this.read_str("@@ ");
+    let sectionStr = "";
+    if (!defStr && this.lines[this.index] === "@@") {
+      sectionStr = this.lines[this.index]!;
+      this.index += 1;
     }
-    return action;
+    if (!(defStr || sectionStr || index === 0)) {
+      throw new DiffError(`Invalid Line:\n${this.lines[this.index]}`);
+    }
+    
+    // Parse hunk header to get line numbers
+    let hunkStartLine = 0;
+    let hunkOldCount = 0;
+    if (defStr) {
+      const match = defStr.match(/@@ -(\d+),(\d+) \+(\d+),(\d+) @@/);
+      if (match) {
+        hunkStartLine = parseInt(match[1], 10) - 1; // Convert to 0-indexed
+        hunkOldCount = parseInt(match[2], 10);
+      }
+    }
+    
+    // Use hunk header info instead of fragile heuristics
+    const isNewFileHunk = isNewFile || (hunkStartLine === 0 && hunkOldCount === 0) || (hunkStartLine === -1 && hunkOldCount === 0);
+    
+    if (defStr.trim() && !isNewFileHunk) {
+      // Try to find the context in the original file
+      let found = false;
+      const searchStart = Math.max(0, hunkStartLine - 1); // Allow 1 line of fuzz
+      
+      for (let i = searchStart; i < fileLines.length && i < hunkStartLine + 3; i++) {
+        if (fileLines[i] === defStr) {
+          index = i + 1;
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        // Try trim match
+        for (let i = searchStart; i < fileLines.length && i < hunkStartLine + 3; i++) {
+          if (fileLines[i]!.trim() === defStr.trim()) {
+            index = i + 1;
+            this.fuzz += 1;
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+
+    const [nextChunkContext, chunks, endPatchIndex, eof] = peek_next_section(
+      this.lines,
+      this.index,
+      isNewFileHunk,
+    );
+    const [newIndex, fuzz] = find_context(
+      fileLines,
+      nextChunkContext,
+      index,
+      eof,
+    );
+    if (newIndex === -1) {
+      const ctxText = nextChunkContext.join("\n");
+      if (eof) {
+        throw new DiffError(`Invalid EOF Context ${index}:\n${ctxText}`);
+      } else {
+        throw new DiffError(`Invalid Context ${index}:\n${ctxText}`);
+      }
+    }
+    this.fuzz += fuzz;
+    for (const ch of chunks) {
+      ch.orig_index += newIndex;
+      action.chunks.push(ch);
+    }
+    index = newIndex + nextChunkContext.length;
+    this.index = endPatchIndex;
   }
+  return action;
+}
+
 
   private parse_add_file(): PatchAction {
     const lines: Array<string> = [];
@@ -292,6 +312,8 @@ class Parser {
   }
 }
 
+// FIXED: Proper fuzzy matching without JSON.stringify
+
 function find_context_core(
   lines: Array<string>,
   context: Array<string>,
@@ -300,33 +322,75 @@ function find_context_core(
   if (context.length === 0) {
     return [start, 0];
   }
+  
+  // Try exact match first
   for (let i = start; i < lines.length; i++) {
     if (lines.slice(i, i + context.length).join("\n") === context.join("\n")) {
       return [i, 0];
     }
   }
+  
+  // Try trimEnd match (ignore trailing whitespace)
   for (let i = start; i < lines.length; i++) {
-    if (
-      lines
-        .slice(i, i + context.length)
-        .map((s) => s.trimEnd())
-        .join("\n") === context.map((s) => s.trimEnd()).join("\n")
-    ) {
-      return [i, 1];
+    const slice = lines.slice(i, i + context.length);
+    if (slice.length !== context.length) continue;
+    
+    let matches = true;
+    for (let j = 0; j < context.length; j++) {
+      if (slice[j]!.trimEnd() !== context[j]!.trimEnd()) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) {
+      return [i, 1]; // Small fuzz penalty for trailing whitespace mismatch
     }
   }
+  
+  // Try trim match (ignore all leading/trailing whitespace)
   for (let i = start; i < lines.length; i++) {
-    if (
-      lines
-        .slice(i, i + context.length)
-        .map((s) => s.trim())
-        .join("\n") === context.map((s) => s.trim()).join("\n")
-    ) {
-      return [i, 100];
+    const slice = lines.slice(i, i + context.length);
+    if (slice.length !== context.length) continue;
+    
+    let matches = true;
+    for (let j = 0; j < context.length; j++) {
+      if (slice[j]!.trim() !== context[j]!.trim()) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) {
+      return [i, 10]; // Higher fuzz penalty for whitespace mismatch
     }
   }
+  
+  // Try normalized match (ignore empty lines and extra whitespace)
+  const normalizedContext = context.map(s => s.trim()).filter(Boolean);
+  if (normalizedContext.length > 0) {
+    for (let i = start; i <= lines.length - normalizedContext.length; i++) {
+      const windowSlice = lines.slice(i, i + normalizedContext.length);
+      const normalizedWindow = windowSlice.map(s => s.trim()).filter(Boolean);
+      
+      if (normalizedWindow.length !== normalizedContext.length) continue;
+      
+      let matches = true;
+      for (let j = 0; j < normalizedContext.length; j++) {
+        if (normalizedWindow[j] !== normalizedContext[j]) {
+          matches = false;
+          break;
+        }
+      }
+      
+      if (matches) {
+        return [i, 100]; // High fuzz penalty for normalized match
+      }
+    }
+  }
+  
   return [-1, 0];
 }
+
+
 
 function find_context(
   lines: Array<string>,
@@ -371,7 +435,7 @@ function peek_next_section(
         DELETE_FILE_PREFIX,
         ADD_FILE_PREFIX,
         END_OF_FILE_PREFIX,
-      ].some((p) => s.startsWith(p.trim()))
+      ].some((p) => s.startsWith(p?.trim()))
     ) {
       break;
     }
@@ -441,27 +505,15 @@ function peek_next_section(
 // High‑level helpers
 // -----------------------------------------------------------------------------
 
-/**
- * Decodes common HTML entities that might appear due to double-encoding.
- */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\\u003c/g, "<")
-    .replace(/\\u003e/g, ">");
-}
+// REMOVED: decodeHtmlEntities function entirely - it causes data corruption
+// REMOVED: Aggressive HTML entity decoding that corrupted legitimate content
 
-/**
- * Normalizes patch text to ensure it has the required markers and handles markdown blocks.
- */
+// FIXED: Only normalize patch markers, don't touch content
 function normalizePatchText(text: string): string {
-  let cleaned = decodeHtmlEntities(text).trim();
+  // First, normalize line endings
+  let cleaned = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")?.trim();
 
-  // Remove markdown code blocks if present
+  // Remove markdown code blocks if present (only at start/end)
   if (cleaned.startsWith("```")) {
     const lines = cleaned.split("\n");
     if (lines[0]?.startsWith("```")) {
@@ -470,40 +522,65 @@ function normalizePatchText(text: string): string {
     if (lines[lines.length - 1]?.startsWith("```")) {
       lines.pop();
     }
-    cleaned = lines.join("\n").trim();
+    cleaned = lines.join("\n")?.trim();
   }
 
   // Handle mixed escaping by ensuring real newlines
-  cleaned = cleaned.replace(/\\n/g, "\n");
+  // Only replace \\n when it's not already a real newline
+  cleaned = cleaned.replace(/([^\\])\\n/g, "$1\n");
 
-  // Gemini and other models sometimes output "--- filename" and "+++ filename" 
-  // without the leading markers we expect. Let's fix those before checking for Begin/End markers.
+  // Convert standard unified diff format to our format (if needed)
   const lines = cleaned.split("\n");
   const processedLines: string[] = [];
   let currentFile: string | null = null;
+  let inHunk = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (line.startsWith("--- ") || line.startsWith("+++ ")) {
+    
+    // Standard unified diff: --- a/file or --- file
+    if (line.startsWith("--- ")) {
       const potential = line.slice(4).split("\t")[0]?.trim() || "";
-      if (potential && potential !== "/dev/null" && potential !== "a/" && potential !== "b/") {
-        const filename = potential.replace(/^[ab]\//, "");
-        if (filename !== currentFile) {
-          processedLines.push(`*** Update File: ${filename}`);
-          currentFile = filename;
-        }
-        continue; // Skip the standard ---/+++ lines
+      // Skip /dev/null (means file is being deleted)
+      if (potential === "/dev/null") {
+        inHunk = false;
+        continue;
       }
+      // Extract filename, removing a/ or b/ prefix if present
+      const filename = potential.replace(/^[ab]\//, "");
+      if (filename && filename !== currentFile) {
+        processedLines.push(`*** Update File: ${filename}`);
+        currentFile = filename;
+        inHunk = true;
+      }
+      continue;
+    }
+    
+    // Standard unified diff: +++ b/file or +++ file
+    if (line.startsWith("+++ ")) {
+      const potential = line.slice(4).split("\t")[0]?.trim() || "";
+      if (potential === "/dev/null") {
+        // File is being deleted - convert to delete operation
+        if (currentFile) {
+          processedLines.pop(); // Remove the update file we just added
+          processedLines.push(`*** Delete File: ${currentFile}`);
+        }
+        inHunk = false;
+        continue;
+      }
+      // Otherwise, this is just the new file confirmation, skip it
+      continue;
     }
     
     // Fix cases where models put a space before @@
-    if (line.trim().startsWith("@@")) {
+    if (line?.trim().startsWith("@@") && line.startsWith(" ")) {
       processedLines.push(line.trim());
       continue;
     }
 
     processedLines.push(line);
   }
+  
   cleaned = processedLines.join("\n").trim();
 
   const hasBegin = cleaned.includes("*** Begin Patch");
@@ -525,8 +602,9 @@ function normalizePatchText(text: string): string {
     return `*** Begin Patch\n${cleaned}\n*** End Patch`;
   }
 
-  return cleaned; // Return whatever we managed to clean up
+  return cleaned;
 }
+
 
 export function text_to_patch(
   text: string,
@@ -673,39 +751,254 @@ export function load_files(
   return orig;
 }
 
+// FIXED: Atomic commit with rollback support
+
+export interface CommitResult {
+  success: boolean;
+  appliedChanges: Array<string>;
+  failedChange?: string;
+  error?: string;
+  backups: Record<string, string | null>; // path -> backup content (null if file didn't exist)
+}
+
+export function apply_commit_atomic(
+  commit: Commit,
+  writeFn: (p: string, c: string) => void,
+  removeFn: (p: string) => void,
+  readFn: (p: string) => string,
+  mkdirFn?: (p: string) => void,
+): CommitResult {
+  const result: CommitResult = {
+    success: false,
+    appliedChanges: [],
+    backups: {}
+  };
+  
+  const changes = Object.entries(commit.changes);
+  
+  // Phase 1: Create backups and validate
+  for (const [p, change] of changes) {
+    try {
+      if (change.type === ActionType.DELETE || change.type === ActionType.UPDATE) {
+        // Backup existing file
+        try {
+          result.backups[p] = readFn(p);
+        } catch {
+          result.backups[p] = null; // File didn't exist
+        }
+      } else {
+        result.backups[p] = null; // New file, no backup needed
+      }
+      
+      // For moves, also backup/check destination
+      if (change.type === ActionType.UPDATE && change.move_path) {
+        const destDir = dirname(change.move_path);
+        // Validate we can create destination directory
+        if (mkdirFn && destDir !== ".") {
+          try {
+            mkdirFn(destDir);
+          } catch (e) {
+            result.error = `Cannot create directory for move: ${destDir} - ${e}`;
+            result.failedChange = p;
+            return result;
+          }
+        }
+        
+        // Check if destination exists (don't overwrite without backup)
+        try {
+          result.backups[change.move_path] = readFn(change.move_path);
+        } catch {
+          result.backups[change.move_path] = null;
+        }
+      }
+    } catch (e) {
+      result.error = `Failed to backup ${p}: ${e}`;
+      result.failedChange = p;
+      return result;
+    }
+  }
+  
+  // Phase 2: Apply changes
+  for (const [p, change] of changes) {
+    try {
+      if (change.type === ActionType.DELETE) {
+        removeFn(p);
+      } else if (change.type === ActionType.ADD) {
+        // Ensure directory exists for new files
+        const dir = dirname(p);
+        if (mkdirFn && dir !== ".") {
+          mkdirFn(dir);
+        }
+        writeFn(p, change.new_content ?? "");
+      } else if (change.type === ActionType.UPDATE) {
+        if (change.move_path) {
+          // Ensure destination directory exists
+          const destDir = dirname(change.move_path);
+          if (mkdirFn && destDir !== ".") {
+            mkdirFn(destDir);
+          }
+          writeFn(change.move_path, change.new_content ?? "");
+          removeFn(p);
+        } else {
+          writeFn(p, change.new_content ?? "");
+        }
+      }
+      result.appliedChanges.push(p);
+    } catch (e) {
+      result.error = `Failed to apply change to ${p}: ${e}`;
+      result.failedChange = p;
+      
+      // Phase 3: Rollback on failure
+      rollback_commit(result.backups, writeFn, removeFn);
+      return result;
+    }
+  }
+  
+  result.success = true;
+  return result;
+}
+
+function rollback_commit(
+  backups: Record<string, string | null>,
+  writeFn: (p: string, c: string) => void,
+  removeFn: (p: string) => void,
+): void {
+  for (const [path, content] of Object.entries(backups)) {
+    try {
+      if (content === null) {
+        // File didn't exist originally, remove it
+        removeFn(path);
+      } else {
+        // Restore original content
+        writeFn(path, content);
+      }
+    } catch (e) {
+      // Log rollback failure but continue trying to restore other files
+      console.error(`Rollback failed for ${path}: ${e}`);
+    }
+  }
+}
+
+// Keep old function for backward compatibility, but delegate to atomic version
 export function apply_commit(
   commit: Commit,
   writeFn: (p: string, c: string) => void,
   removeFn: (p: string) => void,
+  readFn?: (p: string) => string,
+  mkdirFn?: (p: string) => void,
 ): void {
-  for (const [p, change] of Object.entries(commit.changes)) {
-    if (change.type === ActionType.DELETE) {
-      removeFn(p);
-    } else if (change.type === ActionType.ADD) {
-      writeFn(p, change.new_content ?? "");
-    } else if (change.type === ActionType.UPDATE) {
-      if (change.move_path) {
-        writeFn(change.move_path, change.new_content ?? "");
+  if (!readFn) {
+    // Fallback to non-atomic version if no readFn provided
+    for (const [p, change] of Object.entries(commit.changes)) {
+      if (change.type === ActionType.DELETE) {
         removeFn(p);
-      } else {
+      } else if (change.type === ActionType.ADD) {
         writeFn(p, change.new_content ?? "");
+      } else if (change.type === ActionType.UPDATE) {
+        if (change.move_path) {
+          writeFn(change.move_path, change.new_content ?? "");
+          removeFn(p);
+        } else {
+          writeFn(p, change.new_content ?? "");
+        }
       }
     }
+    return;
+  }
+  
+  const result = apply_commit_atomic(commit, writeFn, removeFn, readFn, mkdirFn);
+  if (!result.success) {
+    throw new DiffError(result.error || "Commit failed");
   }
 }
+
+
+// FIXED: Proper error handling and validation
 
 export function process_patch(
   text: string,
   openFn: (p: string) => string,
   writeFn: (p: string, c: string) => void,
   removeFn: (p: string) => void,
-): string {
-  const normalized = normalizePatchText(text);
-  const paths = identify_files_needed(normalized);
-  const orig = load_files(paths, openFn);
-  const [patch, _fuzz] = text_to_patch(normalized, orig);
-  const commit = patch_to_commit(patch, orig);
-  apply_commit(commit, writeFn, removeFn);
-  return "Done!";
+  mkdirFn?: (p: string) => void,
+): { success: boolean; message: string; details?: any } {
+  try {
+    const normalized = normalizePatchText(text);
+    
+    // Validate patch has content
+    if (!normalized || normalized.trim().length === 0) {
+      return { success: false, message: "Empty patch provided" };
+    }
+    
+    const paths = identify_files_needed(normalized);
+    const addedPaths = identify_files_added(normalized);
+    
+    // Check for conflicts (adding existing file)
+    for (const path of addedPaths) {
+      try {
+        openFn(path);
+        return { 
+          success: false, 
+          message: `Cannot add file '${path}' - it already exists. Use update instead.` 
+        };
+      } catch {
+        // File doesn't exist, good
+      }
+    }
+    
+    const orig = load_files(paths, openFn);
+    
+    let patch: Patch;
+    let fuzz: number;
+    try {
+      [patch, fuzz] = text_to_patch(normalized, orig);
+    } catch (e) {
+      if (e instanceof DiffError) {
+        return { 
+          success: false, 
+          message: `Patch parse error: ${e.message}`,
+          details: { error: e.message }
+        };
+      }
+      throw e;
+    }
+    
+    const commit = patch_to_commit(patch, orig);
+    
+    // Apply atomically with rollback support
+    const result = apply_commit_atomic(
+      commit, 
+      writeFn, 
+      removeFn, 
+      openFn,
+      mkdirFn
+    );
+    
+    if (!result.success) {
+      return {
+        success: false,
+        message: `Failed to apply patch: ${result.error}`,
+        details: {
+          failedFile: result.failedChange,
+          appliedFiles: result.appliedChanges,
+          fuzz
+        }
+      };
+    }
+    
+    return {
+      success: true,
+      message: `Successfully applied patch with ${result.appliedChanges.length} change(s)${fuzz > 0 ? ` (fuzz: ${fuzz})` : ""}`,
+      details: {
+        changedFiles: result.appliedChanges,
+        fuzz
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+      details: { error: String(err) }
+    };
+  }
 }
-

@@ -1,12 +1,12 @@
 import type { AgentLoop } from "../../utils/agent/agent-loop.js";
 import type { Theme } from "../../utils/theme.js";
 
+import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { Box, Text } from "ink";
 import path from "node:path";
 import React from "react";
 
 export interface TerminalHeaderProps {
-  terminalRows: number;
   version: string;
   PWD: string;
   model: string;
@@ -18,7 +18,6 @@ export interface TerminalHeaderProps {
 }
 
 const TerminalHeader: React.FC<TerminalHeaderProps> = ({
-  terminalRows,
   version,
   PWD,
   model,
@@ -28,57 +27,58 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   initialImagePaths,
   theme,
 }) => {
-  return (
-    <>
-      {terminalRows < 10 ? (
-        // Compact header for small terminal windows
+  const { columns: terminalCols, rows: terminalRows } = useTerminalSize();
+
+  // For very small terminals, render a compact, single-line header
+  if (terminalRows < 8 || terminalCols < 80) {
+    return (
+      <Box>
         <Text>
           ● OpenCodex <Text color={theme.highlight}>v{version}</Text> – {PWD} – {model} –{" "}
           <Text color={colorsByPolicy[approvalPolicy] || theme.success}>{approvalPolicy}</Text>
         </Text>
-      ) : (
-        <>
-          <Box borderStyle="round" paddingX={1} width={64} borderColor={theme.dim}>
-            <Text>
-              ● <Text bold color={theme.assistant}>OpenCodex</Text>{" "}
-              <Text color={theme.highlight}>v{version}</Text>
-            </Text>
-          </Box>
-          <Box
-            borderStyle="round"
-            borderColor={theme.dim}
-            paddingX={1}
-            width={64}
-            flexDirection="column"
-          >
-            <Text>
-              localhost <Text dimColor color={theme.dim}>session:</Text>{" "}
-              <Text color={theme.statusBarSession} dimColor>
-                {agent?.sessionId ?? "<no-session>"}
-              </Text>
-            </Text>
-            <Text color={theme.dim}>
-              <Text color={theme.highlight}>↳</Text> workdir: <Text bold color={theme.user}>{PWD}</Text>
-            </Text>
-            <Text color={theme.dim}>
-              <Text color={theme.highlight}>↳</Text> model: <Text bold color={theme.user}>{model}</Text>
-            </Text>
-            <Text color={theme.dim}>
-              <Text color={theme.highlight}>↳</Text> approval:{" "}
-              <Text bold color={colorsByPolicy[approvalPolicy] || theme.success}>
-                {approvalPolicy}
-              </Text>
-            </Text>
-            {initialImagePaths?.map((img, idx) => (
-              <Text key={idx} color={theme.dim}>
-                <Text color={theme.highlight}>↳</Text> image:{" "}
-                <Text bold color={theme.user}>{path.basename(img)}</Text>
-              </Text>
-            ))}
-          </Box>
-        </>
-      )}
-    </>
+      </Box>
+    );
+  }
+
+  // --- Main Header Design ---
+  const title = ` OpenCodex v${version} `;
+  const topBorder = "┌─" + title + "─".repeat(terminalCols - title.length - 3) + "┐";
+  const bottomBorder = "└" + "─".repeat(terminalCols - 2) + "┘";
+  const emptyLine = "│" + " ".repeat(terminalCols - 2) + "│";
+
+  const sessionInfo = `Session:  ${agent?.sessionId ?? "<no-session>"}`;
+  const workdirInfo = `Workdir:  ${PWD}`;
+  const modelInfo = `Model:    ${model}`;
+  const approvalInfo = `Approval: ${approvalPolicy}`;
+
+  const imageLines = (initialImagePaths || []).map(p => `Image:    ${path.basename(p)}`);
+  const allInfo = [sessionInfo, workdirInfo, modelInfo, approvalInfo, ...imageLines];
+
+  return (
+    <Box flexDirection="column">
+      <Text color={theme.dim}>{topBorder}</Text>
+      <Text color={theme.dim}>{emptyLine}</Text>
+      {allInfo.map((line, index) => (
+         <Text key={index} color={theme.dim}>
+           {'│'}{'   '}
+           <Text color={theme.user}>
+             {line.startsWith('Approval:') ? (
+               <>
+                 Approval: <Text bold color={colorsByPolicy[approvalPolicy] || theme.success}>
+                   {approvalPolicy}
+                 </Text>
+               </>
+             ) : (
+               line
+             )}
+           </Text>
+           {' '.repeat(Math.max(0, terminalCols - line.length - 5))}{'│'}
+         </Text>
+      ))}
+      <Text color={theme.dim}>{emptyLine}</Text>
+      <Text color={theme.dim}>{bottomBorder}</Text>
+    </Box>
   );
 };
 

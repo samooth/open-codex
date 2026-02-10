@@ -12,6 +12,7 @@ import { SandboxType } from "./sandbox/interface.js";
 import { canAutoApprove } from "../../approvals.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { access } from "fs/promises";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "./tool-constants.js";
 
 // ---------------------------------------------------------------------------
 // Session‑level cache of commands that the user has chosen to always approve.
@@ -56,8 +57,8 @@ function deriveCommandKey(cmd: Array<string>): string {
     return "";
   }
 
-  if (first === "apply_patch" || (first === "shell" && second === "apply_patch")) {
-    return "apply_patch";
+  if (first === TOOL_APPLY_PATCH || (first === TOOL_SHELL && second === TOOL_APPLY_PATCH)) {
+    return TOOL_APPLY_PATCH;
   }
 
   if (first === "bash" && second === "-lc" && third) {

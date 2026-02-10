@@ -114,4 +114,24 @@ describe('flattenToolCalls', () => {
     expect(args2).toHaveProperty('cmd');
     expect(args2.cmd).toEqual(['pwd']);
   });
+
+  it('should handle three concatenated JSON objects for different files', () => {
+    const toolCalls: Array<ChatCompletionMessageToolCall> = [
+      {
+        id: 'call_1',
+        type: 'function',
+        function: {
+          name: 'read_file',
+          arguments: '{"path":"package.json"}{"path":"src/pages/landing.html"}{"path":"src/css/landing.css"}'
+        }
+      }
+    ];
+
+    const flattened = flattenToolCalls(toolCalls);
+
+    expect(flattened).toHaveLength(3);
+    expect(JSON.parse((flattened[0] as any).function.arguments).path).toBe('package.json');
+    expect(JSON.parse((flattened[1] as any).function.arguments).path).toBe('src/pages/landing.html');
+    expect(JSON.parse((flattened[2] as any).function.arguments).path).toBe('src/css/landing.css');
+  });
 });

@@ -9,15 +9,13 @@ import React from "react";
 export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
-  terminalRows = 40,
   theme,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
-  terminalRows?: number;
   theme: Theme;
 }): React.ReactElement {
-  const size = useTerminalSize();
+  const { rows, columns } = useTerminalSize();
   const isPatch =
     !!applyPatch ||
     commandForDisplay.includes("apply_patch") ||
@@ -35,11 +33,11 @@ export function TerminalChatToolCallCommand({
   if (isPatch && ops) {
     // Calculate a reasonable max lines for the entire patch preview
     // We want to leave some space for the confirmation options and header.
-    const maxTotalLines = Math.max(10, terminalRows - 15);
+    const maxTotalLines = Math.max(10, rows - 15);
     let totalLinesRendered = 0;
 
     return (
-      <Box flexDirection="column" gap={0} width={size.columns - 4}>
+      <Box flexDirection="column" gap={0} width={columns - 4}>
         <Text bold color={theme.toolLabel} wrap="wrap">
           🩹 Apply Patch
         </Text>
@@ -103,7 +101,7 @@ export function TerminalChatToolCallCommand({
     );
   }
 
-  const maxTotalLines = Math.max(10, terminalRows - 15);
+  const maxTotalLines = Math.max(10, rows - 15);
   const commandLines = commandForDisplay.split("\n");
   const showTruncatedCmd = commandLines.length > maxTotalLines;
   const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;
@@ -122,7 +120,7 @@ export function TerminalChatToolCallCommand({
     .join("\n");
 
   return (
-    <Box flexDirection="column" gap={0} width={size.columns - 4}>
+    <Box flexDirection="column" gap={0} width={columns - 4}>
       <Text bold color={theme.warning} wrap="wrap">
         🐚 Shell Command
       </Text>

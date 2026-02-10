@@ -540,7 +540,7 @@ export default function TerminalChatInput({
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="single" borderColor={theme.dim} paddingX={1}>
+      <Box borderStyle="single" borderColor={theme.user} paddingX={1}>
         {awaitingContinueConfirmation && !customInputMode ? (
           <Box flexDirection="column">
             <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>

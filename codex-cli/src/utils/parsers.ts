@@ -157,50 +157,7 @@ export function parseToolCall(
  * Robust JSON splitter that handles escaped characters and whitespace
  * Split concatenated JSON objects: {"a":1}{"b":2} -> ["{"a":1}", "{"b":2}"]
  */
-function splitConcatenatedJSON(str: string): string[] {
-  const results: string[] = [];
-  let depth = 0;
-  let current = '';
-  let inString = false;
-  let escapeNext = false;
-
-  for (const char of str) {
-    if (escapeNext) {
-      current += char;
-      escapeNext = false;
-      continue;
-    }
-
-    if (char === '\\') {
-      current += char;
-      escapeNext = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inString = !inString;
-      current += char;
-      continue;
-    }
-
-    if (!inString) {
-      if (char === '{') {
-        depth++;
-      } else if (char === '}') {
-        depth--;
-      }
-    }
-
-    current += char;
-
-    if (depth === 0 && current.trim() && !inString) {
-      results.push(current.trim());
-      current = '';
-    }
-  }
-
-  return results;
-}
+const splitConcatenatedJSON = (str: string): string[] => str.split(/(?<=})\s*(?={)/g);
 
 /**
  * Decodes common HTML entities that might appear due to double-encoding.
@@ -228,6 +185,7 @@ export function parseToolCallArguments(
   // However, LLMs often send raw blocks.
   
   const trimmed = cleaned;
+  
 
   if (!trimmed) {
     return {
@@ -256,7 +214,7 @@ export function parseToolCallArguments(
   }
 
   // Handle concatenated JSON objects (parallel execution)
-  const jsonStrings = splitConcatenatedJSON(trimmed);
+  const jsonStrings = trimmed.split(/(?<=})\s*(?={)/g);
 
   if (jsonStrings.length === 0) {
     return {

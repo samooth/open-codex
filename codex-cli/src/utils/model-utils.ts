@@ -17,6 +17,33 @@ export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
  */
 const modelsCache = new Map<string, Promise<Array<string>>>();
 
+async function fetchWithRetry(
+	url: string,
+	options: RequestInit,
+	retries = 3,
+	delay = 1000,
+): Promise<Response> {
+	for (let i = 0; i < retries; i++) {
+		try {
+			const response = await fetch(url, options);
+			if (response.ok) {
+				return response;
+			}
+		} catch (error: any) {
+			if (error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' || error.cause?.code === 'EPIPE') {
+				if (i < retries - 1) {
+					await new Promise((resolve) => setTimeout(resolve, delay));
+				} else {
+					throw error;
+				}
+			} else {
+				throw error;
+			}
+		}
+	}
+	throw new Error('Failed to fetch after multiple retries');
+}
+
 async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
   try {
     const genAI = new GoogleGenAI({ apiKey: config.apiKey || "" });
@@ -47,7 +74,7 @@ async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${config.apiKey}`, {
+        const resp = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1/models?key=${config.apiKey}`, {
           signal: controller.signal
         });
         if (resp.ok) {
@@ -144,7 +171,7 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetch(tagsUrl, { signal: controller.signal });
+        const response = await fetchWithRetry(tagsUrl, { signal: controller.signal });
         if (response.ok) {
           const data = (await response.json()) as {
             models: Array<{ name: string }>;
@@ -228,79 +255,76 @@ export async function isModelSupported(
 }
 
 export function reportMissingAPIKeyForProvider(provider: string): void {
-  // eslint-disable-next-line no-console
-  console.error(
+  (provider
+    ? `\n${chalk.red("Missing API key for provider:")} ${provider}\n\n`
+    : `\n${chalk.red("Missing API key:")}\n\n`) +
     (provider
-      ? `\n${chalk.red("Missing API key for provider:")} ${provider}\n\n`
-      : `\n${chalk.red("Missing API key:")}\n\n`) +
-      (provider
-        ? `Please set the following environment variable:\n`
-        : "Please set one of the following environment variables:\n") +
-      (() => {
-        switch (provider) {
-          case "openai":
-            return `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models\n`;
-          case "openrouter":
-            return `- ${chalk.bold(
-              "OPENROUTER_API_KEY",
-            )} for OpenRouter models\n`;
-          case "gemini":
-          case "google":
-            return `- ${chalk.bold(
-              "GEMINI_API_KEY",
-            )} for Google Gemini models\n`;
-          case "xai":
-            return `- ${chalk.bold("XAI_API_KEY")} for xAI models\n`;
-          case "deepseek":
-            return `- ${chalk.bold("DS_API_KEY")} for DeepSeek models\n`;
-          case "hf":
-            return `- ${chalk.bold("HF_API_KEY")} for Hugging Face models\n`;
-          default:
-            return (
-              [
-                `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models`,
-                `- ${chalk.bold("OPENROUTER_API_KEY")} for OpenRouter models`,
-                `- ${chalk.bold(
-                  "GEMINI_API_KEY",
-                )} for Google Gemini models`,
-                `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
-                `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,
-                `- ${chalk.bold("HF_API_KEY")} for Hugging Face models`,
-              ].join("\n") + "\n"
-            );
-        }
-      })() +
-      `Then re-run this command.\n` +
-      (() => {
-        switch (provider) {
-          case "openai":
-            return `You can create an OpenAI key here: ${chalk.bold(
-              chalk.underline("https://platform.openai.com/account/api-keys"),
-            )}\n`;
-          case "openrouter":
-            return `You can create an OpenRouter key here: ${chalk.bold(
-              chalk.underline("https://openrouter.ai/settings/keys"),
-            )}\n`;
-          case "gemini":
-          case "google":
-            return `You can create a Google Generative AI key here: ${chalk.bold(
-              chalk.underline("https://aistudio.google.com/apikey"),
-            )}\n`;
-          case "xai":
-            return `You can create an xAI key here: ${chalk.bold(
-              chalk.underline("https://console.x.ai/team/default/api-keys"),
-            )}\n`;
-          case "deepseek":
-            return `You can create a DeepSeek key here: ${chalk.bold(
-              chalk.underline("https://platform.deepseek.com/api_keys"),
-            )}\n`;
-          case "hf":
-            return `You can create a Hugging Face key here: ${chalk.bold(
-              chalk.underline("https://huggingface.co/settings/tokens"),
-            )}\n`;
-          default:
-            return "";
-        }
-      })(),
-  );
+      ? `Please set the following environment variable:\n`
+      : "Please set one of the following environment variables:\n") +
+    (() => {
+      switch (provider) {
+        case "openai":
+          return `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models\n`;
+        case "openrouter":
+          return `- ${chalk.bold(
+            "OPENROUTER_API_KEY",
+          )} for OpenRouter models\n`;
+        case "gemini":
+        case "google":
+          return `- ${chalk.bold(
+            "GEMINI_API_KEY",
+          )} for Google Gemini models\n`;
+        case "xai":
+          return `- ${chalk.bold("XAI_API_KEY")} for xAI models\n`;
+        case "deepseek":
+          return `- ${chalk.bold("DS_API_KEY")} for DeepSeek models\n`;
+        case "hf":
+          return `- ${chalk.bold("HF_API_KEY")} for Hugging Face models\n`;
+        default:
+          return (
+            [
+              `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models`,
+              `- ${chalk.bold("OPENROUTER_API_KEY")} for OpenRouter models`,
+              `- ${chalk.bold(
+                "GEMINI_API_KEY",
+              )} for Google Gemini models`,
+              `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
+              `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,
+              `- ${chalk.bold("HF_API_KEY")} for Hugging Face models`,
+            ].join("\n") + "\n"
+          );
+      }
+    })() +
+    `Then re-run this command.\n` +
+    (() => {
+      switch (provider) {
+        case "openai":
+          return `You can create an OpenAI key here: ${chalk.bold(
+            chalk.underline("https://platform.openai.com/account/api-keys"),
+          )}\n`;
+        case "openrouter":
+          return `You can create an OpenRouter key here: ${chalk.bold(
+            chalk.underline("https://openrouter.ai/settings/keys"),
+          )}\n`;
+        case "gemini":
+        case "google":
+          return `You can create a Google Generative AI key here: ${chalk.bold(
+            chalk.underline("https://aistudio.google.com/apikey"),
+          )}\n`;
+        case "xai":
+          return `You can create an xAI key here: ${chalk.bold(
+            chalk.underline("https://console.x.ai/team/default/api-keys"),
+          )}\n`;
+        case "deepseek":
+          return `You can create a DeepSeek key here: ${chalk.bold(
+            chalk.underline("https://platform.deepseek.com/api_keys"),
+          )}\n`;
+        case "hf":
+          return `You can create a Hugging Face key here: ${chalk.bold(
+            chalk.underline("https://huggingface.co/settings/tokens"),
+          )}\n`;
+        default:
+          return "";
+      }
+    })();
 }

@@ -20,7 +20,19 @@ export async function validateFileSyntax(filePath: string): Promise<ValidationRe
       case ".cjs":
       case ".mjs":
         // node -c checks syntax without executing
-        execSync(`node -c "${filePath}"`, { stdio: "ignore" });
+        try {
+          execSync(`node -c "${filePath}"`, {
+            stdio: "pipe",
+            timeout: 10000,
+          });
+        }catch (err){
+          // Check if it's a child process error with stdout/stderr
+          const msg = err instanceof Error && typeof err.stdout === "string"
+              ? `${err.message}\n${err.stdout}\n${err.stderr || ''}`
+              : String(err);
+
+          return { isValid: false, error: `JS Validation error for ${filePath}:\n${msg}` };
+        }
         break;
 
       case ".ts":

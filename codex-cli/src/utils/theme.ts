@@ -1,6 +1,10 @@
 import type { ForegroundColorName } from "chalk";
 import { z } from "zod";
 
+/**
+ * Zod schema for validating a custom theme object.
+ * Ensures that theme properties are optional strings compatible with Chalk colors.
+ */
 export const ThemeSchema = z.object({
   name: z.string().optional(),
   assistant: z.string().optional(),
@@ -19,6 +23,9 @@ export const ThemeSchema = z.object({
   statusBarSession: z.string().optional(),
 });
 
+/**
+ * Defines the structure of a theme, mapping UI components to Chalk color names.
+ */
 export type Theme = {
   name: string;
   assistant: ForegroundColorName;
@@ -37,10 +44,14 @@ export type Theme = {
   statusBarSession: ForegroundColorName;
 };
 
+/**
+ * A collection of pre-defined themes.
+ * The `default` theme is used as a fallback and as the base for custom theme configurations.
+ */
 export const themes: Record<string, Theme> = {
   default: {
     name: "Default (Codex)",
-    assistant: "magentaBright",
+    assistant: "greenBright",
     user: "blueBright",
     thought: "cyan",
     plan: "yellow",
@@ -210,6 +221,15 @@ export const themes: Record<string, Theme> = {
   }
 };
 
+/**
+ * Retrieves a complete theme configuration based on the provided input.
+ * - If `themeConfig` is undefined, it returns the `default` theme.
+ * - If `themeConfig` is a string, it looks up a pre-defined theme by that name. If not found, it falls back to the `default` theme.
+ * - If `themeConfig` is an object, it merges the provided properties with the `default` theme, allowing for partial customizations.
+ *
+ * @param themeConfig - An optional string identifier for a pre-defined theme or a custom theme object.
+ * @returns A complete `Theme` object.
+ */
 export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Theme {
   if (!themeConfig) {
     return themes["default"]!;

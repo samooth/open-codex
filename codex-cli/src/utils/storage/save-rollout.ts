@@ -11,6 +11,7 @@ import crypto from "crypto";
 import { log, isLoggingEnabled } from "../agent/log.js";
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
+const SESSIONS_INDEX = path.join(os.homedir(), ".codex", "sessions.json");
 
 async function saveRolloutToHomeSessions(
   items: Array<ChatCompletionMessageParam>,
@@ -61,6 +62,7 @@ async function saveRolloutToHomeSessions(
       ),
       "utf8",
     );
+    await updateSessionsIndex({ timestamp, id: sessionId, model, summary, instructions });
   } catch (error) {
     console.error(`Failed to save rollout to ${filePath}: `, error);
   }
@@ -74,6 +76,24 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
     if (!(await fs.stat(SESSIONS_ROOT).catch(() => null))) {
       return [];
     }
+
+    // Fast path: load from index if it exists
+    const indexContent = await fs.readFile(SESSIONS_INDEX, "utf-8").catch(() => null);
+    if (indexContent) {
+      const index = JSON.parse(indexContent);
+      return index
+        .map((session: any) => ({
+          path: path.join(SESSIONS_ROOT, `session-${session.id}.json`),
+          session,
+        }))
+        .sort((a: any, b: any) => {
+          const tA = new Date(a.session?.timestamp || 0).getTime();
+          const tB = new Date(b.session?.timestamp || 0).getTime();
+          return tB - tA;
+        });
+    }
+
+    // Slow path: build index from scratch
     const files = await fs.readdir(SESSIONS_ROOT);
     const jsonFiles = files.filter((f) => f.endsWith(".json"));
     
@@ -85,7 +105,6 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
         if (content.length < 10) continue;
         const data = JSON.parse(content);
         if (data.session) {
-          // We intentionally don't return data.items here to save memory
           rollouts.push({ path: filePath, session: data.session });
         }
       } catch (err) {
@@ -95,8 +114,11 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
       }
     }
 
+    // Save the newly built index for next time
+    await fs.writeFile(SESSIONS_INDEX, JSON.stringify(rollouts.map(r => r.session)), "utf-8");
+
     return rollouts
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         const tA = new Date(a.session?.timestamp || 0).getTime();
         const tB = new Date(b.session?.timestamp || 0).getTime();
         return tB - tA;
@@ -107,6 +129,36 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
     }
     return [];
   }
+}
+
+async function updateSessionsIndex(newSession: any) {
+  let index = [];
+  try {
+    const content = await fs.readFile(SESSIONS_INDEX, "utf-8");
+    index = JSON.parse(content);
+  } catch (error) {
+    // Index doesn't exist or is invalid, will be created
+  }
+
+  const existingIndex = index.findIndex((s: any) => s.id === newSession.id);
+  if (existingIndex !== -1) {
+    // Update existing session
+    const existing = index[existingIndex];
+    index[existingIndex] = {
+      ...existing,
+      ...newSession
+    };
+  } else {
+    // Add new session
+    index.push(newSession);
+  }
+
+  // Keep the index from growing indefinitely, cap at 500
+  if (index.length > 500) {
+    index = index.slice(index.length - 500);
+  }
+
+  await fs.writeFile(SESSIONS_INDEX, JSON.stringify(index, null, 2), "utf-8");
 }
 
 export async function loadRollout(filePath: string): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {

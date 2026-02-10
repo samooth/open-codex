@@ -6,6 +6,9 @@ import * as handlers from "./tool-handlers.js";
 import { validateFileSyntax } from "./validate-file.js";
 import { log, isLoggingEnabled } from "./log.js";
 import type { AgentContext } from "./types.js";
+import { tools } from "./tool-definitions.js";
+import { prefix } from "./system-prompt.js";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "./tool-constants.js";
 
 export async function handleFunctionCall(
   ctx: AgentContext,
@@ -46,7 +49,7 @@ export async function handleFunctionCall(
       }
 
       // Map repo_browser aliases to standard names
-      if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary" || name === "repo_browser.exec__channel__commentary") { name = "shell"; }
+      if (name === "repo_browser.exec" || name === "repo_browser.exec<|channel|>commentary" || name === "repo_browser.exec__channel__commentary") { name = TOOL_SHELL; }
       if (name === "repo_browser.read_file" || name === "repo_browser.open_file" || name === "repo_browser.cat" || name === "repo_browser.read_file<|channel|>commentary" || name === "repo_browser.read_file__channel__commentary" || name === "repo_browser.open_file<|channel|>commentary" || name === "repo_browser.open_file__channel__commentary") { name = "read_file"; }
       if (name === "repo_browser.write_file" || name === "repo_browser.write_file<|channel|>commentary" || name === "repo_browser.write_file__channel__commentary") { name = "write_file"; }
       if (name === "repo_browser.read_file_lines" || name === "repo_browser.read_file_lines<|channel|>commentary" || name === "repo_browser.read_file_lines__channel__commentary") { name = "read_file_lines"; }
@@ -124,9 +127,8 @@ export async function handleFunctionCall(
 
     if (
       (name === "container.exec" ||
-        name === "shell" ||
-        name === "apply_patch" ||
-        name === "repo_browser.exec") &&
+        name === TOOL_SHELL ||
+        name === TOOL_APPLY_PATCH) &&
       args
     ) {
       const result = await handleExecCommand(
@@ -153,7 +155,7 @@ export async function handleFunctionCall(
       additionalItems = result.additionalItems;
 
       // --- AUTO-CORRECTION LOOP for apply_patch ---
-      if (name === "apply_patch" && (args as any).patch) {
+      if (name === TOOL_APPLY_PATCH && (args as any).patch) {
         const { identify_files_needed, identify_files_added } = await import("./apply-patch.js");
         const affectedFiles = [
           ...identify_files_needed((args as any).patch),
@@ -167,6 +169,7 @@ export async function handleFunctionCall(
         if (metadata["exit_code"] === 0) {
           for (const file of affectedFiles) {
             const validation = await validateFileSyntax(file);
+            console.log( validation )
             if (!validation.isValid) {
               outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
               metadata["exit_code"] = 1;
@@ -277,6 +280,28 @@ export async function handleFunctionCall(
       onPartialUpdate?.("", "", undefined, undefined);
       outputText = `Codebase indexing complete. Indexed ${totalIndexed} files.`;
       metadata = { exit_code: 0, count: totalIndexed };
+    } else if (name === "show_context") {
+      const { tool_name } = args;
+      if (tool_name) {
+        const tool = tools.find((t) => t.function.name === tool_name);
+        if (tool) {
+          outputText = `CONTEXT FOR TOOL: ${tool_name}\n\nDescription: ${
+            tool.function.description
+          }\n\nParameters: ${JSON.stringify(
+            tool.function.parameters,
+            null,
+            2,
+          )}`;
+        } else {
+          outputText = `Error: Tool '${tool_name}' not found.`;
+        }
+      } else {
+        const availableTools = tools
+          .map((t) => `- ${t.function.name}`)
+          .join("\n");
+        outputText = `AGENT CONTEXT:\n\nCORE PROTOCOL:\n${prefix}\n\nAVAILABLE TOOLS:\n${availableTools}\n\nTo get help for a specific tool, call show_context({tool_name: 'tool_name'}).`;
+      }
+      metadata = { exit_code: 0 };
     } else {
       return [outputItem];
     }

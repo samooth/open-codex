@@ -16,7 +16,6 @@ import TerminalStatusBar from "./terminal-status-bar.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
-import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
@@ -329,7 +328,6 @@ export default function TerminalChat({
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
               applyPatch={applyPatch}
-              terminalRows={terminalRows}
               theme={activeTheme}
             />,
           );
@@ -376,8 +374,6 @@ export default function TerminalChat({
   // ---------------------------------------------------------------------
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
   // ---------------------------------------------------------------------
-
-  const { rows: terminalRows } = useTerminalSize();
 
   useEffect(() => {
     const processInitialInputItems = async () => {
@@ -450,7 +446,6 @@ export default function TerminalChat({
           fullStdout={fullStdout}
           theme={activeTheme}
           headerProps={{
-            terminalRows,
             version: CLI_VERSION,
             PWD,
             model,

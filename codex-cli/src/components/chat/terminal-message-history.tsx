@@ -51,7 +51,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   }, [batch, items]);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingX={2}>
       <Static key={theme.name} items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {
@@ -64,8 +64,8 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             <Box
               key={index}
               flexDirection="column"
-              marginLeft={role === "user" ? 0 : 4}
-              marginTop={0}
+              marginLeft={role === "user" ? 0 : 2}
+              marginTop={role === "user" && index > 1 ? 1 : 0}
             >
               <TerminalChatResponseItem
                 item={item!}
@@ -82,7 +82,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
       {streamingMessage && (
         <Box
           flexDirection="column"
-          marginLeft={4}
+          marginLeft={2}
           marginTop={1}
         >
           <TerminalChatResponseItem
@@ -95,7 +95,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         </Box>
       )}
       {loading && debug && (
-        <Box marginTop={1} marginLeft={4}>
+        <Box marginTop={1} marginLeft={2}>
           <ThinkingTimer loading={loading} theme={theme} />
         </Box>
       )}

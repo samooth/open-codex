@@ -8,6 +8,8 @@ import { getIgnoreFilter } from "./ignore-utils.js";
 import { validateFileSyntax } from "./validate-file.js";
 import { log } from "./log.js";
 
+import { unlinkSync, renameSync } from 'fs'
+
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);
   while (true) {
@@ -76,6 +78,8 @@ export async function handleReadFile(
   }
 }
 
+// FIXED: Ensure parent directories exist with proper error handling
+
 export async function handleWriteFile(
   ctx: AgentContext,
   rawArgs: string,
@@ -96,7 +100,7 @@ export async function handleWriteFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["write_file", filePath], workdir: process.cwd(), timeoutInMillis: 30000 }, // Synthetic command for authorization
+      { cmd: ["write_file", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -115,21 +119,44 @@ export async function handleWriteFile(
     }
 
     const fullPath = join(process.cwd(), filePath);
-    const parentDir = join(fullPath, "..");
+    const parentDir = dirname(fullPath);
+    
+    // FIXED: Proper directory creation with error handling
     if (!existsSync(parentDir)) {
-      mkdirSync(parentDir, { recursive: true });
+      try {
+        mkdirSync(parentDir, { recursive: true });
+      } catch (e) {
+        return {
+          outputText: `Error: Failed to create directory '${parentDir}': ${e}`,
+          metadata: { exit_code: 1, path: filePath },
+        };
+      }
     }
 
     ctx.onFileAccess?.(filePath);
-    writeFileSync(fullPath, content, "utf-8");
-
-    // Automatic Syntax Validation
-    const validation = await validateFileSyntax(fullPath);
-    if (!validation.isValid) {
-      return {
-        outputText: `Error: File written, but it contains syntax errors:\n${validation.error}\nPlease fix the errors immediately.`,
-        metadata: { exit_code: 1, path: filePath, syntax_error: true },
-      };
+    
+    // FIXED: Atomic write using temp file + rename
+    const tempPath = `${fullPath}.tmp.${Date.now()}`;
+    try {
+      writeFileSync(tempPath, content, "utf-8");
+      
+      // Validate syntax before committing
+      const validation = await validateFileSyntax(tempPath);
+      if (!validation.isValid) {
+        // Clean up temp file
+        try { unlinkSync(tempPath); } catch {}
+        return {
+          outputText: `Error: File contains syntax errors:\n${validation.error}`,
+          metadata: { exit_code: 1, path: filePath, syntax_error: true },
+        };
+      }
+      
+      // Atomic rename
+      renameSync(tempPath, fullPath);
+    } catch (e) {
+      // Clean up temp file on error
+      try { unlinkSync(tempPath); } catch {}
+      throw e;
     }
 
     return {
@@ -143,6 +170,7 @@ export async function handleWriteFile(
     };
   }
 }
+
 
 export async function handleDeleteFile(
   ctx: AgentContext,
@@ -283,7 +311,7 @@ export async function handleSearchCodebase(
     // Heuristic: If 'query' is present and 'pattern' looks like a glob (e.g. *.ts),
     // and 'include' is missing, assume the user confused the parameters.
     if (query && pattern && !include) {
-      if (pattern.trim().startsWith("*") || /\.[a-zA-Z0-9]+$/.test(pattern)) {
+      if (pattern?.trim().startsWith("*") || /\.[a-zA-Z0-9]+$/.test(pattern)) {
         include = pattern;
         pattern = query;
       }
@@ -354,7 +382,7 @@ export async function handleSearchCodebase(
     const { outputText, metadata } = result;
 
     if (isFileListingMode) {
-      const fileList = outputText.trim();
+      const fileList = outputText?.trim();
       return {
         outputText: fileList || "No files found matching the pattern.",
         metadata: { ...metadata, match_count: fileList ? fileList.split('\n').length : 0, mode: "file_listing" }

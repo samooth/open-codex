@@ -4,6 +4,27 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "show_context",
+      description:
+        "Displays documentation and best practices for available tools and core agent protocols. Use this to reorient yourself if you are stuck or unsure how to proceed.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          tool_name: {
+            type: "string",
+            description:
+              "The specific tool to get detailed help for (e.g., 'apply_patch'). If omitted, a general overview is shown.",
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "apply_patch",
       description: "Applies a unified diff patch to the codebase.",
       strict: false,

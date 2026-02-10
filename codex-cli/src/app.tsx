@@ -1,14 +1,16 @@
 import type { ApprovalPolicy } from "./approvals";
 import type { AppConfig } from "./utils/config";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
 
 import TerminalChat from "./components/chat/terminal-chat";
 import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout";
 import { checkInGit } from "./utils/check-in-git";
-import { CLI_VERSION, type TerminalChatSession } from "./utils/session.js";
+import { type TerminalChatSession } from "./utils/session.js";
 import { onExit } from "./utils/terminal";
 import { getTheme } from "./utils/theme";
 import { ConfirmInput } from "@inkjs/ui";
+import chalk from "chalk";
 import { Box, Text, useApp, useStdin } from "ink";
 import React, { useMemo, useState } from "react";
 
@@ -56,35 +58,37 @@ export default function App({
   }
 
   if (!inGitRepo && !accepted) {
+    const warningTitle = chalk.yellow.bold(" DANGER ");
+    const warningMessage = chalk.white(
+      `You are running OpenCodex in a directory that is not a Git repository.`,
+    );
+    const adviceMessage = chalk.gray(
+      `It is highly recommended to use a version control system like Git to track changes and prevent accidental data loss.`,
+    );
+
     return (
-      <Box flexDirection="column">
-        <Box borderStyle="round" paddingX={1} width={64}>
-          <Text>
-            ● <Text bold>OpenCodex</Text>{" "}
-            <Text color="blueBright">v{CLI_VERSION}</Text>
-          </Text>
-        </Box>
+      <Box flexDirection="column" padding={1}>
         <Box
           borderStyle="round"
-          borderColor="redBright"
+          borderColor="yellow"
+          paddingX={2}
           flexDirection="column"
           gap={1}
         >
+          <Text>{warningTitle}</Text>
+          <Text>{warningMessage}</Text>
           <Text>
-            <Text color="yellow">Warning!</Text> It can be dangerous to run a
-            coding agent outside of a git repo in case there are changes that
-            you want to revert. Do you want to continue?
+            <Text bold>Current Directory:</Text> {chalk.cyan(cwd)}
           </Text>
-          <Text>{cwd}</Text>
+          <Box height={1} />
+          <Text>{adviceMessage}</Text>
+          <Box height={1} />
+          <Text>Are you sure you want to continue?</Text>
           <ConfirmInput
             defaultChoice="cancel"
             onCancel={() => {
               app.exit();
               onExit();
-              // eslint-disable-next-line
-              console.error(
-                "Quitting! Run again to accept or from inside a git repo",
-              );
             }}
             onConfirm={() => setAccepted(true)}
           />
@@ -94,12 +98,14 @@ export default function App({
   }
 
   return (
-    <TerminalChat
-      config={config}
-      prompt={prompt}
-      imagePaths={imagePaths}
-      approvalPolicy={approvalPolicy}
-      fullStdout={fullStdout}
-    />
+    <TerminalSizeProvider>
+      <TerminalChat
+        config={config}
+        prompt={prompt}
+        imagePaths={imagePaths}
+        approvalPolicy={approvalPolicy}
+        fullStdout={fullStdout}
+      />
+    </TerminalSizeProvider>
   );
 }

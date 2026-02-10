@@ -28,6 +28,7 @@
 - [Recipes](#recipes)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Theming](#theming)
 - [FAQ](#faq)
 - [Contributing](#contributing)
   - [Development workflow](#development-workflow)
@@ -423,6 +424,68 @@ Here's a list of all the providers and their default models:
 
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key-here"
+```
+
+---
+
+## Theming
+
+The application's color scheme is customizable through a simple theming system located in `src/utils/theme.ts`. This allows developers and users to personalize the look and feel of the CLI.
+
+### Theme Structure
+
+A theme is an object where keys represent UI elements and values are valid `chalk` color names. The `Theme` type defines all customizable properties, such as `assistant`, `user`, `thought`, `shellCommand`, and more.
+
+### Available Themes
+
+The CLI includes several pre-defined themes which can be selected using the `/theme` command:
+
+- `default` (Codex)
+- `material`
+- `dracula`
+- `solarized`
+- `monochrome`
+- `nord`
+- `oneDark`
+- `synthwave`
+- `gruvbox`
+- `cyberpunk`
+
+### Usage
+
+The `getTheme` function is the primary way to programmatically retrieve a theme. It can accept a theme name to load a pre-defined theme, or a custom theme object to create a personalized theme that builds on the default.
+
+```typescript
+import { getTheme } from './utils/theme';
+
+// Get the default theme
+const defaultTheme = getTheme();
+
+// Get a pre-defined theme by name
+const draculaTheme = getTheme('dracula');
+
+// Create a custom theme by merging with the default
+const customTheme = getTheme({
+  assistant: 'yellow',
+  user: 'cyan',
+});
+```
+
+You can also set a theme in your `~/.codex/config.json` file:
+```json
+{
+  "theme": "dracula" 
+}
+```
+Or provide a custom theme object:
+```json
+{
+  "theme": {
+    "name": "My Custom Theme",
+    "assistant": "yellow",
+    "user": "cyan"
+  }
+}
 ```
 
 ---

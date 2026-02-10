@@ -316,3 +316,23 @@ test("apply_commit correctly performs move / rename operations", () => {
   expect(writes).toEqual({ "new.txt": "new" });
   expect(removals).toEqual(["old.txt"]);
 });
+
+test("process_patch - handles messy, model-generated patch with markdown and diff headers", () => {
+  const messyPatch = `
+Here is the patch you requested:
+\`\`\`diff
+--- a/messy.txt
++++ b/messy.txt
+@@ -1,1 +1,1 @@
+-This is the old line.
++This is the new & improved line.
+\`\`\`
+I hope this helps!
+`;
+  const originalContent = "This is the old line.";
+  const fs = createInMemoryFS({ "messy.txt": originalContent });
+
+  process_patch(messyPatch, fs.openFn, fs.writeFn, fs.removeFn);
+
+  expect(fs.writes).toEqual({ "messy.txt": "This is the new & improved line." });
+});

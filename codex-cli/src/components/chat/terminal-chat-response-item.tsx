@@ -7,9 +7,11 @@ import type { ResponseReasoningItem } from "openai/resources/responses/responses
 
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import {
-  parseToolCallChatCompletion,
+  getCommandReviewDetails,
   parseToolCallOutput,
+  parseToolCallArguments
 } from "../../utils/parsers";
+import { formatCommandForDisplay } from '../../format-command.js';
 import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text } from "ink";
 import { parse, setOptions } from "marked";
@@ -19,6 +21,41 @@ import { highlight } from "cli-highlight";
 import React, { useMemo } from "react";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { Theme } from "../../utils/theme.js";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
+
+
+export function getCommandReviewDetails(
+  toolCall: ChatCompletionMessageToolCall,
+): CommandReviewDetails | undefined {
+  if (toolCall.type !== "function") {
+    return undefined;
+  }
+
+  const result = parseToolCallArguments(toolCall.function.arguments);
+  if (!result.success) {
+    return {
+      cmd: [],
+      cmdReadableText: toolCall.function.arguments,
+    };
+  }
+
+  if (!result.multiCall && result.args) {
+    const cmd = result.args.cmd;
+    if (cmd) {
+      const cmdReadableText = formatCommandForDisplay(cmd);
+      return {
+        cmd,
+        cmdReadableText,
+      };
+    }
+  }
+
+  return {
+    cmd: [],
+    cmdReadableText: `${toolCall.function.name} ${toolCall.function.arguments}`,
+  };
+}
+
 
 function TerminalChatResponseItem({
   item,
@@ -268,7 +305,7 @@ const TerminalChatResponseMessage = React.memo(function TerminalChatResponseMess
 });
 
 function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
-  const details = parseToolCallChatCompletion(message);
+  const details = getCommandReviewDetails(message);
   const toolName = (message as any).function?.name || "";
   const rawArgs = (message as any).function?.arguments || "{}";
 
@@ -315,7 +352,7 @@ function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
     summary = `"${args.pattern || args.query}" ${
       args.path ? `in ${args.path}` : ""
     }`;
-  } else if (toolName.includes("apply_patch")) {
+  } else if (toolName.includes(TOOL_APPLY_PATCH)) {
     label = "patching";
     icon = "🩹";
     summary = "applying changes";
@@ -334,7 +371,7 @@ function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
     icon = "🧠";
     color = "cyanBright";
     summary = args.fact || args.query || args.pattern || "maintenance";
-  } else if (toolName === "shell" || toolName === "repo_browser.exec") {
+  } else if (toolName === TOOL_SHELL) {
     label = "shell";
     icon = "🐚";
     summary = details?.cmdReadableText;
@@ -370,9 +407,8 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
         </Text>
         <Text color={theme.dim}>{summary}</Text>
       </Box>
-      {loading && (toolName === "shell" ||
-        toolName === "repo_browser.exec" ||
-        toolName === "apply_patch") && details?.cmdReadableText && (
+      {loading && (toolName === TOOL_SHELL ||
+        toolName === TOOL_APPLY_PATCH) && details?.cmdReadableText && (
         <Box paddingLeft={2}>
           <Text color={theme.dim}>$ {details?.cmdReadableText}</Text>
         </Box>
@@ -453,6 +489,12 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       const remaining = lines.length - 10;
       displayedContent = [...head, chalk.gray(`... (${remaining} more lines)`)].join("\n");
     }
+    // Truncate very long outputs
+    if (displayedContent.length > 9000) {
+      displayedContent =
+        displayedContent.slice(0, 9000) +
+        chalk.gray(`\n... (truncated, ${output.length - 9000} more characters)`);
+    }
   }
 
   const colorizedContent = useMemo(() => {
@@ -486,7 +528,11 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
         return line;
       })
       .join("\n");
-  }, [displayedContent, toolName, toolCall]);
+  }, [
+    displayedContent,
+    toolName,
+    JSON.stringify(toolCall),
+  ]);
 
   return (
     <Box
