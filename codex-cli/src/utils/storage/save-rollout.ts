@@ -181,6 +181,73 @@ export async function renameSession(id: string, newSummary: string): Promise<voi
   }
 }
 
+export async function undoLastChange(
+  sessionId: string,
+  writeFn: (p: string, c: string) => void,
+  removeFn: (p: string) => void,
+): Promise<{ items: ChatCompletionMessageParam[]; success: boolean; message: string }> {
+  const filePath = path.join(SESSIONS_ROOT, `session-${sessionId}.json`);
+  try {
+    const content = await fs.readFile(filePath, "utf-8");
+    const data = JSON.parse(content);
+    const items = data.items as ChatCompletionMessageParam[];
+
+    if (items.length === 0) {
+      return { items, success: false, message: "Nothing to undo." };
+    }
+
+    // Find the last turn (User prompt + Assistant response + optional Tool outputs)
+    let lastUserIndex = -1;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i]!.role === "user") {
+        lastUserIndex = i;
+        break;
+      }
+    }
+
+    if (lastUserIndex === -1) {
+      return { items, success: false, message: "No user interaction found to undo." };
+    }
+
+    // Collect all backups from tool outputs in this turn
+    const turnItems = items.slice(lastUserIndex);
+    const backups: Record<string, string | null> = {};
+
+    for (const item of turnItems) {
+      if (item.role === "tool" && typeof item.content === "string") {
+        try {
+          const parsed = JSON.parse(item.content);
+          if (parsed.metadata?.backups) {
+            Object.assign(backups, parsed.metadata.backups);
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Revert files
+    for (const [path, content] of Object.entries(backups)) {
+      if (content === null) {
+        removeFn(path);
+      } else {
+        writeFn(path, content);
+      }
+    }
+
+    // Remove the turn from history
+    const remainingItems = items.slice(0, lastUserIndex);
+    data.items = remainingItems;
+    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+
+    return {
+      items: remainingItems,
+      success: true,
+      message: `Undone last turn. ${Object.keys(backups).length} file(s) restored.`,
+    };
+  } catch (err) {
+    return { items: [], success: false, message: `Undo failed: ${err}` };
+  }
+}
+
 export async function loadRollout(filePath: string): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {
   try {
     const content = await fs.readFile(filePath, "utf-8");

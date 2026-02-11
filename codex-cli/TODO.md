@@ -1,33 +1,33 @@
-5. Enhanced Sandbox for Linux
-  Improve the Linux sandboxing experience beyond the current container-based approach, possibly using Landlock or namespaces directly if available.
+# OpenCodex TODO - Future Improvements & Roadmap
 
-6. Plugin System
-  Architecture for extending functionality with custom tools and providers without modifying the core agent loop.
+This document tracks planned features, architectural refinements, and UI/UX enhancements for the OpenCodex CLI.
+
+## High Priority: Productivity & Feedback
+
+*   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and hit `R` to re-populate the input or execute it immediately.
+*   **[ ] Audio Notifications:** Add an optional "ping" sound (toggleable in config) when a long-running task like indexing or deep-thinking finishes.
+*   **[ ] Cost Tracking:** Estimate and display the cost of the current session based on token usage and known model pricing.
+*   **[ ] Search Heatmap:** When using `semantic_search`, show a snippet explaining *why* a file was ranked highly (highlighting the matching concept).
+
+## UI/UX Enhancements
+
+*   **[ ] Interactive Hunk Selection:** Allow users to pick specific "hunks" from an `apply_patch` instead of accepting/rejecting the whole file.
+*   **[ ] Collapsible History Blocks:** Ability to collapse entire message turns (user + assistant response) to focus on the current task.
+*   **[ ] Live Indexing Status:** A more subtle, non-blocking progress indicator for background semantic indexing.
+*   **[ ] Variable Injection:** Support referencing environment variables or file contents directly in the prompt (e.g., `fix the bug in {{src/main.ts}}`).
+
+## Architecture & Logic
+
+*   **[ ] Plugin System:** Define a formal interface for community-contributed tools and providers.
+*   **[ ] Enhanced Linux Sandbox:** Move beyond basic containerization to use native Landlock or Linux Namespaces for tighter, lower-overhead isolation.
+*   **[ ] Intelligent Context Rotation:** Instead of FIFO truncation, use the LLM or embeddings to "forget" the least relevant parts of the history when the window is full.
+*   **[ ] Multi-Agent Coordination:** Allow the primary agent to spawn specialized sub-agents for specific sub-tasks (e.g., a "Test Agent" and a "Doc Agent").
+
+## Code Quality & Testing
+
+*   **[ ] E2E Integration Tests:** Full TTY simulation tests using tools like `expect` or advanced Ink testing wrappers.
+*   **[ ] Performance Benchmarks:** Track token-to-output latency and indexing speed over time.
+*   **[ ] Dependency Hardening:** Further restrict file system access based on the current project root and `.codexignore`.
 
 ---
-**Completed Improvements:**
-* **Parallel Tool Execution:** Implemented in `handleFunctionCall` using `Promise.all` for faster multi-gather turns.
-* **Parallel File Indexing:** Asynchronous recursive file indexing in `getFileContents` and `handleListFilesRecursive`.
-* **Advanced Format Support:** Supported Markdown blocks and raw JSON fallback.
-* **Schema Validation:** Strictly enforced tool arguments using Zod.
-* **Syntax Highlighting:** Integrated `cli-highlight` for beautiful terminal code rendering.
-* **Interactive Config:** Added `/config` command to toggle session settings (Dry Run, Debug) without restart.
-* **Enhanced Memory Management:** Added categories to \`persistent_memory\` and a \`summarize_memory\` tool to manage context bloat.
-* **Loop Protection Strategy:** Implemented automatic detection of repetitive failing tool calls and updated system prompt to discourage retries.
-* **Always-Allow for Patches:** Added `--allow-always-patch` flag to permit session-level auto-approval of file modifications.
-* **Live Instruction Editing:** Implemented `/prompt` command to adjust system instructions during a session.
-* **Dry-Run Awareness:** Injected explicit session status into the system prompt when `--dry-run` is active.
-* **Context-Aware Memory Search:** Implemented semantic search for project memory snippets.
-* **Enhanced Tool Visibility & Boxes:** Improved UI with color-coded boxed tool interactions and integrated call/response headers.
-* **Persistent Status Bar:** Added real-time visibility of model, provider, mode, and context usage.
-* **Interactive History Search:** Integrated search/filtering into `/history` and `/history restore` overlays.
-* **Tool Output Highlighting:** Added language-aware syntax highlighting for all tool outputs.
-* **Robust Parameter Heuristics:** Automatically handles parameter confusion in `search_codebase` and added aliases for `read_file_lines`.
-* **Error Logging:** Implemented `opencodex.error.log` for detailed tool failure tracking.
-* **Custom Response Input for Choices:** Added ability to provide custom text input for interactive agent prompts.
-* **Native Google SDK Integration:** Migrated to `@google/genai` for better Gemini performance and reliability.
-* **Multi-Provider Configuration:** Supported per-provider API keys and base URLs in `config.json`.
-* **Advanced Context Management:** Implemented file pinning, detailed token breakdown, and ignored files preview.
-* **UI Personalization:** Added dynamic JSON theming and a `/recipes` prompt template library.
-* **UI Reorganization:** Consolidated fragmented status info into a unified footer and simplified the input area.
-* **External Editor Integration:** Implemented Ctrl+E shortcut to open the current prompt in the system's $EDITOR for easier multi-line editing.
+*Last Updated: 2026-02-10*

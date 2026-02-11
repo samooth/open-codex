@@ -59,6 +59,9 @@ Thumbs.db
 Icon?
 .Spotlight-V100/
 
+# opencodex
+.codex/
+
 # Unwanted package managers
 .yarn/
 yarn.lock

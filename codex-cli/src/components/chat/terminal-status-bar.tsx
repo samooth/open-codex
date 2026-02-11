@@ -86,15 +86,12 @@ const TerminalStatusBar: React.FC<Props> = ({
 
         <Box gap={1}>
           {showBreakdown ? (
-            <Box gap={1}>
-              <Text dimColor>SYS:</Text>
-              <Text color={theme.highlight}>{tokenBreakdown.system}</Text>
-              <Text dimColor>HST:</Text>
-              <Text color={theme.highlight}>{tokenBreakdown.history}</Text>
-              <Text dimColor>TLS:</Text>
-              <Text color={theme.highlight}>{tokenBreakdown.tools}</Text>
-              <Text dimColor>TOT:</Text>
-              <Text color={getContextColor(contextLeftPercent)}>{tokenBreakdown.total}</Text>
+            <Box borderStyle="single" borderColor={theme.dim} paddingX={1} gap={1}>
+              <Text color={theme.dim}>Tokens:</Text>
+              <Text color={theme.assistant}>SYS:{tokenBreakdown.system}</Text>
+              <Text color={theme.user}>HST:{tokenBreakdown.history}</Text>
+              <Text color={theme.highlight}>TLS:{tokenBreakdown.tools}</Text>
+              <Text bold color={getContextColor(contextLeftPercent)}>TOT:{tokenBreakdown.total}</Text>
             </Box>
           ) : (
             <Box gap={1}>

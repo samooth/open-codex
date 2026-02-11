@@ -39,6 +39,7 @@ const slashCommands = [
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/theme", description: "change UI theme" },
+  { name: "/undo", description: "revert last turn and file changes" },
   { name: "/help", description: "show help" },
 ];
 
@@ -63,6 +64,7 @@ export default function TerminalChatInput({
   openThemeOverlay,
   onPin,
   onUnpin,
+  onUndo,
   interruptAgent,
   partialReasoning,
   activeBlockType,
@@ -100,6 +102,7 @@ export default function TerminalChatInput({
   openThemeOverlay: () => void;
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
+  onUndo: () => void;
   interruptAgent: () => void;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
@@ -339,6 +342,12 @@ export default function TerminalChatInput({
       if (inputValue === "/help") {
         setInput("");
         openHelpOverlay();
+        return;
+      }
+
+      if (inputValue === "/undo") {
+        setInput("");
+        onUndo();
         return;
       }
 

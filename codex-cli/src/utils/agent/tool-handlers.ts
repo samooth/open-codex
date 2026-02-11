@@ -135,6 +135,14 @@ export async function handleWriteFile(
 
     ctx.onFileAccess?.(filePath);
     
+    // Capture backup for /undo
+    let backup: string | null = null;
+    try {
+      if (existsSync(fullPath)) {
+        backup = readFileSync(fullPath, "utf-8");
+      }
+    } catch { /* ignore */ }
+
     // FIXED: Atomic write using temp file + rename
     const tempPath = `${fullPath}.tmp.${Date.now()}`;
     try {
@@ -161,7 +169,7 @@ export async function handleWriteFile(
 
     return {
       outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
-      metadata: { exit_code: 0, path: filePath },
+      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
     };
   } catch (err) {
     return {
@@ -219,11 +227,18 @@ export async function handleDeleteFile(
     }
 
     ctx.onFileAccess?.(filePath);
+    
+    // Capture backup for /undo
+    let backup: string | null = null;
+    try {
+      backup = readFileSync(fullPath, "utf-8");
+    } catch { /* ignore */ }
+
     const fs = await import("fs");
     fs.unlinkSync(fullPath);
     return {
       outputText: `Successfully deleted ${filePath}`,
-      metadata: { exit_code: 0, path: filePath },
+      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
     };
   } catch (err) {
     return {

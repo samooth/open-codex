@@ -23,10 +23,11 @@ import { createInputItem } from "../../utils/input-utils.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
 import { clearTerminal } from "../../utils/terminal.js";
-import { saveRollout } from "../../utils/storage/save-rollout.js";
+import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
 import { detectInteraction } from "../../utils/interactive-detection.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
+import fs from "fs";
 import ConfigOverlay from "../config-overlay.js";
 import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
@@ -132,6 +133,39 @@ export default function TerminalChat({
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
+
+  const [restoring, setRestoring] = useState(false);
+
+  const handleUndo = async () => {
+    if (!agent) return;
+    setLoading(true);
+    const result = await undoLastChange(
+      agent.sessionId,
+      (p, c) => fs.writeFileSync(p, c, "utf-8"),
+      (p) => { if (fs.existsSync(p)) fs.unlinkSync(p); }
+    );
+    
+    if (result.success) {
+      setItems(result.items);
+      setPrevItems(result.items);
+      setItems(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `🔄 ${result.message}`
+        }
+      ]);
+    } else {
+      setItems(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `⚠️ ${result.message}`
+        }
+      ]);
+    }
+    setLoading(false);
+  };
 
   const awaitingContinueConfirmation = useMemo(() => {
     const lastItem = items[items.length - 1];
@@ -502,6 +536,7 @@ export default function TerminalChat({
                       openPromptsOverlay={() => setOverlayMode("prompts")}
                       openRecipesOverlay={() => setOverlayMode("recipes")}
                       openThemeOverlay={() => setOverlayMode("theme")}
+                      onUndo={handleUndo}
                       onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],

@@ -986,6 +986,7 @@ export function process_patch(
       message: `Successfully applied patch with ${result.appliedChanges.length} change(s)${fuzz > 0 ? ` (fuzz: ${fuzz})` : ""}`,
       details: {
         changedFiles: result.appliedChanges,
+        backups: result.backups,
         fuzz
       }
     };
