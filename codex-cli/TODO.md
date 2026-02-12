@@ -2,19 +2,25 @@
 
 This document tracks planned features, architectural refinements, and UI/UX enhancements for the OpenCodex CLI.
 
+## Urgent: Technical Debt & Stability
+
+*   **[DONE] Fix `apply-patch.ts` Regressions:** Resolve the 7 failing tests in `tests/apply-patch.test.ts`. The recent refactors for robustness introduced regressions in hunk identification and context matching.
+*   **[DONE] Consolidate Testing Framework:** Remove any remaining `mocha` dependencies and migrate fully to `vitest` for consistency.
+*   **[ ] Character-Level Patch Debugging:** Finalize the character-level logging in `text_to_patch` to prevent whitespace-related context failures.
+
 ## High Priority: Productivity & Feedback
 
-*   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and hit `R` to re-populate the input or execute it immediately.
-*   **[ ] Audio Notifications:** Add an optional "ping" sound (toggleable in config) when a long-running task like indexing or deep-thinking finishes.
+*   **[ ] Smart Context (Auto-Pinning):** Automatically detect and persist core files/interfaces into the session context based on access frequency and "centrality" to the codebase.
+*   **[ ] Fetch Docs (Deep Crawl):** Expand `fetch_url` to intelligently crawl and summarize entire documentation sub-trees for new or unknown libraries.
 *   **[ ] Cost Tracking:** Estimate and display the cost of the current session based on token usage and known model pricing.
-*   **[ ] Search Heatmap:** When using `semantic_search`, show a snippet explaining *why* a file was ranked highly (highlighting the matching concept).
+*   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and hit `R` to re-populate the input or execute it immediately.
 
 ## UI/UX Enhancements
 
 *   **[ ] Interactive Hunk Selection:** Allow users to pick specific "hunks" from an `apply_patch` instead of accepting/rejecting the whole file.
 *   **[ ] Collapsible History Blocks:** Ability to collapse entire message turns (user + assistant response) to focus on the current task.
 *   **[ ] Live Indexing Status:** A more subtle, non-blocking progress indicator for background semantic indexing.
-*   **[ ] Variable Injection:** Support referencing environment variables or file contents directly in the prompt (e.g., `fix the bug in {{src/main.ts}}`).
+*   **[ ] Audio Notifications:** Add an optional "ping" sound (toggleable in config) when a long-running task like indexing or deep-thinking finishes.
 
 ## Architecture & Logic
 
@@ -30,4 +36,4 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 *   **[ ] Dependency Hardening:** Further restrict file system access based on the current project root and `.codexignore`.
 
 ---
-*Last Updated: 2026-02-10*
+*Last Updated: 2026-02-12*
