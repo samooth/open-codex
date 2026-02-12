@@ -25,6 +25,32 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "update_tasks",
+      description: "Updates the persistent task checklist displayed in the UI. Use this to track progress on complex multi-step goals. Each task has a label and a status ('todo', 'in-progress', 'done').",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          tasks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Description of the task." },
+                status: { type: "string", enum: ["todo", "in-progress", "done"], description: "Current status of the task." }
+              },
+              required: ["label", "status"]
+            }
+          }
+        },
+        required: ["tasks"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "run_diagnostics",
       description: "Automatically detects the project type and runs standard health checks (linting, type-checking, and tests). Use this to verify your changes haven't broken the project.",
       strict: false,

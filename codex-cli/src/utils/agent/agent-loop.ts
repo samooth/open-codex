@@ -59,6 +59,7 @@ export class AgentLoop {
   private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
   private onLoading: (loading: boolean) => void;
   private onFileAccess?: (path: string) => void;
+  private onTasksUpdate?: (tasks: Task[]) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -219,6 +220,7 @@ export class AgentLoop {
     onPartialUpdate,
     onLoading,
     onFileAccess,
+    onTasksUpdate,
     getCommandConfirmation,
     onReset,
   }: AgentLoopParams & { config?: AppConfig }) {
@@ -241,6 +243,7 @@ export class AgentLoop {
     this.onPartialUpdate = onPartialUpdate;
     this.onLoading = onLoading;
     this.onFileAccess = onFileAccess;
+    this.onTasksUpdate = onTasksUpdate;
     this.getCommandConfirmation = getCommandConfirmation;
     this.onReset = onReset;
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
@@ -756,6 +759,7 @@ export class AgentLoop {
                   getCommandConfirmation: this.getCommandConfirmation,
                   onItem: this.onItem,
                   onFileAccess: this.onFileAccess,
+                  onTasksUpdate: this.onTasksUpdate,
                   oai: this.oai,
                   model: this.model,
                   agent: this,
@@ -1219,6 +1223,7 @@ export class AgentLoop {
           getCommandConfirmation: this.getCommandConfirmation,
           onItem: this.onItem,
           onFileAccess: this.onFileAccess,
+          onTasksUpdate: this.onTasksUpdate,
           oai: this.oai,
           model: this.model,
           agent: this,

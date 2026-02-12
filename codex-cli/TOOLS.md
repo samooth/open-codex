@@ -16,6 +16,7 @@ This is the "brain" of the agent. It controls:
     - `read_symbols`: Lightweight symbol extraction (classes, functions, etc.) to explore large files without context overflow.
     - `search_symbols`: Semantic-boosted search specifically targeting symbol definitions across the codebase.
     - `run_diagnostics`: Automated project-wide health checks (linting, type-checking, and tests) based on detected project type.
+    - `update_tasks`: Updates a persistent UI roadmap to track progress on multi-step goals.
     - `list_directory`: Non-recursive directory listing.
     - `list_files_recursive`: Parallel tree-view project exploration.
     - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).

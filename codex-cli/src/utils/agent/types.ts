@@ -11,6 +11,11 @@ export type CommandConfirmation = {
   customDenyMessage?: string;
 };
 
+export type Task = {
+  label: string;
+  status: "todo" | "in-progress" | "done";
+};
+
 export type AgentLoopParams = {
   model: string;
   config?: AppConfig;
@@ -21,6 +26,7 @@ export type AgentLoopParams = {
   onLoading: (loading: boolean) => void;
   onReset: () => void;
   onFileAccess?: (path: string) => void;
+  onTasksUpdate?: (tasks: Task[]) => void;
 
   /** Called when the command is not auto-approved to request explicit user review. */
   getCommandConfirmation: (
@@ -39,6 +45,7 @@ export interface AgentContext {
   ) => Promise<CommandConfirmation>;
   onItem: (item: ChatCompletionMessageParam) => void;
   onFileAccess?: (path: string) => void;
+  onTasksUpdate?: (tasks: Task[]) => void;
   oai: OpenAI;
   model: string;
   agent: any; // Add reference to AgentLoop

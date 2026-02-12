@@ -318,6 +318,38 @@ export async function handleReadSymbols(
   }
 }
 
+export async function handleUpdateTasks(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { tasks } = args;
+
+    if (!tasks || !Array.isArray(tasks)) {
+      return {
+        outputText: "Error: 'tasks' array is required for update_tasks",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    ctx.onTasksUpdate?.(tasks);
+    
+    return {
+      outputText: `Task list updated: ${tasks.length} tasks recorded.`,
+      metadata: { exit_code: 0, task_count: tasks.length, type: "update_tasks" },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error updating tasks: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
 export async function handleRunDiagnostics(
   ctx: AgentContext,
 ): Promise<{

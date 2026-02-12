@@ -4,6 +4,7 @@ import type { AppConfig } from "../../utils/config.js";
 import type { ColorName } from "chalk";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { ReviewDecision } from "src/utils/agent/review.ts";
+import type { Task } from "../../utils/agent/types.js";
 
 import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
@@ -12,6 +13,7 @@ import {
   calculateTokenBreakdown,
 } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
+import TaskChecklist from "./task-checklist.js";
 import TerminalStatusBar from "./terminal-status-bar.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
@@ -75,6 +77,7 @@ export default function TerminalChat({
   const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
     initialRollout?.items || [],
   );
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [allFiles, setAllFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
@@ -222,6 +225,10 @@ export default function TerminalChat({
       approvalPolicy,
       onReset: () => {
         setPrevItems([]);
+        setTasks([]);
+      },
+      onTasksUpdate: (newTasks) => {
+        setTasks(newTasks);
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         partialDataRef.current.content = content;
@@ -506,6 +513,12 @@ export default function TerminalChat({
       ) : (
         <Box>
           <Text color="gray">Initializing agent…</Text>
+        </Box>
+      )}
+
+      {tasks.length > 0 && (
+        <Box paddingX={2} marginTop={1}>
+          <TaskChecklist tasks={tasks} theme={activeTheme} />
         </Box>
       )}
 
