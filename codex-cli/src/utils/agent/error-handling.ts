@@ -171,15 +171,77 @@ export function createNetworkErrorSystemMessage(provider: string = "AI"): ChatCo
 }
 
 /**
+ * Robustly extracts a human-readable message from a potential JSON error string.
+ * Handles nested JSON and common error structures from various providers.
+ */
+export function cleanErrorMessage(message: string): string {
+  if (!message) return "unknown error";
+  
+  // If it doesn't look like JSON, return as is
+  if (!message.trim().startsWith("{")) return message;
+
+  try {
+    let current = JSON.parse(message);
+    
+    // Iterate to find the most deeply nested "message" or "error" field
+    // Limit iterations to prevent infinite loops if something is weird
+    for (let i = 0; i < 5; i++) {
+      if (!current || typeof current !== "object") break;
+
+      // Handle common structures: { error: { message: "..." } } or { message: "..." }
+      const next = current.error?.message || current.message || current.error;
+      
+      if (next && typeof next === "string") {
+        // If the string itself is JSON, try to parse it one more level
+        if (next.trim().startsWith("{")) {
+          current = JSON.parse(next);
+          continue;
+        }
+        return next;
+      }
+      
+      if (next && typeof next === "object") {
+        current = next;
+        continue;
+      }
+      
+      break;
+    }
+    
+    // If we still have an object, stringify it concisely
+    if (current && typeof current === "object") {
+      return JSON.stringify(current);
+    }
+    
+    return String(current);
+  } catch {
+    // If parsing fails at any point, return the original string
+    return message;
+  }
+}
+
+/**
  * Creates a system message for rate limit errors
  */
-export function createRateLimitErrorSystemMessage(): ChatCompletionMessageParam {
+export function createRateLimitErrorSystemMessage(error?: any): ChatCompletionMessageParam {
+  let message = "⚠️  Rate limit reached. Please try again later.";
+  
+  if (error) {
+    const rawMsg = (error as any).message || "";
+    const cleanMsg = cleanErrorMessage(rawMsg);
+    if (cleanMsg && cleanMsg !== rawMsg) {
+      message = `⚠️  Rate limit reached: ${cleanMsg}`;
+    } else if (rawMsg) {
+      message = `⚠️  Rate limit reached: ${rawMsg}`;
+    }
+  }
+
   return {
     role: "assistant",
     content: [
       {
         type: "text",
-        text: "⚠️  Rate limit reached. Please try again later.",
+        text: message,
       },
     ],
   };
@@ -212,11 +274,14 @@ export function createInvalidRequestErrorSystemMessage(error: any, provider: str
     (e.cause && e.cause.request_id) ??
     (e.cause && e.cause.requestId);
 
+  const rawMsg = e.message || (e.cause && e.cause.message) || "";
+  const cleanMsg = cleanErrorMessage(rawMsg);
+
   const errorDetails = [
     `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
     `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
     `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
-    `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
+    `Message: ${cleanMsg || "unknown"}`,
   ].join(", ");
 
   const msgText = `⚠️  ${provider} rejected the request${

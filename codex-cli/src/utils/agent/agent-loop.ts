@@ -35,6 +35,15 @@ import {
   sanitizeGoogleToolName,
 } from "./google-utils.js";
 import { handleFunctionCall } from "./function-call-handler.js";
+import { 
+  createInvalidRequestErrorSystemMessage, 
+  createRateLimitErrorSystemMessage, 
+  createTokenLimitErrorSystemMessage,
+  isErrorClientError,
+  isErrorNetworkOrServer,
+  isErrorRateLimit,
+  isErrorTooManyTokens
+} from "./error-handling.js";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -571,32 +580,13 @@ export class AgentLoop {
               continue;
             }
 
-            const isTooManyTokensError =
-              (errCtx.param === "max_tokens" ||
-                (typeof errCtx.message === "string" &&
-                  /max_tokens is too large/i.test(errCtx.message))) &&
-              errCtx.type === "invalid_request_error";
-
-            if (isTooManyTokensError) {
-              this.onItem({
-                role: "assistant",
-                content: [
-                  {
-                    type: "text",
-                    text: "⚠️  The current request exceeds the maximum context length supported by the chosen model. Please shorten the conversation, run /clear, or switch to a model with a larger context window and try again.",
-                  },
-                ],
-              });
+            if (isErrorTooManyTokens(error)) {
+              this.onItem(createTokenLimitErrorSystemMessage());
               this.onLoading(false);
               return;
             }
 
-            const isRateLimit =
-              status === 429 ||
-              errCtx.code === "rate_limit_exceeded" ||
-              errCtx.type === "rate_limit_exceeded" ||
-              /rate limit/i.test(errCtx.message ?? "");
-            if (isRateLimit) {
+            if (isErrorRateLimit(error)) {
               if (attempt < MAX_RETRIES) {
                 // Exponential backoff: base wait * 2^(attempt-1), or use suggested retry time
                 // if provided.
@@ -624,72 +614,15 @@ export class AgentLoop {
                 // why the request failed and can decide how to proceed (e.g. wait and retry later
                 // or switch to a different model / account).
 
-                const errorDetails = [
-                  `Status: ${status || "unknown"}`,
-                  `Code: ${errCtx.code || "unknown"}`,
-                  `Type: ${errCtx.type || "unknown"}`,
-                  `Message: ${errCtx.message || "unknown"}`,
-                ].join(", ");
-
-                this.onItem({
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `⚠️  Rate limit reached. Error details: ${errorDetails}. Please try again later.`,
-                    },
-                  ],
-                });
+                this.onItem(createRateLimitErrorSystemMessage(error));
 
                 this.onLoading(false);
                 return;
               }
             }
 
-            const isClientError =
-              (typeof status === "number" &&
-                status >= 400 &&
-                status < 500 &&
-                status !== 429) ||
-              errCtx.code === "invalid_request_error" ||
-              errCtx.type === "invalid_request_error";
-            if (isClientError) {
-              this.onItem({
-                role: "assistant",
-                content: [
-                  {
-                    type: "text",
-                    // Surface the request ID when it is present on the error so users
-                    // can reference it when contacting support or inspecting logs.
-                    text: (() => {
-                      const reqId =
-                        (
-                          errCtx as Partial<{
-                            request_id?: string;
-                            requestId?: string;
-                          }>
-                        )?.request_id ??
-                        (
-                          errCtx as Partial<{
-                            request_id?: string;
-                            requestId?: string;
-                          }>
-                        )?.requestId;
-
-                      const errorDetails = [
-                        `Status: ${status || "unknown"}`,
-                        `Code: ${errCtx.code || "unknown"}`,
-                        `Type: ${errCtx.type || "unknown"}`,
-                        `Message: ${errCtx.message || "unknown"}`,
-                      ].join(", ");
-                      const provider = this.config.provider || "AI";
-                      return `⚠️  ${provider} rejected the request${
-                        reqId ? ` (request ID: ${reqId})` : ""
-                      }. Error details: ${errorDetails}. Please verify your settings and try again.`;
-                    })(),
-                  },
-                ],
-              });
+            if (isErrorClientError(error)) {
+              this.onItem(createInvalidRequestErrorSystemMessage(error, this.config.provider));
               this.onLoading(false);
               return;
             }
@@ -1053,63 +986,7 @@ export class AgentLoop {
       // resolve gracefully so callers can choose to retry.
       // -------------------------------------------------------------------
 
-      const NETWORK_ERRNOS = new Set([
-        "ECONNRESET",
-        "ECONNREFUSED",
-        "EPIPE",
-        "ENOTFOUND",
-        "ETIMEDOUT",
-        "EAI_AGAIN",
-      ]);
-
-      const isNetworkOrServerError = (() => {
-        if (!err || typeof err !== "object") {
-          return false;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const e: any = err;
-
-        // Direct instance check for connection errors thrown by the OpenAI SDK.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const ApiConnErrCtor = (OpenAI as any).APIConnectionError as  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          | (new (...args: any) => Error)
-          | undefined;
-        if (ApiConnErrCtor && e instanceof ApiConnErrCtor) {
-          return true;
-        }
-
-        if (typeof e.code === "string" && NETWORK_ERRNOS.has(e.code)) {
-          return true;
-        }
-
-        // When the OpenAI SDK nests the underlying network failure inside the
-        // `cause` property we surface it as well so callers do not see an
-        // unhandled exception for errors like ENOTFOUND, ECONNRESET …
-        if (
-          e.cause &&
-          typeof e.cause === "object" &&
-          NETWORK_ERRNOS.has((e.cause as { code?: string }).code ?? "")
-        ) {
-          return true;
-        }
-
-        if (typeof e.status === "number" && e.status >= 500) {
-          return true;
-        }
-
-        // Fallback to a heuristic string match so we still catch future SDK
-        // variations without enumerating every errno.
-        if (
-          typeof e.message === "string" &&
-          /network|socket|stream/i.test(e.message)
-        ) {
-          return true;
-        }
-
-        return false;
-      })();
-
-      if (isNetworkOrServerError) {
+      if (isErrorNetworkOrServer(err)) {
         try {
           this.onItem({
             role: "assistant",
@@ -1127,67 +1004,9 @@ export class AgentLoop {
         return;
       }
 
-      const isInvalidRequestError = () => {
-        if (!err || typeof err !== "object") {
-          return false;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const e: any = err;
-
-        const isInvalid =
-          e.type === "invalid_request_error" ||
-          (e.cause && e.cause.type === "invalid_request_error");
-
-        if (isInvalid) {
-          return true;
-        }
-
-        return false;
-      };
-
-      if (isInvalidRequestError()) {
+      if (isErrorClientError(err)) {
         try {
-          // Extract request ID and error details from the error object
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const e: any = err;
-
-          const reqId =
-            e.request_id ??
-            (e.cause && e.cause.request_id) ??
-            (e.cause && e.cause.requestId);
-
-                                const errorDetails = [
-
-                                  `Status: ${e.status || (e.cause && e.cause.status) || "unknown"}`,
-
-                                  `Code: ${e.code || (e.cause && e.cause.code) || "unknown"}`,
-
-                                  `Type: ${e.type || (e.cause && e.cause.type) || "unknown"}`,
-
-                                  `Message: ${e.message || (e.cause && e.cause.message) || "unknown"}`,
-
-                                ].join(", ");
-
-          
-
-                                const provider = this.config.provider || "AI";
-
-                                const msgText = `⚠️  ${provider} rejected the request${
-
-                                  reqId ? ` (request ID: ${reqId})` : ""
-
-                                }. Error details: ${errorDetails}. Please verify your settings and try again.`;
-
-          this.onItem({
-            role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: msgText,
-              },
-            ],
-          });
+          this.onItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best-effort */
         }
