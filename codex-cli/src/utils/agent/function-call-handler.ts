@@ -65,6 +65,7 @@ export async function handleFunctionCall(
       if (name === "repo_browser.edit_file") { name = "edit_file"; }
       if (name === "repo_browser.read_symbols") { name = "read_symbols"; }
       if (name === "repo_browser.search_symbols") { name = "search_symbols"; }
+      if (name === "repo_browser.run_diagnostics") { name = "run_diagnostics"; }
       if (name === "repo_browser.web_search") { name = "web_search"; }
       if (name === "repo_browser.fetch_url") { name = "fetch_url"; }
     }
@@ -242,6 +243,10 @@ export async function handleFunctionCall(
       metadata = result.metadata;
     } else if (name === "search_symbols") {
       const result = await handlers.handleSearchSymbols(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+    } else if (name === "run_diagnostics") {
+      const result = await handlers.handleRunDiagnostics(ctx);
       outputText = result.outputText;
       metadata = result.metadata;
     } else if (name === "delete_file") {

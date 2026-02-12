@@ -25,6 +25,19 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "run_diagnostics",
+      description: "Automatically detects the project type and runs standard health checks (linting, type-checking, and tests). Use this to verify your changes haven't broken the project.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "search_symbols",
       description: "Searches the codebase for specific symbol definitions (classes, functions, etc.) using semantic search and pattern matching. Use this to find where a specific component is defined.",
       strict: false,

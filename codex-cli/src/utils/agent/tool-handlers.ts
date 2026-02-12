@@ -9,6 +9,7 @@ import { validateFileSyntax } from "./validate-file.js";
 import { log } from "./log.js";
 import { applyEdits, formatStyledDiff } from "./edit-file.js";
 import { extractSymbols } from "./symbol-extractor.js";
+import { runProjectDiagnostics } from "./diagnostics.js";
 
 import { unlinkSync, renameSync } from 'fs'
 
@@ -312,6 +313,30 @@ export async function handleReadSymbols(
   } catch (err) {
     return {
       outputText: `Error reading symbols: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleRunDiagnostics(
+  ctx: AgentContext,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const result = await runProjectDiagnostics(ctx);
+    return {
+      outputText: result.output,
+      metadata: { 
+        exit_code: result.success ? 0 : 1, 
+        project_type: result.projectType,
+        type: "run_diagnostics" 
+      },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error running diagnostics: ${String(err)}`,
       metadata: { exit_code: 1 },
     };
   }
