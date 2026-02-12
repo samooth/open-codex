@@ -588,7 +588,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       borderColor={isError ? theme.error : theme.dim}
       paddingX={1}
       marginY={0}
-      width={size.columns - 4}
+      width="100%"
     >
       {toolCall && (
         <Box gap={1} marginBottom={isDebug || isError ? 1 : 0}>
