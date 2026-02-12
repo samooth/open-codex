@@ -113,6 +113,10 @@ development_ that understands and executes your repo.
 - **Zero setup** — bring your API key and it just works!
 - **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
+- **Surgical Editing** — robust Search & Replace tool for precise, context-aware file modifications 📝
+- **Code Intelligence** — specialized tools to extract symbols and search definitions semantically 🔍
+- **Automated Verification** — built-in diagnostics to detect project types and run health checks (lint, type-check, tests) 🩺
+- **Interactive Roadmap** — persistent task checklist in the UI to track multi-step goal progress 📋
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
