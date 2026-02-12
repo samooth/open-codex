@@ -43,7 +43,7 @@ Potential Improvements:
        * Optimized system-prompt string handling to prevent template literal termination errors.
 
    4. [DONE] Loop Protection Strategy:
-       * Instruct the agent that if a command fails more than twice with the same error, it should stop and ask for clarification instead of retrying blindly.
+       * Instruct the agent that if a command fails twice with the same error, it should stop and ask for clarification instead of retrying blindly.
 
    5. [DONE] Structured Planing:
        * For complex tasks, encourage the model to output a <plan> block before executing, helping the user (and the model) track milestones.
@@ -111,6 +111,26 @@ Potential Improvements:
        * Parameter heuristics for `search_codebase` and aliases for `read_file_lines`.
        * Error logging to `opencodex.error.log`.
 
+   32. [DONE] Surgical Editing (edit_file):
+       * Implemented a robust Search & Replace tool that requires exact matching, preventing common context-drift errors in patches.
+       * Added side-by-side/unified diff generation for user review in the terminal.
+
+   33. [DONE] Code Intelligence (read_symbols / search_symbols):
+       * Added lightweight symbol extraction to survey large file structures without context overflow.
+       * Enhanced semantic search to specifically target and boost code definitions.
+
+   34. [DONE] Automated Verification (run_diagnostics):
+       * Built a smart health-check tool that detects project types (Node, Rust, Go, Python) and runs lint/type-check/test suites automatically.
+
+   35. [DONE] Interactive Roadmap (update_tasks):
+       * Implemented a persistent, flicker-free task checklist in the CLI footer to track multi-step goals.
+
+   36. [DONE] Safety & Recovery (checkpoint):
+       * Created a tool to generate named git checkpoints (tags) before risky refactorings, allowing instant rollback.
+
+   37. [DONE] Thinking UI Stability:
+       * Increased long delay warning to 45s and decoupled turn timer from reasoning chunks to prevent visual resets.
+
 TODO List (Future Improvements):
 
    * **Cost & Token Auditing:** Real-time price estimation per turn/session based on actual token usage and model pricing.
@@ -119,3 +139,5 @@ TODO List (Future Improvements):
    * **Image Generation Support:** Integrate Imagen 4.0 models for generating UI mockups or assets directly from the CLI.
    * **Diff Chunking:** Automatically break down extremely large patches into smaller, verifiable hunks to reduce the risk of "Invalid Context" errors.
    * **Undo Buffer:** Implement a `/undo` command that rolls back the last file modification using git or temporary backups.
+   * **Smart Context (Auto-Pinning):** Automatically detect and persist core files/interfaces into the session context based on access frequency.
+   * **Fetch Docs (Deep Crawl):** Expand `fetch_url` to intelligently crawl and summarize entire documentation sub-trees for new libraries.

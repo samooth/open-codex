@@ -25,6 +25,25 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "checkpoint",
+      description: "Creates a named git checkpoint (using tags) of the current state of the repository. Use this before starting complex or risky refactorings to ensure you can revert easily if needed.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description: "A descriptive name for the checkpoint (e.g., 'before-auth-refactor').",
+          },
+        },
+        required: ["name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "update_tasks",
       description: "Updates the persistent task checklist displayed in the UI. Use this to track progress on complex multi-step goals. Each task has a label and a status ('todo', 'in-progress', 'done').",
       strict: false,

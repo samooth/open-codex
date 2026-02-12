@@ -10,6 +10,7 @@ import { log } from "./log.js";
 import { applyEdits, formatStyledDiff } from "./edit-file.js";
 import { extractSymbols } from "./symbol-extractor.js";
 import { runProjectDiagnostics } from "./diagnostics.js";
+import { createCheckpoint } from "./checkpoint.js";
 
 import { unlinkSync, renameSync } from 'fs'
 
@@ -313,6 +314,41 @@ export async function handleReadSymbols(
   } catch (err) {
     return {
       outputText: `Error reading symbols: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleCheckpoint(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { name } = args;
+
+    if (!name) {
+      return {
+        outputText: "Error: 'name' is required for checkpoint",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const result = await createCheckpoint(ctx, name);
+    return {
+      outputText: result.output,
+      metadata: { 
+        exit_code: result.success ? 0 : 1, 
+        checkpoint_name: result.name,
+        type: "checkpoint" 
+      },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error creating checkpoint: ${String(err)}`,
       metadata: { exit_code: 1 },
     };
   }

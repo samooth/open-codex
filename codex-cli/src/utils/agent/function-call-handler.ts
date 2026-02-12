@@ -67,6 +67,7 @@ export async function handleFunctionCall(
       if (name === "repo_browser.search_symbols") { name = "search_symbols"; }
       if (name === "repo_browser.run_diagnostics") { name = "run_diagnostics"; }
       if (name === "repo_browser.update_tasks") { name = "update_tasks"; }
+      if (name === "repo_browser.checkpoint") { name = "checkpoint"; }
       if (name === "repo_browser.web_search") { name = "web_search"; }
       if (name === "repo_browser.fetch_url") { name = "fetch_url"; }
     }
@@ -252,6 +253,10 @@ export async function handleFunctionCall(
       metadata = result.metadata;
     } else if (name === "update_tasks") {
       const result = await handlers.handleUpdateTasks(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+    } else if (name === "checkpoint") {
+      const result = await handlers.handleCheckpoint(ctx, rawArguments ?? "{}");
       outputText = result.outputText;
       metadata = result.metadata;
     } else if (name === "delete_file") {
