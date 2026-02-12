@@ -2,7 +2,7 @@
 import { Select } from "../vendor/ink-select/select";
 import { Box, Text } from "ink";
 import React from "react";
-import { AutoApprovalMode } from "src/utils/auto-approval-mode";
+import { AutoApprovalMode } from "../../utils/auto-approval-mode.js";
 
 // TODO: figure out why `cli-spinners` fails on Node v20.9.0
 // which is why we have to do this in the first place

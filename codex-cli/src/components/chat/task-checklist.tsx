@@ -43,7 +43,11 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
           return (
             <Box key={i} gap={1}>
               <Text>{icon}</Text>
-              <Text color={color} bold={bold}>{task.label}</Text>
+              <Text color={color} bold={bold}>
+                {typeof task.label === "string" 
+                  ? task.label 
+                  : JSON.stringify(task.label)}
+              </Text>
             </Box>
           );
         })}

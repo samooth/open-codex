@@ -4,7 +4,7 @@ import type { SpawnOptions } from "child_process";
 import { exec } from "./raw-exec.js";
 import { log } from "../log.js";
 import { realpathSync } from "fs";
-import { CONFIG_DIR } from "src/utils/config.js";
+import { CONFIG_DIR } from "../../config.js";
 
 function getCommonRoots() {
   return [

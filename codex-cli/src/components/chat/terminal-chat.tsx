@@ -3,7 +3,7 @@ import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
 import type { AppConfig } from "../../utils/config.js";
 import type { ColorName } from "chalk";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import type { ReviewDecision } from "src/utils/agent/review.ts";
+import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Task } from "../../utils/agent/types.js";
 
 import TerminalChatInput from "./terminal-chat-input.js";

@@ -372,11 +372,19 @@ export async function handleUpdateTasks(
       };
     }
 
-    ctx.onTasksUpdate?.(tasks);
+    // Validate and sanitize tasks to ensure they conform to the Task type
+    const validatedTasks = tasks
+      .filter(t => t && typeof t === "object")
+      .map(t => ({
+        label: typeof t.label === "string" ? t.label : JSON.stringify(t.label),
+        status: ["todo", "in-progress", "done"].includes(t.status) ? t.status : "todo"
+      }));
+
+    ctx.onTasksUpdate?.(validatedTasks);
     
     return {
-      outputText: `Task list updated: ${tasks.length} tasks recorded.`,
-      metadata: { exit_code: 0, task_count: tasks.length, type: "update_tasks" },
+      outputText: `Task list updated: ${validatedTasks.length} tasks recorded.`,
+      metadata: { exit_code: 0, task_count: validatedTasks.length, type: "update_tasks" },
     };
   } catch (err) {
     return {

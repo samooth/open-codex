@@ -1,4 +1,4 @@
-import type { AppConfig } from "src/utils/config.js";
+import type { AppConfig } from "../utils/config.js";
 
 import TypeaheadOverlay from "./typeahead-overlay.js";
 import {
