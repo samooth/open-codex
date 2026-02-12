@@ -50,7 +50,7 @@ test("process_patch - update file", () => {
 
   const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn);
 
-  expect(result).toBe("Done!");
+  expect(result.success).toBe(true);
   expect(fs.writes).toEqual({ "a.txt": "hello world" });
   expect(fs.removals).toEqual([]);
 });
@@ -216,7 +216,7 @@ test("process_patch - invalid patch throws DiffError", () => {
 
   // Should NOT throw anymore because load_files is now lenient
   const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn);
-  expect(result).toBe("Done!");
+  expect(result.success).toBe(true);
   expect((fs.files as any)["missing.txt"].trim()).toBe("something");
 });
 

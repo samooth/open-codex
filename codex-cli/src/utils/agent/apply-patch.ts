@@ -11,7 +11,7 @@ import {
   UPDATE_FILE_PREFIX,
   HUNK_ADD_LINE_PREFIX,
   PATCH_PREFIX as _PATCH_PREFIX,
-} from "src/parse-apply-patch";
+} from "../../parse-apply-patch.js";
 
 // -----------------------------------------------------------------------------
 // Types & Models
@@ -447,6 +447,7 @@ function peek_next_section(
     index += 1;
     const lastMode: "keep" | "add" | "delete" = mode;
     let line = s;
+    let shouldSlice = true;
     if (line[0] === HUNK_ADD_LINE_PREFIX) {
       mode = "add";
     } else if (line[0] === "-") {
@@ -458,13 +459,17 @@ function peek_next_section(
       // Models often forget the '+' prefix when writing whole new files.
       if (isNewFile) {
         mode = "add";
+        shouldSlice = false; // It didn't have a prefix, don't slice
       } else {
         mode = "keep";
         line = " " + line;
+        // We added a space, so we MUST slice it below to get original back
       }
     }
 
-    line = line.slice(1);
+    if (shouldSlice) {
+      line = line.slice(1);
+    }
     
     if (mode === "keep" && lastMode !== mode) {
       if (insLines.length || delLines.length) {
@@ -539,7 +544,7 @@ function normalizePatchText(text: string): string {
     // Standard unified diff: --- a/file or --- file
     if (line.startsWith("--- ")) {
       const potential = line.slice(4).split("\t")[0]?.trim() || "";
-      // Skip /dev/null (means file is being deleted)
+      // Skip /dev/null (means file is being deleted or created)
       if (potential === "/dev/null") {
         continue;
       }
@@ -563,6 +568,14 @@ function normalizePatchText(text: string): string {
         }
         continue;
       }
+      // Check if this was a new file (previous --- was /dev/null)
+      const prevLine = i > 0 ? lines[i-1] : "";
+      if (prevLine?.startsWith("--- /dev/null")) {
+         const filename = potential.replace(/^[ab]\//, "");
+         processedLines.push(`*** Add File: ${filename}`);
+         currentFile = filename;
+         continue;
+      }
       // Otherwise, this is just the new file confirmation, skip it
       continue;
     }
@@ -573,7 +586,17 @@ function normalizePatchText(text: string): string {
       continue;
     }
 
-    processedLines.push(line);
+    // Preserve relevant lines
+    if (
+      line.startsWith("***") ||
+      line.startsWith("@@") ||
+      line.startsWith("+") ||
+      line.startsWith("-") ||
+      line.startsWith(" ") ||
+      currentFile // Also allow lines that might be content even if they don't start with space
+    ) {
+      processedLines.push(line);
+    }
   }
   
   cleaned = processedLines.join("\n").trim();
@@ -592,7 +615,8 @@ function normalizePatchText(text: string): string {
   if (
     cleaned.includes("*** Update File:") ||
     cleaned.includes("*** Add File:") ||
-    cleaned.includes("*** Delete File:")
+    cleaned.includes("*** Delete File:") ||
+    cleaned.includes("@@ ")
   ) {
     return `*** Begin Patch\n${cleaned}\n*** End Patch`;
   }
