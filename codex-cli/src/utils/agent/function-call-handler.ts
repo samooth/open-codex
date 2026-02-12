@@ -63,6 +63,8 @@ export async function handleFunctionCall(
       if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary" || name === "repo_browser.search__channel__commentary") { name = "search_codebase"; }
       if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary" || name === "repo_browser.rm__channel__commentary") { name = "delete_file"; }
       if (name === "repo_browser.edit_file") { name = "edit_file"; }
+      if (name === "repo_browser.read_symbols") { name = "read_symbols"; }
+      if (name === "repo_browser.search_symbols") { name = "search_symbols"; }
       if (name === "repo_browser.web_search") { name = "web_search"; }
       if (name === "repo_browser.fetch_url") { name = "fetch_url"; }
     }
@@ -234,6 +236,14 @@ export async function handleFunctionCall(
       outputText = result.outputText;
       metadata = result.metadata;
       additionalItems = result.additionalItems;
+    } else if (name === "read_symbols") {
+      const result = await handlers.handleReadSymbols(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+    } else if (name === "search_symbols") {
+      const result = await handlers.handleSearchSymbols(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
     } else if (name === "delete_file") {
       const result = await handlers.handleDeleteFile(ctx, rawArguments ?? "{}");
       outputText = result.outputText;

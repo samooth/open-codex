@@ -395,9 +395,55 @@ export class SemanticMemory {
           content: s.content,
           id: s.id
         }));
-    } catch (err) {
-      log(`Code search failed: ${String(err)}`);
-      return [];
+        } catch (err) {
+          log(`Code search failed: ${String(err)}`);
+          return [];
+        }
+      }
+    
+      /**
+       * Specifically searches for symbol definitions.
+       */
+      async searchSymbols(query: string, limit: number = 5): Promise<any[]> {
+        if (this.entries.length === 0) return [];
+        
+        try {
+          // We amplify the query to look for definitions
+          const augmentedQuery = `Definition of ${query} class interface function method`;
+          const queryEmbedding = await this.getEmbedding(augmentedQuery);
+          
+          const scored = this.entries.map(entry => {
+            let score = this.cosineSimilarity(queryEmbedding, entry.embedding);
+            
+            // Boost score if the content looks like a definition of the query
+            const lines = entry.content.split("\n");
+            const queryRegex = new RegExp(`\\b(class|interface|function|def|fn|struct|type|const)\\s+${query}\\b`, 'i');
+            
+            for (const line of lines) {
+              if (queryRegex.test(line)) {
+                score += 0.5; // Significant boost
+                break;
+              }
+            }
+            
+            return {
+              ...entry,
+              score
+            };
+          });
+    
+          return scored
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
+            .map(s => ({
+              path: s.path,
+              content: s.content,
+              id: s.id
+            }));
+        } catch (err) {
+          log(`Symbol search failed: ${String(err)}`);
+          return [];
+        }
+      }
     }
-  }
-}
+    

@@ -25,6 +25,48 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "search_symbols",
+      description: "Searches the codebase for specific symbol definitions (classes, functions, etc.) using semantic search and pattern matching. Use this to find where a specific component is defined.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The name of the symbol to search for.",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of results to return (default: 5).",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_symbols",
+      description: "Extracts high-level symbols (classes, functions, interfaces, etc.) from a file. Use this to quickly understand the structure of large files without reading their full content.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "The path to the file to analyze.",
+          },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "edit_file",
       description: "Edits a file using Search & Replace blocks. Multiple blocks can be provided. Each search block must match exactly, including indentation and whitespace.",
       strict: false,

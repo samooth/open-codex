@@ -8,6 +8,7 @@ import { getIgnoreFilter } from "./ignore-utils.js";
 import { validateFileSyntax } from "./validate-file.js";
 import { log } from "./log.js";
 import { applyEdits, formatStyledDiff } from "./edit-file.js";
+import { extractSymbols } from "./symbol-extractor.js";
 
 import { unlinkSync, renameSync } from 'fs'
 
@@ -270,6 +271,96 @@ export async function handleEditFile(
   } catch (err) {
     return {
       outputText: `Error editing file: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleReadSymbols(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath } = args;
+
+    if (!filePath) {
+      return {
+        outputText: "Error: 'path' is required for read_symbols",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const fullPath = resolve(process.cwd(), filePath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: File not found: ${filePath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    ctx.onFileAccess?.(filePath);
+    const symbols = extractSymbols(fullPath);
+    
+    return {
+      outputText: symbols,
+      metadata: { exit_code: 0, path: filePath, type: "read_symbols" },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error reading symbols: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleSearchSymbols(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { query, limit = 5 } = args;
+
+    if (!query) {
+      return {
+        outputText: "Error: 'query' is required for search_symbols",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const agent = ctx.agent;
+    if (!agent) {
+       return { outputText: "Error: Agent not initialized", metadata: { exit_code: 1 } };
+    }
+
+    // Access semanticMemory from AgentLoop (it's private, so we need a public accessor or use cast)
+    const semanticMemory = (agent as any).semanticMemory;
+    if (!semanticMemory) {
+       return { outputText: "Error: Semantic memory not available", metadata: { exit_code: 1 } };
+    }
+
+    const results = await semanticMemory.searchSymbols(query, limit);
+    
+    if (results.length === 0) {
+      return { outputText: "No relevant symbol definitions found. Try a broader search or verify the codebase is indexed.", metadata: { exit_code: 0 } };
+    }
+
+    const outputText = results.map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`).join("\n\n---\n\n");
+
+    return {
+      outputText,
+      metadata: { exit_code: 0, query, match_count: results.length },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error performing symbol search: ${String(err)}`,
       metadata: { exit_code: 1 },
     };
   }

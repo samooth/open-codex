@@ -12,6 +12,9 @@ This is the "brain" of the agent. It controls:
 - **Normalization**: This file handles tool aliasing (e.g., mapping `repo_browser.read_file` to the internal `read_file` handler) and strips model-specific suffixes like `<|channel|>`.
 - **High-Level Handlers**: Implements specialized tools directly using high-performance asynchronous I/O:
     - `read_file`, `write_file`, `delete_file`: Basic FS operations.
+    - `edit_file`: Surgical Search & Replace modifications. Uses exact string matching to prevent context-drift errors.
+    - `read_symbols`: Lightweight symbol extraction (classes, functions, etc.) to explore large files without context overflow.
+    - `search_symbols`: Semantic-boosted search specifically targeting symbol definitions across the codebase.
     - `list_directory`: Non-recursive directory listing.
     - `list_files_recursive`: Parallel tree-view project exploration.
     - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
