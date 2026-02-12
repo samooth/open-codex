@@ -84,6 +84,13 @@ export function canAutoApprove(
         };
   }
 
+  if (command[0] === "edit_file") {
+    return {
+      type: "ask-user",
+      applyPatch: command[2] ? { patch: command[2] } : undefined,
+    };
+  }
+
   const isSafe = isSafeCommand(command);
   if (isSafe != null) {
     const { reason, group } = isSafe;

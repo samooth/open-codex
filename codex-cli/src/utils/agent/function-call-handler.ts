@@ -62,6 +62,7 @@ export async function handleFunctionCall(
       if (name === "repo_browser.list_directory" || name === "repo_browser.ls" || name === "repo_browser.list_directory<|channel|>commentary" || name === "repo_browser.list_directory__channel__commentary" || name === "repo_browser.ls<|channel|>commentary" || name === "repo_browser.ls__channel__commentary") { name = "list_directory"; }
       if (name === "repo_browser.search" || name === "repo_browser.search<|channel|>commentary" || name === "repo_browser.search__channel__commentary") { name = "search_codebase"; }
       if (name === "repo_browser.rm" || name === "repo_browser.rm<|channel|>commentary" || name === "repo_browser.rm__channel__commentary") { name = "delete_file"; }
+      if (name === "repo_browser.edit_file") { name = "edit_file"; }
       if (name === "repo_browser.web_search") { name = "web_search"; }
       if (name === "repo_browser.fetch_url") { name = "fetch_url"; }
     }
@@ -225,6 +226,11 @@ export async function handleFunctionCall(
       additionalItems = result.additionalItems;
     } else if (name === "write_file") {
       const result = await handlers.handleWriteFile(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+      additionalItems = result.additionalItems;
+    } else if (name === "edit_file") {
+      const result = await handlers.handleEditFile(ctx, rawArguments ?? "{}");
       outputText = result.outputText;
       metadata = result.metadata;
       additionalItems = result.additionalItems;

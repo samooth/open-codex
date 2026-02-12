@@ -62,12 +62,13 @@ export function TerminalChatToolCallCommand({
     // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded
     const maxTotalLines = isExpandedAll ? 1000 : 8;
     let totalLinesRendered = 0;
+    const isEditFile = commandForDisplay.startsWith("edit_file");
 
     return (
       <Box flexDirection="column" gap={0} width={columns - 4}>
         <Box gap={1}>
           <Text bold color={theme.toolLabel} wrap="wrap">
-            🩹 Apply Patch
+            {isEditFile ? "📝 Edit File" : "🩹 Apply Patch"}
           </Text>
           <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand all'})</Text>
         </Box>

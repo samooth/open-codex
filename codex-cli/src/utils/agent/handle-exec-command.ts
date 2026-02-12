@@ -61,6 +61,10 @@ function deriveCommandKey(cmd: Array<string>): string {
     return TOOL_APPLY_PATCH;
   }
 
+  if (first === "edit_file") {
+    return "edit_file";
+  }
+
   if (first === "bash" && second === "-lc" && third) {
     // If the command was invoked through `bash -lc "<script>"` we extract the
     // base program name from the script string.

@@ -25,6 +25,42 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "edit_file",
+      description: "Edits a file using Search & Replace blocks. Multiple blocks can be provided. Each search block must match exactly, including indentation and whitespace.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "The path to the file to edit.",
+          },
+          edits: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                search: {
+                  type: "string",
+                  description: "The exact snippet of code to find. Must match exactly including indentation.",
+                },
+                replace: {
+                  type: "string",
+                  description: "The new code to replace the search block with.",
+                },
+              },
+              required: ["search", "replace"],
+            },
+          },
+        },
+        required: ["path", "edits"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "apply_patch",
       description: "Applies a unified diff patch to the codebase.",
       strict: false,

@@ -7,6 +7,7 @@ import type { AgentContext } from "./types.js";
 import { getIgnoreFilter } from "./ignore-utils.js";
 import { validateFileSyntax } from "./validate-file.js";
 import { log } from "./log.js";
+import { applyEdits, formatStyledDiff } from "./edit-file.js";
 
 import { unlinkSync, renameSync } from 'fs'
 
@@ -174,6 +175,101 @@ export async function handleWriteFile(
   } catch (err) {
     return {
       outputText: `Error writing file: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
+export async function handleEditFile(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+  additionalItems?: Array<ChatCompletionMessageParam>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    const { path: filePath, edits } = args;
+
+    if (!filePath || !edits || !Array.isArray(edits)) {
+      return {
+        outputText: "Error: 'path' and 'edits' (array) are required for edit_file",
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const fullPath = resolve(process.cwd(), filePath);
+    if (!existsSync(fullPath)) {
+      return {
+        outputText: `Error: File not found: ${filePath}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const editResult = applyEdits(fullPath, edits);
+    if (!editResult.success) {
+      return {
+        outputText: `Error applying edits to ${filePath}: ${editResult.error}`,
+        metadata: { exit_code: 1 },
+      };
+    }
+
+    const { content: newContent, diff } = editResult;
+
+    // Trigger confirmation with the diff
+    const execResult = await handleExecCommand(
+      { cmd: ["edit_file", filePath, diff!], workdir: process.cwd(), timeoutInMillis: 30000 },
+      ctx.config,
+      ctx.approvalPolicy,
+      ctx.getCommandConfirmation,
+      ctx.execAbortController?.signal,
+    );
+
+    if (execResult.outputText === "aborted") {
+      return execResult;
+    }
+
+    if (ctx.config.dryRun) {
+      return {
+        outputText: `[Dry Run] Would apply edits to ${filePath}\n\n${formatStyledDiff(diff!)}`,
+        metadata: { exit_code: 0, path: filePath, dry_run: true },
+      };
+    }
+
+    ctx.onFileAccess?.(filePath);
+    
+    // Capture backup for /undo
+    let backup: string | null = null;
+    try {
+      backup = readFileSync(fullPath, "utf-8");
+    } catch { /* ignore */ }
+
+    // Atomic write
+    const tempPath = `${fullPath}.tmp.${Date.now()}`;
+    try {
+      writeFileSync(tempPath, newContent!, "utf-8");
+      const validation = await validateFileSyntax(tempPath);
+      if (!validation.isValid) {
+        try { unlinkSync(tempPath); } catch {}
+        return {
+          outputText: `Error: Edits resulted in syntax errors in ${filePath}:\n${validation.error}`,
+          metadata: { exit_code: 1, path: filePath, syntax_error: true },
+        };
+      }
+      renameSync(tempPath, fullPath);
+    } catch (e) {
+      try { unlinkSync(tempPath); } catch {}
+      throw e;
+    }
+
+    return {
+      outputText: `Successfully applied edits to ${filePath}. Diff:\n\n${formatStyledDiff(diff!)}`,
+      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
+    };
+  } catch (err) {
+    return {
+      outputText: `Error editing file: ${String(err)}`,
       metadata: { exit_code: 1 },
     };
   }

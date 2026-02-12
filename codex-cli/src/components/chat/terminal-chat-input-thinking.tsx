@@ -93,27 +93,31 @@ export default function TerminalChatInputThinking({
   const { stdin, setRawMode } = useStdin();
 
   React.useEffect(() => {
-    // Reset warning when component mounts or active state changes
-    setShowLongDelayWarning(false);
-    setElapsedSeconds(0);
-    
-    let warningTimeout: NodeJS.Timeout | undefined;
-    let timerInterval: NodeJS.Timeout | undefined;
-
+    // Reset elapsed timer only when becoming active
     if (active) {
+      setElapsedSeconds(0);
       const startTime = Date.now();
-      timerInterval = setInterval(() => {
+      const timerInterval = setInterval(() => {
         setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
+      return () => clearInterval(timerInterval);
+    }
+  }, [active]);
 
+  React.useEffect(() => {
+    // Reset warning when component mounts or active state changes
+    setShowLongDelayWarning(false);
+    
+    let warningTimeout: NodeJS.Timeout | undefined;
+
+    if (active) {
       warningTimeout = setTimeout(() => {
         setShowLongDelayWarning(true);
-      }, 15000); // 15 seconds
+      }, 45000); // 45 seconds
     }
 
     return () => {
       if (warningTimeout) clearTimeout(warningTimeout);
-      if (timerInterval) clearInterval(timerInterval);
     };
   }, [active, partialReasoning, activeToolName]);
 
