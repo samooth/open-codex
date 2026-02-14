@@ -742,7 +742,7 @@ export function Markdown({
 }: MarkdownProps & { theme: Theme }): React.ReactElement {
   const size = useTerminalSize();
 
-  const rendered = React.useMemo(() => {
+  const renderedParts = React.useMemo(() => {
     try {
       const renderer = new TerminalRenderer({
         ...options,
@@ -760,6 +760,8 @@ export function Markdown({
         firstHeading: chalk[theme.assistant as ForegroundColorName]?.bold?.underline || chalk.bold.underline,
         strong: chalk.bold,
         em: chalk.italic,
+        codespan: chalk.cyan,
+        code: chalk.reset,
         tableOptions: {
           style: {
             head: [theme.highlight, "bold"],
@@ -768,6 +770,13 @@ export function Markdown({
         },
       } as any);
 
+      // Custom renderer to wrap code blocks in a detectable delimiter
+      const originalCodeRenderer = renderer.code.bind(renderer);
+      renderer.code = (code: string, lang: string) => {
+        const renderedCode = originalCodeRenderer(code, lang);
+        return `\nCODE_BLOCK_START:${lang || "code"}\n${renderedCode}\nCODE_BLOCK_END\n`;
+      };
+
       const parsed = parse(children, { 
         async: false,
         gfm: true,
@@ -775,22 +784,64 @@ export function Markdown({
         renderer 
       });
 
-      // If for some reason it returns a promise (it shouldn't with async: false),
-      // or if it's empty, return children.
       if (typeof parsed !== "string" || !parsed) {
-        return children;
+        return [{ type: "text", content: children }];
       }
 
       // Enhanced Task List Rendering
-      return parsed
+      const taskListFixed = parsed
         .replace(/^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim, chalk[theme.success as ForegroundColorName]("✅ "))
         .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalk[theme.dim as ForegroundColorName]("⬜ "))
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
+
+      // Split into text and code blocks
+      const parts: Array<{ type: "text" | "code"; content: string; lang?: string }> = [];
+      const regex = /CODE_BLOCK_START:([^\n]+)\n([\s\S]*?)\nCODE_BLOCK_END/g;
+      let lastIndex = 0;
+      let match;
+
+      while ((match = regex.exec(taskListFixed)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push({ type: "text", content: taskListFixed.slice(lastIndex, match.index) });
+        }
+        parts.push({ type: "code", lang: match[1], content: match[2]! });
+        lastIndex = regex.lastIndex;
+      }
+
+      if (lastIndex < taskListFixed.length) {
+        parts.push({ type: "text", content: taskListFixed.slice(lastIndex) });
+      }
+
+      return parts;
     } catch (e) {
-      return children;
+      return [{ type: "text", content: children }];
     }
   }, [children, size.columns, theme]);
 
-  return <Text>{rendered}</Text>;
+  return (
+    <Box flexDirection="column" width="100%">
+      {renderedParts.map((part, i) => {
+        if (part.type === "code") {
+          return (
+            <Box
+              key={i}
+              flexDirection="column"
+              borderStyle="round"
+              borderColor={theme.dim}
+              paddingX={1}
+              marginY={1}
+              width="100%"
+            >
+              <Box justifyContent="flex-end" marginBottom={0}>
+                <Text dimColor italic size={0.8}>{part.lang}</Text>
+              </Box>
+              <Text>{part.content}</Text>
+            </Box>
+          );
+        }
+        return <Text key={i}>{part.content}</Text>;
+      })}
+    </Box>
+  );
 }
