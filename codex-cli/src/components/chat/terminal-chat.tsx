@@ -172,7 +172,8 @@ export default function TerminalChat({
 
   const awaitingContinueConfirmation = useMemo(() => {
     const lastItem = items[items.length - 1];
-    if (lastItem && lastItem.role === "assistant" && !loading) {
+    // Only show if the agent is idle, no confirmation is pending, and the queue is empty
+    if (lastItem && lastItem.role === "assistant" && !loading && !confirmationPrompt && promptQueue.length === 0) {
       const content =
         typeof lastItem.content === "string"
           ? lastItem.content
@@ -185,7 +186,7 @@ export default function TerminalChat({
       return detectInteraction(content);
     }
     return null;
-  }, [items, loading]);
+  }, [items, loading, confirmationPrompt, promptQueue.length]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
 

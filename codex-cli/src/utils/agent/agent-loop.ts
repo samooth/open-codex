@@ -965,13 +965,6 @@ export class AgentLoop {
                 }
               }
             }
-            const finish_reason = chunk?.choices?.[0]?.finish_reason;
-            if (finish_reason) {
-              if (isLoggingEnabled()) {
-                log(`AgentLoop.run(): stream finished with reason: ${finish_reason}`);
-              }
-              await finalizeMessage(message!);
-            }
           }
 
           if (chunkCount === 0) {
@@ -982,10 +975,10 @@ export class AgentLoop {
             });
           }
 
-          // Fallback: finalize message if stream ended without finish_reason
+          // Finalize message after the entire stream is consumed
           if (message && !messageProcessed) {
             if (isLoggingEnabled()) {
-              log("AgentLoop.run(): stream ended without finish_reason, triggering fallback finalization");
+              log("AgentLoop.run(): stream ended, triggering message finalization");
             }
             await finalizeMessage(message);
           } else if (!message && chunkCount > 0) {
