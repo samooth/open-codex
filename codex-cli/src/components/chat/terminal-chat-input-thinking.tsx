@@ -3,6 +3,7 @@ import Spinner from "../vendor/ink-spinner.js";
 import { Box, Text, useInput, useStdin } from "ink";
 import React, { useState } from "react";
 import { useInterval } from "use-interval";
+import type { Theme } from "../../utils/theme.js";
 
 const thinkingTexts = [
   "Thinking",
@@ -72,6 +73,7 @@ export default function TerminalChatInputThinking({
   activeToolName,
   activeToolArguments,
   isStreamingResponse,
+  theme,
 }: {
   onInterrupt: () => void;
   active: boolean;
@@ -80,6 +82,7 @@ export default function TerminalChatInputThinking({
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   isStreamingResponse?: boolean;
+  theme: Theme;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -230,61 +233,76 @@ export default function TerminalChatInputThinking({
     }
   });
 
-  return (
-    <Box 
-      flexDirection="column" 
-      gap={1}
-      borderStyle={(activeToolName || activeBlockType === "plan") ? "round" : undefined}
-      borderColor="dimGray"
-      paddingX={(activeToolName || activeBlockType === "plan") ? 1 : 0}
-    >
-      <Box gap={2}>
-        <Spinner type="dots" color={(activeToolName || activeBlockType === "plan") ? "magentaBright" : "cyan"} />
-        <Box flexDirection="column">
-          <Box gap={1}>
-            {(activeToolName || activeBlockType === "plan") && (
-              <Text bold color="magenta">
-                {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
+    return (
+
+      <Box 
+
+        flexDirection="column" 
+
+        gap={0}
+
+        paddingX={0}
+
+      >
+
+        <Box gap={2}>
+
+          <Spinner type="dots" color={theme.highlight} />
+
+          <Box flexDirection="column">
+
+            <Box gap={1}>
+
+              <Text italic color={theme.dim}>
+
+                {thinkingText}
+
               </Text>
+
+              <Text dimColor>({elapsedSeconds}s)</Text>
+
+            </Box>
+
+            {isStreamingResponse && (
+
+              <Text color={theme.success}>Generating output...</Text>
+
             )}
-            <Text dimColor>({elapsedSeconds}s)</Text>
+
           </Box>
-          {(!isStreamingResponse || activeToolName) && (
-            <>
-              <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
-                {showScrollIndicatorTop ? '▲ ' : ''}
-                {displayedLines.join('\n')}
-                {showScrollIndicatorBottom ? ' ▼' : ''}
-                {dots}
-              </Text>
-              {activeToolArguments && (
-                <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
-                  <Text dimColor>
-                    {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
-                    {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
-                  </Text>
-                </Box>
-              )}
-            </>
-          )}
-          {isStreamingResponse && !activeToolName && (
-            <Text color="green">Generating output...</Text>
-          )}
+
         </Box>
-      </Box>
-      {showLongDelayWarning && !partialReasoning && !activeToolName && (
-        <Box paddingLeft={2}>
-          <Text color="yellow">
-            ⚠️ Long delay detected. The model might be struggling to respond or the connection is slow.
+
+        {showLongDelayWarning && !partialReasoning && (
+
+          <Box paddingLeft={2}>
+
+            <Text color={theme.warning}>
+
+              ⚠️ Long delay detected. The model might be struggling to respond or the connection is slow.
+
+            </Text>
+
+          </Box>
+
+        )}
+
+        {awaitingConfirm && (
+
+          <Text dimColor>
+
+            Press <Text bold>Esc</Text> again to interrupt and enter a new
+
+            instruction
+
           </Text>
-        </Box>
-      )}
-      {awaitingConfirm && (
-        <Text dimColor>
-          Press <Text bold>Esc</Text> again to interrupt and enter a new
-          instruction
-        </Text>
-      )}
-    </Box>
-  );
-}
+
+        )}
+
+      </Box>
+
+    );
+
+  }
+
+  
