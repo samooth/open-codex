@@ -35,6 +35,19 @@ cd camerascii
 
 3. **Check its work**: when OpenCodex is done, open ``runs/run_1/index.html`` in a browser.  Your webcam feed should now be rendered as a cascade of ASCII glyphs. If the outcome isn't what you expect, try running it again, or adjust the task prompt.
 
+## Using different providers
+
+You can run any example using your preferred AI provider. Simply set the appropriate environment variable and pass the `--provider` flag to the `run.sh` script (which forwards it to OpenCodex):
+
+```bash
+# Using Anthropic
+export ANTHROPIC_API_KEY="your-key"
+./run.sh --provider anthropic
+
+# Using Gemini
+export GEMINI_API_KEY="your-key"
+./run.sh --provider gemini
+```
 
 ## Other examples
 Besides **camerascii**, you can experiment with:

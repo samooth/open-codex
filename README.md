@@ -342,6 +342,22 @@ To use a different provider, set the `provider` key in your config file:
 
 OR use the `--provider` flag. eg. `codex --provider gemini`
 
+#### Anthropic Configuration
+
+To use Anthropic models, ensure you have your API key set:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
+```
+
+Then run Codex specifying the provider:
+
+```bash
+open-codex --provider anthropic
+```
+
+The default agentic model is `claude-opus-4-6`. You can switch to other models like `claude-sonnet-4-5-20250929` or `claude-haiku-4-5-20251001` using the `/model` command in-session or the `--model` flag.
+
 #### Ollama Configuration
 
 When using Ollama, ensure your server is running (`ollama serve`) and you have pulled the desired model (`ollama pull llama3`).
