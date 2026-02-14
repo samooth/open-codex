@@ -127,6 +127,7 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] Persistent Command Help:** Common shortcuts and slash commands are now always visible in the footer for easier discovery.
 *   **[DONE] Multi-Provider Configuration:**
     *   **[DONE] Per-Provider Settings:** Users can now define unique API keys and base URLs for each provider (OpenAI, Google, Ollama, etc.) in their `config.json`.
+    *   **[DONE] Anthropic Support:** Added native support for Anthropic (Claude) models via the `anthropic` provider, utilizing direct API calls and streaming.
 *   **[DONE] Unified Google SDK Integration:**
     *   **[DONE] @google/genai Support:** Migrated to the new unified `@google/genai` SDK for better performance and reliability with Gemini models.
     *   **[DONE] Native Streaming:** Improved streaming response handling using native SDK iterators.
@@ -152,4 +153,4 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] Multi-File Patch Review:** Interactive review for multi-file patches allows navigating between files with arrow keys and collapsing individual file diffs with `c`.
     *   **[DONE] Parallel Tool Cancellation:** Improved `ESC` handling to reliably halt all concurrent tool executions immediately.
 ---
-*Last Updated: 2026-02-10*
+*Last Updated: 2026-02-14*

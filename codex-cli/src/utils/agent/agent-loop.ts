@@ -25,8 +25,8 @@ import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { prefix } from "./system-prompt.js";
-import type { AgentContext, AgentLoopParams, CommandConfirmation } from "./types.js";
-export type { AgentContext, AgentLoopParams, CommandConfirmation };
+import type { AgentContext, AgentLoopParams, CommandConfirmation, Task } from "./types.js";
+export type { AgentContext, AgentLoopParams, CommandConfirmation, Task };
 import { SemanticMemory } from "./semantic-memory.js";
 import {
   mapOpenAiToGoogleMessages,
@@ -34,6 +34,11 @@ import {
   googleToOpenAiStream,
   sanitizeGoogleToolName,
 } from "./google-utils.js";
+import {
+  mapOpenAiToAnthropicMessages,
+  mapOpenAiToAnthropicTools,
+  anthropicToOpenAiStream,
+} from "./anthropic-utils.js";
 import { handleFunctionCall } from "./function-call-handler.js";
 import { 
   createInvalidRequestErrorSystemMessage, 
@@ -264,7 +269,9 @@ export class AgentLoop {
       this.oai = new GoogleGenAI({
         apiKey: apiKey || "",
       });
-    }else{
+    } else if (this.config.provider === "anthropic") {
+      this.oai = null; // We use fetch directly for Anthropic
+    } else {
       this.oai = new OpenAI({
         // The OpenAI JS SDK only requires `apiKey` when making requests against
         // the official API.  When running unit‑tests we stub out all network
@@ -523,6 +530,73 @@ export class AgentLoop {
                 }
               });
               stream = googleToOpenAiStream(googleStream) as any;
+            } else if (this.config.provider === "anthropic") {
+              const { messages: anthropicMessages, system } = mapOpenAiToAnthropicMessages([
+                ...prevItems,
+                ...(staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
+              ]);
+
+              const anthropicTools = mapOpenAiToAnthropicTools(tools.filter((tool: any) => {
+                if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                  return !!this.config.enableWebSearch;
+                }
+                return true;
+              }));
+
+              const response = await fetch(`${this.config.baseURL}/v1/messages`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "x-api-key": this.config.apiKey || "",
+                  "anthropic-version": "2023-06-01",
+                },
+                body: JSON.stringify({
+                  model: this.model,
+                  messages: anthropicMessages,
+                  system: [
+                    { type: "text", text: mergedInstructions },
+                    ...(system ? [{ type: "text", text: system }] : []),
+                  ],
+                  tools: anthropicTools,
+                  stream: true,
+                  max_tokens: 8192,
+                }),
+                signal: this.execAbortController?.signal,
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`);
+              }
+
+              const reader = response.body?.getReader();
+              const decoder = new TextDecoder();
+              
+              const anthropicAsyncIterable = {
+                async *[Symbol.asyncIterator]() {
+                  let buffer = "";
+                  while (true) {
+                    const { done, value } = await reader!.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+                    for (const line of lines) {
+                      if (line.startsWith("data: ")) {
+                        const data = line.slice(6);
+                        if (data === "[DONE]") return;
+                        try {
+                          yield JSON.parse(data);
+                        } catch (e) {
+                          log(`Failed to parse Anthropic stream chunk: ${e}`);
+                        }
+                      }
+                    }
+                  }
+                }
+              };
+
+              stream = anthropicToOpenAiStream(anthropicAsyncIterable) as any;
             } else {
               // eslint-disable-next-line no-await-in-loop
               stream = await this.oai.chat.completions.create({

@@ -21,6 +21,8 @@ describe("Interactive Interaction Detection", () => {
     it("returns null for non-confirmation questions", () => {
       expect(detectInteraction("What is the name of the file?")).toBeNull();
       expect(detectInteraction("How does this work?")).toBeNull();
+      expect(detectInteraction("How should I proceed?")).toBeNull();
+      expect(detectInteraction("How can I fix this?")).toBeNull();
     });
   });
 

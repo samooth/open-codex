@@ -138,6 +138,14 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
     return fetchGoogleModels(config);
   }
 
+  if (config.provider === "anthropic") {
+    return [
+      "claude-opus-4-6",
+      "claude-sonnet-4-5-20250929",
+      "claude-haiku-4-5-20251001",
+    ];
+  }
+
   // Try standard OpenAI-compatible list first
   try {
     const openai = new OpenAI({
@@ -265,6 +273,8 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
       switch (provider) {
         case "openai":
           return `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models\n`;
+        case "anthropic":
+          return `- ${chalk.bold("ANTHROPIC_API_KEY")} for Anthropic models\n`;
         case "openrouter":
           return `- ${chalk.bold(
             "OPENROUTER_API_KEY",
@@ -284,6 +294,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
           return (
             [
               `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models`,
+              `- ${chalk.bold("ANTHROPIC_API_KEY")} for Anthropic models`,
               `- ${chalk.bold("OPENROUTER_API_KEY")} for OpenRouter models`,
               `- ${chalk.bold(
                 "GEMINI_API_KEY",
@@ -301,6 +312,10 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
         case "openai":
           return `You can create an OpenAI key here: ${chalk.bold(
             chalk.underline("https://platform.openai.com/account/api-keys"),
+          )}\n`;
+        case "anthropic":
+          return `You can create an Anthropic key here: ${chalk.bold(
+            chalk.underline("https://console.anthropic.com/settings/keys"),
           )}\n`;
         case "openrouter":
           return `You can create an OpenRouter key here: ${chalk.bold(

@@ -25,13 +25,14 @@ export function detectInteraction(content: string): InteractionType | null {
   ];
 
   const isQuestion = normalized.endsWith("?");
+  const startsWithHow = normalized.startsWith("how ");
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  if (hasTrigger || (isQuestion && (
+  if (!startsWithHow && (hasTrigger || (isQuestion && (
     normalized.includes("do you") || 
     normalized.includes("would you") ||
     normalized.includes("shall i")
-  ))) {
+  )))) {
     return { type: "yes-no" };
   }
 

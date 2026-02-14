@@ -37,6 +37,9 @@ export function getDefaultProvider(): string {
   if (process.env["OPENAI_API_KEY"]) {
     return "openai";
   }
+  if (process.env["ANTHROPIC_API_KEY"]) {
+    return "anthropic";
+  }
   if (process.env["GEMINI_API_KEY"]) {
     return "google";
   }
@@ -73,6 +76,13 @@ function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string,
     case "openai":
       if (process.env["OPENAI_API_KEY"]) {
         return process.env["OPENAI_API_KEY"];
+      }
+      reportMissingAPIKeyForProvider(provider);
+      process.exit(1);
+      break;
+    case "anthropic":
+      if (process.env["ANTHROPIC_API_KEY"]) {
+        return process.env["ANTHROPIC_API_KEY"];
       }
       reportMissingAPIKeyForProvider(provider);
       process.exit(1);
@@ -134,6 +144,8 @@ function baseURLForProvider(provider: string, providers?: Record<string, Provide
   switch (provider) {
     case "openai":
       return "https://api.openai.com/v1";
+    case "anthropic":
+      return "https://api.anthropic.com";
     case "ollama":
       return process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434/v1";
     case "gemini":
@@ -163,6 +175,11 @@ function defaultModelsForProvider(provider: string): {
       return {
         agentic: "o4-mini",
         fullContext: "o3",
+      };
+    case "anthropic":
+      return {
+        agentic: "claude-opus-4-6",
+        fullContext: "claude-opus-4-6",
       };
     case "gemini":
     case "google":

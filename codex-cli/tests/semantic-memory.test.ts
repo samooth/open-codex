@@ -25,10 +25,7 @@ describe("SemanticMemory", () => {
       ignores: () => false
     } as any);
 
-    // Mock process.cwd()
     vi.spyOn(process, "cwd").mockReturnValue("/mock/cwd");
-
-    // Mock existsSync to return true for cache/index paths to avoid creation errors
     vi.mocked(fs.existsSync).mockReturnValue(false);
 
     semanticMemory = new SemanticMemory(mockOai);
@@ -42,7 +39,6 @@ describe("SemanticMemory", () => {
 
     vi.mocked(fs.readdirSync).mockReturnValue(mockFiles as any);
     
-    // image.png will be considered binary if it contains a null byte
     vi.mocked(fs.readFileSync).mockImplementation((path: any) => {
       if (path.includes("image.png")) {
         const buf = Buffer.alloc(10);
@@ -56,8 +52,6 @@ describe("SemanticMemory", () => {
 
     await semanticMemory.indexCodebase();
 
-    // Should only have embedded code.ts
-    // The call count might be higher due to chunks, but it should contain "File: code.ts"
     const embedCalls = mockOai.embeddings.create.mock.calls;
     const embeddedPaths = embedCalls.map((call: any) => call[0].input);
     
@@ -66,7 +60,6 @@ describe("SemanticMemory", () => {
   });
 
   it("reuses cached embeddings for unchanged files", async () => {
-    // 1. Initial indexing
     vi.mocked(fs.readdirSync).mockReturnValue([
       { name: "test.ts", isFile: () => true, isDirectory: () => false }
     ] as any);
@@ -76,11 +69,36 @@ describe("SemanticMemory", () => {
     await semanticMemory.indexCodebase();
     expect(mockOai.embeddings.create).toHaveBeenCalledTimes(1);
 
-    // 2. Second indexing with same mtime
     mockOai.embeddings.create.mockClear();
     await semanticMemory.indexCodebase();
     
-    // Should NOT have called embeddings.create again
     expect(mockOai.embeddings.create).toHaveBeenCalledTimes(0);
+  });
+
+  it("boosts symbol definitions in searchSymbols", async () => {
+    (semanticMemory as any).entries = [
+      { 
+        id: "usage", 
+        path: "main.ts", 
+        content: "const user = new User();", 
+        embedding: [1, 0, 0] 
+      },
+      { 
+        id: "definition", 
+        path: "user.ts", 
+        content: "export class User { id: string; }", 
+        embedding: [0, 1, 0] 
+      }
+    ];
+
+    // Mock getEmbedding to return [0, 1, 0] which matches definition exactly
+    vi.spyOn(semanticMemory as any, "getEmbedding").mockResolvedValue([0, 1, 0]);
+
+    const results = await semanticMemory.searchSymbols("User");
+    
+    // definition has similarity 1.0 + 0.5 boost = 1.5
+    // usage has similarity 0.0
+    expect(results[0].path).toBe("user.ts");
+    expect(results[0].id).toBe("definition");
   });
 });

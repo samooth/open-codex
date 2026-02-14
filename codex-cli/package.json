@@ -15,7 +15,7 @@
     "dev": "tsc --watch",
     "lint": "eslint src tests --ext ts --ext tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src tests --ext ts --ext tsx --fix",
-    "test": "mocha",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "build": "node build.mjs",
@@ -62,7 +62,6 @@
     "@typescript-eslint/parser": "^7.18.0",
     "boxen": "^8.0.1",
     "esbuild": "^0.25.2",
-    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.19",
@@ -73,9 +72,7 @@
     "typescript": "^5.0.3",
     "vitest": "^3.0.9",
     "whatwg-url": "^14.2.0",
-    "which": "^5.0.0",
-    "mocha": "^10.4.0",
-    "@types/mocha": "^10.0.6"
+    "which": "^5.0.0"
   },
   "resolutions": {
     "braces": "^3.0.3",
