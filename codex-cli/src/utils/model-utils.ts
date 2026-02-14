@@ -120,6 +120,44 @@ async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>>
   }
 }
 
+async function fetchAnthropicModels(config: AppConfig): Promise<Array<string>> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    try {
+      const resp = await fetchWithRetry(`${config.baseURL}/v1/models`, {
+        headers: {
+          "x-api-key": config.apiKey || "",
+          "anthropic-version": "2023-06-01",
+        },
+        signal: controller.signal,
+      });
+      if (resp.ok) {
+        const data = (await resp.json()) as any;
+        return (data.data || [])
+          .map((m: any) => m.id)
+          .sort();
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    if (isLoggingEnabled()) {
+      log(`[codex] Anthropic models.list() failed: ${error}`);
+    }
+  }
+  
+  // Fallback to known models if dynamic fetch fails
+  return [
+    "claude-opus-4-6",
+    "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
+    "claude-3-7-sonnet-latest",
+    "claude-3-5-sonnet-latest",
+    "claude-3-5-haiku-latest",
+  ].sort();
+}
+
 async function fetchModels(config: AppConfig): Promise<Array<string>> {
   // If the user has not configured an API key we cannot hit the network.
   if (!config.apiKey && config.provider !== "ollama") {
@@ -139,14 +177,7 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
   }
 
   if (config.provider === "anthropic") {
-    return [
-      "claude-opus-4-6",
-      "claude-sonnet-4-5-20250929",
-      "claude-haiku-4-5-20251001",
-      "claude-3-7-sonnet-latest",
-      "claude-3-5-sonnet-latest",
-      "claude-3-5-haiku-latest",
-    ];
+    return fetchAnthropicModels(config);
   }
 
   // Try standard OpenAI-compatible list first
