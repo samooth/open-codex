@@ -77,7 +77,22 @@ export function mapOpenAiToAnthropicMessages(
     if (content.length > 0) {
       const lastMsg = anthropicMessages[anthropicMessages.length - 1];
       if (lastMsg && lastMsg.role === role) {
-        lastMsg.content.push(...content);
+        // When merging, ensure we don't add duplicate tool_result IDs
+        for (const newPart of content) {
+          if (newPart.type === "tool_result") {
+            const existingIndex = lastMsg.content.findIndex(
+              (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
+            );
+            if (existingIndex !== -1) {
+              // Replace existing result with newer one
+              lastMsg.content[existingIndex] = newPart;
+            } else {
+              lastMsg.content.push(newPart);
+            }
+          } else {
+            lastMsg.content.push(newPart);
+          }
+        }
       } else {
         anthropicMessages.push({ role, content });
       }
