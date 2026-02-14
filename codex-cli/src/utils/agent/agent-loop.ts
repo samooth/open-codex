@@ -1062,6 +1062,16 @@ export class AgentLoop {
       // resolve gracefully so callers can choose to retry.
       // -------------------------------------------------------------------
 
+      if (isErrorClientError(err)) {
+        try {
+          this.onItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
+        } catch {
+          /* best-effort */
+        }
+        this.onLoading(false);
+        return;
+      }
+
       if (isErrorNetworkOrServer(err)) {
         try {
           this.onItem({
@@ -1075,16 +1085,6 @@ export class AgentLoop {
           });
         } catch {
           /* best‑effort */
-        }
-        this.onLoading(false);
-        return;
-      }
-
-      if (isErrorClientError(err)) {
-        try {
-          this.onItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
-        } catch {
-          /* best-effort */
         }
         this.onLoading(false);
         return;
