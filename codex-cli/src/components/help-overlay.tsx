@@ -21,7 +21,7 @@ export default function HelpOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="classic"
+      borderStyle="round"
       borderColor="gray"
       width={80}
     >

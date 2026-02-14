@@ -73,7 +73,7 @@ export default function HistorySelectOverlay({
 
   if (loading || restoring) {
     return (
-      <Box borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
+      <Box borderStyle="round" borderColor={theme.highlight} paddingX={1}>
         <Text italic>
           {restoring ? "Restoring session..." : "Loading session history..."}
         </Text>
@@ -85,7 +85,7 @@ export default function HistorySelectOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="classic"
+        borderStyle="round"
         borderColor={theme.highlight}
         paddingX={1}
       >
@@ -114,7 +114,7 @@ export default function HistorySelectOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={theme.highlight}
       paddingX={1}
       width={100}

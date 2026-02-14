@@ -88,7 +88,7 @@ export default function ModelOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="classic"
+        borderStyle="round"
         borderColor="gray"
         width={80}
       >

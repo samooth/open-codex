@@ -150,7 +150,7 @@ export function TerminalChatCommandReview({
   });
 
   return (
-    <Box flexDirection="column" gap={1} borderStyle="classic" marginTop={1}>
+    <Box flexDirection="column" gap={1} borderStyle="round" marginTop={1}>
       {confirmationPrompt}
       <Box flexDirection="column" gap={1}>
         {mode === "select" ? (
@@ -180,7 +180,7 @@ export function TerminalChatCommandReview({
         ) : (
           <>
             <Text>Give the model feedback (↵ to submit):</Text>
-            <Box borderStyle="classic">
+            <Box borderStyle="round">
               <Box paddingX={1}>
                 <TextInput
                   value={msg}

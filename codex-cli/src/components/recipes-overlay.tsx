@@ -23,7 +23,7 @@ export default function RecipesOverlay({
   }));
 
   return (
-    <Box flexDirection="column" borderStyle="classic" borderColor="magentaBright" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor="magentaBright" paddingX={1}>
       <Box marginBottom={1}>
         <Text bold color="magentaBright">Select Prompt Template (Recipe)</Text>
       </Box>

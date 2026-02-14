@@ -26,7 +26,7 @@ export default function PromptOverlay({
   });
 
   return (
-    <Box flexDirection="column" borderStyle="classic" borderColor="blue" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
       <Box marginBottom={1}>
         <Text bold>Edit System Prompt</Text>
       </Box>

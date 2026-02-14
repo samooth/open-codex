@@ -21,7 +21,7 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme, maxHeight = 10 }) => {
       flexDirection="column" 
       paddingX={1} 
       paddingY={0}
-      borderStyle="classic" 
+      borderStyle="round" 
       borderColor={theme.dim}
       width="100%"
       marginBottom={0}

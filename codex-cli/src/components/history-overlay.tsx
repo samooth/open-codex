@@ -89,7 +89,7 @@ export default function HistoryOverlay({ items, onExit, theme }: Props): JSX.Ele
   return (
     <Box
       flexDirection="column"
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={theme.dim}
       width={100}
     >

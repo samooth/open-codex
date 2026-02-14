@@ -18,14 +18,14 @@ export default function TerminalChatPastRollout({
   const { version, id: sessionId, model } = session;
   return (
     <Box flexDirection="column">
-      <Box borderStyle="classic" paddingX={1} width={64}>
+      <Box borderStyle="round" paddingX={1} width={64}>
         <Text>
           ● <Text bold>OpenCodex</Text>{" "}
           <Text color={theme.highlight}>v{version}</Text>
         </Text>
       </Box>
       <Box
-        borderStyle="classic"
+        borderStyle="round"
         borderColor={theme.dim}
         paddingX={1}
         width={64}

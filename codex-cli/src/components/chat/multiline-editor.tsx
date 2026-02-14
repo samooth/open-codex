@@ -237,15 +237,8 @@ const MultilineTextEditorInner = (
       // the shortcut works consistently in real terminals (raw‑mode) and the
       // ink‑testing‑library stub which delivers only the raw byte (e.g. 0x05
       // for Ctrl‑E) without setting `key.ctrl`.
-      const isCtrlX =
-        (key.ctrl && (input === "x" || input === "\x18")) || input === "\x18";
-      const isCtrlE =
-        (key.ctrl && (input === "e" || input === "\x05")) ||
-        input === "\x05" ||
-        (!key.ctrl &&
-          input === "e" &&
-          input.length === 1 &&
-          input.charCodeAt(0) === 5);
+      const isCtrlX = (key.ctrl && input === "x") || (input === "\x18" && input.length === 1);
+      const isCtrlE = (key.ctrl && input === "e") || (input === "\x05" && input.length === 1);
       if (isCtrlX || isCtrlE) {
         openExternalEditor();
         return;

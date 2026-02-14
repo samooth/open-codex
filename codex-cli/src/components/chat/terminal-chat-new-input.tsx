@@ -337,7 +337,7 @@ export default function TerminalChatInput({
   return (
     <Box flexDirection="column">
       {loading ? (
-        <Box borderStyle="classic">
+        <Box borderStyle="round">
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}
             active={active}
@@ -347,7 +347,7 @@ export default function TerminalChatInput({
         </Box>
       ) : (
         <>
-          <Box borderStyle="classic">
+          <Box borderStyle="round">
             <MultilineTextEditor
               ref={editorRef}
               onChange={(txt: string) => setInput(txt)}

@@ -644,7 +644,7 @@ export default function TerminalChatInput({
         )}
       </Box>
       {filteredFiles.length > 0 && (
-        <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
           <Box marginBottom={0} justifyContent="space-between">
             <Text bold color={theme.highlight}>File Autocomplete</Text>
             <Text color={theme.dim}>{filteredFiles.length} matches</Text>
@@ -664,7 +664,7 @@ export default function TerminalChatInput({
         </Box>
       )}
       {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
-        <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
           {filteredSlashCommands.map((cmd, i) => (
             <Box key={cmd.name} gap={2}>
               <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>

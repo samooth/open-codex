@@ -126,7 +126,7 @@ export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
   return (
     <Box
       flexDirection="column"
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={theme.statusBarSession}
       width={100}
     >

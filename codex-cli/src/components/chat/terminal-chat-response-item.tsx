@@ -315,7 +315,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
           key={i}
           flexDirection="column"
           paddingLeft={2}
-          borderStyle="classic"
+          borderStyle="round"
           borderColor={theme.dim}
           marginTop={hasContent ? 1 : 0}
           marginBottom={1}
@@ -331,7 +331,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
           key={i}
           flexDirection="column"
           paddingLeft={2}
-          borderStyle="classic"
+          borderStyle="round"
           borderColor={theme.plan}
           marginTop={1}
           marginBottom={1}
@@ -377,7 +377,7 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
       flexDirection="column"
       gap={0}
       marginY={1}
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={theme.highlight}
       width="100%"
     >
@@ -552,7 +552,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={isError ? theme.error : theme.highlight}
       marginY={0}
       width="100%"
@@ -735,13 +735,6 @@ export function Markdown({
         },
       } as any);
 
-      // Custom renderer to wrap code blocks in a detectable delimiter
-      const originalCodeRenderer = renderer.code.bind(renderer);
-      renderer.code = (code: string, lang: string) => {
-        const renderedCode = originalCodeRenderer(code, lang, false);
-        return `\nCODE_BLOCK_START:${lang || "code"}\n${renderedCode}\nCODE_BLOCK_END\n`;
-      };
-
       const parsed = marked.parse(children, { 
         async: false,
         gfm: true,
@@ -750,7 +743,7 @@ export function Markdown({
       });
 
       if (typeof parsed !== "string" || !parsed) {
-        return [{ type: "text", content: children }];
+        return parsed || children;
       }
 
       // Enhanced Task List Rendering
@@ -760,53 +753,15 @@ export function Markdown({
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
 
-      // Split into text and code blocks
-      const parts: Array<{ type: "text" | "code"; content: string; lang?: string }> = [];
-      const regex = /CODE_BLOCK_START:([^\n]+)\n([\s\S]*?)\nCODE_BLOCK_END/g;
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(taskListFixed)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push({ type: "text", content: taskListFixed.slice(lastIndex, match.index) });
-        }
-        parts.push({ type: "code", lang: match[1], content: match[2]! });
-        lastIndex = regex.lastIndex;
-      }
-
-      if (lastIndex < taskListFixed.length) {
-        parts.push({ type: "text", content: taskListFixed.slice(lastIndex) });
-      }
-
-      return parts;
+      return taskListFixed;
     } catch (e) {
-      return [{ type: "text", content: children }];
+      return children;
     }
   }, [children, size.columns, theme]);
 
   return (
     <Box flexDirection="column" width="100%">
-      {renderedParts.map((part, i) => {
-        if (part.type === "code") {
-          return (
-            <Box
-              key={i}
-              flexDirection="column"
-              borderStyle="classic"
-              borderColor={theme.dim}
-              paddingX={1}
-              marginY={1}
-              width="100%"
-            >
-              <Box justifyContent="flex-end" marginBottom={0}>
-                <Text dimColor italic>{(part as any).lang}</Text>
-              </Box>
-              <Text>{part.content}</Text>
-            </Box>
-          );
-        }
-        return <Text key={i}>{part.content}</Text>;
-      })}
+      <Text>{renderedParts}</Text>
     </Box>
   );
 }

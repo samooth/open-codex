@@ -99,7 +99,7 @@ export default function PromptSelectOverlay({
 
   if (loading) {
     return (
-      <Box borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
+      <Box borderStyle="round" borderColor={theme.highlight} paddingX={1}>
         <Text italic>Loading prompts...</Text>
       </Box>
     );
@@ -107,7 +107,7 @@ export default function PromptSelectOverlay({
 
   if (prompts.length === 0) {
     return (
-      <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1}>
         <Box marginBottom={1}>
           <Text bold>Select System Prompt</Text>
         </Box>
@@ -120,7 +120,7 @@ export default function PromptSelectOverlay({
   }
 
   return (
-    <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1}>
       <Box marginBottom={1}>
         <Text bold>Select System Prompt</Text>
       </Box>

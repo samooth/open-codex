@@ -134,7 +134,7 @@ function DirectoryInfo({
     <Box flexDirection="column">
       <Box
         flexDirection="column"
-        borderStyle="classic"
+        borderStyle="round"
         borderColor={theme.dim}
         width={80}
         paddingX={1}
@@ -590,7 +590,7 @@ export function SinglePassApp({
     return (
       <Box flexDirection="column" gap={1}>
         {/* Info Box */}
-        <Box borderStyle="classic" flexDirection="column" paddingX={1} width={80}>
+        <Box borderStyle="round" flexDirection="column" paddingX={1} width={80}>
           <Text>
             <Text bold color={theme.statusBarSession}>
               OpenCodex
@@ -615,7 +615,7 @@ export function SinglePassApp({
         />
 
         {/* Prompt Input Box */}
-        <Box borderStyle="classic" paddingX={1} borderColor={theme.user}>
+        <Box borderStyle="round" paddingX={1} borderColor={theme.user}>
           <InputPrompt
             message=">>> "
             onSubmit={(val) => {

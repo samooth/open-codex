@@ -114,7 +114,7 @@ export default function TypeaheadOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="classic"
+      borderStyle="round"
       borderColor="gray"
       width={80}
     >

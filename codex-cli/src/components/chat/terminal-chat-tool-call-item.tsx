@@ -101,7 +101,7 @@ export function TerminalChatToolCallCommand({
           }
 
           return (
-            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="classic" borderColor={isSelected ? theme.highlight : theme.dim}>
+            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor={isSelected ? theme.highlight : theme.dim}>
               <Box gap={1}>
                 <Text bold color={op.type === "delete" ? theme.deletion : theme.highlight}>
                   {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
@@ -201,7 +201,7 @@ export function TerminalChatToolCallCommand({
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="classic"
+      borderStyle="round"
       borderColor={theme.highlight}
       width="100%"
       marginY={1}
