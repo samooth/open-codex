@@ -15,8 +15,9 @@ export function mapOpenAiToAnthropicMessages(
   const anthropicMessages: any[] = [];
   let system: string | undefined = undefined;
 
-  // Track where each tool_use ID is defined so we can ensure results follow them
+  // 1. First Pass: Build the message list and track tool usage
   const useIdToMessageIndex = new Map<string, number>();
+  const resultIds = new Set<string>();
 
   for (const msg of messages) {
     if (msg.role === "system") {
@@ -39,7 +40,6 @@ export function mapOpenAiToAnthropicMessages(
       }
     } else if (msg.role === "assistant") {
       const assistant = msg as any;
-      
       if (assistant.reasoning_content) {
         content.push({
           type: "thinking",
@@ -47,11 +47,9 @@ export function mapOpenAiToAnthropicMessages(
           signature: assistant.thought_signature
         });
       }
-
       if (msg.content && typeof msg.content === "string") {
         content.push({ type: "text", text: msg.content });
       }
-
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls as any[]) {
           const sanitizedName = sanitizeAnthropicToolName(tc.function.name);
@@ -73,74 +71,35 @@ export function mapOpenAiToAnthropicMessages(
         tool_use_id: msg.tool_call_id,
         content: msg.content,
       });
+      resultIds.add(msg.tool_call_id);
     }
 
     if (content.length > 0) {
-      // Logic for Relocation: Anthropic requires results to follow uses IMMEDIATELY.
-      // If this is a tool_result, check if we should "pull it back" to a previous message.
-      const hasResult = content.some(p => p.type === "tool_result");
-      
-      if (hasResult) {
-        // Find the assistant message that had the tool_use
-        for (const part of content) {
-          if (part.type === "tool_result") {
-            const useIdx = useIdToMessageIndex.get(part.tool_use_id);
-            if (typeof useIdx === "number") {
-              // The result should go into the message at useIdx + 1
-              const targetIdx = useIdx + 1;
-              
-              // If targetIdx is within our current list, we try to merge it there
-              if (targetIdx < anthropicMessages.length) {
-                const targetMsg = anthropicMessages[targetIdx];
-                if (targetMsg.role === "user") {
-                  // Merge into existing user message
-                  const existingIndex = targetMsg.content.findIndex(
-                    (p: any) => p.type === "tool_result" && p.tool_use_id === part.tool_use_id
-                  );
-                  if (existingIndex !== -1) {
-                    targetMsg.content[existingIndex] = part;
-                  } else {
-                    targetMsg.content.push(part);
-                  }
-                  // Remove from current content so we don't add it twice
-                  content = content.filter(p => p !== part);
-                  continue;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // If we still have content after relocation attempts, or it wasn't a result
-      if (content.length > 0) {
-        const lastMsg = anthropicMessages[anthropicMessages.length - 1];
-        if (lastMsg && lastMsg.role === role) {
-          // Merge consecutive roles
-          for (const newPart of content) {
-            if (newPart.type === "tool_result") {
-              const existingIndex = lastMsg.content.findIndex(
-                (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
-              );
-              if (existingIndex !== -1) {
-                lastMsg.content[existingIndex] = newPart;
-              } else {
-                lastMsg.content.push(newPart);
-              }
+      const lastMsg = anthropicMessages[anthropicMessages.length - 1];
+      if (lastMsg && lastMsg.role === role) {
+        // Merge
+        for (const newPart of content) {
+          if (newPart.type === "tool_result") {
+            const existingIndex = lastMsg.content.findIndex(
+              (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
+            );
+            if (existingIndex !== -1) {
+              lastMsg.content[existingIndex] = newPart;
             } else {
               lastMsg.content.push(newPart);
             }
+            resultIds.add(newPart.tool_use_id);
+          } else {
+            lastMsg.content.push(newPart);
           }
-        } else {
-          // Push new message
-          const newIdx = anthropicMessages.length;
-          anthropicMessages.push({ role, content });
-          // If this was an assistant message, index its tool_use IDs
-          if (role === "assistant") {
-            for (const p of content) {
-              if (p.type === "tool_use") {
-                useIdToMessageIndex.set(p.id, newIdx);
-              }
+        }
+      } else {
+        const newIdx = anthropicMessages.length;
+        anthropicMessages.push({ role, content });
+        if (role === "assistant") {
+          for (const p of content) {
+            if (p.type === "tool_use") {
+              useIdToMessageIndex.set(p.id, newIdx);
             }
           }
         }
@@ -148,7 +107,84 @@ export function mapOpenAiToAnthropicMessages(
     }
   }
 
-  return { messages: anthropicMessages, system };
+  // 2. Second Pass: Relocate results and fill holes
+  const finalMessages: any[] = [];
+  
+  for (let i = 0; i < anthropicMessages.length; i++) {
+    const msg = anthropicMessages[i];
+    
+    // If this is an assistant message, we need to ensure the NEXT message handles all its tool_uses
+    if (msg.role === "assistant") {
+      const toolUseIds = msg.content
+        .filter((p: any) => p.type === "tool_use")
+        .map((p: any) => p.id);
+
+      finalMessages.push(msg);
+
+      if (toolUseIds.length > 0) {
+        // Look ahead for the next message (must be user/tool_result)
+        let nextMsg = anthropicMessages[i + 1];
+        
+        // If there's no next message, or the next message isn't a "user" role, 
+        // we MUST inject one to hold the results.
+        if (!nextMsg || nextMsg.role !== "user") {
+          nextMsg = { role: "user", content: [] };
+          // We don't increment `i` because we just created a placeholder
+        } else {
+          // It is a user message, we'll consume it now
+          i++;
+        }
+
+        // Ensure every ID in toolUseIds has a result in nextMsg
+        for (const id of toolUseIds) {
+          const hasResult = nextMsg.content.some((p: any) => p.type === "tool_result" && p.tool_use_id === id);
+          
+          if (!hasResult) {
+            // Check if the result exists ELSEWHERE in the original list (relocation)
+            // This handles cases where OpenAI interleaved user messages between use/result
+            const globalResult = findAndRemoveResult(anthropicMessages, id);
+            if (globalResult) {
+              nextMsg.content.push(globalResult);
+            } else {
+              // Hole filling: satisfy the API with a dummy result
+              nextMsg.content.push({
+                type: "tool_result",
+                tool_use_id: id,
+                content: "Execution interrupted or cancelled by user.",
+                is_error: true
+              });
+            }
+          }
+        }
+        
+        if (nextMsg.content.length > 0) {
+          finalMessages.push(nextMsg);
+        }
+      }
+    } else {
+      // For non-assistant messages, just push them if they weren't consumed as a "nextMsg"
+      finalMessages.push(msg);
+    }
+  }
+
+  return { messages: finalMessages, system };
+}
+
+/**
+ * Heuristic to find a tool result in the future/past and remove it from its original location
+ * so it can be relocated immediately after its tool_use.
+ */
+function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      const idx = msg.content.findIndex((p: any) => p.type === "tool_result" && p.tool_use_id === toolUseId);
+      if (idx !== -1) {
+        const [result] = msg.content.splice(idx, 1);
+        return result;
+      }
+    }
+  }
+  return null;
 }
 
 export function mapOpenAiToAnthropicTools(openAiTools: any[]): any[] {
