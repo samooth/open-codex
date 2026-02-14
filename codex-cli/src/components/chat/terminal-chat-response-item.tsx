@@ -339,9 +339,14 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
         </Box>
       ))}
       {hasContent && (
-        <Markdown theme={theme}>
-          {displayContent.trim() + (disableMarkdown ? " ..." : "")}
-        </Markdown>
+        <Box flexDirection="column">
+          <Markdown theme={theme}>
+            {displayContent.trim()}
+          </Markdown>
+          {disableMarkdown && (
+            <Text> <Spinner type="dots" color={theme.highlight} /></Text>
+          )}
+        </Box>
       )}
     </Box>
   );
@@ -778,7 +783,7 @@ export function Markdown({
         },
       } as any),
     });
-    const parsed = parse(children, { async: false }).trim();
+    const parsed = parse(children, { async: false });
 
     // Enhanced Task List Rendering (post-parse fix for reliability)
     // Matches GFM task list patterns and replaces them with icons
