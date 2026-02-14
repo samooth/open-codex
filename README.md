@@ -70,6 +70,8 @@ Next, set your API key as an environment variable (shown here with OpenAI, but o
 export OPENAI_API_KEY="your-api-key-here"
 # or
 export ANTHROPIC_API_KEY="your-api-key-here"
+# or (optional for local/proxied Ollama)
+export OLLAMA_API_KEY="your-api-key-here"
 ```
 
 > **Note:** This command sets the key only for your current terminal session. To make it permanent, add the `export` line to your shell's configuration file (e.g., `~/.zshrc`).
@@ -438,7 +440,7 @@ Here's a list of all the providers and their default models:
 | anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6              | claude-opus-4-6            |
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash             | gemini-2.5-flash           |
 | openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
-| ollama     | Not required                  | User must specify            | User must specify          |
+| ollama     | OLLAMA_API_KEY (optional)     | User must specify            | User must specify          |
 | xai        | XAI_API_KEY                   | grok-3-mini-beta             | grok-3-beta                |
 | deepseek   | DS_API_KEY                    | deepseek-chat                | deepseek-reasoner          |
 | hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5         | moonshotai/Kimi-K2.5       |
@@ -447,6 +449,8 @@ Here's a list of all the providers and their default models:
 
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key-here"
+# or
+export OLLAMA_API_KEY="your-ollama-api-key-here"
 ```
 
 ---

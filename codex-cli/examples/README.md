@@ -47,6 +47,10 @@ export ANTHROPIC_API_KEY="your-key"
 # Using Gemini
 export GEMINI_API_KEY="your-key"
 ./run.sh --provider gemini
+
+# Using Ollama (if a key is required)
+export OLLAMA_API_KEY="your-key"
+./run.sh --provider ollama --model llama3
 ```
 
 ## Other examples
