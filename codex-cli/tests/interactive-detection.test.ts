@@ -26,6 +26,7 @@ describe("Interactive Interaction Detection", () => {
       expect(detectInteraction("### How would you like to proceed?")).toBeNull();
       expect(detectInteraction("Hello! How can I assist you today?")).toBeNull();
       expect(detectInteraction("Hello!\nHow can I help you?")).toBeNull();
+      expect(detectInteraction("How can I assist you with your project? Are you looking to: 1. Setup? 2. Write?")).toBeNull();
     });
   });
 

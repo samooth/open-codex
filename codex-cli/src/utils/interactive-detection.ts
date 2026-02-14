@@ -25,36 +25,43 @@ export function detectInteraction(content: string): InteractionType | null {
   const isQuestion = normalized.endsWith("?");
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  // Determine if the "primary" question is informational (How/What/Why/Who/Where/Which)
-  // We split by common sentence delimiters (including newlines)
-  const parts = normalized.split(/\s*[\n.!?;]+\s*/);
-  const lastPart = parts.filter(p => p.trim().length > 0).pop()?.trim() || "";
+  // Determine if ANY part of the message is an informational question (How/What/Why/Who/Where/Which)
+  // We split by common sentence delimiters (including newlines and colons)
+  const parts = normalized.split(/\s*[\n.!?;:]\s*/);
   
-  // Strip markdown headers from the start of the last part
-  const cleanLastPart = lastPart.replace(/^[#\s\-\*]+/, "");
-  
-  const isInformational = 
-    cleanLastPart.startsWith("how ") || 
-    cleanLastPart.startsWith("what ") || 
-    cleanLastPart.startsWith("why ") || 
-    cleanLastPart.startsWith("who ") ||
-    cleanLastPart.startsWith("where ") ||
-    cleanLastPart.startsWith("which ");
+  const isAnyInformational = parts.some(part => {
+    const cleanPart = part.trim().replace(/^[#\s\-\*]+/, "");
+    return (
+      cleanPart.startsWith("how ") || 
+      cleanPart.startsWith("what ") || 
+      cleanPart.startsWith("why ") || 
+      cleanPart.startsWith("who ") ||
+      cleanPart.startsWith("where ") ||
+      cleanPart.startsWith("which ")
+    );
+  });
+
+  // Check if it looks like a list of options (e.g. 1. 2. 3. or * *)
+  const hasNumberedList = /\n\s*\d+\.\s+/.test(normalized);
+  const hasBulletedList = /\n\s*[\-\*]\s+/.test(normalized);
+  const isLikelySelectionMenu = hasNumberedList || hasBulletedList;
 
   // We only trigger yes-no if:
   // 1. It contains a specific yes-no trigger OR is a general "do you/would you" question
-  // 2. AND the final question is NOT an informational "How/What/Why" question
-  // 3. UNLESS it explicitly has "(yes/no)" which overrides everything.
+  // 2. AND the message is NOT informational (How/What/Why)
+  // 3. AND it doesn't look like a numbered/bulleted list of options
+  // 4. UNLESS it explicitly has "(yes/no)" which overrides everything.
   const hasForcedMarker = normalized.includes("(yes/no)");
 
   if (hasForcedMarker) {
     return { type: "yes-no" };
   }
 
-  if (!isInformational && (hasTrigger || (isQuestion && (
+  if (!isAnyInformational && !isLikelySelectionMenu && (hasTrigger || (isQuestion && (
     normalized.includes("do you") || 
     normalized.includes("would you") ||
-    normalized.includes("shall i")
+    normalized.includes("shall i") ||
+    normalized.includes("can i")
   )))) {
     return { type: "yes-no" };
   }
