@@ -172,7 +172,8 @@ export default function TerminalChat({
 
   const awaitingContinueConfirmation = useMemo(() => {
     const lastItem = items[items.length - 1];
-    // Only show if the agent is idle, no confirmation is pending, and the queue is empty
+    // Only show if the agent is idle, no confirmation is pending, and the prompt queue is completely empty.
+    // This prevents the box from popping up during automatic "Please continue" sequences.
     if (lastItem && lastItem.role === "assistant" && !loading && !confirmationPrompt && promptQueue.length === 0) {
       const content =
         typeof lastItem.content === "string"

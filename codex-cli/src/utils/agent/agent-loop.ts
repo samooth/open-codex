@@ -818,6 +818,7 @@ export class AgentLoop {
             | Extract<ChatCompletionMessageParam, { role: "assistant" }>
             | undefined;
           let messageProcessed = false;
+          let lastFinishReason: string | null = null;
 
           const finalizeMessage = async (
             msg: Extract<ChatCompletionMessageParam, { role: "assistant" }>,
@@ -965,6 +966,10 @@ export class AgentLoop {
                 }
               }
             }
+            const fr = chunk?.choices?.[0]?.finish_reason;
+            if (fr) {
+              lastFinishReason = fr;
+            }
           }
 
           if (chunkCount === 0) {
@@ -978,13 +983,24 @@ export class AgentLoop {
           // Finalize message after the entire stream is consumed
           if (message && !messageProcessed) {
             if (isLoggingEnabled()) {
-              log("AgentLoop.run(): stream ended, triggering message finalization");
+              log(`AgentLoop.run(): stream ended (reason: ${lastFinishReason}), triggering message finalization`);
             }
             
             // Clear partial data and give UI a moment to settle before potential confirmation boxes
             this.onPartialUpdate?.("", "", undefined, undefined);
-            await new Promise(resolve => setTimeout(resolve, 100));
             
+            if (lastFinishReason === "length") {
+              // If we stopped because of token limit, automatically queue a "Please continue"
+              // but we still need to finalize the current partial message so it shows in history.
+              await finalizeMessage(message);
+              turnInput.push({
+                role: "user",
+                content: "Please continue.",
+              });
+              continue; // Continue the while(turnInput.length > 0) loop
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 100));
             await finalizeMessage(message);
           } else if (!message && chunkCount > 0) {
             log("AgentLoop.run(): stream had chunks but no message was constructed");
