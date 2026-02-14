@@ -15,7 +15,6 @@ export function detectInteraction(content: string): InteractionType | null {
   const normalized = content.trim().toLowerCase();
   
   // 1. Yes/No Detection
-  // Expanded Yes/No detection keywords
   const yesNoTriggers = [
     "continue?", "proceed?", "go ahead?", "is this correct?", 
     "is this okay?", "is this right?", "ready to proceed?",
@@ -24,14 +23,33 @@ export function detectInteraction(content: string): InteractionType | null {
   ];
 
   const isQuestion = normalized.endsWith("?");
-  
-  // Strip common markdown header prefixes for the "How" check
-  const cleanStart = normalized.replace(/^[#\s\-\*]+/, "");
-  const startsWithHow = cleanStart.startsWith("how ");
-  
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  if (!startsWithHow && (hasTrigger || (isQuestion && (
+  // Determine if the "primary" question is informational (How/What/Why/Who)
+  // We split by common sentence delimiters and look at the last part if it ends with ?
+  const parts = normalized.split(/[.!?;]\s+/);
+  const lastPart = parts[parts.length - 1]?.trim() || "";
+  
+  // Strip markdown headers from the start of the last part
+  const cleanLastPart = lastPart.replace(/^[#\s\-\*]+/, "");
+  
+  const isInformational = 
+    cleanLastPart.startsWith("how ") || 
+    cleanLastPart.startsWith("what ") || 
+    cleanLastPart.startsWith("why ") || 
+    cleanLastPart.startsWith("who ");
+
+  // We only trigger yes-no if:
+  // 1. It contains a specific yes-no trigger OR is a general "do you/would you" question
+  // 2. AND the final question is NOT an informational "How/What/Why" question
+  // 3. UNLESS it explicitly has "(yes/no)" which overrides everything.
+  const hasForcedMarker = normalized.includes("(yes/no)");
+
+  if (hasForcedMarker) {
+    return { type: "yes-no" };
+  }
+
+  if (!isInformational && (hasTrigger || (isQuestion && (
     normalized.includes("do you") || 
     normalized.includes("would you") ||
     normalized.includes("shall i")
