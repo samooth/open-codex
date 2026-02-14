@@ -123,6 +123,8 @@ development_ that understands and executes your repo.
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Context Management** — automated sliding window history truncation to prevent TPM/token limit errors 🧠
 - **Beautiful UI** — 🤖 Bot icons, model labels, and truly full-width bordered tool boxes for clarity ✨
+- **Prompt Caching** — native support for Anthropic `cache_control` to significantly reduce costs and latency in long-running sessions 🚀
+- **UI & Architecture Stability** — 100+ typecheck errors resolved, improved layout constraints, and robust ESM/CJS compatibility 🛠️
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
@@ -412,6 +414,15 @@ To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context o
 - **Automatic Truncation**: When the conversation history grows too long, Codex prunes the oldest messages while keeping your recent context and the system prompt intact.
 - **Content Pruning**: For very old tool results (like large file reads), Codex automatically truncates the content to save tokens while preserving the conversational logic.
 - **Configurable**: You can adjust the maximum number of messages kept in context by setting `"contextSize"` in your `~/.codex/config.json`.
+
+### Prompt Caching
+
+To reduce latency and costs, OpenCodex leverages prompt caching where supported:
+
+- **Anthropic**: Uses explicit `cache_control` breakpoints. OpenCodex automatically caches the system instructions, the large tool definitions list, and the most recent stable turn of the conversation history.
+- **OpenAI & DeepSeek**: Caching is automatic. These providers automatically cache the prefix of prompts that exceed 1024 tokens.
+- **Ollama**: Local KV caching is automatic. Ollama reuses the processed prefix of the conversation history to speed up subsequent turns.
+- **Gemini**: Large context is managed via a sliding window; dedicated Context Caching for static datasets is not currently utilized as the default window is usually sufficient.
 
 ### Slash Commands
 
