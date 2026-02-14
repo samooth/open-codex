@@ -15,9 +15,8 @@ export function mapOpenAiToAnthropicMessages(
   const anthropicMessages: any[] = [];
   let system: string | undefined = undefined;
 
-  // 1. First Pass: Build the message list and track tool usage
+  // 1. First Pass: Build the initial message list and track tool usage
   const useIdToMessageIndex = new Map<string, number>();
-  const resultIds = new Set<string>();
 
   for (const msg of messages) {
     if (msg.role === "system") {
@@ -71,13 +70,12 @@ export function mapOpenAiToAnthropicMessages(
         tool_use_id: msg.tool_call_id,
         content: msg.content,
       });
-      resultIds.add(msg.tool_call_id);
     }
 
     if (content.length > 0) {
       const lastMsg = anthropicMessages[anthropicMessages.length - 1];
       if (lastMsg && lastMsg.role === role) {
-        // Merge
+        // Merge consecutive roles
         for (const newPart of content) {
           if (newPart.type === "tool_result") {
             const existingIndex = lastMsg.content.findIndex(
@@ -88,7 +86,6 @@ export function mapOpenAiToAnthropicMessages(
             } else {
               lastMsg.content.push(newPart);
             }
-            resultIds.add(newPart.tool_use_id);
           } else {
             lastMsg.content.push(newPart);
           }
@@ -107,13 +104,12 @@ export function mapOpenAiToAnthropicMessages(
     }
   }
 
-  // 2. Second Pass: Relocate results and fill holes
+  // 2. Second Pass: Relocate results, fill holes, and purge empty messages
   const finalMessages: any[] = [];
   
   for (let i = 0; i < anthropicMessages.length; i++) {
     const msg = anthropicMessages[i];
     
-    // If this is an assistant message, we need to ensure the NEXT message handles all its tool_uses
     if (msg.role === "assistant") {
       const toolUseIds = msg.content
         .filter((p: any) => p.type === "tool_use")
@@ -122,38 +118,24 @@ export function mapOpenAiToAnthropicMessages(
       finalMessages.push(msg);
 
       if (toolUseIds.length > 0) {
-        // Look ahead for the next message (must be user/tool_result)
+        // Find or create the next user message to hold the results
         let nextMsg = anthropicMessages[i + 1];
-        
-        // If there's no next message, or the next message isn't a "user" role, 
-        // we MUST inject one to hold the results.
         if (!nextMsg || nextMsg.role !== "user") {
           nextMsg = { role: "user", content: [] };
-          // We don't increment `i` because we just created a placeholder
         } else {
-          // It is a user message, we'll consume it now
-          i++;
+          i++; // Consume existing user message
         }
 
-        // Ensure every ID in toolUseIds has a result in nextMsg
         for (const id of toolUseIds) {
           const hasResult = nextMsg.content.some((p: any) => p.type === "tool_result" && p.tool_use_id === id);
-          
           if (!hasResult) {
-            // Check if the result exists ELSEWHERE in the original list (relocation)
-            // This handles cases where OpenAI interleaved user messages between use/result
             const globalResult = findAndRemoveResult(anthropicMessages, id);
-            if (globalResult) {
-              nextMsg.content.push(globalResult);
-            } else {
-              // Hole filling: satisfy the API with a dummy result
-              nextMsg.content.push({
-                type: "tool_result",
-                tool_use_id: id,
-                content: "Execution interrupted or cancelled by user.",
-                is_error: true
-              });
-            }
+            nextMsg.content.push(globalResult || {
+              type: "tool_result",
+              tool_use_id: id,
+              content: "Execution interrupted or cancelled by user.",
+              is_error: true
+            });
           }
         }
         
@@ -162,25 +144,22 @@ export function mapOpenAiToAnthropicMessages(
         }
       }
     } else {
-      // For non-assistant messages, just push them if they weren't consumed as a "nextMsg"
-      finalMessages.push(msg);
+      // Push user message only if it still has content after relocations
+      if (msg.content.length > 0) {
+        finalMessages.push(msg);
+      }
     }
   }
 
   return { messages: finalMessages, system };
 }
 
-/**
- * Heuristic to find a tool result in the future/past and remove it from its original location
- * so it can be relocated immediately after its tool_use.
- */
 function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
   for (const msg of messages) {
     if (msg.role === "user") {
       const idx = msg.content.findIndex((p: any) => p.type === "tool_result" && p.tool_use_id === toolUseId);
       if (idx !== -1) {
-        const [result] = msg.content.splice(idx, 1);
-        return result;
+        return msg.content.splice(idx, 1)[0];
       }
     }
   }
@@ -204,43 +183,26 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
     const delta: any = {};
     let finish_reason: string | null = null;
 
-    if (event.type === "message_start") {
-        // Initial message metadata
-    } else if (event.type === "content_block_start") {
-      if (event.content_block.type === "tool_use") {
-        const index = toolCallCount++;
-        toolIndexMap.set(event.index, index);
-        delta.tool_calls = [{
-          index,
-          id: event.content_block.id,
-          function: {
-            name: event.content_block.name,
-            arguments: "",
-          },
-        }];
-      }
+    if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
+      const index = toolCallCount++;
+      toolIndexMap.set(event.index, index);
+      delta.tool_calls = [{
+        index,
+        id: event.content_block.id,
+        function: { name: event.content_block.name, arguments: "" },
+      }];
     } else if (event.type === "content_block_delta") {
-      if (event.delta.type === "text_delta") {
-        delta.content = event.delta.text;
-      } else if (event.delta.type === "thinking_delta") {
-        delta.reasoning_content = event.delta.thinking;
-      } else if (event.delta.type === "signature_delta") {
-        delta.thought_signature = event.delta.signature;
-      } else if (event.delta.type === "input_json_delta") {
+      if (event.delta.type === "text_delta") delta.content = event.delta.text;
+      else if (event.delta.type === "thinking_delta") delta.reasoning_content = event.delta.thinking;
+      else if (event.delta.type === "signature_delta") delta.thought_signature = event.delta.signature;
+      else if (event.delta.type === "input_json_delta") {
         const index = toolIndexMap.get(event.index);
         if (typeof index === "number") {
-          delta.tool_calls = [{
-            index,
-            function: {
-              arguments: event.delta.partial_json,
-            },
-          }];
+          delta.tool_calls = [{ index, function: { arguments: event.delta.partial_json } }];
         }
       }
-    } else if (event.type === "message_delta") {
-      if (event.delta.stop_reason) {
-        finish_reason = event.delta.stop_reason === "end_turn" ? "stop" : event.delta.stop_reason;
-      }
+    } else if (event.type === "message_delta" && event.delta.stop_reason) {
+      finish_reason = event.delta.stop_reason === "end_turn" ? "stop" : event.delta.stop_reason;
     }
 
     if (first && (delta.content || delta.reasoning_content || delta.tool_calls)) {
@@ -249,9 +211,7 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
     }
 
     if (Object.keys(delta).length > 0 || finish_reason) {
-      yield {
-        choices: [{ delta, finish_reason }],
-      };
+      yield { choices: [{ delta, finish_reason }] };
     }
   }
 }
