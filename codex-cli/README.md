@@ -5,7 +5,7 @@
 
 > **Important Note**: This is a fork of the [original OpenAI Codex CLI](https://github.com/openai/codex) with expanded model support and changed installation instructions. The main differences in this fork are:
 > 
-> - Support for multiple AI providers (OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, Hugging Face)
+> - Support for multiple AI providers (OpenAI, Anthropic, Gemini, OpenRouter, Ollama, xAI, DeepSeek, Hugging Face)
 > - Uses the [Chat Completion API instead of the Responses API](https://platform.openai.com/docs/guides/responses-vs-chat-completions) which allows us to support any openai compatible provider and model.
 > - All other functionality remains similar to the original project
 > - You can install this fork globally with `npm i -g @samooth/open-codex`
@@ -28,7 +28,6 @@
 - [Recipes](#recipes)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Theming](#theming)
 - [FAQ](#faq)
 - [Contributing](#contributing)
   - [Development workflow](#development-workflow)
@@ -69,6 +68,10 @@ Next, set your API key as an environment variable (shown here with OpenAI, but o
 
 ```shell
 export OPENAI_API_KEY="your-api-key-here"
+# or
+export ANTHROPIC_API_KEY="your-api-key-here"
+# or (optional for local/proxied Ollama)
+export OLLAMA_API_KEY="your-api-key-here"
 ```
 
 > **Note:** This command sets the key only for your current terminal session. To make it permanent, add the `export` line to your shell's configuration file (e.g., `~/.zshrc`).
@@ -111,7 +114,7 @@ files, and iterate – all under version control. In short, it's _chat‑driven
 development_ that understands and executes your repo.
 
 - **Zero setup** — bring your API key and it just works!
-- **Multiple AI providers** — use OpenAI, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
+- **Multiple AI providers** — use OpenAI, Anthropic, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
 - **Surgical Editing** — robust Search & Replace tool for precise, context-aware file modifications 📝
 - **Code Intelligence** — specialized tools to extract symbols and search definitions semantically 🔍
@@ -323,6 +326,7 @@ You can also define custom instructions:
 This fork of Codex supports multiple AI providers:
 
 - openai (default)
+- anthropic
 - gemini
 - openrouter
 - ollama
@@ -339,6 +343,22 @@ To use a different provider, set the `provider` key in your config file:
 ```
 
 OR use the `--provider` flag. eg. `codex --provider gemini`
+
+#### Anthropic Configuration
+
+To use Anthropic models, ensure you have your API key set:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
+```
+
+Then run Codex specifying the provider:
+
+```bash
+open-codex --provider anthropic
+```
+
+The default agentic model is `claude-opus-4-6`. You can switch to other models like `claude-sonnet-4-5-20250929` or `claude-haiku-4-5-20251001` using the `/model` command in-session or the `--model` flag.
 
 #### Ollama Configuration
 
@@ -417,10 +437,11 @@ Here's a list of all the providers and their default models:
 | Provider   | Environment Variable Required | Default Agentic Model        | Default Full Context Model |
 | ---------- | ----------------------------- | ---------------------------- | -------------------------- |
 | openai     | OPENAI_API_KEY                | o4-mini                      | o3                         |
+| anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6              | claude-opus-4-6            |
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash             | gemini-2.5-flash           |
 | openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
-| ollama     | Not required                  | User must specify            | User must specify          |
-| xai        | XAI_API_KEY                   | grok-3-mini-beta             | grok-3-beta                |
+| ollama     | OLLAMA_API_KEY (optional)     | User must specify            | User must specify          |
+| xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning      | grok-4-1-fast-reasoning    |
 | deepseek   | DS_API_KEY                    | deepseek-chat                | deepseek-reasoner          |
 | hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5         | moonshotai/Kimi-K2.5       |
 
@@ -428,68 +449,8 @@ Here's a list of all the providers and their default models:
 
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key-here"
-```
-
----
-
-## Theming
-
-The application's color scheme is customizable through a simple theming system located in `src/utils/theme.ts`. This allows developers and users to personalize the look and feel of the CLI.
-
-### Theme Structure
-
-A theme is an object where keys represent UI elements and values are valid `chalk` color names. The `Theme` type defines all customizable properties, such as `assistant`, `user`, `thought`, `shellCommand`, and more.
-
-### Available Themes
-
-The CLI includes several pre-defined themes which can be selected using the `/theme` command:
-
-- `default` (Codex)
-- `material`
-- `dracula`
-- `solarized`
-- `monochrome`
-- `nord`
-- `oneDark`
-- `synthwave`
-- `gruvbox`
-- `cyberpunk`
-
-### Usage
-
-The `getTheme` function is the primary way to programmatically retrieve a theme. It can accept a theme name to load a pre-defined theme, or a custom theme object to create a personalized theme that builds on the default.
-
-```typescript
-import { getTheme } from './utils/theme';
-
-// Get the default theme
-const defaultTheme = getTheme();
-
-// Get a pre-defined theme by name
-const draculaTheme = getTheme('dracula');
-
-// Create a custom theme by merging with the default
-const customTheme = getTheme({
-  assistant: 'yellow',
-  user: 'cyan',
-});
-```
-
-You can also set a theme in your `~/.codex/config.json` file:
-```json
-{
-  "theme": "dracula" 
-}
-```
-Or provide a custom theme object:
-```json
-{
-  "theme": {
-    "name": "My Custom Theme",
-    "assistant": "yellow",
-    "user": "cyan"
-  }
-}
+# or
+export OLLAMA_API_KEY="your-ollama-api-key-here"
 ```
 
 ---
