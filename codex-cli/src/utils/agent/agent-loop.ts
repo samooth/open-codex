@@ -566,7 +566,9 @@ export class AgentLoop {
 
               if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`);
+                const err = new Error(`Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`);
+                (err as any).status = response.status;
+                throw err;
               }
 
               const reader = response.body?.getReader();

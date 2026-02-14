@@ -21,8 +21,10 @@ export function mapOpenAiToAnthropicMessages(
       continue;
     }
 
+    let role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
+    let content: any[] = [];
+
     if (msg.role === "user") {
-      const content: any[] = [];
       if (typeof msg.content === "string") {
         content.push({ type: "text", text: msg.content });
       } else if (Array.isArray(msg.content)) {
@@ -32,9 +34,7 @@ export function mapOpenAiToAnthropicMessages(
           }
         }
       }
-      anthropicMessages.push({ role: "user", content });
     } else if (msg.role === "assistant") {
-      const content: any[] = [];
       const assistant = msg as any;
       
       if (assistant.reasoning_content) {
@@ -65,27 +65,21 @@ export function mapOpenAiToAnthropicMessages(
           });
         }
       }
-      anthropicMessages.push({ role: "assistant", content });
     } else if (msg.role === "tool") {
-      // Anthropic expects tool results as a user message with tool_result blocks
+      role = "user";
+      content.push({
+        type: "tool_result",
+        tool_use_id: msg.tool_call_id,
+        content: msg.content,
+      });
+    }
+
+    if (content.length > 0) {
       const lastMsg = anthropicMessages[anthropicMessages.length - 1];
-      if (lastMsg && lastMsg.role === "user" && Array.isArray(lastMsg.content)) {
-        lastMsg.content.push({
-          type: "tool_result",
-          tool_use_id: msg.tool_call_id,
-          content: msg.content,
-        });
+      if (lastMsg && lastMsg.role === role) {
+        lastMsg.content.push(...content);
       } else {
-        anthropicMessages.push({
-          role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: msg.tool_call_id,
-              content: msg.content,
-            },
-          ],
-        });
+        anthropicMessages.push({ role, content });
       }
     }
   }
@@ -103,7 +97,11 @@ export function mapOpenAiToAnthropicTools(openAiTools: any[]): any[] {
 
 export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<any>): AsyncGenerator<any> {
   let first = true;
-  let currentToolCall: any = null;
+  // We keep track of how many tool_use blocks we've seen so we can yield
+  // 0-based tool_call indices to the consumer, regardless of Anthropic's
+  // absolute content_block index.
+  let toolCallCount = 0;
+  const toolIndexMap = new Map<number, number>();
 
   for await (const event of anthropicStream) {
     const delta: any = {};
@@ -113,15 +111,16 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
         // Initial message metadata if needed
     } else if (event.type === "content_block_start") {
       if (event.content_block.type === "tool_use") {
-        currentToolCall = {
-          index: event.index,
+        const index = toolCallCount++;
+        toolIndexMap.set(event.index, index);
+        delta.tool_calls = [{
+          index,
           id: event.content_block.id,
           function: {
             name: event.content_block.name,
             arguments: "",
           },
-        };
-        delta.tool_calls = [currentToolCall];
+        }];
       }
     } else if (event.type === "content_block_delta") {
       if (event.delta.type === "text_delta") {
@@ -131,16 +130,18 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
       } else if (event.delta.type === "signature_delta") {
         delta.thought_signature = event.delta.signature;
       } else if (event.delta.type === "input_json_delta") {
-        if (currentToolCall) {
-          currentToolCall.function.arguments = event.delta.partial_json;
-          delta.tool_calls = [currentToolCall];
+        const index = toolIndexMap.get(event.index);
+        if (typeof index === "number") {
+          delta.tool_calls = [{
+            index,
+            function: {
+              arguments: event.delta.partial_json,
+            },
+          }];
         }
       }
     } else if (event.type === "content_block_stop") {
-      if (currentToolCall) {
-        // Final state for this tool call
-        currentToolCall = null;
-      }
+      // No-op
     } else if (event.type === "message_delta") {
       if (event.delta.stop_reason) {
         finish_reason = event.delta.stop_reason === "end_turn" ? "stop" : event.delta.stop_reason;
