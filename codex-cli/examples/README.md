@@ -53,6 +53,18 @@ export OLLAMA_API_KEY="your-key"
 ./run.sh --provider ollama --model llama3
 ```
 
+## Using recipes
+
+You can also apply predefined prompt templates (recipes) to any example using the `--recipe` or `-r` flag:
+
+```bash
+# Generate unit tests for an example
+./run.sh -r test
+
+# Add documentation to an example
+./run.sh -r documentation
+```
+
 ## Other examples
 Besides **camerascii**, you can experiment with:
 

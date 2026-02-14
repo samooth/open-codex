@@ -200,6 +200,7 @@ The hardening mechanism Codex uses depends on your OS:
 | `open-codex`                              | Interactive REPL                    | `codex`                              |
 | `open-codex "…"`                          | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
 | `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY  | `codex "explain utils.ts"`           |
+| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template| `codex -r test "src/utils.ts"`       |
 | `open-codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
@@ -212,6 +213,7 @@ Key keyboard shortcuts:
 Key flags:
 - `--provider / -p`: AI provider to use.
 - `--model / -m`: Model to use for completions.
+- `--recipe / -r`: Apply a predefined prompt template (recipe).
 - `--approval-mode / -a`: Override the approval policy.
 - `--dry-run`: Preview changes without applying them.
 - `--quiet / -q`: Non-interactive mode.
