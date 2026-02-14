@@ -430,7 +430,7 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
       marginY={1}
       borderStyle="round"
       borderColor={theme.highlight}
-      width="100%"
+      flexGrow={1}
     >
       <Box gap={1} paddingX={1}>
         {loading ? (
@@ -594,7 +594,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       borderStyle="round"
       borderColor={isError ? theme.error : theme.highlight}
       marginY={0}
-      width="100%"
+      flexGrow={1}
     >
       {toolCall && (
         <Box gap={1} paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
