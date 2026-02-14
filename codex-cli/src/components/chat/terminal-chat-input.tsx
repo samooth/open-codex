@@ -136,17 +136,19 @@ export default function TerminalChatInput({
     return filterFiles(allFiles, fileSearchMatch.query);
   }, [allFiles, fileSearchMatch]);
 
-  const filteredSlashCommands = input.startsWith("/")
-    ? slashCommands.filter((c) => c.name.startsWith(input))
-    : [];
+  const filteredSlashCommands = useMemo(() => {
+    return input.startsWith("/")
+      ? slashCommands.filter((c) => c.name.startsWith(input))
+      : [];
+  }, [input]);
 
   useEffect(() => {
     setSelectedFileIndex(0);
-  }, [filteredFiles]);
+  }, [filteredFiles.length]);
 
   useEffect(() => {
     setSelectedSlashCommand(0);
-  }, [filteredSlashCommands]);
+  }, [filteredSlashCommands.length]);
 
   const highlighter = useCallback(
     (text: string) => {
