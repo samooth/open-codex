@@ -24,6 +24,7 @@ type MessageHistoryProps = {
   groupCounts: Record<string, number>;
   items: Array<ChatCompletionMessageParam>;
   userMsgCount: number;
+  model: string;
   confirmationPrompt: React.ReactNode;
   submitConfirmation: (decision: ReviewDecision, customDenyMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
   allowAlwaysPatch?: boolean;
@@ -39,6 +40,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   batch,
   items,
   headerProps,
+  model,
   confirmationPrompt,
   submitConfirmation,
   allowAlwaysPatch,
@@ -92,6 +94,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
                 toolCallMap={toolCallMap}
                 loading={false}
                 theme={theme}
+                model={model}
                 previousRole={previousRole}
               />
             </Box>
@@ -105,6 +108,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           theme={theme}
           fullStdout={fullStdout}
           toolCallMap={toolCallMap}
+          model={model}
           showRole={true}
           previousRole={(() => {
             const lastEntry = messages[messages.length - 1];
@@ -140,6 +144,7 @@ const StreamingAssistantResponse = React.memo(({
   theme, 
   fullStdout, 
   toolCallMap,
+  model,
   showRole = false,
   previousRole
 }: { 
@@ -148,6 +153,7 @@ const StreamingAssistantResponse = React.memo(({
   theme: Theme; 
   fullStdout: boolean; 
   toolCallMap: Map<string, any>;
+  model: string;
   showRole?: boolean;
   previousRole?: string;
 }) => {
@@ -162,6 +168,7 @@ const StreamingAssistantResponse = React.memo(({
         toolCallMap={toolCallMap}
         loading={loading}
         theme={theme}
+        model={model}
         showRole={showRole}
         previousRole={previousRole}
         isStreaming={true}

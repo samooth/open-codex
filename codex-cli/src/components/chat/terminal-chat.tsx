@@ -481,6 +481,7 @@ export default function TerminalChat({
           groupCounts={groupCounts}
           items={items}
           userMsgCount={userMsgCount}
+          model={model}
           confirmationPrompt={confirmationPrompt}
           submitConfirmation={(
             decision: ReviewDecision,

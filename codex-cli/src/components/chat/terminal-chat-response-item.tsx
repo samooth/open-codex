@@ -64,6 +64,7 @@ function TerminalChatResponseItem({
   toolCallMap = new Map(),
   loading = false,
   theme,
+  model,
   showRole = true,
   previousRole,
   isStreaming = false,
@@ -74,6 +75,7 @@ function TerminalChatResponseItem({
   toolCallMap?: Map<string, any>;
   loading?: boolean;
   theme: Theme;
+  model: string;
   showRole?: boolean;
   previousRole?: string;
   isStreaming?: boolean;
@@ -106,6 +108,7 @@ function TerminalChatResponseItem({
           <TerminalChatResponseMessage 
             message={item} 
             theme={theme} 
+            model={model}
             showRole={currentShowRole} 
             disableMarkdown={isStreaming} 
           />
@@ -128,6 +131,7 @@ function TerminalChatResponseItem({
           fullStdout={fullStdout}
           toolCallMap={toolCallMap}
           theme={theme}
+          model={model}
           showRole={false}
         />
       );
@@ -208,6 +212,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   fullStdout,
   toolCallMap = new Map(),
   theme,
+  model,
   showRole = true,
   disableMarkdown = false,
 }: {
@@ -215,6 +220,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   fullStdout?: boolean;
   toolCallMap?: Map<string, any>;
   theme: Theme;
+  model?: string;
   showRole?: boolean;
   disableMarkdown?: boolean;
 }) {
@@ -289,9 +295,16 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   return (
     <Box flexDirection="column" paddingLeft={isAssistant ? 2 : 0}>
       {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
-        <Text bold color={roleColor}>
-          {isAssistant ? "opencodex" : message.role}
-        </Text>
+        <Box gap={1}>
+          <Text bold color={roleColor}>
+            {isAssistant ? "🤖 opencodex" : message.role}
+          </Text>
+          {isAssistant && model && (
+            <Text dimColor italic>
+              ({model})
+            </Text>
+          )}
+        </Box>
       )}
       {thoughts.map((thought, i) => (
         <Box
