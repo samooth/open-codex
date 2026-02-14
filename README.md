@@ -415,6 +415,14 @@ To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context o
 - **Content Pruning**: For very old tool results (like large file reads), Codex automatically truncates the content to save tokens while preserving the conversational logic.
 - **Configurable**: You can adjust the maximum number of messages kept in context by setting `"contextSize"` in your `~/.codex/config.json`.
 
+### Prompt Caching
+
+To reduce latency and costs, OpenCodex leverages prompt caching where supported:
+
+- **Anthropic**: Uses explicit `cache_control` breakpoints. OpenCodex automatically caches the system instructions, the large tool definitions list, and the most recent stable turn of the conversation history.
+- **OpenAI & DeepSeek**: Caching is automatic. These providers automatically cache the prefix of prompts that exceed 1024 tokens.
+- **Gemini**: Large context is managed via a sliding window; dedicated Context Caching for static datasets is not currently utilized as the default window is usually sufficient.
+
 ### Slash Commands
 
 Inside the interactive chat, you can use several slash commands to manage your session:
