@@ -112,7 +112,7 @@ function TerminalChatResponseItem({
             showRole={currentShowRole} 
             disableMarkdown={isStreaming} 
           />
-          {item.tool_calls?.map((toolCall, i) => {
+          {!isStreaming && item.tool_calls?.map((toolCall, i) => {
             return (
               <TerminalChatResponseToolCall
                 key={i}
@@ -760,12 +760,12 @@ export function Markdown({
           }
         },
         // Enhanced styling
-        heading: chalk[theme.assistant as ForegroundColorName]?.bold || chalk.bold,
-        firstHeading: chalk[theme.assistant as ForegroundColorName]?.bold?.underline || chalk.bold.underline,
-        strong: chalk.bold,
-        em: chalk.italic,
-        codespan: chalk.cyan,
-        code: chalk.reset,
+        heading: (text: string) => chalk[theme.assistant as ForegroundColorName]?.bold(text) || chalk.bold(text),
+        firstHeading: (text: string) => chalk[theme.assistant as ForegroundColorName]?.bold?.underline(text) || chalk.bold.underline(text),
+        strong: (text: string) => chalk.bold(text),
+        em: (text: string) => chalk.italic(text),
+        codespan: (text: string) => chalk.cyan(text),
+        code: (text: string) => chalk.reset(text),
         tableOptions: {
           style: {
             head: [theme.highlight, "bold"],

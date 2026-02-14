@@ -980,6 +980,11 @@ export class AgentLoop {
             if (isLoggingEnabled()) {
               log("AgentLoop.run(): stream ended, triggering message finalization");
             }
+            
+            // Clear partial data and give UI a moment to settle before potential confirmation boxes
+            this.onPartialUpdate?.("", "", undefined, undefined);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             await finalizeMessage(message);
           } else if (!message && chunkCount > 0) {
             log("AgentLoop.run(): stream had chunks but no message was constructed");
