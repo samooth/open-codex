@@ -289,7 +289,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const hasPlans = plans.length > 0;
   const hasContent = displayContent.trim().length > 0;
 
-  const roleColor = message.role === "assistant" ? theme.assistant : theme.user;
+  const roleColor = message.role === "assistant" ? theme.assistant : "yellowBright";
   const isAssistant = message.role === "assistant";
 
   return (
@@ -297,7 +297,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
       {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
         <Box gap={1}>
           <Text bold color={roleColor}>
-            {isAssistant ? "🤖 opencodex" : message.role}
+            {isAssistant ? "🤖 opencodex" : "👤 user"}
           </Text>
           {isAssistant && model && (
             <Text dimColor italic>
@@ -340,9 +340,13 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
       ))}
       {hasContent && (
         <Box flexDirection="column">
-          <Markdown theme={theme}>
-            {displayContent.trim()}
-          </Markdown>
+          {isAssistant ? (
+            <Markdown theme={theme}>
+              {displayContent.trim()}
+            </Markdown>
+          ) : (
+            <Text color="yellowBright">{displayContent.trim()}</Text>
+          )}
           {disableMarkdown && (
             <Text> <Spinner type="dots" color={theme.highlight} /></Text>
           )}
