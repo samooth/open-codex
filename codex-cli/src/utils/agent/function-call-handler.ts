@@ -289,6 +289,14 @@ export async function handleFunctionCall(
       const result = await handlers.handleSnykSearch(ctx, rawArguments ?? "{}");
       outputText = result.outputText;
       metadata = result.metadata;
+    } else if (name === "ask_confirmation") {
+      const result = await handlers.handleAskConfirmation(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+    } else if (name === "ask_multiple_choice") {
+      const result = await handlers.handleAskMultipleChoice(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
     } else if (name === "index_codebase") {
       if (process.env["DEBUG"] === "1") {
         log(`Tool call: index_codebase invoked`);

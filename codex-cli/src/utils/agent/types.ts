@@ -33,6 +33,8 @@ export type AgentLoopParams = {
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
+
+  getUserChoice?: (prompt: string, choices?: string[]) => Promise<string>;
 };
 
 export interface AgentContext {
@@ -43,6 +45,7 @@ export interface AgentContext {
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
+  getUserChoice?: (prompt: string, choices?: string[]) => Promise<string>;
   onItem: (item: ChatCompletionMessageParam) => void;
   onFileAccess?: (path: string) => void;
   onTasksUpdate?: (tasks: Task[]) => void;

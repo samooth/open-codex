@@ -1392,3 +1392,29 @@ export async function handleSnykSearch(
     };
   }
 }
+
+export async function handleAskConfirmation(ctx: AgentContext, argsStr: string) {
+  try {
+    const { prompt } = JSON.parse(argsStr);
+    if (!ctx.getUserChoice) {
+      return { outputText: "Error: getUserChoice callback not available in current environment.", metadata: { exit_code: 1 } };
+    }
+    const choice = await ctx.getUserChoice(prompt, ["Yes", "No"]);
+    return { outputText: choice, metadata: { exit_code: 0, choice } };
+  } catch (err) {
+    return { outputText: `Error asking for confirmation: ${String(err)}`, metadata: { exit_code: 1 } };
+  }
+}
+
+export async function handleAskMultipleChoice(ctx: AgentContext, argsStr: string) {
+  try {
+    const { prompt, choices } = JSON.parse(argsStr);
+    if (!ctx.getUserChoice) {
+      return { outputText: "Error: getUserChoice callback not available in current environment.", metadata: { exit_code: 1 } };
+    }
+    const choice = await ctx.getUserChoice(prompt, choices);
+    return { outputText: choice, metadata: { exit_code: 0, choice } };
+  } catch (err) {
+    return { outputText: `Error asking for multiple choice: ${String(err)}`, metadata: { exit_code: 1 } };
+  }
+}

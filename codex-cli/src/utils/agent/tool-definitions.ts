@@ -847,4 +847,47 @@ export const tools: Array<ChatCompletionTool> = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "ask_confirmation",
+      description: "Explicitly asks the user for a Yes/No/Custom confirmation. Use this when you need a clear binary decision before proceeding with a major action.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "The question or instruction to show the user.",
+          },
+        },
+        required: ["prompt"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ask_multiple_choice",
+      description: "Explicitly presents the user with a list of options to choose from. Use this when there are several discrete ways to proceed and you want the user to pick one.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "The instruction or question to show the user.",
+          },
+          choices: {
+            type: "array",
+            items: { type: "string" },
+            description: "A list of strings representing the available options.",
+          },
+        },
+        required: ["prompt", "choices"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];

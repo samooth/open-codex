@@ -292,6 +292,18 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const roleColor = message.role === "assistant" ? theme.assistant : "yellowBright";
   const isAssistant = message.role === "assistant";
 
+  if (!isAssistant && hasContent) {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Text color="yellowBright">
+          <Text bold>👤 user </Text>
+          <Text dimColor>› </Text>
+          {displayContent.trim()}
+        </Text>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" paddingLeft={isAssistant ? 2 : 0}>
       {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (

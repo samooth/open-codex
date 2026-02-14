@@ -357,6 +357,23 @@ export default function TerminalChat({
           );
         return { review, customDenyMessage, applyPatch: updatedApplyPatch || applyPatch };
       },
+      getUserChoice: async (prompt: string, choices?: string[]): Promise<string> => {
+        log(`getUserChoice: ${prompt} (${choices?.join(", ")})`);
+        const { decision, customDenyMessage } = await requestConfirmation(
+          <Box flexDirection="column" gap={1}>
+            <Text bold color={activeTheme.highlight}>{prompt}</Text>
+            {choices && (
+              <Box flexDirection="column" paddingLeft={2}>
+                {choices.map((c, i) => (
+                  <Text key={i} color={activeTheme.dim}>• {c}</Text>
+                ))}
+              </Box>
+            )}
+          </Box>,
+          choices,
+        );
+        return customDenyMessage || decision;
+      },
     });
 
     // force a render so JSX below can "see" the freshly created agent
