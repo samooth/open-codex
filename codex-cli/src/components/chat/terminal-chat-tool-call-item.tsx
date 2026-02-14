@@ -66,14 +66,16 @@ export function TerminalChatToolCallCommand({
 
     return (
       <Box flexDirection="column" gap={0} flexGrow={1}>
-        <Box gap={1}>
+        <Box gap={1} paddingX={1}>
           <Text bold color={theme.toolLabel} wrap="wrap">
             {isEditFile ? "📝 Edit File" : "🩹 Apply Patch"}
           </Text>
           <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand all'})</Text>
         </Box>
         {ops.length > 1 && (
-          <Text dimColor italic> (↑↓ to navigate files, 'c' to toggle visibility)</Text>
+          <Box paddingX={1}>
+            <Text dimColor italic> (↑↓ to navigate files, 'c' to toggle visibility)</Text>
+          </Box>
         )}
         {ops.map((op, i) => {
           if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) return null;
