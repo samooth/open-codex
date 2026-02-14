@@ -158,7 +158,10 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] Real-Time Latency Tracking:** The thinking indicator now displays a live timer (e.g., `(5s)`) to provide immediate feedback on model response times.
     *   **[DONE] Layout Stability:** Fixed "jumping" of the bottom bar during confirmation prompts by maintaining a consistent placeholder height.
     *   **[DONE] Smart Autocomplete Highlighting:** File paths selected via autocomplete (`@filename`) are now visually highlighted in the input box, and the `@` prefix is automatically stripped upon submission.
-    *   **[DONE] Multi-File Patch Review:** Interactive review for multi-file patches allows navigating between files with arrow keys and collapsing individual file diffs with `c`.
-    *   **[DONE] Parallel Tool Cancellation:** Improved `ESC` handling to reliably halt all concurrent tool executions immediately.
----
-*Last Updated: 2026-02-14*
+        *   **[DONE] Multi-File Patch Review:** Interactive review for multi-file patches allows navigating between files with arrow keys and collapsing individual file diffs with `c`.
+        *   **[DONE] Parallel Tool Cancellation:** Improved `ESC` handling to reliably halt all concurrent tool executions immediately.
+        *   **[DONE] Anthropic Prompt Caching:** Implemented native support for `cache_control` (ephemeral) across system instructions, tool definitions, and long conversation turns, significantly reducing costs and latency for Claude models.
+        *   **[DONE] Comprehensive Architecture Clean-up:** Resolved 100+ TypeScript compilation errors, improved ESM/CJS library compatibility (especially for `diff`), and implemented more robust state grouping to prevent UI flickering.
+    ---
+    *Last Updated: 2026-02-14*
+    

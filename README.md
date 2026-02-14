@@ -123,6 +123,8 @@ development_ that understands and executes your repo.
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Context Management** — automated sliding window history truncation to prevent TPM/token limit errors 🧠
 - **Beautiful UI** — 🤖 Bot icons, model labels, and truly full-width bordered tool boxes for clarity ✨
+- **Prompt Caching** — native support for Anthropic `cache_control` to significantly reduce costs and latency in long-running sessions 🚀
+- **UI & Architecture Stability** — 100+ typecheck errors resolved, improved layout constraints, and robust ESM/CJS compatibility 🛠️
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
