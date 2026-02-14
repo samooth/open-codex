@@ -169,8 +169,11 @@ export default function TerminalChatInput({
 
   const onKeyDown = (_inputStr: string, key: any) => {
     if (filteredFiles.length > 0) {
-      if (key.tab) {
-        setSelectedFileIndex((s) => (s + (key.shift ? -1 : 1) + filteredFiles.length) % filteredFiles.length);
+      if (key.tab || key.downArrow || key.upArrow) {
+        setSelectedFileIndex((s) => {
+          const delta = (key.upArrow || (key.tab && key.shift)) ? -1 : 1;
+          return (s + delta + filteredFiles.length) % filteredFiles.length;
+        });
         return true;
       }
       if (key.return) {
@@ -185,9 +188,12 @@ export default function TerminalChatInput({
     }
 
     if (input.startsWith("/")) {
-      if (key.tab) {
+      if (key.tab || key.downArrow || key.upArrow) {
         if (filteredSlashCommands.length > 0) {
-          setSelectedSlashCommand((s) => (s + (key.shift ? -1 : 1) + filteredSlashCommands.length) % filteredSlashCommands.length);
+          setSelectedSlashCommand((s) => {
+            const delta = (key.upArrow || (key.tab && key.shift)) ? -1 : 1;
+            return (s + delta + filteredSlashCommands.length) % filteredSlashCommands.length;
+          });
           return true;
         }
       } else if (key.return) {
@@ -235,12 +241,8 @@ export default function TerminalChatInput({
 
       if (!confirmationPrompt && !loading && !customInputMode) {
         if (_key.upArrow) {
-          if (filteredFiles.length > 0) {
-            setSelectedFileIndex((s) => (s - 1 + filteredFiles.length) % filteredFiles.length);
-            return;
-          }
-          if (filteredSlashCommands.length > 0) {
-            setSelectedSlashCommand((s) => (s - 1 + filteredSlashCommands.length) % filteredSlashCommands.length);
+          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
+            // Handled in onKeyDown
             return;
           }
           if (history.length > 0) {
@@ -261,12 +263,8 @@ export default function TerminalChatInput({
         }
 
         if (_key.downArrow) {
-          if (filteredFiles.length > 0) {
-            setSelectedFileIndex((s) => (s + 1) % filteredFiles.length);
-            return;
-          }
-          if (filteredSlashCommands.length > 0) {
-            setSelectedSlashCommand((s) => (s + 1) % filteredSlashCommands.length);
+          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
+            // Handled in onKeyDown
             return;
           }
           if (historyIndex == null) {
