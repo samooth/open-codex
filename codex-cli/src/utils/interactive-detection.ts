@@ -25,10 +25,10 @@ export function detectInteraction(content: string): InteractionType | null {
   const isQuestion = normalized.endsWith("?");
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  // Determine if the "primary" question is informational (How/What/Why/Who)
-  // We split by common sentence delimiters and look at the last part if it ends with ?
-  const parts = normalized.split(/[.!?;]\s+/);
-  const lastPart = parts[parts.length - 1]?.trim() || "";
+  // Determine if the "primary" question is informational (How/What/Why/Who/Where/Which)
+  // We split by common sentence delimiters (including newlines)
+  const parts = normalized.split(/\s*[\n.!?;]+\s*/);
+  const lastPart = parts.filter(p => p.trim().length > 0).pop()?.trim() || "";
   
   // Strip markdown headers from the start of the last part
   const cleanLastPart = lastPart.replace(/^[#\s\-\*]+/, "");
@@ -37,7 +37,9 @@ export function detectInteraction(content: string): InteractionType | null {
     cleanLastPart.startsWith("how ") || 
     cleanLastPart.startsWith("what ") || 
     cleanLastPart.startsWith("why ") || 
-    cleanLastPart.startsWith("who ");
+    cleanLastPart.startsWith("who ") ||
+    cleanLastPart.startsWith("where ") ||
+    cleanLastPart.startsWith("which ");
 
   // We only trigger yes-no if:
   // 1. It contains a specific yes-no trigger OR is a general "do you/would you" question
