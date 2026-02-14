@@ -827,20 +827,6 @@ export class AgentLoop {
             messageProcessed = true;
 
             if (thisGeneration === this.generation && !this.canceled) {
-              // If there's content but no tool_calls, try to extract one from the content.
-              if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
-                const extracted = tryExtractToolCallsFromContent(msg.content);
-                if (extracted.length > 0) {
-                  (msg as any).tool_calls = extracted;
-                  for (const call of extracted) {
-                    if (call.id) {
-                      this.pendingAborts.add(call.id);
-                    }
-                  }
-                  msg.content = "";
-                }
-              }
-
               // Process completed tool calls
               if (msg?.tool_calls?.[0]) {
                 msg.tool_calls = flattenToolCalls(msg.tool_calls);
