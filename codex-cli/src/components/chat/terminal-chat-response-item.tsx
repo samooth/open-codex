@@ -389,7 +389,7 @@ function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   } else if (toolName.includes("delete_file")) {
     label = "deleting file";
     icon = "🗑️";
-    color = "redBright";
+    color = "magentaBright";
     summary = args.path;
   } else if (
     toolName.includes("list_directory") ||
@@ -598,7 +598,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       .split("\n")
       .map((line) => {
         if (line.startsWith("+") && !line.startsWith("++")) return chalk.green(line);
-        if (line.startsWith("-") && !line.startsWith("--")) return chalk.red(line);
+        if (line.startsWith("-") && !line.startsWith("--")) return chalk.magenta(line);
         return line;
       })
       .join("\n");
