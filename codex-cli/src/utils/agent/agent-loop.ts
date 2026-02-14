@@ -645,13 +645,15 @@ export class AgentLoop {
             const status =
               errCtx?.status ?? errCtx?.httpStatus ?? errCtx?.statusCode;
             const isServerError = typeof status === "number" && status >= 500;
+            const isNetworkError = isErrorNetworkOrServer(error);
             if (
-              (isTimeout || isServerError || isConnectionError) &&
+              (isTimeout || isServerError || isConnectionError || isNetworkError) &&
               attempt < MAX_RETRIES
             ) {
               const provider = this.config.provider || "AI";
+              const details = (error as any).code || (error as any).message || "Unknown";
               log(
-                `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}), retrying...`,
+                `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}, details: ${details}), retrying...`,
               );
               continue;
             }
@@ -1074,15 +1076,7 @@ export class AgentLoop {
 
       if (isErrorNetworkOrServer(err)) {
         try {
-          this.onItem({
-            role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: `⚠️  Network error while contacting ${this.config.provider || "AI"}. Please check your connection and try again.`,
-              },
-            ],
-          });
+          this.onItem(createNetworkErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best‑effort */
         }

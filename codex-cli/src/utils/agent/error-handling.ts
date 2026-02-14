@@ -147,7 +147,8 @@ export function isErrorNetworkOrServer(error: any): boolean {
   // variations without enumerating every errno.
   if (
     typeof e.message === "string" &&
-    /network|socket|stream/i.test(e.message)
+    (/network|socket|stream|fetch failed/i.test(e.message) || 
+     e.message.includes("UND_ERR_"))
   ) {
     return true;
   }
@@ -158,13 +159,15 @@ export function isErrorNetworkOrServer(error: any): boolean {
 /**
  * Creates a system message for network errors
  */
-export function createNetworkErrorSystemMessage(provider: string = "AI"): ChatCompletionMessageParam {
+export function createNetworkErrorSystemMessage(error: any, provider: string = "AI"): ChatCompletionMessageParam {
+  const e: any = error;
+  const details = e.code || e.message || "Unknown error";
   return {
     role: "assistant",
     content: [
       {
         type: "text",
-        text: `⚠️  Network error while contacting ${provider}. Please check your connection and try again.`,
+        text: `⚠️  Network error while contacting ${provider} (${details}). Please check your connection and try again.`,
       },
     ],
   };
