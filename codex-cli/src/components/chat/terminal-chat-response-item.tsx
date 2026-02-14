@@ -743,60 +743,54 @@ export function Markdown({
   const size = useTerminalSize();
 
   const rendered = React.useMemo(() => {
-    // Configure marked for this specific render
-    setOptions({
-      gfm: true,
-      breaks: true,
-      // @ts-expect-error missing parser, space props
-      renderer: new TerminalRenderer({
+    try {
+      const renderer = new TerminalRenderer({
         ...options,
-        width: size.columns,
+        width: Math.max(size.columns - 4, 20),
         tab: 2,
         highlight: (code: string, lang: string) => {
-          return syntaxHighlight(code, { language: lang, ignoreIllegals: true });
+          try {
+            return syntaxHighlight(code, { language: lang, ignoreIllegals: true });
+          } catch {
+            return code;
+          }
         },
         // Enhanced styling
-        heading: chalk[theme.assistant as ForegroundColorName].bold,
-        firstHeading: chalk[theme.assistant as ForegroundColorName].bold.underline,
+        heading: chalk[theme.assistant as ForegroundColorName]?.bold || chalk.bold,
+        firstHeading: chalk[theme.assistant as ForegroundColorName]?.bold?.underline || chalk.bold.underline,
+        strong: chalk.bold,
+        em: chalk.italic,
         tableOptions: {
           style: {
             head: [theme.highlight, "bold"],
             border: [theme.dim],
           },
-          chars: {
-            top: "─",
-            "top-mid": "┬",
-            "top-left": "┌",
-            "top-right": "┐",
-            bottom: "─",
-            "bottom-mid": "┴",
-            "bottom-left": "└",
-            "bottom-right": "┘",
-            left: "│",
-            "left-mid": "├",
-            mid: "─",
-            "mid-mid": "┼",
-            right: "│",
-            "right-mid": "┤",
-            middle: "│",
-          },
         },
-      } as any),
-    });
-    const parsed = parse(children, { async: false });
+      } as any);
 
-    // Enhanced Task List Rendering (post-parse fix for reliability)
-    // Matches GFM task list patterns and replaces them with icons
-    const fixedOutput = parsed
-      .replace(/^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim, chalk[theme.success as ForegroundColorName]("✅ "))
-      .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalk[theme.dim as ForegroundColorName]("⬜ "))
-      // Handle nested task lists (up to a few levels of indentation)
-      .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
-      .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
+      const parsed = parse(children, { 
+        async: false,
+        gfm: true,
+        breaks: true,
+        renderer 
+      });
 
-    return fixedOutput;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- options is an object of primitives
-  }, [children, size.columns, size.rows, theme]);
+      // If for some reason it returns a promise (it shouldn't with async: false),
+      // or if it's empty, return children.
+      if (typeof parsed !== "string" || !parsed) {
+        return children;
+      }
+
+      // Enhanced Task List Rendering
+      return parsed
+        .replace(/^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim, chalk[theme.success as ForegroundColorName]("✅ "))
+        .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalk[theme.dim as ForegroundColorName]("⬜ "))
+        .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
+        .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
+    } catch (e) {
+      return children;
+    }
+  }, [children, size.columns, theme]);
 
   return <Text>{rendered}</Text>;
 }
