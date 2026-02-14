@@ -429,11 +429,10 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
       gap={0}
       marginY={1}
       borderStyle="round"
-      borderColor={theme.dim}
+      borderColor={theme.highlight}
       width="100%"
-      paddingX={1}
     >
-      <Box gap={1}>
+      <Box gap={1} paddingX={1}>
         {loading ? (
           <Spinner type="dots" color={theme.toolLabel} />
         ) : (
@@ -593,13 +592,12 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       flexDirection="column"
       gap={0}
       borderStyle="round"
-      borderColor={isError ? theme.error : theme.dim}
-      paddingX={1}
+      borderColor={isError ? theme.error : theme.highlight}
       marginY={0}
       width="100%"
     >
       {toolCall && (
-        <Box gap={1} marginBottom={isDebug || isError ? 1 : 0}>
+        <Box gap={1} paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
           <Text color={theme.toolIcon} bold>
             {icon}
           </Text>
@@ -611,7 +609,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       )}
 
       {(isError || isDebug) && toolCall && (toolCall as any).function && (
-        <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
+        <Box flexDirection="column" paddingLeft={3} paddingRight={1} marginBottom={1}>
           <Box gap={1}>
             <Text bold color={theme.dim}>args:</Text>
             <Text color={theme.dim} wrap="wrap">{(toolCall as any).function.arguments}</Text>
@@ -619,26 +617,26 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
         </Box>
       )}
 
-      <Box gap={1}>
+      <Box gap={1} paddingX={1}>
         <Text color={labelColor} bold wrap="wrap">
           {label}
         </Text>
         <Text color={theme.dim} wrap="wrap">{metadataInfo ? `(${metadataInfo})` : ""}</Text>
       </Box>
       {headerContent && (
-        <Box>
+        <Box paddingX={1}>
           <Text italic color={theme.highlight} wrap="wrap">
             {headerContent}
           </Text>
         </Box>
       )}
-      <Box marginTop={displayedContent ? 0 : 0}>
+      <Box marginTop={displayedContent ? 0 : 0} paddingX={1}>
         <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
           {colorizedContent || chalk.italic.gray("(no output)")}
         </Text>
       </Box>
       {!isCollapsed && isLargeOutput && (
-        <Box marginTop={0}>
+        <Box marginTop={0} paddingX={1}>
           <Text color={theme.dim} italic>(press 'c' to collapse)</Text>
         </Box>
       )}
