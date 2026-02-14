@@ -28,6 +28,7 @@ import {
   parseToolCallOutput,
   parseToolCallChatCompletion,
 } from "./utils/parsers";
+import { recipes } from "./utils/recipes";
 import { CLI_VERSION, setSessionId } from "./utils/session";
 import { loadRollouts, loadRollout, flushRollout } from "./utils/storage/save-rollout";
 import { onExit, setInkRenderer } from "./utils/terminal";
@@ -74,6 +75,7 @@ const cli = meow(
     -i, --image <path>         Path(s) to image files to include as input
     -v, --view <rollout>       Inspect a previously saved rollout instead of starting a session
     -q, --quiet                Non-interactive mode that only prints the assistant's final output
+    -r, --recipe <name>        Apply a predefined prompt template (recipe) to the input
     -c, --config               Open the instructions file in your editor
     -a, --approval-mode <mode> Override the approval policy: 'suggest', 'auto-edit', or 'full-auto'
 
@@ -118,6 +120,11 @@ const cli = meow(
         type: "boolean",
         aliases: ["q"],
         description: "Non-interactive quiet mode",
+      },
+      recipe: {
+        type: "string",
+        aliases: ["r"],
+        description: "Apply a predefined prompt template (recipe)",
       },
       json: {
         type: "boolean",
@@ -326,6 +333,21 @@ if (
   if (stdinPrompt) {
     // If we have both, separate them with double newlines
     prompt = prompt ? `${prompt}\n\n${stdinPrompt}` : stdinPrompt;
+  }
+}
+
+if (cli.flags.recipe) {
+  const recipeName = cli.flags.recipe.toLowerCase();
+  const recipe = recipes.find(r => r.name.toLowerCase() === recipeName || r.name.toLowerCase().includes(recipeName));
+  if (recipe) {
+    prompt = `Recipe: ${recipe.name}\n${recipe.prompt}\n\nUser Input: ${prompt}`;
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(`\n❌ Recipe "${cli.flags.recipe}" not found.`);
+    // eslint-disable-next-line no-console
+    console.log("\nAvailable recipes:");
+    recipes.forEach(r => console.log(`  - ${r.name}: ${r.description}`));
+    process.exit(1);
   }
 }
 

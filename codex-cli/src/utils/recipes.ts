@@ -105,4 +105,14 @@ Your task is to focus on the backend of this project. You will be responsible fo
     description: "Creates OpenAPI (Swagger) documentation for an API file.",
     prompt: "Analyze the provided API route file (e.g., an Express router). Generate an OpenAPI 3.0 specification in YAML format that documents each endpoint. Include paths, methods, parameters (path, query, body), and example responses based on the code.",
   },
+  {
+    name: "Feature Scaffolder",
+    description: "Scaffolds a new feature (component, route, service, and test) based on your description.",
+    prompt: "Analyze the current project structure and patterns. Scaffold a new feature based on the user's description. Create all necessary files (e.g., UI components, API routes, services, and unit tests) following existing naming conventions and directory layouts. Ensure the feature is properly integrated and exported.",
+  },
+  {
+    name: "Accessibility (a11y) Expert",
+    description: "Reviews components for WCAG compliance, adding ARIA labels and keyboard support.",
+    prompt: "Review the frontend components in the specified path for web accessibility (WCAG) compliance. Improve the code by adding appropriate ARIA labels, ensuring correct semantic HTML usage, and implementing keyboard navigation support where missing. Focus on making the UI inclusive for screen readers and keyboard-only users.",
+  },
 ];
