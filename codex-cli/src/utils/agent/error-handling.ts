@@ -70,10 +70,17 @@ export function isErrorClientError(error: any): boolean {
  */
 export function isErrorTooManyTokens(error: any): boolean {
   const errCtx = error as any;
+  const rawMsg = errCtx.message || "";
+  
+  // Anthropic TPM limit check
+  if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
+    return true;
+  }
+
   const isTooManyTokensError = 
     (errCtx.param === "max_tokens" ||
-      (typeof errCtx.message === "string" &&
-        /max_tokens is too large/i.test(errCtx.message))) &&
+      (typeof rawMsg === "string" &&
+        /max_tokens is too large/i.test(rawMsg))) &&
     errCtx.type === "invalid_request_error";
   return isTooManyTokensError;
 }

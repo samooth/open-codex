@@ -568,6 +568,10 @@ export class AgentLoop {
                 const errorData = await response.json().catch(() => ({}));
                 const err = new Error(`Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`);
                 (err as any).status = response.status;
+                const retryAfter = response.headers.get("retry-after");
+                if (retryAfter) {
+                  (err as any).retryAfter = retryAfter;
+                }
                 throw err;
               }
 
@@ -666,17 +670,33 @@ export class AgentLoop {
 
             if (isErrorRateLimit(error)) {
               if (attempt < MAX_RETRIES) {
+                // If the error message explicitly says "would exceed", it's a context length/TPM issue
+                // that no amount of retrying will fix unless we reduce the prompt.
+                const rawMsg = (error as any).message || "";
+                if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
+                  this.onItem(createTokenLimitErrorSystemMessage());
+                  this.onLoading(false);
+                  return;
+                }
+
                 // Exponential backoff: base wait * 2^(attempt-1), or use suggested retry time
                 // if provided.
                 let delayMs = RATE_LIMIT_RETRY_WAIT_MS * 2 ** (attempt - 1);
 
-                // Parse suggested retry time from error message, e.g., "Please try again in 1.3s"
-                const msg = errCtx?.message ?? "";
-                const m = /(?:retry|try) again in ([\d.]+)s/i.exec(msg);
-                if (m && m[1]) {
-                  const suggested = parseFloat(m[1]) * 1000;
+                if ((error as any).retryAfter) {
+                  const suggested = parseFloat((error as any).retryAfter) * 1000;
                   if (!Number.isNaN(suggested)) {
                     delayMs = suggested;
+                  }
+                } else {
+                  // Parse suggested retry time from error message, e.g., "Please try again in 1.3s"
+                  const msg = errCtx?.message ?? "";
+                  const m = /(?:retry|try) again in ([\d.]+)s/i.exec(msg);
+                  if (m && m[1]) {
+                    const suggested = parseFloat(m[1]) * 1000;
+                    if (!Number.isNaN(suggested)) {
+                      delayMs = suggested;
+                    }
                   }
                 }
                 log(
