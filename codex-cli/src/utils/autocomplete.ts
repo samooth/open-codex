@@ -18,7 +18,8 @@ export function getFileSearchMatch(input: string): FileSearchMatch | null {
   if (lastAt === -1) return null;
   
   // Ensure it's either at the start or preceded by a space/bracket/quote/etc
-  if (lastAt > 0 && !/[\s(\[{"'<=]/.test(input[lastAt - 1])) return null;
+  const prevChar = lastAt > 0 ? input[lastAt - 1] : "";
+  if (lastAt > 0 && prevChar && !/[\s(\[{"'<=]/.test(prevChar)) return null;
 
   const afterAt = input.slice(lastAt + 1);
   

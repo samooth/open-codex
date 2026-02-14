@@ -8,13 +8,14 @@ import type { ResponseReasoningItem } from "openai/resources/responses/responses
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import {
   parseToolCallOutput,
-  parseToolCallArguments
 } from "../../utils/parsers";
-import type { CommandReviewDetails } from "../../utils/parsers";
-import { formatCommandForDisplay } from '../../format-command.js';
+import {
+  getToolDisplayInfo,
+  getSyntaxHighlightTheme,
+} from "./terminal-chat-utils.js";
 import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text, useInput } from "ink";
-import { parse, setOptions } from "marked";
+import { marked } from "marked";
 import TerminalRenderer from "marked-terminal";
 import Spinner from "../vendor/ink-spinner.js";
 import { highlight as syntaxHighlight } from "cli-highlight";
@@ -22,39 +23,6 @@ import React, { useMemo, useState } from "react";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { Theme } from "../../utils/theme.js";
 import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
-
-
-export function getCommandReviewDetails(
-  toolCall: ChatCompletionMessageToolCall,
-): CommandReviewDetails | undefined {
-  if (!toolCall || toolCall.type !== "function" || !toolCall.function) {
-    return undefined;
-  }
-
-  const result = parseToolCallArguments(toolCall.function.arguments);
-  if (!result.success) {
-    return {
-      cmd: [],
-      cmdReadableText: toolCall.function.arguments,
-    };
-  }
-
-  if (!result.multiCall && result.args) {
-    const cmd = result.args.cmd;
-    if (cmd) {
-      const cmdReadableText = formatCommandForDisplay(cmd);
-      return {
-        cmd,
-        cmdReadableText,
-      };
-    }
-  }
-
-  return {
-    cmd: [],
-    cmdReadableText: `${toolCall.function.name} ${toolCall.function.arguments}`,
-  };
-}
 
 
 function TerminalChatResponseItem({
@@ -149,6 +117,7 @@ export default React.memo(TerminalChatResponseItem);
 // Utility helpers
 // ---------------------------------------------------------------------------
 
+
 /**
  * Guess how long the assistant spent "thinking" based on the combined length
  * of the reasoning summary. The calculation itself is fast, but wrapping it in
@@ -189,7 +158,7 @@ export function TerminalChatResponseReasoning({
   return (
     <Box gap={1} flexDirection="column">
       <Box gap={1}>
-        <Text bold color="magenta">
+        <Text bold color={theme.thought}>
           thinking
         </Text>
         <Text dimColor>for {thinkingTime}s</Text>
@@ -272,18 +241,41 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const thoughts: Array<string> = [];
   const plans: Array<string> = [];
   
-  const thoughtRegex = /<(thought|think)>([\s\S]*?)(?:<\/\1>|$)/gim;
-  const planRegex = /<plan>([\s\S]*?)(?:<\/plan>|$)/gim;
+  let remainingContent = content;
+  let displayContent = "";
 
-  let displayContent = content.replace(thoughtRegex, (_, _tagName, thought) => {
-    thoughts.push(thought.trim());
-    return "";
-  });
-  
-  displayContent = displayContent.replace(planRegex, (_, plan) => {
-    plans.push(plan.trim());
-    return "";
-  });
+  while (remainingContent.length > 0) {
+    const thoughtMatch = remainingContent.match(/<(thought|think)>([\s\S]*?)(?:<\/(?:thought|think)>|$)/i);
+    const planMatch = remainingContent.match(/<plan>([\s\S]*?)(?:<\/plan>|$)/i);
+
+    if (!thoughtMatch && !planMatch) {
+      displayContent += remainingContent;
+      break;
+    }
+
+    // Determine which match comes first
+    const thoughtIndex = thoughtMatch ? remainingContent.indexOf(thoughtMatch[0]) : Infinity;
+    const planIndex = planMatch ? remainingContent.indexOf(planMatch[0]) : Infinity;
+
+    if (thoughtIndex < planIndex) {
+      // Add text before the match to display content
+      displayContent += remainingContent.slice(0, thoughtIndex);
+      if (thoughtMatch) {
+        thoughts.push((thoughtMatch[2] || "").trim());
+        remainingContent = remainingContent.slice(thoughtIndex + thoughtMatch[0].length);
+      } else {
+        remainingContent = remainingContent.slice(thoughtIndex);
+      }
+    } else {
+      displayContent += remainingContent.slice(0, planIndex);
+      if (planMatch) {
+        plans.push((planMatch[1] || "").trim());
+        remainingContent = remainingContent.slice(planIndex + planMatch[0].length);
+      } else {
+        remainingContent = remainingContent.slice(planIndex);
+      }
+    }
+  }
 
   const hasThoughts = thoughts.length > 0;
   const hasPlans = plans.length > 0;
@@ -323,7 +315,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
           key={i}
           flexDirection="column"
           paddingLeft={2}
-          borderStyle="round"
+          borderStyle="classic"
           borderColor={theme.dim}
           marginTop={hasContent ? 1 : 0}
           marginBottom={1}
@@ -339,7 +331,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
           key={i}
           flexDirection="column"
           paddingLeft={2}
-          borderStyle="round"
+          borderStyle="classic"
           borderColor={theme.plan}
           marginTop={1}
           marginBottom={1}
@@ -368,82 +360,6 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   );
 });
 
-function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
-  const details = getCommandReviewDetails(message);
-  const toolName = (message as any)?.function?.name || "";
-  const rawArgs = (message as any)?.function?.arguments || "{}";
-
-  let args: any = {};
-  try {
-    args = JSON.parse(rawArgs);
-  } catch {
-    // ignore
-  }
-
-  let label = "command";
-  let icon = "⚙️";
-  let color: ForegroundColorName = "cyanBright";
-  let summary = details?.cmdReadableText;
-
-  // Semantic mapping for tools
-  if (toolName.includes("read_file_lines")) {
-    label = "reading lines";
-    icon = "📖";
-    summary = `${args.path} [${args.start_line}-${args.end_line}]`;
-  } else if (toolName.includes("read_file")) {
-    label = "reading file";
-    icon = "📄";
-    summary = args.path;
-  } else if (toolName.includes("write_file")) {
-    label = "writing file";
-    icon = "✍️";
-    summary = args.path;
-  } else if (toolName.includes("delete_file")) {
-    label = "deleting file";
-    icon = "🗑️";
-    color = "magentaBright";
-    summary = args.path;
-  } else if (
-    toolName.includes("list_directory") ||
-    toolName.includes("list_files")
-  ) {
-    label = "listing";
-    icon = "📂";
-    summary = args.path || ".";
-  } else if (toolName.includes("search_codebase")) {
-    label = "searching";
-    icon = "🔍";
-    summary = `"${args.pattern || args.query}" ${
-      args.path ? `in ${args.path}` : ""
-    }`;
-  } else if (toolName.includes(TOOL_APPLY_PATCH)) {
-    label = "patching";
-    icon = "🩹";
-    summary = "applying changes";
-  } else if (toolName === "web_search") {
-    label = "searching web";
-    icon = "🌐";
-    color = "blueBright";
-    summary = `"${args.query}"`;
-  } else if (toolName === "fetch_url") {
-    label = "fetching web";
-    icon = "🌐";
-    color = "blueBright";
-    summary = args.url;
-  } else if (toolName.includes("memory")) {
-    label = "memory";
-    icon = "🧠";
-    color = "cyanBright";
-    summary = args.fact || args.query || args.pattern || "maintenance";
-  } else if (toolName === TOOL_SHELL) {
-    label = "shell";
-    icon = "🐚";
-    summary = details?.cmdReadableText;
-  }
-
-  return { label, icon, color, summary, toolName, details };
-}
-
 const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToolCall({
   message,
   loading = false,
@@ -461,22 +377,28 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
       flexDirection="column"
       gap={0}
       marginY={1}
-      borderStyle="round"
+      borderStyle="classic"
       borderColor={theme.highlight}
       width="100%"
     >
-      <Box gap={1} paddingX={1}>
+      <Box paddingX={1}>
         {loading ? (
-          <Spinner type="dots" color={theme.toolLabel} />
+          <Box marginRight={1}>
+            <Spinner type="dots" color={theme.toolLabel} />
+          </Box>
         ) : (
           <Text color={theme.toolIcon} bold>
             {icon}
           </Text>
         )}
-        <Text color={theme.toolLabel} bold>
-          {label}
-        </Text>
-        <Text color={theme.dim} wrap="wrap">{summary}</Text>
+        <Box marginRight={1}>
+          <Text color={theme.toolLabel} bold>
+            {label}
+          </Text>
+        </Box>
+        <Box flexShrink={1}>
+          <Text color={theme.dim} wrap="wrap">{summary}</Text>
+        </Box>
       </Box>
       {(loading || details?.cmdReadableText) && (toolName === TOOL_SHELL ||
         toolName === TOOL_APPLY_PATCH) && (
@@ -499,7 +421,6 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
   toolCall?: ChatCompletionMessageToolCall;
   theme: Theme;
 }) {
-  const size = useTerminalSize();
   const { output, metadata } = parseToolCallOutput(content);
   const { exit_code, duration_seconds, type, url, query } =
     metadata as any;
@@ -510,7 +431,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
     return lines.length > 10;
   });
 
-  useInput((input, key) => {
+  useInput((input) => {
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
     }
@@ -602,18 +523,25 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
 
     if (language) {
       try {
-        return syntaxHighlight(displayedContent, { language, ignoreIllegals: true });
+        const highlighted = syntaxHighlight(displayedContent, { 
+          language, 
+          ignoreIllegals: true,
+          theme: getSyntaxHighlightTheme(theme)
+        });
+        return highlighted.split("\n");
       } catch { /* ignore */ }
     }
 
     return displayedContent
       .split("\n")
       .map((line) => {
-        if (line.startsWith("+") && !line.startsWith("++")) return chalk.green(line);
-        if (line.startsWith("-") && !line.startsWith("--")) return chalk.magenta(line);
+        if (line.startsWith("+") && !line.startsWith("++")) return chalk.bgGreen.white(line.padEnd(line.length + 1));
+        if (line.startsWith("-") && !line.startsWith("--")) {
+          const bgMethod = `bg${theme.deletion.charAt(0).toUpperCase()}${theme.deletion.slice(1)}` as any;
+          return (chalk as any)[bgMethod] ? (chalk as any)[bgMethod].white(line.padEnd(line.length + 1)) : chalk.bgMagenta.white(line.padEnd(line.length + 1));
+        }
         return line;
-      })
-      .join("\n");
+      });
   }, [
     displayedContent,
     toolName,
@@ -624,20 +552,26 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="round"
+      borderStyle="classic"
       borderColor={isError ? theme.error : theme.highlight}
       marginY={0}
       width="100%"
     >
       {toolCall && (
-        <Box gap={1} paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
-          <Text color={theme.toolIcon} bold>
-            {icon}
-          </Text>
-          <Text color={theme.toolLabel} bold>
-            {callLabel}
-          </Text>
-          <Text color={theme.dim} wrap="wrap">{summary}</Text>
+        <Box paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
+          <Box marginRight={1}>
+            <Text color={theme.toolIcon} bold>
+              {icon}
+            </Text>
+          </Box>
+          <Box marginRight={1}>
+            <Text color={theme.toolLabel} bold>
+              {callLabel}
+            </Text>
+          </Box>
+          <Box flexShrink={1}>
+            <Text color={theme.dim} wrap="wrap">{summary}</Text>
+          </Box>
         </Box>
       )}
 
@@ -663,10 +597,21 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
           </Text>
         </Box>
       )}
-      <Box marginTop={displayedContent ? 0 : 0} paddingX={1}>
-        <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
-          {colorizedContent || chalk.italic.gray("(no output)")}
-        </Text>
+      <Box marginTop={displayedContent ? 0 : 0} paddingX={1} flexDirection="column">
+        {Array.isArray(colorizedContent) ? (
+          colorizedContent.map((line, i) => (
+            <Box key={i}>
+              <Text color="gray">{(i + 1).toString().padStart(3)} </Text>
+              <Box flexShrink={1}>
+                <Text wrap="wrap" color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined}>{line}</Text>
+              </Box>
+            </Box>
+          ))
+        ) : (
+          <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
+            {colorizedContent || chalk.italic.gray("(no output)")}
+          </Text>
+        )}
       </Box>
       {!isCollapsed && isLargeOutput && (
         <Box marginTop={0} paddingX={1}>
@@ -766,7 +711,11 @@ export function Markdown({
         tab: 2,
         highlight: (code: string, lang: string) => {
           try {
-            return syntaxHighlight(code, { language: lang, ignoreIllegals: true });
+            return syntaxHighlight(code, { 
+              language: lang, 
+              ignoreIllegals: true,
+              theme: getSyntaxHighlightTheme(theme)
+            });
           } catch {
             return code;
           }
@@ -789,15 +738,15 @@ export function Markdown({
       // Custom renderer to wrap code blocks in a detectable delimiter
       const originalCodeRenderer = renderer.code.bind(renderer);
       renderer.code = (code: string, lang: string) => {
-        const renderedCode = originalCodeRenderer(code, lang);
+        const renderedCode = originalCodeRenderer(code, lang, false);
         return `\nCODE_BLOCK_START:${lang || "code"}\n${renderedCode}\nCODE_BLOCK_END\n`;
       };
 
-      const parsed = parse(children, { 
+      const parsed = marked.parse(children, { 
         async: false,
         gfm: true,
         breaks: true,
-        renderer 
+        renderer: renderer as any
       });
 
       if (typeof parsed !== "string" || !parsed) {
@@ -843,14 +792,14 @@ export function Markdown({
             <Box
               key={i}
               flexDirection="column"
-              borderStyle="round"
+              borderStyle="classic"
               borderColor={theme.dim}
               paddingX={1}
               marginY={1}
               width="100%"
             >
               <Box justifyContent="flex-end" marginBottom={0}>
-                <Text dimColor italic size={0.8}>{part.lang}</Text>
+                <Text dimColor italic>{(part as any).lang}</Text>
               </Box>
               <Text>{part.content}</Text>
             </Box>

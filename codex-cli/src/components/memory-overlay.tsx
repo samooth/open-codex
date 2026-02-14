@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import TextInput from "./vendor/ink-text-input.js";
+import type { Theme } from "../utils/theme.js";
 
 type MemoryEntry = {
   timestamp: string;
@@ -13,9 +14,10 @@ type MemoryEntry = {
 
 type Props = {
   onExit: () => void;
+  theme: Theme;
 };
 
-export default function MemoryOverlay({ onExit }: Props): JSX.Element {
+export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
   const [entries, setEntries] = useState<Array<MemoryEntry>>([]);
   const [cursor, setCursor] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,15 +126,15 @@ export default function MemoryOverlay({ onExit }: Props): JSX.Element {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="magenta"
+      borderStyle="classic"
+      borderColor={theme.statusBarSession}
       width={100}
     >
       <Box paddingX={1} flexDirection="column">
-        <Text bold color="magenta">Project Memory ({filteredEntries.length})</Text>
+        <Text bold color={theme.statusBarSession}>Project Memory ({filteredEntries.length})</Text>
         {isSearching ? (
           <Box>
-            <Text color="cyan">Search: </Text>
+            <Text color={theme.highlight}>Search: </Text>
             <TextInput 
               value={searchQuery} 
               onChange={setSearchQuery} 
@@ -154,13 +156,13 @@ export default function MemoryOverlay({ onExit }: Props): JSX.Element {
             return (
               <Box key={absIdx} justifyContent="space-between">
                 <Box>
-                  <Text color={selected ? "cyan" : undefined}>
+                  <Text color={selected ? theme.highlight : undefined}>
                     {selected ? "› " : "  "}
                   </Text>
                   <Box width={15}>
-                    <Text color="blue">[{entry.category}]</Text>
+                    <Text color={theme.toolLabel}>[{entry.category}]</Text>
                   </Box>
-                  <Text color={selected ? "white" : "gray"}>{entry.fact}</Text>
+                  <Text color={selected ? "white" : theme.dim}>{entry.fact}</Text>
                 </Box>
                 <Box>
                   <Text dimColor>[{entry.timestamp}]</Text>
@@ -171,7 +173,7 @@ export default function MemoryOverlay({ onExit }: Props): JSX.Element {
         )}
       </Box>
 
-      <Box paddingX={1} marginTop={1} flexDirection="column" borderStyle="single" borderColor="dimGray">
+      <Box paddingX={1} marginTop={1} flexDirection="column" borderStyle="single" borderColor={theme.dim}>
         <Text dimColor>
           esc Close | ↑↓ Scroll | / Search | d/Del Delete entry | g/G Start/End
         </Text>

@@ -1,4 +1,4 @@
-import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
@@ -15,14 +15,15 @@ import type { Theme } from "../../utils/theme.js";
 // A batch entry can either be a standalone response item or a grouped set of
 // items (e.g. auto‑approved tool‑call batches) that should be rendered
 // together.
-type BatchEntry = {
+export type BatchEntry = {
   item?: ChatCompletionMessageParam;
   group?: GroupedResponseItem;
 };
+
 type MessageHistoryProps = {
-  batch: Array<BatchEntry>;
-  groupCounts: Record<string, number>;
-  items: Array<ChatCompletionMessageParam>;
+  committedBatches: Array<BatchEntry>;
+  turnBatches: Array<BatchEntry>;
+  toolCallMap: Map<string, any>;
   userMsgCount: number;
   model: string;
   confirmationPrompt: React.ReactNode;
@@ -34,11 +35,14 @@ type MessageHistoryProps = {
   fullStdout: boolean;
   theme: Theme;
   streamingMessage?: ChatCompletionMessageParam;
+  height?: number;
+  historyKey?: number;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
-  batch,
-  items,
+  committedBatches,
+  turnBatches,
+  toolCallMap,
   headerProps,
   model,
   confirmationPrompt,
@@ -49,22 +53,23 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   fullStdout,
   theme,
   streamingMessage,
+  height = 20,
+  historyKey = 0,
 }) => {
-  const [messages, debug, toolCallMap] = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const item of items) {
-      if (item.role === "assistant" && item.tool_calls) {
-        for (const tc of item.tool_calls) {
-          map.set(tc.id, tc);
-        }
-      }
-    }
-    return [batch, process.env["DEBUG"], map];
-  }, [batch, items]);
+  const [debug] = useMemo(() => {
+    return [process.env["DEBUG"]];
+  }, []);
+
+  // Constrain turn batches to fit within height
+  const displayedTurnBatches = useMemo(() => {
+    if (turnBatches.length <= 3) return turnBatches;
+    // Only show last few batches if we have many in the current turn
+    return turnBatches.slice(-3);
+  }, [turnBatches]);
 
   return (
     <Box flexDirection="column">
-      <Static key={theme.name} items={["header", ...messages]}>
+      <Static key={`${theme.name}-${historyKey}`} items={["header", ...committedBatches]}>
         {(entry, index) => {
           if (entry === "header") {
             return <TerminalHeader key="header" {...headerProps} theme={theme} />;
@@ -75,7 +80,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           // Find the role of the previous message to determine if we should show the header
           let previousRole: string | undefined;
           if (index > 1) { // messages start at index 1 because index 0 is "header"
-            const prevEntry = messages[index - 2];
+            const prevEntry = committedBatches[index - 2];
             if (prevEntry) {
               previousRole = prevEntry.item?.role || (prevEntry.group?.items[0] as any)?.role;
             }
@@ -101,26 +106,69 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           );
         }}
       </Static>
-      {streamingMessage && (
-        <StreamingAssistantResponse 
-          message={streamingMessage}
-          loading={loading}
-          theme={theme}
-          fullStdout={fullStdout}
-          toolCallMap={toolCallMap}
-          model={model}
-          showRole={true}
-          previousRole={(() => {
-            const lastEntry = messages[messages.length - 1];
-            if (lastEntry) {
-              return lastEntry.item?.role || (lastEntry.group?.items[0] as any)?.role;
-            }
-            return undefined;
-          })()}
-        />
-      )}
+
+      {/* Render items from the current turn normally (not in Static) */}
+      <Box flexDirection="column" height={height} overflow="hidden">
+        {displayedTurnBatches.map((entry, index) => {
+          const { item, group } = entry;
+          const role = item?.role || (group?.items[0] as any)?.role;
+
+          // Determine previous role for consistent header suppression
+          let previousRole: string | undefined;
+          if (index > 0) {
+            const prevEntry = displayedTurnBatches[index - 1];
+            previousRole = prevEntry?.item?.role || (prevEntry?.group?.items[0] as any)?.role;
+          } else if (committedBatches.length > 0) {
+            const lastCommitted = committedBatches[committedBatches.length - 1];
+            previousRole = lastCommitted?.item?.role || (lastCommitted?.group?.items[0] as any)?.role;
+          }
+
+          return (
+            <Box
+              key={`turn-${index}`}
+              flexDirection="column"
+              marginTop={role === "user" ? 1 : 0}
+            >
+              <TerminalChatResponseItem
+                item={item!}
+                group={group}
+                fullStdout={fullStdout}
+                toolCallMap={toolCallMap}
+                loading={false}
+                theme={theme}
+                model={model}
+                previousRole={previousRole}
+              />
+            </Box>
+          );
+        })}
+
+        {streamingMessage && (
+          <StreamingAssistantResponse 
+            message={streamingMessage}
+            loading={loading}
+            theme={theme}
+            fullStdout={fullStdout}
+            toolCallMap={toolCallMap}
+            model={model}
+            showRole={true}
+            previousRole={(() => {
+              if (displayedTurnBatches.length > 0) {
+                const lastTurn = displayedTurnBatches[displayedTurnBatches.length - 1];
+                return lastTurn?.item?.role || (lastTurn?.group?.items[0] as any)?.role;
+              }
+              if (committedBatches.length > 0) {
+                const lastCommitted = committedBatches[committedBatches.length - 1];
+                return lastCommitted?.item?.role || (lastCommitted?.group?.items[0] as any)?.role;
+              }
+              return undefined;
+            })()}
+          />
+        )}
+      </Box>
+
       {confirmationPrompt && (
-        <Box>
+        <Box height={height}>
           <TerminalChatCommandReview
             confirmationPrompt={confirmationPrompt}
             onReviewCommand={submitConfirmation}

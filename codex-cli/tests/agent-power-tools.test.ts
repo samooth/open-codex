@@ -102,7 +102,7 @@ describe("Agent Power Tools", () => {
       
       const result = await handleUpdateTasks(ctx, JSON.stringify({ tasks }));
 
-      expect(result.metadata.exit_code).toBe(0);
+      expect(result.metadata["exit_code"]).toBe(0);
       expect(onTasksUpdate).toHaveBeenCalledWith(tasks);
     });
 
@@ -115,7 +115,7 @@ describe("Agent Power Tools", () => {
       
       const result = await handleUpdateTasks(ctx, JSON.stringify({ tasks }));
 
-      expect(result.metadata.exit_code).toBe(0);
+      expect(result.metadata["exit_code"]).toBe(0);
       expect(onTasksUpdate).toHaveBeenCalledWith([
         { label: '{"complex":"object"}', status: "done" }
       ]);
@@ -125,7 +125,7 @@ describe("Agent Power Tools", () => {
       const ctx: any = {};
       const result = await handleUpdateTasks(ctx, "{}");
 
-      expect(result.metadata.exit_code).toBe(1);
+      expect(result.metadata["exit_code"]).toBe(1);
       expect(result.outputText).toContain("tasks' array is required");
     });
   });

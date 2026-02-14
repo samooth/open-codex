@@ -51,7 +51,7 @@ const TerminalStatusBar: React.FC<Props> = ({
   };
 
   const getContextColor = (percent: number) => {
-    if (percent < 20) return theme.error;
+    if (percent < 20) return theme.deletion;
     if (percent < 50) return theme.warning;
     return theme.success;
   };

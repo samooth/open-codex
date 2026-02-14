@@ -24,6 +24,7 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import path from "path";
 import React, { useEffect, useState, useRef } from "react";
+import type { Theme } from "../utils/theme.js";
 
 /** Maximum number of characters allowed in the context passed to the model. */
 const MAX_CONTEXT_CHARACTER_LIMIT = 2_000_000;
@@ -108,11 +109,13 @@ function DirectoryInfo({
   rootPath,
   files,
   contextLimit,
+  theme,
   showStruct = false,
 }: {
   rootPath: string;
   files: Array<{ path: string; content: string }>;
   contextLimit: number;
+  theme: Theme;
   showStruct?: boolean;
 }) {
   const asciiStruct = React.useMemo(
@@ -131,41 +134,41 @@ function DirectoryInfo({
     <Box flexDirection="column">
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="gray"
+        borderStyle="classic"
+        borderColor={theme.dim}
         width={80}
         paddingX={1}
       >
         <Text>
-          <Text color="magentaBright">↳</Text> <Text bold>Directory:</Text>{" "}
+          <Text color={theme.highlight}>↳</Text> <Text bold>Directory:</Text>{" "}
           {rootPath}
         </Text>
         <Text>
-          <Text color="magentaBright">↳</Text>{" "}
+          <Text color={theme.highlight}>↳</Text>{" "}
           <Text bold>Paths in context:</Text> {rootPath} ({files.length} files)
         </Text>
         <Text>
-          <Text color="magentaBright">↳</Text> <Text bold>Context size:</Text>{" "}
+          <Text color={theme.highlight}>↳</Text> <Text bold>Context size:</Text>{" "}
           {totalChars} / {contextLimit} ( ~
           {((totalChars / contextLimit) * 100).toFixed(2)}% )
         </Text>
         {showStruct ? (
           <Text>
-            <Text color="magentaBright">↳</Text>
+            <Text color={theme.highlight}>↳</Text>
             <Text bold>Context structure:</Text>
             <Text>{asciiStruct}</Text>
           </Text>
         ) : (
           <Text>
-            <Text color="magentaBright">↳</Text>{" "}
+            <Text color={theme.highlight}>↳</Text>{" "}
             <Text bold>Context structure:</Text>{" "}
             <Text dimColor>
-              Hidden. Type <Text color="cyan">/context</Text> to show it.
+              Hidden. Type <Text color={theme.highlight}>/context</Text> to show it.
             </Text>
           </Text>
         )}
         {totalChars > contextLimit ? (
-          <Text color="red">
+          <Text color={theme.deletion}>
             Files exceed context limit. See breakdown below.
           </Text>
         ) : null}
@@ -177,17 +180,19 @@ function DirectoryInfo({
 function SummaryAndDiffs({
   summary,
   diffs,
+  theme,
 }: {
   summary: string;
   diffs: string;
+  theme: Theme;
 }) {
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text color="yellow" bold>
+      <Text color={theme.warning} bold>
         Summary:
       </Text>
       <Text>{summary}</Text>
-      <Text color="cyan" bold>
+      <Text color={theme.highlight} bold>
         Proposed Diffs:
       </Text>
       <Text>{diffs}</Text>
@@ -324,6 +329,7 @@ export interface SinglePassAppProps {
   config: AppConfig;
   rootPath: string;
   onExit?: () => void;
+  theme: Theme;
 }
 
 export function SinglePassApp({
@@ -331,6 +337,7 @@ export function SinglePassApp({
   config,
   rootPath,
   onExit,
+  theme,
 }: SinglePassAppProps): JSX.Element {
   const app = useApp();
   const [state, setState] = useState<
@@ -514,7 +521,7 @@ export function SinglePassApp({
     return (
       <Box flexDirection="column">
         <Text>Directory: {rootPath}</Text>
-        <Text color="gray">Loading file context…</Text>
+        <Text color={theme.dim}>Loading file context…</Text>
       </Box>
     );
   }
@@ -522,7 +529,7 @@ export function SinglePassApp({
   if (state === "error") {
     return (
       <Box flexDirection="column">
-        <Text color="red">Error calling OpenAI API.</Text>
+        <Text color={theme.error}>Error calling OpenAI API.</Text>
         <ContinuePrompt
           onResult={(cont) => {
             if (!cont) {
@@ -539,7 +546,7 @@ export function SinglePassApp({
   if (state === "noops") {
     return (
       <Box flexDirection="column">
-        <Text color="yellow">No valid operations returned.</Text>
+        <Text color={theme.warning}>No valid operations returned.</Text>
         <ContinuePrompt
           onResult={(cont) => {
             if (!cont) {
@@ -556,8 +563,8 @@ export function SinglePassApp({
   if (state === "applied") {
     return (
       <Box flexDirection="column">
-        <Text color="green">Changes have been applied.</Text>
-        <Text color="gray">Press any key to continue…</Text>
+        <Text color={theme.success}>Changes have been applied.</Text>
+        <Text color={theme.dim}>Press any key to continue…</Text>
       </Box>
     );
   }
@@ -572,7 +579,7 @@ export function SinglePassApp({
     setTimeout(() => setState("prompt"), 250);
     return (
       <Box flexDirection="column">
-        <Text color="red">
+        <Text color={theme.deletion}>
           Interrupted. Press Enter to return to prompt mode.
         </Text>
       </Box>
@@ -583,15 +590,15 @@ export function SinglePassApp({
     return (
       <Box flexDirection="column" gap={1}>
         {/* Info Box */}
-        <Box borderStyle="round" flexDirection="column" paddingX={1} width={80}>
+        <Box borderStyle="classic" flexDirection="column" paddingX={1} width={80}>
           <Text>
-            <Text bold color="magenta">
+            <Text bold color={theme.statusBarSession}>
               OpenCodex
             </Text>{" "}
             <Text dimColor>(full context mode)</Text>
           </Text>
           <Text>
-            <Text bold color="greenBright">
+            <Text bold color={theme.success}>
               →
             </Text>{" "}
             <Text bold>Model:</Text> {config.model}
@@ -603,11 +610,12 @@ export function SinglePassApp({
           rootPath={rootPath}
           files={files}
           contextLimit={contextLimit}
+          theme={theme}
           showStruct={showDirInfo}
         />
 
         {/* Prompt Input Box */}
-        <Box borderStyle="round" paddingX={1}>
+        <Box borderStyle="classic" paddingX={1} borderColor={theme.user}>
           <InputPrompt
             message=">>> "
             onSubmit={(val) => {
@@ -648,7 +656,7 @@ export function SinglePassApp({
   if (state === "confirm") {
     return (
       <Box flexDirection="column">
-        <SummaryAndDiffs summary={diffInfo.summary} diffs={diffInfo.diffs} />
+        <SummaryAndDiffs summary={diffInfo.summary} diffs={diffInfo.diffs} theme={theme} />
         <ConfirmationPrompt
           message="Apply these changes?"
           onResult={(accept) => {
@@ -670,12 +678,12 @@ export function SinglePassApp({
 
     return (
       <Box flexDirection="column">
-        <Text color="red">Skipped proposed changes.</Text>
+        <Text color={theme.deletion}>Skipped proposed changes.</Text>
       </Box>
     );
   }
 
-  return <Text color="gray">…</Text>;
+  return <Text color={theme.dim}>…</Text>;
 }
 
 export default {};

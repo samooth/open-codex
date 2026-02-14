@@ -2,7 +2,6 @@ import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { Theme } from "../../utils/theme.js";
 
-import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
 import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
@@ -48,9 +47,7 @@ export default function TerminalChatInput({
   loading,
   submitInput,
   confirmationPrompt,
-  submitConfirmation,
-  setPrevItems,
-  setItems,
+  setChatState,
   openOverlay,
   openHistorySelectOverlay,
   openModelOverlay,
@@ -69,13 +66,13 @@ export default function TerminalChatInput({
   partialReasoning,
   activeBlockType,
   active,
-  allowAlwaysPatch,
   awaitingContinueConfirmation,
   activeToolName,
   activeToolArguments,
   theme,
   allFiles,
   isStreamingResponse,
+  maxHeight,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -85,13 +82,11 @@ export default function TerminalChatInput({
     decision: ReviewDecision,
     customDenyMessage?: string,
   ) => void;
-  setPrevItems: (prevItems: Array<ChatCompletionMessageParam>) => void;
-  setItems: React.Dispatch<
-    React.SetStateAction<Array<ChatCompletionMessageParam>>
-  >;
+  setChatState: React.Dispatch<React.SetStateAction<any>>;
   openOverlay: () => void;
   openHistorySelectOverlay: () => void;
   openModelOverlay: () => void;
+  openApprovalPolicyOverlay?: () => void;
   openApprovalOverlay: () => void;
   openMemoryOverlay: () => void;
   openHelpOverlay: () => void;
@@ -114,6 +109,7 @@ export default function TerminalChatInput({
   theme: Theme;
   allFiles: string[];
   isStreamingResponse?: boolean;
+  maxHeight?: number;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -157,7 +153,8 @@ export default function TerminalChatInput({
       let match;
       while ((match = regex.exec(text)) !== null) {
         // Simple check to avoid highlighting emails
-        const isEmail = match.index > 0 && !/[\s(\[{"'<=]/.test(text[match.index - 1]);
+        const prevChar = match.index > 0 ? text[match.index - 1] : "";
+        const isEmail = match.index > 0 && prevChar && !/[\s(\[{"'<=]/.test(prevChar);
         if (!isEmail) {
           for (let i = 0; i < match[0].length; i++) {
             colors[match.index + i] = theme.highlight;
@@ -406,15 +403,18 @@ export default function TerminalChatInput({
 
       if (inputValue === "/ignored") {
         const ignored = getIgnoredFiles(process.cwd());
-        setItems((prev) => [
+        setChatState((prev: any) => ({
           ...prev,
-          {
-            role: "assistant",
-            content: ignored.length > 0 
-              ? `Ignored files:\n${ignored.map(f => `- ${f}`).join("\n")}`
-              : "No ignored files found.",
-          },
-        ]);
+          turnItems: [
+            ...prev.turnItems,
+            {
+              role: "assistant",
+              content: ignored.length > 0 
+                ? `Ignored files:\n${ignored.map(f => `- ${f}`).join("\n")}`
+                : "No ignored files found.",
+            },
+          ]
+        }));
         setInput("");
         return;
       }
@@ -466,18 +466,24 @@ export default function TerminalChatInput({
       } else if (inputValue === "/clear" || inputValue === "clear") {
         setInput("");
         setSessionId("");
-        setPrevItems([]);
+        
         clearTerminal();
 
         // Emit a system message to confirm the clear action.  We *append*
         // it so Ink's <Static> treats it as new output and actually renders it.
-        setItems((prev) => [
+        setChatState((prev: any) => ({
           ...prev,
-          {
-            role: "assistant",
-            content: [{ type: "text", text: "Context cleared" }],
-          },
-        ]);
+          prevItems: [],
+          turnItems: [
+            ...prev.turnItems,
+            {
+              id: `clear-${Date.now()}`,
+              type: "message",
+              role: "system",
+              content: [{ type: "text", text: "Context cleared" }],
+            },
+          ]
+        }));
 
         return;
       }
@@ -531,8 +537,7 @@ export default function TerminalChatInput({
     [
       setInput,
       submitInput,
-      setPrevItems,
-      setItems,
+      setChatState,
       app,
       setHistory,
       setHistoryIndex,
@@ -565,6 +570,7 @@ export default function TerminalChatInput({
               activeToolArguments={activeToolArguments}
               isStreamingResponse={isStreamingResponse}
               theme={theme}
+              maxHeight={maxHeight}
             />
           </Box>
         )}
@@ -638,7 +644,7 @@ export default function TerminalChatInput({
         )}
       </Box>
       {filteredFiles.length > 0 && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
+        <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
           <Box marginBottom={0} justifyContent="space-between">
             <Text bold color={theme.highlight}>File Autocomplete</Text>
             <Text color={theme.dim}>{filteredFiles.length} matches</Text>
@@ -658,7 +664,7 @@ export default function TerminalChatInput({
         </Box>
       )}
       {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
+        <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
           {filteredSlashCommands.map((cmd, i) => (
             <Box key={cmd.name} gap={2}>
               <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>
@@ -680,6 +686,7 @@ export default function TerminalChatInput({
             activeToolArguments={activeToolArguments}
             isStreamingResponse={isStreamingResponse}
             theme={theme}
+            maxHeight={maxHeight}
           />
         </Box>
       )}

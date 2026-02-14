@@ -4,13 +4,16 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Select } from "./vendor/ink-select/select.js";
 import TextInput from "./vendor/ink-text-input.js";
 import { loadRollouts, loadRollout, renameSession } from "../utils/storage/save-rollout.js";
+import type { Theme } from "../utils/theme.js";
 
 export default function HistorySelectOverlay({
   onSelect,
   onExit,
+  theme,
 }: {
   onSelect: (rollout: any) => void;
   onExit: () => void;
+  theme: Theme;
 }) {
   const [rollouts, setRollouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +73,7 @@ export default function HistorySelectOverlay({
 
   if (loading || restoring) {
     return (
-      <Box borderStyle="round" borderColor="blue" paddingX={1}>
+      <Box borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
         <Text italic>
           {restoring ? "Restoring session..." : "Loading session history..."}
         </Text>
@@ -82,14 +85,14 @@ export default function HistorySelectOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="blue"
+        borderStyle="classic"
+        borderColor={theme.highlight}
         paddingX={1}
       >
         <Box marginBottom={1}>
           <Text bold>Restore Past Session</Text>
         </Box>
-        <Text color="red">No saved sessions found.</Text>
+        <Text color={theme.deletion}>No saved sessions found.</Text>
         <Box marginTop={1}>
           <Text dimColor>Press Esc to cancel</Text>
         </Box>
@@ -111,8 +114,8 @@ export default function HistorySelectOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="blue"
+      borderStyle="classic"
+      borderColor={theme.highlight}
       paddingX={1}
       width={100}
     >
@@ -120,7 +123,7 @@ export default function HistorySelectOverlay({
         <Text bold>Restore Past Session ({filteredRollouts.length})</Text>
         {isSearching ? (
           <Box gap={1}>
-            <Text color="cyan">Search: </Text>
+            <Text color={theme.highlight}>Search: </Text>
             <TextInput
               value={filter}
               onChange={setFilter}
@@ -135,7 +138,7 @@ export default function HistorySelectOverlay({
       <Box borderStyle="single" paddingX={1} flexDirection="column">
         {renamingId ? (
           <Box gap={1}>
-            <Text color="yellow">New Name: </Text>
+            <Text color={theme.warning}>New Name: </Text>
             <TextInput
               value={newName}
               onChange={setNewName}
@@ -165,14 +168,14 @@ export default function HistorySelectOverlay({
             }}
           />
         ) : (
-          <Text color="yellow">No sessions match your search.</Text>
+          <Text color={theme.warning}>No sessions match your search.</Text>
         )}
       </Box>
 
       <Box marginTop={1}>
         <Text dimColor>
           Use arrow keys to select • Press <Text bold>Enter</Text> to restore •{" "}
-          <Text bold color="yellow">r</Text> to rename •{" "}
+          <Text bold color={theme.warning}>r</Text> to rename •{" "}
           <Text bold>Esc</Text> to cancel
         </Text>
       </Box>

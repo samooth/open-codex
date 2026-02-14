@@ -10,12 +10,14 @@ export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
   theme,
+  height,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
   theme: Theme;
+  height?: number;
 }): React.ReactElement {
-  const { rows, columns } = useTerminalSize();
+  useTerminalSize();
   const isPatch =
     !!applyPatch ||
     commandForDisplay.includes("apply_patch") ||
@@ -59,8 +61,9 @@ export function TerminalChatToolCallCommand({
   }, [applyPatch, commandForDisplay]);
 
   if (isPatch && ops) {
-    // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded
-    const maxTotalLines = isExpandedAll ? 1000 : 8;
+    // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded.
+    // Use the provided height if available, otherwise fall back to a reasonable default.
+    const maxTotalLines = isExpandedAll ? 1000 : (height ? Math.max(4, height - 10) : 8);
     let totalLinesRendered = 0;
     const isEditFile = commandForDisplay.startsWith("edit_file");
 
@@ -98,36 +101,66 @@ export function TerminalChatToolCallCommand({
           }
 
           return (
-            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle={isSelected ? "double" : "round"} borderColor={isSelected ? theme.highlight : theme.dim}>
+            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="classic" borderColor={isSelected ? theme.highlight : theme.dim}>
               <Box gap={1}>
-                <Text bold color={op.type === "delete" ? theme.error : theme.highlight}>
+                <Text bold color={op.type === "delete" ? theme.deletion : theme.highlight}>
                   {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
                 </Text>
                 <Text bold wrap="wrap">{shortenPath(op.path)}</Text>
-                <Text color={theme.dim}>
-                  ({op.added} added, {op.deleted} deleted)
-                </Text>
+                {op.type === "update" && (
+                  <Text color={theme.dim}>
+                    ({op.added} added, {op.deleted} deleted)
+                  </Text>
+                )}
                 {isCollapsed && <Text italic color={theme.dim}> (collapsed, press 'c' to expand)</Text>}
               </Box>
               {!isCollapsed && (
                 <Box marginTop={1} flexDirection="column">
                   {op.type === "delete" && (
-                    <Text color={theme.error} italic>File will be deleted</Text>
+                    <Text color={theme.deletion} italic>File will be deleted</Text>
                   )}
                   {linesToDisplay
                     .map((line, j) => {
                       if (!line && op.type === "update") return null; 
                       const displayLine = op.type === "create" ? `+${line}` : line;
+                      const lineNum = (j + 1).toString().padStart(3);
+                      
                       if (displayLine.startsWith("+") && !displayLine.startsWith("++")) {
-                        return <Text key={j} color={theme.success} wrap="wrap">{displayLine}</Text>;
+                        return (
+                          <Box key={j}>
+                            <Text color="gray">{lineNum} </Text>
+                            <Box flexShrink={1}>
+                              <Text wrap="wrap">{chalk.bgGreen.white(displayLine.padEnd(displayLine.length + 1))}</Text>
+                            </Box>
+                          </Box>
+                        );
                       }
                       if (displayLine.startsWith("-") && !displayLine.startsWith("--")) {
-                        return <Text key={j} color={theme.error} wrap="wrap">{displayLine}</Text>;
+                        const bgMethod = `bg${theme.deletion.charAt(0).toUpperCase()}${theme.deletion.slice(1)}` as any;
+                        const styledLine = (chalk as any)[bgMethod] ? (chalk as any)[bgMethod].white(displayLine.padEnd(displayLine.length + 1)) : chalk.bgMagenta.white(displayLine.padEnd(displayLine.length + 1));
+                        return (
+                          <Box key={j}>
+                            <Text color="gray">{lineNum} </Text>
+                            <Box flexShrink={1}>
+                              <Text wrap="wrap">{styledLine}</Text>
+                            </Box>
+                          </Box>
+                        );
                       }
                       if (displayLine.startsWith("@@")) {
-                        return <Text key={j} color={theme.highlight} dimColor wrap="wrap">{displayLine}</Text>;
+                        return (
+                          <Box key={j}>
+                            <Text color="gray">{lineNum} </Text>
+                            <Text color={theme.highlight} dimColor wrap="wrap">{displayLine}</Text>
+                          </Box>
+                        );
                       }
-                      return <Text key={j} wrap="wrap" color={theme.dim}>{displayLine}</Text>;
+                      return (
+                        <Box key={j}>
+                          <Text color="gray">{lineNum} </Text>
+                          <Text wrap="wrap" color={theme.dim}>{displayLine}</Text>
+                        </Box>
+                      );
                     })}
                   {showTruncated && (
                     <Text color={theme.dim} italic>... ({lines.length - availableLines} more lines truncated)</Text>
@@ -146,7 +179,7 @@ export function TerminalChatToolCallCommand({
     );
   }
 
-  const maxTotalLines = isExpandedAll ? 1000 : 5;
+  const maxTotalLines = isExpandedAll ? 1000 : (height ? Math.max(3, height - 10) : 5);
   const commandLines = commandForDisplay.split("\n");
   const showTruncatedCmd = commandLines.length > maxTotalLines;
   const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;
@@ -158,7 +191,7 @@ export function TerminalChatToolCallCommand({
         return chalk[theme.success](line);
       }
       if (line.startsWith("-") && !line.startsWith("--")) {
-        return chalk[theme.error](line);
+        return chalk[theme.deletion](line);
       }
       return line;
     })
@@ -168,7 +201,7 @@ export function TerminalChatToolCallCommand({
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="round"
+      borderStyle="classic"
       borderColor={theme.highlight}
       width="100%"
       marginY={1}
@@ -194,9 +227,11 @@ export function TerminalChatToolCallCommand({
 export function TerminalChatToolCallApplyPatch({
   commandForDisplay,
   patch,
+  theme,
 }: {
   commandForDisplay: string;
   patch: string;
+  theme: Theme;
 }): React.ReactElement {
   const ops = React.useMemo(() => parseApplyPatch(patch), [patch]);
   const firstOp = ops?.[0];
@@ -217,29 +252,29 @@ export function TerminalChatToolCallApplyPatch({
 
   if (ops == null) {
     return (
-      <>
-        <Text bold color="red">
+      <Box flexDirection="column">
+        <Text bold color={theme.deletion}>
           Invalid Patch
         </Text>
-        <Text color="red" dimColor>
+        <Text color={theme.deletion} dimColor>
           The provided patch command is invalid.
         </Text>
         <Text dimColor>{commandForDisplay}</Text>
-      </>
+      </Box>
     );
   }
 
   if (!firstOp) {
     return (
-      <>
-        <Text bold color="yellow">
+      <Box flexDirection="column">
+        <Text bold color={theme.warning}>
           Empty Patch
         </Text>
-        <Text color="yellow" dimColor>
+        <Text color={theme.warning} dimColor>
           No operations found in the patch command.
         </Text>
         <Text dimColor>{commandForDisplay}</Text>
-      </>
+      </Box>
     );
   }
 

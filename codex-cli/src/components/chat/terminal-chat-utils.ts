@@ -1,7 +1,192 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import chalk, { type ForegroundColorName } from "chalk";
 
 import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
+import { parseToolCallArguments } from "../../utils/parsers.js";
+import { formatCommandForDisplay } from "../../format-command.js";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
+import type { Theme } from "../../utils/theme.js";
+
+export interface CommandReviewDetails {
+  cmd: string[];
+  cmdReadableText: string;
+}
+
+export function getCommandReviewDetails(
+  toolCall: ChatCompletionMessageToolCall,
+): CommandReviewDetails | undefined {
+  if (!toolCall || toolCall.type !== "function" || !toolCall.function) {
+    return undefined;
+  }
+
+  const result = parseToolCallArguments(toolCall.function.arguments);
+  if (!result.success) {
+    return {
+      cmd: [],
+      cmdReadableText: toolCall.function.arguments,
+    };
+  }
+
+  if (!result.multiCall && result.args) {
+    const cmd = result.args.cmd;
+    if (cmd) {
+      const cmdReadableText = formatCommandForDisplay(cmd);
+      return {
+        cmd,
+        cmdReadableText,
+      };
+    }
+  }
+
+  return {
+    cmd: [],
+    cmdReadableText: `${toolCall.function.name} ${toolCall.function.arguments}`,
+  };
+}
+
+export function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
+  const details = getCommandReviewDetails(message);
+  const toolName = (message as any)?.function?.name || "";
+  const rawArgs = (message as any)?.function?.arguments || "{}";
+
+  let args: any = {};
+  try {
+    args = JSON.parse(rawArgs);
+  } catch {
+    // ignore
+  }
+
+  let label = "command";
+  let icon = "⚙️";
+  let color: ForegroundColorName = "cyanBright";
+  let summary = details?.cmdReadableText;
+
+  // Semantic mapping for tools
+  if (toolName.includes("read_file_lines")) {
+    label = "reading lines";
+    icon = "📖";
+    summary = `${args.path} [${args.start_line}-${args.end_line}]`;
+  } else if (toolName.includes("read_file")) {
+    label = "reading file";
+    icon = "📄";
+    summary = args.path;
+  } else if (toolName.includes("write_file")) {
+    label = "writing file";
+    icon = "✍️";
+    summary = args.path;
+  } else if (toolName.includes("delete_file")) {
+    label = "deleting file";
+    icon = "🗑️";
+    color = "magentaBright";
+    summary = args.path;
+  } else if (
+    toolName.includes("list_directory") ||
+    toolName.includes("list_files")
+  ) {
+    label = "listing";
+    icon = "📂";
+    summary = args.path || ".";
+  } else if (toolName.includes("search_codebase")) {
+    label = "searching";
+    icon = "🔍";
+    summary = `"${args.pattern || args.query}" ${
+      args.path ? `in ${args.path}` : ""
+    }`;
+  } else if (toolName.includes(TOOL_APPLY_PATCH)) {
+    label = "patching";
+    icon = "🩹";
+    summary = "applying changes";
+  } else if (toolName === "web_search") {
+    label = "searching web";
+    icon = "🌐";
+    color = "blueBright";
+    summary = `"${args.query}"`;
+  } else if (toolName === "fetch_url") {
+    label = "fetching web";
+    icon = "🌐";
+    color = "blueBright";
+    summary = args.url;
+  } else if (toolName.includes("memory")) {
+    label = "memory";
+    icon = "🧠";
+    color = "cyanBright";
+    summary = args.fact || args.query || args.pattern || "maintenance";
+  } else if (toolName === TOOL_SHELL) {
+    label = "shell";
+    icon = "🐚";
+    summary = details?.cmdReadableText;
+  }
+
+  return { label, icon, color, summary, toolName, details };
+}
+
+/**
+ * Generates a theme object for cli-highlight based on the active UI theme.
+ * This ensures syntax highlighting is consistent and doesn't use red for non-errors.
+ */
+export function getSyntaxHighlightTheme(theme: Theme) {
+  const assistantColor = chalk[theme.assistant] || chalk.greenBright;
+  const userColor = chalk[theme.user] || chalk.blueBright;
+  const highlightColor = chalk[theme.highlight] || chalk.cyanBright;
+  const successColor = chalk[theme.success] || chalk.green;
+  const warningColor = chalk[theme.warning] || chalk.yellow;
+  const dimColor = chalk[theme.dim] || chalk.gray;
+  const deletionColor = chalk[theme.deletion] || chalk.magenta;
+
+  return {
+    keyword: assistantColor,
+    built_in: chalk.cyan,
+    type: highlightColor,
+    literal: chalk.magentaBright,
+    number: deletionColor,
+    regexp: chalk.magentaBright,
+    string: successColor,
+    subst: chalk.white,
+    symbol: warningColor,
+    class: chalk.yellowBright,
+    function: userColor,
+    title: userColor,
+    params: chalk.white,
+    comment: dimColor,
+    doctag: dimColor,
+    meta: dimColor,
+    'meta-keyword': dimColor,
+    'meta-string': dimColor,
+    section: chalk.bold,
+    tag: dimColor,
+    name: userColor,
+    'builtin-name': chalk.cyan,
+    attr: highlightColor,
+    attribute: highlightColor,
+    variable: chalk.white,
+    'template-variable': chalk.white,
+    'template-tag': dimColor,
+    bullet: deletionColor,
+    code: chalk.white,
+    emphasis: chalk.italic,
+    strong: chalk.bold,
+    formula: dimColor,
+    link: chalk.underline,
+    quote: dimColor,
+    'selector-tag': userColor,
+    'selector-id': warningColor,
+    'selector-class': chalk.yellowBright,
+    'selector-attr': highlightColor,
+    'selector-pseudo': chalk.cyan,
+    addition: successColor,
+    deletion: deletionColor,
+    property: highlightColor,
+    operator: chalk.white,
+    punctuation: chalk.white,
+    'attr-name': highlightColor,
+    'attr-value': successColor,
+    'class-name': chalk.yellowBright,
+    constant: deletionColor,
+    boolean: deletionColor,
+  };
+}
+
 
 /**
  * Type‑guard that narrows a {@link ResponseItem} to one that represents a

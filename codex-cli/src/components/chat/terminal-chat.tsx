@@ -18,6 +18,7 @@ import TerminalStatusBar from "./terminal-status-bar.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
+import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
@@ -71,15 +72,32 @@ export default function TerminalChat({
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AppConfig>(initialConfig);
   const [model, setModel] = useState<string>(config.model);
-  const [prevItems, setPrevItems] = useState<Array<ChatCompletionMessageParam>>(
-    initialRollout?.items || [],
-  );
-  const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
-    initialRollout?.items || [],
-  );
+  const { rows } = useTerminalSize();
+  
+  // Group related state to ensure atomic updates and avoid flickering.
+  // We separate committedItems (rendered by Static) from turnItems (rendered normally)
+  // to prevent re-printing the whole history when a new token arrives.
+  const [chatState, setChatState] = useState({
+    committedItems: initialRollout?.items || [] as Array<ChatCompletionMessageParam>,
+    turnItems: [] as Array<ChatCompletionMessageParam>,
+    prevItems: initialRollout?.items || [] as Array<ChatCompletionMessageParam>,
+    loading: false,
+    historyKey: 0,
+    renderedPartialData: {
+      content: "",
+      reasoning: "",
+      activeToolName: undefined as string | undefined,
+      activeToolArguments: undefined as Record<string, any> | undefined,
+      activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
+    }
+  });
+
+  const { committedItems, turnItems, prevItems, loading, renderedPartialData, historyKey } = chatState;
+  const items = [...committedItems, ...turnItems];
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allFiles, setAllFiles] = useState<string[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [pendingApplyPatch, setPendingApplyPatch] = useState<ApplyPatchCommand | undefined>();
   // Allow switching approval modes at runtime via an overlay.
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     initialApprovalPolicy,
@@ -102,15 +120,6 @@ export default function TerminalChat({
     activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
   });
 
-  // Throttled state for rendering to avoid flickering
-  const [renderedPartialData, setRenderedPartialData] = useState({
-    content: "",
-    reasoning: "",
-    activeToolName: undefined as string | undefined,
-    activeToolArguments: undefined as Record<string, any> | undefined,
-    activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
-  });
-
   useInterval(() => {
     if (
       renderedPartialData.content !== partialDataRef.current.content ||
@@ -119,9 +128,12 @@ export default function TerminalChat({
       renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments ||
       renderedPartialData.activeBlockType !== partialDataRef.current.activeBlockType
     ) {
-      setRenderedPartialData({ ...partialDataRef.current });
+      setChatState(prev => ({
+        ...prev,
+        renderedPartialData: { ...partialDataRef.current }
+      }));
     }
-  }, loading ? 200 : null);
+  }, loading ? 600 : null);
 
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
@@ -137,11 +149,9 @@ export default function TerminalChat({
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
 
-  const [restoring, setRestoring] = useState(false);
-
   const handleUndo = async () => {
     if (!agent) return;
-    setLoading(true);
+    setChatState(prev => ({ ...prev, loading: true }));
     const result = await undoLastChange(
       agent.sessionId,
       (p, c) => fs.writeFileSync(p, c, "utf-8"),
@@ -149,25 +159,31 @@ export default function TerminalChat({
     );
     
     if (result.success) {
-      setItems(result.items);
-      setPrevItems(result.items);
-      setItems(prev => [
+      const assistantMsg = {
+        role: "assistant" as const,
+        content: `🔄 ${result.message}`
+      };
+      setChatState(prev => ({
         ...prev,
-        {
-          role: "assistant",
-          content: `🔄 ${result.message}`
-        }
-      ]);
+        committedItems: [...result.items, assistantMsg],
+        turnItems: [],
+        prevItems: result.items,
+        loading: false,
+        historyKey: prev.historyKey + 1
+      }));
     } else {
-      setItems(prev => [
+      const errorMsg = {
+        role: "assistant" as const,
+        content: `⚠️ ${result.message}`
+      };
+      setChatState(prev => ({
         ...prev,
-        {
-          role: "assistant",
-          content: `⚠️ ${result.message}`
-        }
-      ]);
+        committedItems: [...prev.committedItems, errorMsg],
+        turnItems: [],
+        loading: false,
+        historyKey: prev.historyKey + 1
+      }));
     }
-    setLoading(false);
   };
 
   const awaitingContinueConfirmation = useMemo(() => {
@@ -224,137 +240,168 @@ export default function TerminalChat({
       model,
       config,
       instructions: config.instructions,
-      approvalPolicy,
-      onReset: () => {
-        setPrevItems([]);
-        setTasks([]);
-      },
-      onTasksUpdate: (newTasks) => {
-        setTasks(newTasks);
-      },
-      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
-        partialDataRef.current.content = content;
-        if (reasoning) {
-          if (activeToolName) {
-            partialDataRef.current.reasoning = reasoning;
-          } else {
-            partialDataRef.current.reasoning += reasoning;
-          }
-        } else if (content) {
-          // Extract <thought>, <think>, or <plan> content if present
-          const thoughtMatch = content.match(/<(thought|think|plan)>([\s\S]*?)$|(<(thought|think|plan)>([\s\S]*?)<\/\4>)/g);
-          if (thoughtMatch && thoughtMatch.length > 0) {
-             const lastMatch = thoughtMatch[thoughtMatch.length - 1];
-             if (lastMatch) {
-               const type = lastMatch.startsWith("<thought") ? "thought" : lastMatch.startsWith("<think") ? "think" : "plan";
-               partialDataRef.current.activeBlockType = type;
-               const cleanThought = lastMatch
-                 .replace(/<\/?(thought|think|plan)>/g, "")
-                 .trim();
-               if (cleanThought) {
-                 partialDataRef.current.reasoning = cleanThought;
-               }
-             }
-          }
-        }
-        partialDataRef.current.activeToolName = activeToolName;
-        partialDataRef.current.activeToolArguments = activeToolArguments;
-      },
-      onItem: (item: ChatCompletionMessageParam) => {
-        log(`onItem: ${JSON.stringify(item)}`);
-        // Clear partials when a full item is received
-        partialDataRef.current = {
-          content: "",
-          reasoning: "",
-          activeToolName: undefined,
-          activeToolArguments: undefined,
-          activeBlockType: undefined,
-        };
-        setRenderedPartialData({ ...partialDataRef.current });
-
-        setItems((prev) => {
-          // If it's a streaming tool update, try to update the existing item
-          if (item.role === "tool" && "tool_call_id" in item) {
-            try {
-              const content = JSON.parse(item.content as string);
-              if (content.streaming) {
-                const existingIndex = prev.findLastIndex(
-                  (i) =>
-                    i.role === "tool" &&
-                    "tool_call_id" in i &&
-                    i.tool_call_id === item.tool_call_id,
-                );
-                if (existingIndex !== -1) {
-                  const updated = [...prev];
-                  updated[existingIndex] = item;
-                  return updated;
+                        approvalPolicy,
+                        onReset: () => {
+                          setChatState(prev => ({ ...prev, committedItems: [], turnItems: [], prevItems: [], historyKey: prev.historyKey + 1 }));
+                          setTasks([]);
+                        },            onTasksUpdate: (newTasks) => {
+              setTasks(newTasks);
+            },
+            onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
+              partialDataRef.current.content = content;
+              if (reasoning) {
+                if (activeToolName) {
+                  partialDataRef.current.reasoning = reasoning;
+                } else {
+                  partialDataRef.current.reasoning += reasoning;
                 }
-              }
-            } catch {
-              /* ignore parse errors */
-            }
-          }
-
-          const updated = [...prev, item];
-          saveRollout(updated);
-          return updated;
-        });
-        setPrevItems((prev) => {
-          // Same logic for prevItems
-          if (item.role === "tool" && "tool_call_id" in item) {
-            try {
-              const content = JSON.parse(item.content as string);
-              if (content.streaming) {
-                const existingIndex = prev.findLastIndex(
-                  (i) =>
-                    i.role === "tool" &&
-                    "tool_call_id" in i &&
-                    i.tool_call_id === item.tool_call_id,
-                );
-                if (existingIndex !== -1) {
-                  const updated = [...prev];
-                  updated[existingIndex] = item;
-                  return updated;
+                                      } else if (content) {
+                                        // Extract <thought>, <think>, or <plan> content if present (handles unclosed tags)
+                                        // We prioritize the most recently opened tag that is still open.
+                                        const planMatch = content.match(/<plan>([\s\S]*?)$/i);
+                                        const thoughtMatch = content.match(/<(thought|think)>([\s\S]*?)$/i);
+                                        
+                                        if (planMatch) {
+                                          partialDataRef.current.activeBlockType = "plan";
+                                          partialDataRef.current.reasoning = (planMatch[1] || "").trim();
+                                        } else if (thoughtMatch) {
+                                          partialDataRef.current.activeBlockType = thoughtMatch[1]?.toLowerCase() === "think" ? "think" : "thought";
+                                          partialDataRef.current.reasoning = (thoughtMatch[2] || "").trim();
+                                        } else {
+                                          // Fallback to searching for the last closed/unclosed block if no trailing open tag found
+                                          const anyMatch = content.match(/<(thought|think|plan)>([\s\S]*?)(?:<\/(?:thought|think|plan)>|$)/gi);
+                                          if (anyMatch && anyMatch.length > 0) {
+                                            const lastMatch = anyMatch[anyMatch.length - 1];
+                                            if (lastMatch) {
+                                              const typeMatch = lastMatch.match(/<(thought|think|plan)>/i);
+                                              const type = typeMatch ? (typeMatch[1]?.toLowerCase() as any) : "thought";
+                                              partialDataRef.current.activeBlockType = type;
+                                              partialDataRef.current.reasoning = lastMatch
+                                                .replace(/<\/?(thought|think|plan)>/gi, "")
+                                                .trim();
+                                            }
+                                          }
+                                        }
+                                      }              partialDataRef.current.activeToolName = activeToolName;
+              partialDataRef.current.activeToolArguments = activeToolArguments;
+            },
+            onItem: (item: ChatCompletionMessageParam) => {
+              log(`onItem: ${JSON.stringify(item)}`);
+              
+              // Clear partials when a full item is received
+              partialDataRef.current = {
+                content: "",
+                reasoning: "",
+                activeToolName: undefined,
+                activeToolArguments: undefined,
+                activeBlockType: undefined,
+              };
+      
+              setChatState((prev) => {
+                let nextTurnItems = [...prev.turnItems];
+                let nextPrevItems = [...prev.prevItems];
+      
+                // If it's a streaming tool update, try to update the existing item in the current turn
+                if (item.role === "tool" && "tool_call_id" in item) {
+                  try {
+                    const content = JSON.parse(item.content as string);
+                    if (content.streaming) {
+                      const existingIndex = nextTurnItems.findLastIndex(
+                        (i) =>
+                          i.role === "tool" &&
+                          "tool_call_id" in i &&
+                          i.tool_call_id === item.tool_call_id,
+                      );
+                      if (existingIndex !== -1) {
+                        nextTurnItems[existingIndex] = item;
+                      } else {
+                        nextTurnItems.push(item);
+                      }
+      
+                      const existingPrevIndex = nextPrevItems.findLastIndex(
+                        (i) =>
+                          i.role === "tool" &&
+                          "tool_call_id" in i &&
+                          i.tool_call_id === item.tool_call_id,
+                      );
+                      if (existingPrevIndex !== -1) {
+                        nextPrevItems[existingPrevIndex] = item;
+                      } else {
+                        nextPrevItems.push(item);
+                      }
+                    } else {
+                      nextTurnItems.push(item);
+                      nextPrevItems.push(item);
+                    }
+                  } catch {
+                    nextTurnItems.push(item);
+                    nextPrevItems.push(item);
+                  }
+                } else {
+                  nextTurnItems.push(item);
+                  nextPrevItems.push(item);
                 }
-              }
-            } catch {
-              /* ignore parse errors */
-            }
-          }
-          return [...prev, item];
-        });
-      },
-      onLoading: (isLoading: boolean) => {
-        if (isLoading) {
-          partialDataRef.current = {
-            content: "",
-            reasoning: "",
-            activeToolName: undefined,
-            activeToolArguments: undefined,
-            activeBlockType: undefined,
-          };
-          setRenderedPartialData({ ...partialDataRef.current });
-        }
-        setLoading(isLoading);
-      },
+      
+                saveRollout([...prev.committedItems, ...nextTurnItems]);
+                
+                return {
+                  ...prev,
+                  turnItems: nextTurnItems,
+                  prevItems: nextPrevItems,
+                  renderedPartialData: { ...partialDataRef.current }
+                };
+              });
+            },
+            onLoading: (isLoading: boolean) => {
+              setChatState(prev => {
+                if (isLoading) {
+                  // Starting a new turn - items from previous turn are now committed
+                  return {
+                    ...prev,
+                    committedItems: [...prev.committedItems, ...prev.turnItems],
+                    turnItems: [],
+                    loading: true,
+                    renderedPartialData: {
+                      content: "",
+                      reasoning: "",
+                      activeToolName: undefined,
+                      activeToolArguments: undefined,
+                      activeBlockType: undefined,
+                    }
+                  };
+                } else {
+                  // Turn finished
+                  return {
+                    ...prev,
+                    loading: false,
+                    renderedPartialData: {
+                      content: "",
+                      reasoning: "",
+                      activeToolName: undefined,
+                      activeToolArguments: undefined,
+                      activeBlockType: undefined,
+                    }
+                  };
+                }
+              });
+            },
       getCommandConfirmation: async (
         command: Array<string>,
         applyPatch: ApplyPatchCommand | undefined,
       ): Promise<CommandConfirmation> => {
         log(`getCommandConfirmation: ${command}`);
         const commandForDisplay = formatCommandForDisplay(command);
-        
-        // Attach the patch to the request function so it can be passed to the overlay
-        (requestConfirmation as any)._pendingApplyPatch = applyPatch;
-
+        setPendingApplyPatch(applyPatch);
         const { decision: review, customDenyMessage, updatedApplyPatch } =
           await requestConfirmation(
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
               applyPatch={applyPatch}
               theme={activeTheme}
+              height={rows}
             />,
           );
+        setPendingApplyPatch(undefined);
         return { review, customDenyMessage, applyPatch: updatedApplyPatch || applyPatch };
       },
       getUserChoice: async (prompt: string, choices?: string[]): Promise<string> => {
@@ -370,7 +417,6 @@ export default function TerminalChat({
               </Box>
             )}
           </Box>,
-          choices,
         );
         return customDenyMessage || decision;
       },
@@ -416,14 +462,17 @@ export default function TerminalChat({
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
   // ---------------------------------------------------------------------
 
+  const initialPromptProcessed = React.useRef(false);
   useEffect(() => {
     const processInitialInputItems = async () => {
+      if (initialPromptProcessed.current) return;
       if (
         (!initialPrompt || initialPrompt.trim() === "") &&
         (!initialImagePaths || initialImagePaths.length === 0)
       ) {
         return;
       }
+      initialPromptProcessed.current = true;
       const inputItems = [
         await createInputItem(initialPrompt || "", initialImagePaths || []),
       ];
@@ -433,14 +482,14 @@ export default function TerminalChat({
       agent?.run(inputItems, prevItems);
     };
     processInitialInputItems();
-  }, [agent, initialPrompt, initialImagePaths, prevItems]);
+  }, [agent, initialPrompt, initialImagePaths]); // Removed prevItems from dependencies
 
   // Group consecutive tool messages into batches
-  const lastMessageBatch = useMemo(() => {
+  const getBatches = (itemsArr: ChatCompletionMessageParam[]) => {
     const batches: Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }> = [];
     let currentGroup: GroupedResponseItem | null = null;
 
-    for (const item of items) {
+    for (const item of itemsArr) {
       if (item.role === "tool") {
         if (!currentGroup) {
           currentGroup = {
@@ -462,9 +511,23 @@ export default function TerminalChat({
       batches.push({ group: currentGroup });
     }
     return batches;
+  };
+
+  const committedBatches = useMemo(() => getBatches(committedItems), [committedItems]);
+  const turnBatches = useMemo(() => getBatches(turnItems), [turnItems]);
+
+  const toolCallMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const item of items) {
+      if (item.role === "assistant" && item.tool_calls) {
+        for (const tc of item.tool_calls) {
+          map.set(tc.id, tc);
+        }
+      }
+    }
+    return map;
   }, [items]);
 
-  const groupCounts: Record<string, number> = {};
   const userMsgCount = items.filter((i) => i.role === "user").length;
 
   const contextLeftPercent = useMemo(
@@ -473,6 +536,12 @@ export default function TerminalChat({
   );
 
   const activeTheme = getTheme(config.theme);
+
+  // Dynamic layout constraints
+  const statusBarHeight = 1;
+  const roadmapHeight = (tasks.length > 0 && !confirmationPrompt) ? tasks.length + 2 : 0;
+  const inputHeight = loading ? 4 : 10; // Thinking indicator vs full editor
+  const availableHistoryHeight = Math.max(5, rows - statusBarHeight - roadmapHeight - inputHeight - 6);
 
   const memoizedStreamingMessage = useMemo(() => {
     if (!loading || (!renderedPartialData.content && !renderedPartialData.reasoning)) {
@@ -490,15 +559,15 @@ export default function TerminalChat({
       role: "assistant" as const,
       content: finalContent,
     };
-  }, [loading, renderedPartialData.content, renderedPartialData.reasoning]);
+  }, [loading, renderedPartialData.content, renderedPartialData.reasoning, historyKey]);
 
   return (
     <Box flexDirection="column">
       {agent ? (
         <TerminalMessageHistory
-          batch={lastMessageBatch}
-          groupCounts={groupCounts}
-          items={items}
+          committedBatches={committedBatches}
+          turnBatches={turnBatches}
+          toolCallMap={toolCallMap}
           userMsgCount={userMsgCount}
           model={model}
           confirmationPrompt={confirmationPrompt}
@@ -514,7 +583,7 @@ export default function TerminalChat({
             })
           }
           allowAlwaysPatch={config.allowAlwaysPatch}
-          applyPatch={confirmationPrompt ? (requestConfirmation as any)._pendingApplyPatch : undefined}
+          applyPatch={pendingApplyPatch}
           loading={loading}
           fullStdout={fullStdout}
           theme={activeTheme}
@@ -525,10 +594,12 @@ export default function TerminalChat({
             approvalPolicy,
             colorsByPolicy,
             agent,
-            initialImagePaths,
+            initialImagePaths: _initialImagePaths,
             theme: activeTheme,
           }}
           streamingMessage={memoizedStreamingMessage}
+          height={availableHistoryHeight}
+          historyKey={historyKey}
         />
       ) : (
         <Box>
@@ -536,18 +607,17 @@ export default function TerminalChat({
         </Box>
       )}
 
-      {tasks.length > 0 && (
+      {tasks.length > 0 && !confirmationPrompt && (
         <Box marginTop={1}>
-          <TaskChecklist tasks={tasks} theme={activeTheme} />
+          <TaskChecklist tasks={tasks} theme={activeTheme} maxHeight={Math.max(3, Math.floor(rows / 4))} />
         </Box>
       )}
 
       {overlayMode === "none" && agent && (
         <TerminalChatInput
           loading={loading}
-          setItems={setItems}
+          setChatState={setChatState}
           isNew={Boolean(items.length === 0)}
-          setPrevItems={setPrevItems}
           confirmationPrompt={confirmationPrompt}
           submitConfirmation={(
             decision: ReviewDecision,
@@ -574,26 +644,32 @@ export default function TerminalChat({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
-            setItems((prev) => [
+            setChatState((prev) => ({
               ...prev,
-              {
-                role: "assistant",
-                content: `Pinned file: ${path}`,
-              },
-            ]);
+              turnItems: [
+                ...prev.turnItems,
+                {
+                  role: "assistant",
+                  content: `Pinned file: ${path}`,
+                },
+              ]
+            }));
           }}
           onUnpin={(path) => {
             setConfig((prev) => ({
               ...prev,
               pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
             }));
-            setItems((prev) => [
+            setChatState((prev) => ({
               ...prev,
-              {
-                role: "assistant",
-                content: `Unpinned file: ${path}`,
-              },
-            ]);
+              turnItems: [
+                ...prev.turnItems,
+                {
+                  role: "assistant",
+                  content: `Unpinned file: ${path}`,
+                },
+              ]
+            }));
           }}
           interruptAgent={() => {
             if (!agent) {
@@ -605,7 +681,7 @@ export default function TerminalChat({
               );
             }
             agent.cancel();
-            setLoading(false);
+            setChatState(prev => ({ ...prev, loading: false }));
           }}
           active={overlayMode === "none"}
           partialReasoning={renderedPartialData.reasoning}
@@ -626,6 +702,7 @@ export default function TerminalChat({
           theme={activeTheme}
           allFiles={allFiles}
           isStreamingResponse={!!memoizedStreamingMessage}
+          maxHeight={availableHistoryHeight}
         />
       )}
 
@@ -642,13 +719,18 @@ export default function TerminalChat({
         />
       )}
         {overlayMode === "history" && (
-          <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} />
+          <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
         {overlayMode === "history-select" && (
           <HistorySelectOverlay
             onSelect={(rollout) => {
-              setItems(rollout.items);
-              setPrevItems(rollout.items);
+              setChatState(prev => ({
+                ...prev,
+                committedItems: rollout.items,
+                turnItems: [],
+                prevItems: rollout.items,
+                historyKey: prev.historyKey + 1
+              }));
               if (rollout.session?.id) {
                 setSessionId(rollout.session.id);
               }
@@ -659,12 +741,14 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
         {overlayMode === "model" && (
           <ModelOverlay
             currentModel={model}
             config={config}
+            theme={activeTheme}
             hasLastResponse={Boolean(prevItems.length > 0)}
             onSelect={(newModel) => {
               if (isLoggingEnabled()) {
@@ -676,25 +760,26 @@ export default function TerminalChat({
                 }
               }
               agent?.cancel();
-              setLoading(false);
 
               setModel(newModel);
-              setPrevItems((prev) => {
-                return prev && newModel !== model ? [] : prev;
-              });
-
-              setItems((prev) => [
+              
+              setChatState(prev => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched model to ${newModel}`,
-                    },
-                  ],
-                },
-              ]);
+                loading: false,
+                prevItems: newModel !== model ? [] : prev.prevItems,
+                turnItems: [
+                  ...prev.turnItems,
+                  {
+                    role: "assistant",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Switched model to ${newModel}`,
+                      },
+                    ],
+                  },
+                ]
+              }));
 
               setOverlayMode("none");
             }}
@@ -707,23 +792,29 @@ export default function TerminalChat({
             currentMode={approvalPolicy}
             onSelect={(newMode) => {
               agent?.cancel();
-              setLoading(false);
+              
               if (newMode === approvalPolicy) {
+                setChatState(prev => ({ ...prev, loading: false }));
+                setOverlayMode("none");
                 return;
               }
               setApprovalPolicy(newMode as ApprovalPolicy);
-              setItems((prev) => [
+              setChatState(prev => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched approval mode to ${newMode}`,
-                    },
-                  ],
-                },
-              ]);
+                loading: false,
+                turnItems: [
+                  ...prev.turnItems,
+                  {
+                    role: "assistant",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Switched approval mode to ${newMode}`,
+                      },
+                    ],
+                  },
+                ]
+              }));
 
               setOverlayMode("none");
             }}
@@ -772,20 +863,23 @@ export default function TerminalChat({
             }
             onSave={(newInstructions) => {
               agent?.cancel();
-              setLoading(false);
               setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setItems((prev) => [
+              setChatState(prev => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Updated system instructions.`,
-                    },
-                  ],
-                },
-              ]);
+                loading: false,
+                turnItems: [
+                  ...prev.turnItems,
+                  {
+                    role: "assistant",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Updated system instructions.`,
+                      },
+                    ],
+                  },
+                ]
+              }));
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
@@ -796,23 +890,27 @@ export default function TerminalChat({
           <PromptSelectOverlay
             onSelect={(newInstructions, name) => {
               agent?.cancel();
-              setLoading(false);
               setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setItems((prev) => [
+              setChatState(prev => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched system instructions to prompt: ${name}`,
-                    },
-                  ],
-                },
-              ]);
+                loading: false,
+                turnItems: [
+                  ...prev.turnItems,
+                  {
+                    role: "assistant",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Switched system instructions to prompt: ${name}`,
+                      },
+                    ],
+                  },
+                ]
+              }));
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -822,18 +920,21 @@ export default function TerminalChat({
             onSelect={(newTheme: any) => {
               clearTerminal();
               setConfig((prev) => ({ ...prev, theme: newTheme }));
-              setItems((prev) => [
+              setChatState(prev => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
-                    },
-                  ],
-                },
-              ]);
+                turnItems: [
+                  ...prev.turnItems,
+                  {
+                    role: "assistant",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
+                      },
+                    ],
+                  },
+                ]
+              }));
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
@@ -843,15 +944,16 @@ export default function TerminalChat({
         {overlayMode === "recipes" && (
           <RecipesOverlay
             onSelect={(recipe) => {
-              agent?.run(
-                [
+              setChatState(prev => ({
+                ...prev,
+                turnItems: [
+                  ...prev.turnItems,
                   {
-                    role: "user",
-                    content: [{ type: "text", text: recipe.prompt }],
+                    role: "user" as const,
+                    content: [{ type: "text" as const, text: recipe.prompt }],
                   },
-                ],
-                prevItems,
-              );
+                ]
+              }));
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
@@ -859,7 +961,7 @@ export default function TerminalChat({
         )}
 
         {overlayMode === "memory" && (
-          <MemoryOverlay onExit={() => setOverlayMode("none")} />
+          <MemoryOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
     </Box>
   );

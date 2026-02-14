@@ -73,7 +73,7 @@ export default function ConfigOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
+      borderStyle="classic"
       borderColor="gray"
       width={80}
     >

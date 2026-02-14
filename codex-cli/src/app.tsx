@@ -69,7 +69,7 @@ export default function App({
     return (
       <Box flexDirection="column" padding={1}>
         <Box
-          borderStyle="round"
+          borderStyle="classic"
           borderColor="yellow"
           paddingX={2}
           flexDirection="column"

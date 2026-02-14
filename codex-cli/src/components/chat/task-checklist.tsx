@@ -6,27 +6,34 @@ import React from "react";
 type Props = {
   tasks: Task[];
   theme: Theme;
+  maxHeight?: number;
 };
 
-const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
+const TaskChecklist: React.FC<Props> = ({ tasks, theme, maxHeight = 10 }) => {
   if (tasks.length === 0) return null;
+
+  const totalDone = tasks.filter(t => t.status === "done").length;
+  const isOverflowing = tasks.length > maxHeight;
+  const displayedTasks = isOverflowing ? tasks.slice(0, maxHeight - 1) : tasks;
 
   return (
     <Box 
       flexDirection="column" 
       paddingX={1} 
       paddingY={0}
-      borderStyle="round" 
+      borderStyle="classic" 
       borderColor={theme.dim}
       width="100%"
       marginBottom={0}
+      height={maxHeight + 2}
+      overflow="hidden"
     >
       <Box gap={1} marginBottom={0}>
         <Text bold color={theme.highlight}>📋 Current Roadmap</Text>
-        <Text dimColor italic>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
+        <Text dimColor italic>({totalDone}/{tasks.length})</Text>
       </Box>
       <Box flexDirection="column" marginTop={0}>
-        {tasks.map((task, i) => {
+        {displayedTasks.map((task, i) => {
           let icon = "⬜";
           let color = theme.dim;
           let bold = false;
@@ -51,6 +58,9 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
             </Box>
           );
         })}
+        {isOverflowing && (
+          <Text dimColor italic>... and {tasks.length - displayedTasks.length} more steps</Text>
+        )}
       </Box>
     </Box>
   );

@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { createPatch } from "diff";
+import * as Diff from "diff";
 import chalk from "chalk";
 
 export interface Edit {
@@ -50,7 +50,8 @@ export function applyEdits(filePath: string, edits: Edit[]): EditResult {
     return { success: false, error: "No changes made to the file." };
   }
 
-  const standardDiff = createPatch(filePath, content, newContent);
+  // @ts-ignore
+  const standardDiff = Diff.createPatch(filePath, content, newContent);
   // Convert standard diff to OpenCodex format for the UI
   const diffLines = standardDiff.split("\n");
   const codexDiffLines = ["*** Begin Patch", `*** Update File: ${filePath}`];
@@ -88,7 +89,7 @@ export function formatStyledDiff(diff: string): string {
     if (line.startsWith("+") && !line.startsWith("+++")) {
       output += chalk.green(line) + "\n";
     } else if (line.startsWith("-") && !line.startsWith("---")) {
-      output += chalk.red(line) + "\n";
+      output += chalk.magenta(line) + "\n";
     } else if (line.startsWith("@@")) {
       output += chalk.cyan(line) + "\n";
     } else {

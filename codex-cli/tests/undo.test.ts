@@ -62,8 +62,8 @@ describe("Undo Logic", () => {
     // Check history truncation
     // Should keep items up to index 2 (exclusive), so only 0 and 1
     expect(result.items.length).toBe(2);
-    expect(result.items[0].content).toBe("initial prompt");
-    expect(result.items[1].content).toBe("ok");
+    expect(result.items[0]?.content).toBe("initial prompt");
+    expect(result.items[1]?.content).toBe("ok");
 
     // Verify save
     expect(fs.writeFile).toHaveBeenCalledWith(

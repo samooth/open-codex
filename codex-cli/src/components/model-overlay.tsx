@@ -8,6 +8,7 @@ import {
 import { log, isLoggingEnabled } from "../utils/agent/log.js";
 import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
+import type { Theme } from "../utils/theme.js";
 
 /**
  * Props for <ModelOverlay>.
@@ -23,6 +24,7 @@ type Props = {
   hasLastResponse: boolean;
   onSelect: (model: string) => void;
   onExit: () => void;
+  theme: Theme;
 };
 
 export default function ModelOverlay({
@@ -31,6 +33,7 @@ export default function ModelOverlay({
   config,
   onSelect,
   onExit,
+  theme,
 }: Props): JSX.Element {
   const [items, setItems] = useState<Array<{ label: string; value: string }>>(
     [],
@@ -85,12 +88,12 @@ export default function ModelOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
+        borderStyle="classic"
         borderColor="gray"
         width={80}
       >
         <Box paddingX={1}>
-          <Text bold color="red">
+          <Text bold color={theme.deletion}>
             Unable to switch model
           </Text>
         </Box>

@@ -44,6 +44,7 @@ import {
   createInvalidRequestErrorSystemMessage, 
   createRateLimitErrorSystemMessage, 
   createTokenLimitErrorSystemMessage,
+  createNetworkErrorSystemMessage,
   isErrorClientError,
   isErrorNetworkOrServer,
   isErrorRateLimit,
@@ -260,7 +261,7 @@ export class AgentLoop {
 
       // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result 
       // because it would be missing its preceding 'assistant' tool_use.
-      while (newPrevItems.length > 0 && newPrevItems[0].role === "tool") {
+      while (newPrevItems.length > 0 && newPrevItems[0]?.role === "tool") {
         newPrevItems.shift();
       }
     }
@@ -434,7 +435,7 @@ export class AgentLoop {
       const currentInput = truncated.input;
       const currentPrevItems = truncated.prevItems;
 
-      let turnInput = [...currentInput, ...abortOutputs];
+      let turnInput = [...abortOutputs, ...currentInput];
 
       this.onLoading(true);
 
@@ -827,6 +828,19 @@ export class AgentLoop {
             messageProcessed = true;
 
             if (thisGeneration === this.generation && !this.canceled) {
+              // If there's content but no tool_calls, try to extract one from the content.
+              if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
+                const extracted = tryExtractToolCallsFromContent(msg.content);
+                if (extracted.length > 0) {
+                  (msg as any).tool_calls = extracted;
+                  for (const call of extracted) {
+                    if (call.id) {
+                      this.pendingAborts.add(call.id);
+                    }
+                  }
+                }
+              }
+
               // Process completed tool calls
               if (msg?.tool_calls?.[0]) {
                 msg.tool_calls = flattenToolCalls(msg.tool_calls);

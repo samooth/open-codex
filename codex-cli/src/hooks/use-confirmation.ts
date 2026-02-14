@@ -50,12 +50,12 @@ export function useConfirmation(): {
   );
 
   // Called whenever user picks Yes / No
-  const submitConfirmation = (result: ConfirmationResult) => {
-    if (current) {
-      current.resolve(result);
+  const submitConfirmation = useCallback((result: ConfirmationResult) => {
+    if (currentRef.current) {
+      currentRef.current.resolve(result);
       advanceQueue();
     }
-  };
+  }, [advanceQueue]);
 
   return {
     confirmationPrompt: current?.prompt, // the prompt to render now

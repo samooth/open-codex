@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Text, useInput } from "ink";
-import chalk from "chalk";
+import chalk, { type ForegroundColorName } from "chalk";
 import type { Except } from "type-fest";
 
 export type TextInputProps = {
@@ -54,6 +54,11 @@ export type TextInputProps = {
    * Function to highlight the value. Returns a list of colors/styles for each character.
    */
   readonly highlight?: (value: string) => (ForegroundColorName | undefined)[];
+
+  /**
+   * Custom key down handler. Return true to prevent default behavior.
+   */
+  readonly onKeyDown?: (input: string, key: any) => boolean;
 };
 
 function findPrevWordJump(prompt: string, cursorOffset: number) {

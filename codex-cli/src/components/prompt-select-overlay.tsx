@@ -5,6 +5,7 @@ import { Select } from "./vendor/ink-select/select.js";
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { homedir } from "os";
+import type { Theme } from "../utils/theme.js";
 
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);
@@ -24,9 +25,11 @@ function findGitRoot(startDir: string): string | null {
 export default function PromptSelectOverlay({
   onSelect,
   onExit,
+  theme,
 }: {
   onSelect: (instructions: string, name: string) => void;
   onExit: () => void;
+  theme: Theme;
 }) {
   const [prompts, setPrompts] = useState<{ label: string; value: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +99,7 @@ export default function PromptSelectOverlay({
 
   if (loading) {
     return (
-      <Box borderStyle="round" borderColor="blue" paddingX={1}>
+      <Box borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
         <Text italic>Loading prompts...</Text>
       </Box>
     );
@@ -104,11 +107,11 @@ export default function PromptSelectOverlay({
 
   if (prompts.length === 0) {
     return (
-      <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+      <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
         <Box marginBottom={1}>
           <Text bold>Select System Prompt</Text>
         </Box>
-        <Text color="red">No prompts found in ./prompts, ./.codex/prompts, or ~/.codex/prompts</Text>
+        <Text color={theme.deletion}>No prompts found in ./prompts, ./.codex/prompts, or ~/.codex/prompts</Text>
         <Box marginTop={1}>
           <Text dimColor>Press Esc to cancel</Text>
         </Box>
@@ -117,7 +120,7 @@ export default function PromptSelectOverlay({
   }
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+    <Box flexDirection="column" borderStyle="classic" borderColor={theme.highlight} paddingX={1}>
       <Box marginBottom={1}>
         <Text bold>Select System Prompt</Text>
       </Box>

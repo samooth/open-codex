@@ -18,34 +18,34 @@ export default function TerminalChatPastRollout({
   const { version, id: sessionId, model } = session;
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round" paddingX={1} width={64}>
+      <Box borderStyle="classic" paddingX={1} width={64}>
         <Text>
           ● <Text bold>OpenCodex</Text>{" "}
-          <Text color="blueBright">v{version}</Text>
+          <Text color={theme.highlight}>v{version}</Text>
         </Text>
       </Box>
       <Box
-        borderStyle="round"
-        borderColor="gray"
+        borderStyle="classic"
+        borderColor={theme.dim}
         paddingX={1}
         width={64}
         flexDirection="column"
       >
         <Text>
-          <Text color="magenta">●</Text> localhost{" "}
+          <Text color={theme.statusBarSession}>●</Text> localhost{" "}
           <Text dimColor>· session:</Text>{" "}
-          <Text color="magentaBright" dimColor>
+          <Text color={theme.statusBarSession} dimColor>
             {sessionId}
           </Text>
         </Text>
         <Text dimColor>
-          <Text color="blueBright">↳</Text> When / Who:{" "}
+          <Text color={theme.highlight}>↳</Text> When / Who:{" "}
           <Text bold>
             {session.timestamp} <Text dimColor>/</Text> {session.user}
           </Text>
         </Text>
         <Text dimColor>
-          <Text color="blueBright">↳</Text> model: <Text bold>{model}</Text>
+          <Text color={theme.highlight}>↳</Text> model: <Text bold>{model}</Text>
         </Text>
       </Box>
       <Box flexDirection="column" gap={1}>
@@ -64,6 +64,7 @@ export default function TerminalChatPastRollout({
               item={item}
               toolCallMap={map}
               theme={theme}
+              model={model}
             />
           ));
         }, [items, theme])}

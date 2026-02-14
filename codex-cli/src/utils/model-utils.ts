@@ -298,8 +298,8 @@ export async function isModelSupported(
 
 export function reportMissingAPIKeyForProvider(provider: string): void {
   (provider
-    ? `\n${chalk.red("Missing API key for provider:")} ${provider}\n\n`
-    : `\n${chalk.red("Missing API key:")}\n\n`) +
+    ? `\n${chalk.magenta("Missing API key for provider:")} ${provider}\n\n`
+    : `\n${chalk.magenta("Missing API key:")}\n\n`) +
     (provider
       ? `Please set the following environment variable:\n`
       : "Please set one of the following environment variables:\n") +

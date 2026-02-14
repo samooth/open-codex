@@ -3,15 +3,17 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import { Box, Text, useInput } from "ink";
 import React, { useMemo, useState } from "react";
 import TextInput from "./vendor/ink-text-input.js";
+import type { Theme } from "../utils/theme.js";
 
 type Props = {
   items: Array<ChatCompletionMessageParam>;
   onExit: () => void;
+  theme: Theme;
 };
 
 type Mode = "commands" | "files";
 
-export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
+export default function HistoryOverlay({ items, onExit, theme }: Props): JSX.Element {
   const [mode, setMode] = useState<Mode>("commands");
   const [cursor, setCursor] = useState(0);
   const [filter, setFilter] = useState("");
@@ -87,8 +89,8 @@ export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="gray"
+      borderStyle="classic"
+      borderColor={theme.dim}
       width={100}
     >
       <Box paddingX={1} justifyContent="space-between">
@@ -98,7 +100,7 @@ export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
         </Text>
         {isSearching ? (
           <Box gap={1}>
-            <Text color="cyan">Search: </Text>
+            <Text color={theme.highlight}>Search: </Text>
             <TextInput
               value={filter}
               onChange={(val) => {
@@ -118,7 +120,7 @@ export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
             const absIdx = firstVisible + idx;
             const selected = absIdx === cursor;
             return (
-              <Text key={absIdx} color={selected ? "cyan" : undefined}>
+              <Text key={absIdx} color={selected ? theme.highlight : undefined}>
                 {selected ? "› " : "  "}
                 {txt}
               </Text>
@@ -126,7 +128,7 @@ export default function HistoryOverlay({ items, onExit }: Props): JSX.Element {
           })
         ) : (
           <Box paddingLeft={2}>
-            <Text color="yellow">No matches found.</Text>
+            <Text color={theme.warning}>No matches found.</Text>
           </Box>
         )}
       </Box>

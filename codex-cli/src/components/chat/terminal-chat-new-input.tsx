@@ -2,6 +2,7 @@ import type { MultilineTextEditorHandle } from "./multiline-editor";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
+import type { Theme } from "../../utils/theme.js";
 
 import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
@@ -81,6 +82,7 @@ export default function TerminalChatInput({
   interruptAgent,
   active,
   partialReasoning,
+  theme,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -100,6 +102,7 @@ export default function TerminalChatInput({
   interruptAgent: () => void;
   active: boolean;
   partialReasoning?: string;
+  theme: Theme;
 }): React.ReactElement {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -334,16 +337,17 @@ export default function TerminalChatInput({
   return (
     <Box flexDirection="column">
       {loading ? (
-        <Box borderStyle="round">
+        <Box borderStyle="classic">
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}
             active={active}
             partialReasoning={partialReasoning}
+            theme={theme}
           />
         </Box>
       ) : (
         <>
-          <Box borderStyle="round">
+          <Box borderStyle="classic">
             <MultilineTextEditor
               ref={editorRef}
               onChange={(txt: string) => setInput(txt)}
@@ -386,7 +390,7 @@ export default function TerminalChatInput({
                   {contextLeftPercent < 25 && (
                     <>
                       {" — "}
-                      <Text color="red">
+                      <Text color={theme.deletion}>
                         {Math.round(contextLeftPercent)}% context left
                       </Text>
                     </>

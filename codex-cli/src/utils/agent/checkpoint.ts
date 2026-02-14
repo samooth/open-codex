@@ -15,7 +15,7 @@ export async function createCheckpoint(ctx: AgentContext, name: string): Promise
 
   // 1. Check if we are in a git repo
   const checkGit = await handleExecCommand(
-    { cmd: ["git", "rev-parse", "--is-inside-work-tree"], workdir: root },
+    { cmd: ["git", "rev-parse", "--is-inside-work-tree"], workdir: root, timeoutInMillis: undefined },
     ctx.config,
     ctx.approvalPolicy,
     ctx.getCommandConfirmation,
@@ -35,7 +35,7 @@ export async function createCheckpoint(ctx: AgentContext, name: string): Promise
   const tagCmd = ["git", "tag", "-a", checkpointName, "-m", `OpenCodex Checkpoint: ${name}`];
   
   const result = await handleExecCommand(
-    { cmd: tagCmd, workdir: root },
+    { cmd: tagCmd, workdir: root, timeoutInMillis: undefined },
     ctx.config,
     ctx.approvalPolicy,
     ctx.getCommandConfirmation,

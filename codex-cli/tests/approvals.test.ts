@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { isSafeCommand, canAutoApprove } from "../src/approvals.js";
-import { parse } from "shell-quote";
 
 describe("Approval Logic", () => {
   describe("isSafeCommand", () => {

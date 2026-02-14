@@ -37,7 +37,7 @@ function assistantMessage(text: string) {
 describe("TerminalChatResponseItem", () => {
   it("renders a user message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={userMessage("Hello world")} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={userMessage("Hello world")} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
@@ -47,7 +47,7 @@ describe("TerminalChatResponseItem", () => {
 
   it("renders an assistant message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={assistantMessage("Sure thing")} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={assistantMessage("Sure thing")} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
@@ -77,7 +77,7 @@ describe("TerminalChatResponseItem", () => {
     toolCallMap.set("call_1", toolCall);
 
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
@@ -97,7 +97,7 @@ describe("TerminalChatResponseItem", () => {
     } as any;
 
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={item} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={item} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();

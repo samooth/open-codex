@@ -119,7 +119,7 @@ export async function checkForUpdates(): Promise<void> {
 
   const box = boxen(
     `\
-Update available! ${chalk.red(packageInfo.currentVersion)} → ${chalk.green(
+Update available! ${chalk.magenta(packageInfo.currentVersion)} → ${chalk.green(
       packageInfo.latestVersion,
     )}.
 ${updateMessage}`,
