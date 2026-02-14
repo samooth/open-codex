@@ -11,16 +11,16 @@ export function sanitizeAnthropicToolName(name: string): string {
 
 export function mapOpenAiToAnthropicMessages(
   messages: Array<ChatCompletionMessageParam>,
-): { messages: any[]; system: string | undefined } {
+): { messages: any[]; system: any[] | undefined } {
   const anthropicMessages: any[] = [];
-  let system: string | undefined = undefined;
+  let systemBlocks: any[] = [];
 
   // 1. First Pass: Build the initial message list and track tool usage
   const useIdToMessageIndex = new Map<string, number>();
 
   for (const msg of messages) {
     if (msg.role === "system") {
-      system = (system ? system + "\n\n" : "") + (msg.content as string);
+      systemBlocks.push({ type: "text", text: msg.content as string });
       continue;
     }
 
@@ -151,7 +151,24 @@ export function mapOpenAiToAnthropicMessages(
     }
   }
 
-  return { messages: finalMessages, system };
+  // 3. Add Cache Control (Ephemeral)
+  // We use the 4 breakpoints limit from Anthropic.
+  // 1. System prompt (if long enough)
+  // 2. Tools (handled in mapOpenAiToAnthropicTools)
+  // 3. Last turn of history (if history is long)
+
+  if (finalMessages.length >= 4) {
+    // Add cache_control to the second-to-last user turn to cache most of history
+    // while keeping the very latest turn dynamic.
+    const targetIdx = finalMessages.length - 2;
+    const targetMsg = finalMessages[targetIdx];
+    if (targetMsg && targetMsg.content.length > 0) {
+      const lastPart = targetMsg.content[targetMsg.content.length - 1];
+      lastPart.cache_control = { type: "ephemeral" };
+    }
+  }
+
+  return { messages: finalMessages, system: systemBlocks.length > 0 ? systemBlocks : undefined };
 }
 
 function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
@@ -167,11 +184,18 @@ function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
 }
 
 export function mapOpenAiToAnthropicTools(openAiTools: any[]): any[] {
-  return openAiTools.map((tool) => ({
+  const tools = openAiTools.map((tool) => ({
     name: sanitizeAnthropicToolName(tool.function.name),
     description: tool.function.description,
     input_schema: tool.function.parameters,
   }));
+
+  // Add cache_control to the last tool to cache the entire tools list
+  if (tools.length > 0) {
+    (tools[tools.length - 1] as any).cache_control = { type: "ephemeral" };
+  }
+
+  return tools;
 }
 
 export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<any>): AsyncGenerator<any> {

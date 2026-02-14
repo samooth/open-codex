@@ -615,10 +615,16 @@ export class AgentLoop {
                 body: JSON.stringify({
                   model: this.model,
                   messages: anthropicMessages,
-                  system: [
-                    { type: "text", text: mergedInstructions },
-                    ...(system ? [{ type: "text", text: system }] : []),
-                  ],
+                  system: (() => {
+                    const blocks = [
+                      { type: "text", text: mergedInstructions },
+                      ...(Array.isArray(system) ? system : system ? [{ type: "text", text: system }] : []),
+                    ];
+                    if (blocks.length > 0) {
+                      (blocks[blocks.length - 1] as any).cache_control = { type: "ephemeral" };
+                    }
+                    return blocks;
+                  })(),
                   tools: anthropicTools,
                   stream: true,
                   max_tokens: 8192,
