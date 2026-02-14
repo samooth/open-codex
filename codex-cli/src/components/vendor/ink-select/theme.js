@@ -11,7 +11,7 @@ const theme = {
       color: "green",
     }),
     focusIndicator: () => ({
-      color: "blue",
+      color: "cyanBright",
     }),
     label({ isFocused, isSelected }) {
       let color;
@@ -19,7 +19,7 @@ const theme = {
         color = "green";
       }
       if (isFocused) {
-        color = "blue";
+        color = "cyanBright";
       }
       return { color };
     },
