@@ -212,6 +212,43 @@ export class AgentLoop {
     this.cancel();
   }
 
+  /**
+   * Automatically truncate history if it exceeds the maximum context size.
+   * We keep the most recent messages, while always ensuring tool results 
+   * are preserved if their corresponding calls are still in history.
+   */
+  private truncateHistory(
+    input: Array<ChatCompletionMessageParam>,
+    prevItems: Array<ChatCompletionMessageParam>
+  ): { input: Array<ChatCompletionMessageParam>, prevItems: Array<ChatCompletionMessageParam> } {
+    const maxMessages = this.config.contextSize || 40;
+    const totalMessages = input.length + prevItems.length;
+
+    if (totalMessages <= maxMessages) {
+      return { input, prevItems };
+    }
+
+    if (isLoggingEnabled()) {
+      log(`Truncating history: ${totalMessages} messages exceeds limit of ${maxMessages}`);
+    }
+
+    // Always keep all of the current turn's input
+    // Truncate from the beginning of prevItems
+    const overflow = totalMessages - maxMessages;
+    
+    // Safety check: ensure we don't truncate more than we have in prevItems
+    const truncateCount = Math.min(overflow, prevItems.length);
+    let newPrevItems = prevItems.slice(truncateCount);
+
+    // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result 
+    // because it would be missing its preceding 'assistant' tool_use.
+    while (newPrevItems.length > 0 && newPrevItems[0].role === "tool") {
+      newPrevItems.shift();
+    }
+
+    return { input, prevItems: newPrevItems };
+  }
+
   public sessionId: string;
   /*
    * Cumulative thinking time across this AgentLoop instance (ms).
@@ -373,7 +410,12 @@ export class AgentLoop {
         this.pendingAborts.clear();
       }
 
-      let turnInput = [...input, ...abortOutputs];
+      // Automatically manage context window size to prevent TPM/Token limits
+      const truncated = this.truncateHistory(input, prevItems);
+      const currentInput = truncated.input;
+      const currentPrevItems = truncated.prevItems;
+
+      let turnInput = [...currentInput, ...abortOutputs];
 
       this.onLoading(true);
 
@@ -448,7 +490,7 @@ export class AgentLoop {
 
             // Context-Aware Memory Search: Inject relevant snippets from project memory
             let relevantMemory = "";
-            const latestUserInput = input.findLast((i) => i.role === "user");
+            const latestUserInput = currentInput.findLast((i) => i.role === "user");
             const queryText = typeof latestUserInput?.content === "string" 
               ? latestUserInput.content 
               : Array.isArray(latestUserInput?.content) 
@@ -499,7 +541,7 @@ export class AgentLoop {
                 `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
-              log(`[HTTP] Model: ${this.model}, Messages: ${prevItems.length + staged.length + 1}, Tools: ${tools.length}`);
+              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + staged.length + 1}, Tools: ${tools.length}`);
             }
 
             if (this.config.provider === "google" || this.config.provider === "gemini") {
@@ -508,7 +550,7 @@ export class AgentLoop {
                   role: "system",
                   content: mergedInstructions,
                 },
-                ...prevItems,
+                ...currentPrevItems,
                 ...(staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
@@ -532,7 +574,7 @@ export class AgentLoop {
               stream = googleToOpenAiStream(googleStream) as any;
             } else if (this.config.provider === "anthropic") {
               const { messages: anthropicMessages, system } = mapOpenAiToAnthropicMessages([
-                ...prevItems,
+                ...currentPrevItems,
                 ...(staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
               ]);
 
@@ -613,7 +655,7 @@ export class AgentLoop {
                     role: "system",
                     content: mergedInstructions,
                   },
-                  ...prevItems,
+                  ...currentPrevItems,
                   ...(staged.filter(
                     Boolean,
                   ) as Array<ChatCompletionMessageParam>),
