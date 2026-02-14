@@ -121,6 +121,8 @@ development_ that understands and executes your repo.
 - **Automated Verification** — built-in diagnostics to detect project types and run health checks (lint, type-check, tests) 🩺
 - **Interactive Roadmap** — persistent task checklist in the UI to track multi-step goal progress 📋
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
+- **Context Management** — automated sliding window history truncation to prevent TPM/token limit errors 🧠
+- **Beautiful UI** — 🤖 Bot icons, model labels, and truly full-width bordered tool boxes for clarity ✨
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
@@ -402,6 +404,14 @@ You can override the embedding model in your `config.json`:
   "embeddingModel": "text-embedding-004"
 }
 ```
+
+### Context Window Management
+
+To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context overflow, Codex automatically manages your conversation history using a **Sliding Window** strategy:
+
+- **Automatic Truncation**: When the conversation history grows too long, Codex prunes the oldest messages while keeping your recent context and the system prompt intact.
+- **Content Pruning**: For very old tool results (like large file reads), Codex automatically truncates the content to save tokens while preserving the conversational logic.
+- **Configurable**: You can adjust the maximum number of messages kept in context by setting `"contextSize"` in your `~/.codex/config.json`.
 
 ### Slash Commands
 

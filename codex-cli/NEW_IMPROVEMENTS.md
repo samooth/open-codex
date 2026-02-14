@@ -145,6 +145,14 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] Prompt Recipes:** A new `/recipes` system provides a library of pre-defined prompt templates for common engineering tasks (testing, documentation, security, etc.).
 
 *   **[DONE] UI/UX Stabilization & Enhancements:**
+    *   **[DONE] Full-Width Tool Boxes:** Tool calls and results now use the truly full terminal width with consistent rounded borders and theme-aware colors.
+    *   **[DONE] Bot Identity:** Added 🤖 Bot icons and specific model labels (e.g., `claude-opus-4-6`) to assistant headers for better clarity.
+    *   **[DONE] Robust Interaction Detection:** Refined "How" question detection to correctly handle Markdown headers and formatting, preventing unnecessary Yes/No prompts.
+    *   **[DONE] Sliding Window Context:** Automated context management that truncates old history and prunes large tool results to prevent TPM/token limit errors.
+    *   **[DONE] Enhanced System Prompt:** Upgraded agent logic for advanced reasoning, proactive unit testing, and autonomous convention discovery.
+    *   **[DONE] CLI Recipes:** Added `--recipe` / `-r` flag to trigger predefined prompt templates (like Feature Scaffolding and Accessibility audits) directly from the terminal.
+    *   **[DONE] Fixed Selection Logic:** Resolved issues with arrow-key selection in slash command and file autocompletes.
+    *   **[DONE] Dynamic Anthropic Models:** The model picker now queries `/v1/models` to show the latest available Claude versions.
     *   **[DONE] Collapsible Tool Outputs:** Large outputs from tools (e.g., shell commands, search results) are now automatically collapsed to prevent history clutter. Users can toggle the full view with the `c` key.
     *   **[DONE] Stabilized Streaming:** Replaced markdown rendering during streaming with a simplified text-plus-spinner view to eliminate layout shifts and flickering. Markdown is applied only upon message completion.
     *   **[DONE] Real-Time Latency Tracking:** The thinking indicator now displays a live timer (e.g., `(5s)`) to provide immediate feedback on model response times.
