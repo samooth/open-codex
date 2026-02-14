@@ -1,4 +1,3 @@
-
 export type InteractionType = {
   type: "yes-no";
 } | {
@@ -25,7 +24,11 @@ export function detectInteraction(content: string): InteractionType | null {
   ];
 
   const isQuestion = normalized.endsWith("?");
-  const startsWithHow = normalized.startsWith("how ");
+  
+  // Strip common markdown header prefixes for the "How" check
+  const cleanStart = normalized.replace(/^[#\s\-\*]+/, "");
+  const startsWithHow = cleanStart.startsWith("how ");
+  
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
   if (!startsWithHow && (hasTrigger || (isQuestion && (
