@@ -199,8 +199,8 @@ function defaultModelsForProvider(provider: string): {
       };
     case "xai":
       return {
-        agentic: "grok-3-mini-beta",
-        fullContext: "grok-3-beta",
+        agentic: "grok-4-1-fast-reasoning",
+        fullContext: "grok-4-1-fast-reasoning",
       };
     case "deepseek":
       return {

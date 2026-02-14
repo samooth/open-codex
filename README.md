@@ -441,7 +441,7 @@ Here's a list of all the providers and their default models:
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash             | gemini-2.5-flash           |
 | openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
 | ollama     | OLLAMA_API_KEY (optional)     | User must specify            | User must specify          |
-| xai        | XAI_API_KEY                   | grok-3-mini-beta             | grok-3-beta                |
+| xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning      | grok-4-1-fast-reasoning    |
 | deepseek   | DS_API_KEY                    | deepseek-chat                | deepseek-reasoner          |
 | hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5         | moonshotai/Kimi-K2.5       |
 
