@@ -421,6 +421,7 @@ To reduce latency and costs, OpenCodex leverages prompt caching where supported:
 
 - **Anthropic**: Uses explicit `cache_control` breakpoints. OpenCodex automatically caches the system instructions, the large tool definitions list, and the most recent stable turn of the conversation history.
 - **OpenAI & DeepSeek**: Caching is automatic. These providers automatically cache the prefix of prompts that exceed 1024 tokens.
+- **Ollama**: Local KV caching is automatic. Ollama reuses the processed prefix of the conversation history to speed up subsequent turns.
 - **Gemini**: Large context is managed via a sliding window; dedicated Context Caching for static datasets is not currently utilized as the default window is usually sufficient.
 
 ### Slash Commands
