@@ -95,7 +95,7 @@ export type CommandReviewDetails = {
 export function parseToolCallChatCompletion(
   toolCall: ChatCompletionMessageToolCall,
 ): CommandReviewDetails | undefined {
-  if (toolCall.type !== "function") {
+  if (!toolCall || toolCall.type !== "function" || !toolCall.function) {
     return undefined;
   }
   const result = parseToolCallArguments(toolCall.function.arguments);
@@ -124,7 +124,7 @@ export function parseToolCallChatCompletion(
 export function parseToolCall(
   toolCall: ChatCompletionMessageToolCall,
 ): CommandReviewDetails | undefined {
-  if (toolCall.type !== "function") {
+  if (!toolCall || toolCall.type !== "function" || !toolCall.function) {
     return undefined;
   }
   const result = parseToolCallArguments(toolCall.function.arguments);

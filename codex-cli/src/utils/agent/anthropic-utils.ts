@@ -117,10 +117,11 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
           index: event.index,
           id: event.content_block.id,
           function: {
-            name: event.content_block.name, // The model will return the sanitized name
+            name: event.content_block.name,
             arguments: "",
           },
         };
+        delta.tool_calls = [currentToolCall];
       }
     } else if (event.type === "content_block_delta") {
       if (event.delta.type === "text_delta") {
@@ -131,13 +132,13 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
         delta.thought_signature = event.delta.signature;
       } else if (event.delta.type === "input_json_delta") {
         if (currentToolCall) {
-          currentToolCall.function.arguments += event.delta.partial_json;
+          currentToolCall.function.arguments = event.delta.partial_json;
+          delta.tool_calls = [currentToolCall];
         }
       }
     } else if (event.type === "content_block_stop") {
       if (currentToolCall) {
-        if (!delta.tool_calls) delta.tool_calls = [];
-        delta.tool_calls.push(currentToolCall);
+        // Final state for this tool call
         currentToolCall = null;
       }
     } else if (event.type === "message_delta") {

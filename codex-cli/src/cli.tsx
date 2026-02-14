@@ -536,7 +536,7 @@ function formatChatCompletionMessageParamForQuietMode(
       if (details) {
         parts.push(`$ Running ${details.cmdReadableText}...`);
       } else {
-        parts.push(`$ Running ${(toolCall as any).function.name}...`);
+        parts.push(`$ Running ${(toolCall as any).function?.name || "unknown"}...`);
       }
     }
   }

@@ -27,7 +27,7 @@ import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.j
 export function getCommandReviewDetails(
   toolCall: ChatCompletionMessageToolCall,
 ): CommandReviewDetails | undefined {
-  if (toolCall.type !== "function") {
+  if (!toolCall || toolCall.type !== "function" || !toolCall.function) {
     return undefined;
   }
 
@@ -337,8 +337,8 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
 
 function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   const details = getCommandReviewDetails(message);
-  const toolName = (message as any).function?.name || "";
-  const rawArgs = (message as any).function?.arguments || "{}";
+  const toolName = (message as any)?.function?.name || "";
+  const rawArgs = (message as any)?.function?.arguments || "{}";
 
   let args: any = {};
   try {
@@ -553,7 +553,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       toolName === "write_file"
     ) {
       try {
-        const args = JSON.parse((toolCall as any)?.function.arguments || "{}");
+        const args = JSON.parse((toolCall as any)?.function?.arguments || "{}");
         const filePath = args.path || "";
         const extension = filePath.split(".").pop()?.toLowerCase();
         if (extension) language = extension;
@@ -602,7 +602,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
         </Box>
       )}
 
-      {(isError || isDebug) && toolCall && (
+      {(isError || isDebug) && toolCall && (toolCall as any).function && (
         <Box flexDirection="column" paddingLeft={2} marginBottom={1}>
           <Box gap={1}>
             <Text bold color={theme.dim}>args:</Text>
