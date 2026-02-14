@@ -61,7 +61,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   }, [batch, items]);
 
   return (
-    <Box flexDirection="column" paddingX={2}>
+    <Box flexDirection="column">
       <Static key={theme.name} items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {

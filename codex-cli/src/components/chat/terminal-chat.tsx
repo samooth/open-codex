@@ -517,7 +517,7 @@ export default function TerminalChat({
       )}
 
       {tasks.length > 0 && (
-        <Box paddingX={2} marginTop={1}>
+        <Box marginTop={1}>
           <TaskChecklist tasks={tasks} theme={activeTheme} />
         </Box>
       )}

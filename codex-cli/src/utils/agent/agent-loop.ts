@@ -221,29 +221,48 @@ export class AgentLoop {
     input: Array<ChatCompletionMessageParam>,
     prevItems: Array<ChatCompletionMessageParam>
   ): { input: Array<ChatCompletionMessageParam>, prevItems: Array<ChatCompletionMessageParam> } {
-    const maxMessages = this.config.contextSize || 40;
+    const isAnthropic = this.config.provider === "anthropic";
+    // More aggressive limit for Anthropic due to 30k TPM limits
+    const maxMessages = this.config.contextSize || (isAnthropic ? 20 : 40);
     const totalMessages = input.length + prevItems.length;
 
-    if (totalMessages <= maxMessages) {
-      return { input, prevItems };
+    let newPrevItems = [...prevItems];
+
+    // 1. Content Truncation: For older tool results, truncate huge outputs to save tokens
+    // We only do this for messages that are "old" (not in the last 10 messages)
+    if (newPrevItems.length > 10) {
+      for (let i = 0; i < newPrevItems.length - 10; i++) {
+        const item = newPrevItems[i];
+        if (item && item.role === "tool" && typeof item.content === "string" && item.content.length > 1000) {
+          try {
+            const parsed = JSON.parse(item.content);
+            if (parsed.output && typeof parsed.output === "string" && parsed.output.length > 500) {
+              parsed.output = parsed.output.slice(0, 500) + "\n... (truncated old result to save tokens)";
+              newPrevItems[i] = { ...item, content: JSON.stringify(parsed) };
+            }
+          } catch {
+            // Not JSON or differently structured, just truncate the string
+            newPrevItems[i] = { ...item, content: item.content.slice(0, 1000) + "\n... (truncated old result)" };
+          }
+        }
+      }
     }
 
-    if (isLoggingEnabled()) {
-      log(`Truncating history: ${totalMessages} messages exceeds limit of ${maxMessages}`);
-    }
+    // 2. Message Count Truncation
+    if (totalMessages > maxMessages) {
+      if (isLoggingEnabled()) {
+        log(`Truncating history: ${totalMessages} messages exceeds limit of ${maxMessages}`);
+      }
 
-    // Always keep all of the current turn's input
-    // Truncate from the beginning of prevItems
-    const overflow = totalMessages - maxMessages;
-    
-    // Safety check: ensure we don't truncate more than we have in prevItems
-    const truncateCount = Math.min(overflow, prevItems.length);
-    let newPrevItems = prevItems.slice(truncateCount);
+      const overflow = totalMessages - maxMessages;
+      const truncateCount = Math.min(overflow, newPrevItems.length);
+      newPrevItems = newPrevItems.slice(truncateCount);
 
-    // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result 
-    // because it would be missing its preceding 'assistant' tool_use.
-    while (newPrevItems.length > 0 && newPrevItems[0].role === "tool") {
-      newPrevItems.shift();
+      // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result 
+      // because it would be missing its preceding 'assistant' tool_use.
+      while (newPrevItems.length > 0 && newPrevItems[0].role === "tool") {
+        newPrevItems.shift();
+      }
     }
 
     return { input, prevItems: newPrevItems };
