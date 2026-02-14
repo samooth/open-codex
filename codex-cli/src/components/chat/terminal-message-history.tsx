@@ -35,7 +35,6 @@ type MessageHistoryProps = {
   fullStdout: boolean;
   theme: Theme;
   streamingMessage?: ChatCompletionMessageParam;
-  height?: number;
   historyKey?: number;
 };
 
@@ -53,7 +52,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   fullStdout,
   theme,
   streamingMessage,
-  height = 20,
   historyKey = 0,
 }) => {
   const [debug] = useMemo(() => {
@@ -108,7 +106,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
       </Static>
 
       {/* Render items from the current turn normally (not in Static) */}
-      <Box flexDirection="column" height={height} overflow="hidden">
+      <Box flexDirection="column">
         {displayedTurnBatches.map((entry, index) => {
           const { item, group } = entry;
           const role = item?.role || (group?.items[0] as any)?.role;
@@ -168,7 +166,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
       </Box>
 
       {confirmationPrompt && (
-        <Box height={height}>
+        <Box>
           <TerminalChatCommandReview
             confirmationPrompt={confirmationPrompt}
             onReviewCommand={submitConfirmation}

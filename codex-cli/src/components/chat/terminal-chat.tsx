@@ -598,7 +598,6 @@ export default function TerminalChat({
             theme: activeTheme,
           }}
           streamingMessage={memoizedStreamingMessage}
-          height={availableHistoryHeight}
           historyKey={historyKey}
         />
       ) : (

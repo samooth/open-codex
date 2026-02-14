@@ -761,7 +761,13 @@ export function Markdown({
 
   return (
     <Box flexDirection="column" width="100%">
-      <Text>{renderedParts}</Text>
+      {typeof renderedParts === "string" ? (
+        renderedParts.split("\n").map((line, i) => (
+          <Text key={i}>{line}</Text>
+        ))
+      ) : (
+        <Text>{children}</Text>
+      )}
     </Box>
   );
 }

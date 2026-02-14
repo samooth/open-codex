@@ -573,6 +573,13 @@ export async function handleListDirectory(
       .filter((e) => {
         const relPath = join(dirPath, e.name);
         const posixPath = relPath.replace(/\\/g, "/");
+        
+        // Always show node_modules folder itself if it exists
+        if (e.name === "node_modules") return true;
+        
+        // If we are looking inside node_modules, show everything (bypass ignore)
+        if (dirPath.includes("node_modules")) return true;
+
         return !ig.ignores(posixPath);
       })
       .sort((a, b) => {
@@ -1126,6 +1133,10 @@ export async function handleListFilesRecursive(
         .filter((e) => {
           const relPath = join(currentRelPath, e.name);
           const posixPath = relPath.replace(/\\/g, "/");
+          
+          // If the user explicitly requested a path inside/involving node_modules, show content
+          if (startPath.includes("node_modules")) return true;
+
           return !ig.ignores(posixPath);
         })
         .sort((a, b) => {
