@@ -65,7 +65,7 @@ export function TerminalChatToolCallCommand({
     const isEditFile = commandForDisplay.startsWith("edit_file");
 
     return (
-      <Box flexDirection="column" gap={0} flexGrow={1}>
+      <Box flexDirection="column" gap={0} width="100%">
         <Box gap={1} paddingX={1}>
           <Text bold color={theme.toolLabel} wrap="wrap">
             {isEditFile ? "📝 Edit File" : "🩹 Apply Patch"}
@@ -170,16 +170,16 @@ export function TerminalChatToolCallCommand({
       gap={0}
       borderStyle="round"
       borderColor={theme.highlight}
-      paddingX={1}
+      width="100%"
       marginY={1}
     >
-      <Box gap={1}>
+      <Box gap={1} paddingX={1}>
         <Text bold color={theme.warning} wrap="wrap">
           🐚 Shell Command
         </Text>
         <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand all'})</Text>
       </Box>
-      <Box paddingLeft={2} marginTop={1} flexDirection="column">
+      <Box paddingLeft={3} paddingRight={1} marginTop={1} flexDirection="column">
         <Text wrap="wrap">
           <Text color={theme.dim}>$</Text> {colorizedCommand}
         </Text>

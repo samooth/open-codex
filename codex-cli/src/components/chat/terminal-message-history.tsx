@@ -83,7 +83,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             <Box
               key={index}
               flexDirection="column"
-              marginLeft={role === "user" ? 0 : 2}
               marginTop={role === "user" && index > 1 ? 1 : 0}
             >
               <TerminalChatResponseItem
@@ -117,7 +116,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         />
       )}
       {confirmationPrompt && (
-        <Box marginLeft={2}>
+        <Box>
           <TerminalChatCommandReview
             confirmationPrompt={confirmationPrompt}
             onReviewCommand={submitConfirmation}
@@ -127,7 +126,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         </Box>
       )}
       {loading && !confirmationPrompt && debug && (
-        <Box marginTop={1} marginLeft={2}>
+        <Box marginTop={1}>
           <ThinkingTimer loading={loading} theme={theme} />
         </Box>
       )}
@@ -155,7 +154,6 @@ const StreamingAssistantResponse = React.memo(({
   return (
     <Box
       flexDirection="column"
-      marginLeft={2}
       marginTop={1}
     >
       <TerminalChatResponseItem

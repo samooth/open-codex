@@ -284,12 +284,13 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const hasContent = displayContent.trim().length > 0;
 
   const roleColor = message.role === "assistant" ? theme.assistant : theme.user;
+  const isAssistant = message.role === "assistant";
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingLeft={isAssistant ? 2 : 0}>
       {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
         <Text bold color={roleColor}>
-          {message.role === "assistant" ? "opencodex" : message.role}
+          {isAssistant ? "opencodex" : message.role}
         </Text>
       )}
       {thoughts.map((thought, i) => (
@@ -325,11 +326,9 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
         </Box>
       ))}
       {hasContent && (
-        disableMarkdown ? (
-          <Text>{displayContent.trim()} <Spinner type="dots" /></Text>
-        ) : (
-          <Markdown theme={theme}>{displayContent.trim()}</Markdown>
-        )
+        <Markdown theme={theme}>
+          {displayContent.trim() + (disableMarkdown ? " ..." : "")}
+        </Markdown>
       )}
     </Box>
   );
@@ -430,7 +429,7 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
       marginY={1}
       borderStyle="round"
       borderColor={theme.highlight}
-      flexGrow={1}
+      width="100%"
     >
       <Box gap={1} paddingX={1}>
         {loading ? (
@@ -594,7 +593,7 @@ const TerminalChatResponseToolCallOutput = React.memo(function TerminalChatRespo
       borderStyle="round"
       borderColor={isError ? theme.error : theme.highlight}
       marginY={0}
-      flexGrow={1}
+      width="100%"
     >
       {toolCall && (
         <Box gap={1} paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
