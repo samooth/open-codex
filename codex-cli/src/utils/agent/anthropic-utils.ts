@@ -15,6 +15,9 @@ export function mapOpenAiToAnthropicMessages(
   const anthropicMessages: any[] = [];
   let system: string | undefined = undefined;
 
+  // Track where each tool_use ID is defined so we can ensure results follow them
+  const useIdToMessageIndex = new Map<string, number>();
+
   for (const msg of messages) {
     if (msg.role === "system") {
       system = (system ? system + "\n\n" : "") + (msg.content as string);
@@ -51,17 +54,15 @@ export function mapOpenAiToAnthropicMessages(
 
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls as any[]) {
-          let input = {};
-          try {
-            input = JSON.parse(tc.function.arguments);
-          } catch {
-            /* ignore */
-          }
+          const sanitizedName = sanitizeAnthropicToolName(tc.function.name);
           content.push({
             type: "tool_use",
             id: tc.id,
-            name: sanitizeAnthropicToolName(tc.function.name),
-            input,
+            name: sanitizedName,
+            input: (() => {
+              try { return JSON.parse(tc.function.arguments); } 
+              catch { return { raw: tc.function.arguments }; }
+            })(),
           });
         }
       }
@@ -75,26 +76,74 @@ export function mapOpenAiToAnthropicMessages(
     }
 
     if (content.length > 0) {
-      const lastMsg = anthropicMessages[anthropicMessages.length - 1];
-      if (lastMsg && lastMsg.role === role) {
-        // When merging, ensure we don't add duplicate tool_result IDs
-        for (const newPart of content) {
-          if (newPart.type === "tool_result") {
-            const existingIndex = lastMsg.content.findIndex(
-              (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
-            );
-            if (existingIndex !== -1) {
-              // Replace existing result with newer one
-              lastMsg.content[existingIndex] = newPart;
+      // Logic for Relocation: Anthropic requires results to follow uses IMMEDIATELY.
+      // If this is a tool_result, check if we should "pull it back" to a previous message.
+      const hasResult = content.some(p => p.type === "tool_result");
+      
+      if (hasResult) {
+        // Find the assistant message that had the tool_use
+        for (const part of content) {
+          if (part.type === "tool_result") {
+            const useIdx = useIdToMessageIndex.get(part.tool_use_id);
+            if (typeof useIdx === "number") {
+              // The result should go into the message at useIdx + 1
+              const targetIdx = useIdx + 1;
+              
+              // If targetIdx is within our current list, we try to merge it there
+              if (targetIdx < anthropicMessages.length) {
+                const targetMsg = anthropicMessages[targetIdx];
+                if (targetMsg.role === "user") {
+                  // Merge into existing user message
+                  const existingIndex = targetMsg.content.findIndex(
+                    (p: any) => p.type === "tool_result" && p.tool_use_id === part.tool_use_id
+                  );
+                  if (existingIndex !== -1) {
+                    targetMsg.content[existingIndex] = part;
+                  } else {
+                    targetMsg.content.push(part);
+                  }
+                  // Remove from current content so we don't add it twice
+                  content = content.filter(p => p !== part);
+                  continue;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // If we still have content after relocation attempts, or it wasn't a result
+      if (content.length > 0) {
+        const lastMsg = anthropicMessages[anthropicMessages.length - 1];
+        if (lastMsg && lastMsg.role === role) {
+          // Merge consecutive roles
+          for (const newPart of content) {
+            if (newPart.type === "tool_result") {
+              const existingIndex = lastMsg.content.findIndex(
+                (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
+              );
+              if (existingIndex !== -1) {
+                lastMsg.content[existingIndex] = newPart;
+              } else {
+                lastMsg.content.push(newPart);
+              }
             } else {
               lastMsg.content.push(newPart);
             }
-          } else {
-            lastMsg.content.push(newPart);
+          }
+        } else {
+          // Push new message
+          const newIdx = anthropicMessages.length;
+          anthropicMessages.push({ role, content });
+          // If this was an assistant message, index its tool_use IDs
+          if (role === "assistant") {
+            for (const p of content) {
+              if (p.type === "tool_use") {
+                useIdToMessageIndex.set(p.id, newIdx);
+              }
+            }
           }
         }
-      } else {
-        anthropicMessages.push({ role, content });
       }
     }
   }
@@ -112,9 +161,6 @@ export function mapOpenAiToAnthropicTools(openAiTools: any[]): any[] {
 
 export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<any>): AsyncGenerator<any> {
   let first = true;
-  // We keep track of how many tool_use blocks we've seen so we can yield
-  // 0-based tool_call indices to the consumer, regardless of Anthropic's
-  // absolute content_block index.
   let toolCallCount = 0;
   const toolIndexMap = new Map<number, number>();
 
@@ -123,7 +169,7 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
     let finish_reason: string | null = null;
 
     if (event.type === "message_start") {
-        // Initial message metadata if needed
+        // Initial message metadata
     } else if (event.type === "content_block_start") {
       if (event.content_block.type === "tool_use") {
         const index = toolCallCount++;
@@ -155,8 +201,6 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
           }];
         }
       }
-    } else if (event.type === "content_block_stop") {
-      // No-op
     } else if (event.type === "message_delta") {
       if (event.delta.stop_reason) {
         finish_reason = event.delta.stop_reason === "end_turn" ? "stop" : event.delta.stop_reason;
@@ -170,12 +214,7 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
 
     if (Object.keys(delta).length > 0 || finish_reason) {
       yield {
-        choices: [
-          {
-            delta,
-            finish_reason,
-          },
-        ],
+        choices: [{ delta, finish_reason }],
       };
     }
   }

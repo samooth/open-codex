@@ -373,7 +373,7 @@ export class AgentLoop {
         this.pendingAborts.clear();
       }
 
-      let turnInput = [...abortOutputs, ...input];
+      let turnInput = [...input, ...abortOutputs];
 
       this.onLoading(true);
 
