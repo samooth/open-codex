@@ -349,7 +349,7 @@ function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
 
   let label = "command";
   let icon = "⚙️";
-  let color: ForegroundColorName = "magentaBright";
+  let color: ForegroundColorName = "cyanBright";
   let summary = details?.cmdReadableText;
 
   // Semantic mapping for tools
@@ -424,7 +424,15 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
     getToolDisplayInfo(message);
 
   return (
-    <Box flexDirection="column" gap={0} marginY={0} paddingLeft={2}>
+    <Box
+      flexDirection="column"
+      gap={0}
+      marginY={1}
+      borderStyle="round"
+      borderColor={theme.dim}
+      width="100%"
+      paddingX={1}
+    >
       <Box gap={1}>
         {loading ? (
           <Spinner type="dots" color={theme.toolLabel} />
@@ -436,11 +444,11 @@ const TerminalChatResponseToolCall = React.memo(function TerminalChatResponseToo
         <Text color={theme.toolLabel} bold>
           {label}
         </Text>
-        <Text color={theme.dim}>{summary}</Text>
+        <Text color={theme.dim} wrap="wrap">{summary}</Text>
       </Box>
-      {loading && (toolName === TOOL_SHELL ||
-        toolName === TOOL_APPLY_PATCH) && details?.cmdReadableText && (
-        <Box paddingLeft={2}>
+      {(loading || details?.cmdReadableText) && (toolName === TOOL_SHELL ||
+        toolName === TOOL_APPLY_PATCH) && (
+        <Box paddingLeft={2} marginTop={details?.cmdReadableText ? 1 : 0}>
           <Text color={theme.dim}>$ {details?.cmdReadableText}</Text>
         </Box>
       )}
