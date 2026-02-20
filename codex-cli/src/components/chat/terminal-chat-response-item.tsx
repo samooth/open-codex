@@ -192,16 +192,6 @@ export function Markdown({
         },
       } as any);
 
-      // Custom renderer to wrap code blocks in a detectable delimiter
-      const originalCodeRenderer = renderer.code.bind(renderer);
-      renderer.code = (codeOrToken: any, ...args: any[]) => {
-        const code = typeof codeOrToken === "string" ? codeOrToken : codeOrToken.text;
-        const lang = typeof codeOrToken === "string" ? args[0] : codeOrToken.lang;
-        
-        const renderedCode = originalCodeRenderer(code, lang);
-        return `\nCODE_BLOCK_START:${lang || "code"}\n${renderedCode}\nCODE_BLOCK_END\n`;
-      };
-
       const parsed = parse(children, { 
         async: false,
         gfm: true,
@@ -213,25 +203,74 @@ export function Markdown({
         return [{ type: "text", content: children }];
       }
 
+      // 1. Identify and extract code blocks before generic markdown processing
+      // This regex looks for fenced code blocks in the original markdown
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)(?:```|$)/g;
+      const codeBlocks: Array<{ lang: string; content: string; placeholder: string }> = [];
+      let codeMatch;
+      let tempMarkdown = children;
+      let placeholderIndex = 0;
+
+      while ((codeMatch = codeBlockRegex.exec(children)) !== null) {
+        const lang = codeMatch[1] || "code";
+        const content = codeMatch[2]!;
+        const placeholder = `CID_CB_PLACEHOLDER_${placeholderIndex}`;
+        
+        // Render the code block content with syntax highlighting now
+        let renderedCode = content;
+        try {
+          renderedCode = syntaxHighlight(content, { 
+            language: lang, 
+            ignoreIllegals: true,
+            theme: getSyntaxTheme(theme)
+          });
+        } catch { /* use raw */ }
+
+        codeBlocks.push({ lang, content: renderedCode, placeholder });
+        // Replace the whole block in original markdown with a placeholder
+        tempMarkdown = tempMarkdown.replace(codeMatch[0], placeholder);
+        placeholderIndex++;
+      }
+
+      // 2. Render the markdown (with placeholders) via TerminalRenderer
+      const renderedMarkdown = parse(tempMarkdown, { 
+        async: false,
+        gfm: true,
+        breaks: true,
+        renderer 
+      });
+
+      if (typeof renderedMarkdown !== "string") {
+        return [{ type: "text", content: children }];
+      }
+
       // Enhanced Task List Rendering
-      const taskListFixed = parsed
+      const taskListFixed = renderedMarkdown
         .replace(/^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim, chalk[theme.success as ForegroundColorName]("✅ "))
         .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalk[theme.dim as ForegroundColorName]("⬜ "))
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim, `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`)
         .replace(/(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim, `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`);
 
-      // Split into text and code blocks
+      // 3. Split the rendered text back into parts by finding our placeholders
       const parts: Array<{ type: "text" | "code"; content: string; lang?: string }> = [];
-      const regex = /CODE_BLOCK_START:([^\n]+)\n([\s\S]*?)\nCODE_BLOCK_END/g;
+      
+      // Use a regex to split by any of our placeholders
+      const placeholderRegex = /CID_CB_PLACEHOLDER_(\d+)/g;
       let lastIndex = 0;
-      let match;
+      let pMatch;
 
-      while ((match = regex.exec(taskListFixed)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push({ type: "text", content: taskListFixed.slice(lastIndex, match.index) });
+      while ((pMatch = placeholderRegex.exec(taskListFixed)) !== null) {
+        if (pMatch.index > lastIndex) {
+          parts.push({ type: "text", content: taskListFixed.slice(lastIndex, pMatch.index) });
         }
-        parts.push({ type: "code", lang: match[1], content: match[2]! });
-        lastIndex = regex.lastIndex;
+        
+        const idx = parseInt(pMatch[1]!, 10);
+        const cb = codeBlocks[idx];
+        if (cb) {
+          parts.push({ type: "code", lang: cb.lang, content: cb.content });
+        }
+        
+        lastIndex = placeholderRegex.lastIndex;
       }
 
       if (lastIndex < taskListFixed.length) {
