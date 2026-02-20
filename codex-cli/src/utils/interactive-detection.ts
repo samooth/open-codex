@@ -43,7 +43,8 @@ export function detectInteraction(content: string): InteractionType | null {
     normalized.includes("do you want to") || 
     normalized.includes("would you like me to") ||
     normalized.includes("shall i") ||
-    normalized.includes("can i") ||
+    // Use word boundaries for "can i" to avoid matches inside "Bitcoin"
+    /\bcan i\b/i.test(normalized) ||
     normalized.includes("should i")
   );
 

@@ -66,7 +66,6 @@ const TerminalStatusBar: React.FC<Props> = ({
       borderLeft={false} 
       borderRight={false} 
       borderTopColor={theme.divider}
-      height={1}
     >
       <Box flexDirection="row" justifyContent="space-between">
         <Box gap={1}>

@@ -312,6 +312,10 @@ const MultilineTextEditorInner = (
 
       // 2) Single‑byte control chars ------------------------------------------------
       if (input === "\n") {
+        if (key.ctrl) {
+          onSubmit?.(buffer.current.getText());
+          return;
+        }
         // Ctrl+J or pasted newline → insert newline.
         buffer.current.newline();
         setVersion((v) => v + 1);
@@ -319,6 +323,20 @@ const MultilineTextEditorInner = (
       }
 
       if (input === "\r") {
+        // Respect modifiers for Enter key
+        if (key.ctrl) {
+          // Ctrl+Enter -> Always submit
+          onSubmit?.(buffer.current.getText());
+          return;
+        }
+
+        if (key.shift || key.meta) {
+          // Shift+Enter or Alt+Enter -> Newline
+          buffer.current.newline();
+          setVersion((v) => v + 1);
+          return;
+        }
+
         // Plain Enter – submit (works on all basic terminals).
         if (onSubmit) {
           onSubmit(buffer.current.getText());
