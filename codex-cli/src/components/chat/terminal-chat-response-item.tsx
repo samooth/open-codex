@@ -707,6 +707,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   // Use a more flexible regex that allows mixed closing tags or no closing tag (end of string)
   const thoughtRegex = /<(thought|think)>([\s\S]*?)(?:<\/(?:thought|think)>|$)/gim;
   const planRegex = /<plan>([\s\S]*?)(?:<\/plan>|$)/gim;
+  const responseTagRegex = /<response>([\s\S]*?)(?:<\/response>|$)/gim;
 
   let displayContent = content.replace(thoughtRegex, (_, _tagName, thought) => {
     thoughts.push(thought.trim());
@@ -716,6 +717,10 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   displayContent = displayContent.replace(planRegex, (_, plan) => {
     plans.push(plan.trim());
     return "";
+  });
+
+  displayContent = displayContent.replace(responseTagRegex, (_, resp) => {
+    return resp;
   });
 
   const hasThoughts = thoughts.length > 0;
