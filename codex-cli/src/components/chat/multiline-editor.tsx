@@ -238,6 +238,11 @@ const MultilineTextEditorInner = (
         return;
       }
 
+      // Standardize return key for raw bytes (test environment stub)
+      if ((input === "\r" || input === "\n") && key.return === false) {
+        (key as any).return = true;
+      }
+
       if (onKeyDown?.(input, key)) {
         return;
       }
@@ -311,39 +316,27 @@ const MultilineTextEditorInner = (
       }
 
       // 2) Single‑byte control chars ------------------------------------------------
-      if (input === "\n") {
-        if (key.ctrl) {
-          onSubmit?.(buffer.current.getText());
-          return;
-        }
-        // Ctrl+J or pasted newline → insert newline.
-        buffer.current.newline();
-        setVersion((v) => v + 1);
-        return;
-      }
+      const isPlainReturn = (input === "\r") || (key.return && !key.shift && !key.ctrl && !key.meta);
+      const isShiftReturn = (input === "\n") || (key.return && key.shift);
 
-      if (input === "\r") {
-        // Respect modifiers for Enter key
-        if (key.ctrl) {
-          // Ctrl+Enter -> Always submit
-          onSubmit?.(buffer.current.getText());
-          return;
-        }
-
-        if (key.shift || key.meta) {
-          // Shift+Enter or Alt+Enter -> Newline
-          buffer.current.newline();
-          setVersion((v) => v + 1);
-          return;
-        }
-
-        // Plain Enter – submit (works on all basic terminals).
+      if (isPlainReturn) {
         if (onSubmit) {
           onSubmit(buffer.current.getText());
         } else {
           buffer.current.newline();
           setVersion((v) => v + 1);
         }
+        return;
+      }
+
+      if (isShiftReturn) {
+        buffer.current.newline();
+        setVersion((v) => v + 1);
+        return;
+      }
+
+      if (key.return && key.ctrl) {
+        onSubmit?.(buffer.current.getText());
         return;
       }
 

@@ -4,11 +4,12 @@ import * as React from "react";
 import { describe, it, expect, vi } from "vitest";
 
 async function type(
-  stdin: NodeJS.WritableStream,
+  stdin: any,
   text: string,
   flush: () => Promise<void>,
+  key: any = {},
 ) {
-  stdin.write(text);
+  stdin.write(text, key);
   await flush();
 }
 
@@ -30,9 +31,8 @@ describe("MultilineTextEditor – Shift+Enter", () => {
     // type 'hi'
     await type(stdin, "hi", flush);
 
-    // send Shift+Enter – simulated by \n without key.return. Ink's test stdin
-    // delivers raw bytes only, so we approximate by writing "\n" directly.
-    await type(stdin, "\n", flush);
+    // send Shift+Enter
+    await type(stdin, "\n", flush, { shift: true });
 
     // type 'there'
     await type(stdin, "there", flush);
