@@ -282,6 +282,12 @@ export default class TextBuffer {
     return this.lines.slice();
   }
 
+  setCursor(row: number, col: number): void {
+    this.cursorRow = row;
+    this.cursorCol = col;
+    this.ensureCursorInRange();
+  }
+
   /* =====================================================================
    *  History public API – undo / redo
    * =================================================================== */
@@ -778,10 +784,7 @@ export default class TextBuffer {
       return false;
     }
 
-    /* new line — Ink sets either `key.return` *or* passes a literal "\n" */
-    if (key["return"] || input === "\r" || input === "\n") {
-      this.newline();
-    } else if (
+    if (
       key["leftArrow"] &&
       !key["meta"] &&
       !key["ctrl"] &&
