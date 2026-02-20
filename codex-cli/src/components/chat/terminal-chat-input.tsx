@@ -244,8 +244,8 @@ export default function TerminalChatInput({
         return;
       }
 
-      if (awaitingContinueConfirmation && active && !loading) {
-        if (_key.escape && !customInputMode) {
+      if (awaitingContinueConfirmation && active && !loading && !customInputMode) {
+        if (_key.escape) {
           setCustomInputMode(true);
           return;
         }
