@@ -115,4 +115,29 @@ Your task is to focus on the backend of this project. You will be responsible fo
     description: "Reviews components for WCAG compliance, adding ARIA labels and keyboard support.",
     prompt: "Review the frontend components in the specified path for web accessibility (WCAG) compliance. Improve the code by adding appropriate ARIA labels, ensuring correct semantic HTML usage, and implementing keyboard navigation support where missing. Focus on making the UI inclusive for screen readers and keyboard-only users.",
   },
+  {
+    name: "Codebase Architect",
+    description: "Analyzes project structure and proposes high-level architectural improvements.",
+    prompt: "Survey the entire codebase to understand its high-level architecture. Identify patterns, modularity issues, and opportunities for better separation of concerns. Propose a long-term architectural roadmap and document key design decisions in a new ARCHITECTURE.md or update the existing project documentation.",
+  },
+  {
+    name: "Error Log Diagnostic",
+    description: "Analyzes log files or error outputs to find root causes and propose fixes.",
+    prompt: "Read the provided error logs or terminal output. Identify the root cause of the failure by searching the codebase for relevant files and symbols. Propose and implement a fix that addresses the issue and prevents it from recurring. Include a regression test if possible.",
+  },
+  {
+    name: "Context Optimizer",
+    description: "Suggests which files are most important to 'pin' for the current task.",
+    prompt: "Based on the user's current goal, analyze the codebase to identify the most critical 'source of truth' files (interfaces, core logic, config). Propose a list of files to `/pin` to the context window to maximize reasoning efficiency while staying within token limits.",
+  },
+  {
+    name: "Memory Librarian",
+    description: "Curates and organizes the project's persistent memory (.codex/memory.md).",
+    prompt: "Review the current project memory using `summarize_memory`. Use the `maintain_memory` tool to clean up duplicates and outdated facts. Propose new categories or high-level summaries that would make the project easier for a new agent or developer to understand.",
+  },
+  {
+    name: "PR Preparer",
+    description: "Generates a clean commit message and PR description for your changes.",
+    prompt: "Review all changes made in the current session using `git diff`. Generate a professional, concise PR description including a 'Why' (rationale), 'What' (high-level changes), and a 'How to Test' section. Also, propose a standard-compliant commit message following the Conventional Commits specification.",
+  },
 ];

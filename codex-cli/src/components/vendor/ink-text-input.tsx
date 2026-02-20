@@ -201,78 +201,72 @@ function TextInput({
       if (onKeyDown?.(input, key)) {
         return;
       }
+
       // ────────────────────────────────────────────────────────────────
-      // Support Shift+Enter / Ctrl+Enter from terminals that have
-      // modifyOtherKeys enabled.  Such terminals encode the key‑combo in a
-      // CSI sequence rather than sending a bare "\r"/"\n".  Ink passes the
-      // sequence through as raw text (without the initial ESC), so we need to
-      // detect and translate it before the generic character handler below
-      // treats it as literal input (e.g. "[27;2;13~").  We support both the
-      // modern *mode 2* (CSI‑u, ending in "u") and the legacy *mode 1*
-      // variant (ending in "~").
-      //
-      //  - Shift+Enter  → insert newline (same behaviour as Option+Enter)
-      //  - Ctrl+Enter   → submit the input (same as plain Enter)
-      //
-      // References: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Modify-Other-Keys
+      // 1. Handle Enter / Return / Newline sequences first.
+      // We must be extremely explicit here to prevent fall-through to the
+      // general character handler which would treat \n as literal input.
       // ────────────────────────────────────────────────────────────────
 
-      function handleEncodedEnterSequence(raw: string): boolean {
-        // CSI‑u (modifyOtherKeys=2)  → "[13;<mod>u"
-        let m = raw.match(/^\[([0-9]+);([0-9]+)u$/);
-        if (m && m[1] === "13") {
-          const mod = Number(m[2]);
-          const hasCtrl = Math.floor(mod / 4) % 2 === 1;
-
-          if (hasCtrl) {
-            if (onSubmit) {
-              onSubmit(originalValue);
-            }
-          } else {
-            const newValue =
-              originalValue.slice(0, cursorOffset) +
-              "\n" +
-              originalValue.slice(cursorOffset);
-
-            setState({
-              cursorOffset: cursorOffset + 1,
-              cursorWidth: 0,
-            });
-            onChange(newValue);
-          }
-          return true; // handled
+      function getReturnAction(raw: string, k: any): "submit" | "newline" | "none" {
+        // Standard Ink keys
+        if (k.return || raw === "\r" || raw === "\n") {
+          if (k.ctrl) return "submit";
+          if (k.shift || k.meta) return "newline";
+          
+          // Plain enter: check for backslash continuation
+          const isAtEnd = cursorOffset === originalValue.length;
+          const trailingMatch = originalValue.match(/\\+$/);
+          const trailingCount = trailingMatch ? trailingMatch[0].length : 0;
+          if (isAtEnd && trailingCount === 1) return "newline";
+          
+          return "submit";
         }
 
-        // CSI‑~ (modifyOtherKeys=1) → "[27;<mod>;13~"
-        m = raw.match(/^\[27;([0-9]+);13~$/);
+        // CSI sequences (modifyOtherKeys)
+        // CSI‑u: "[13;<mod>u" or CSI‑~: "[27;<mod>;13~"
+        const m = raw.match(/^\[(?:13;([0-9]+)u|27;([0-9]+);13~)$/);
         if (m) {
-          const mod = Number(m[1]);
+          const mod = Number(m[1] || m[2]);
+          if (mod === 1) return "submit"; // Plain
           const hasCtrl = Math.floor(mod / 4) % 2 === 1;
+          const hasShift = (mod - 1) % 2 === 1;
+          const hasAlt = Math.floor((mod - 1) / 2) % 2 === 1;
 
-          if (hasCtrl) {
-            if (onSubmit) {
-              onSubmit(originalValue);
-            }
-          } else {
-            const newValue =
-              originalValue.slice(0, cursorOffset) +
-              "\n" +
-              originalValue.slice(cursorOffset);
-
-            setState({
-              cursorOffset: cursorOffset + 1,
-              cursorWidth: 0,
-            });
-            onChange(newValue);
-          }
-          return true; // handled
+          if (hasCtrl) return "submit";
+          if (hasShift || hasAlt) return "newline";
+          return "submit";
         }
-        return false; // not an encoded Enter sequence
+
+        return "none";
       }
 
-      if (handleEncodedEnterSequence(input)) {
+      const action = getReturnAction(input, key);
+
+      if (action === "submit") {
+        if (onSubmit) {
+          onSubmit(originalValue);
+        }
         return;
       }
+
+      if (action === "newline") {
+        const newValue =
+          originalValue.slice(0, cursorOffset) +
+          "\n" +
+          originalValue.slice(cursorOffset);
+
+        setState({
+          cursorOffset: cursorOffset + 1,
+          cursorWidth: 0,
+        });
+        onChange(newValue);
+        return;
+      }
+
+      // ────────────────────────────────────────────────────────────────
+      // 2. Ignore navigation and control keys
+      // ────────────────────────────────────────────────────────────────
       if (
         key.upArrow ||
         key.downArrow ||
@@ -287,37 +281,7 @@ function TextInput({
       let nextValue = originalValue;
       let nextCursorWidth = 0;
 
-      // TODO: continue improving the cursor management to feel native
-      if (key.return) {
-        if (key.ctrl) {
-          if (onSubmit) {
-            onSubmit(originalValue);
-            return;
-          }
-        }
-        if (key.meta || key.shift) {
-          nextValue =
-            originalValue.slice(0, cursorOffset) +
-            "\n" +
-            originalValue.slice(cursorOffset, originalValue.length);
-          nextCursorOffset++;
-        } else {
-          // Handle Enter key: support bash-style line continuation with backslash
-          // -- count consecutive backslashes immediately before cursor
-          // -- only a single trailing backslash at end indicates line continuation
-          const isAtEnd = cursorOffset === originalValue.length;
-          const trailingMatch = originalValue.match(/\\+$/);
-          const trailingCount = trailingMatch ? trailingMatch[0].length : 0;
-          if (isAtEnd && trailingCount === 1) {
-            nextValue += "\n";
-            nextCursorOffset = nextValue.length;
-            nextCursorWidth = 0;
-          } else if (onSubmit) {
-            onSubmit(originalValue);
-            return;
-          }
-        }
-      } else if ((key.ctrl && input === "a") || (key.meta && key.leftArrow)) {
+      if ((key.ctrl && input === "a") || (key.meta && key.leftArrow)) {
         nextCursorOffset = 0;
       } else if ((key.ctrl && input === "e") || (key.meta && key.rightArrow)) {
         // Move cursor to end of line
