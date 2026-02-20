@@ -127,7 +127,7 @@ export default function TerminalChat({
     ) {
       setRenderedPartialData({ ...partialDataRef.current });
     }
-  }, loading ? 200 : null);
+  }, loading ? 400 : null);
 
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>

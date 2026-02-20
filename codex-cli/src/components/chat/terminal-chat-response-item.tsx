@@ -594,8 +594,20 @@ export const TerminalChatResponseToolCall = React.memo(function TerminalChatResp
   loading?: boolean;
   theme: Theme;
 }) {
-  const { label, icon, summary, toolName, details } =
-    getToolDisplayInfo(message);
+  const { label, icon, summary, toolName, details } = useMemo(() =>
+    getToolDisplayInfo(message),
+    [message]
+  );
+
+  const readableText = useMemo(() => {
+    let text = details?.cmdReadableText || "";
+    // If it's a huge patch or shell command during streaming, truncate it
+    // to prevent terminal flickering and massive layout shifts.
+    if (loading && text.length > 500) {
+      text = text.slice(0, 500) + "... (streaming)";
+    }
+    return text;
+  }, [details?.cmdReadableText, loading]);
 
   return (
     <Box
@@ -623,10 +635,10 @@ export const TerminalChatResponseToolCall = React.memo(function TerminalChatResp
           </Text>
           <Text color={theme.highlight} wrap="wrap">{summary}</Text>
         </Box>
-        {(loading || details?.cmdReadableText) && (toolName === TOOL_SHELL ||
+        {(loading || readableText) && (toolName === TOOL_SHELL ||
           toolName === TOOL_APPLY_PATCH) && (
-          <Box paddingLeft={2} marginTop={details?.cmdReadableText ? 0 : 0}>
-            <Text color={theme.shellCommand}>$ {details?.cmdReadableText}</Text>
+          <Box paddingLeft={2} marginTop={readableText ? 0 : 0}>
+            <Text color={theme.shellCommand}>$ {readableText}</Text>
           </Box>
         )}
       </Box>
