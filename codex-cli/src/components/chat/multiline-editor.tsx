@@ -29,6 +29,11 @@ export interface MultilineTextEditorProps {
    * Custom key down handler. Return true to prevent default behavior.
    */
   readonly onKeyDown?: (input: string, key: any) => boolean;
+
+  /**
+   * Custom editor command (e.g. "code --wait")
+   */
+  readonly editor?: string;
 }
 
 // Expose a minimal imperative API so parent components (e.g. TerminalChatInput)
@@ -60,6 +65,7 @@ const MultilineTextEditorInner = (
     focus = true,
     onChange,
     onKeyDown,
+    editor,
   }: MultilineTextEditorProps,
   ref: React.Ref<MultilineTextEditorHandle | null>,
 ): React.ReactElement => {
@@ -121,7 +127,7 @@ const MultilineTextEditorInner = (
     const wasRaw = stdin?.isRaw ?? false;
     try {
       setRawMode?.(false);
-      await buffer.current.openInExternalEditor();
+      await buffer.current.openInExternalEditor({ editor });
     } catch (err) {
       console.error("[MultilineTextEditor] external editor error", err);
     } finally {

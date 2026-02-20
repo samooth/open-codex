@@ -41,6 +41,7 @@ import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
 import SearchUrlOverlay from "../search-url-overlay.js";
+import EditorOverlay from "../editor-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
@@ -160,7 +161,7 @@ export default function TerminalChat({
     useConfirmation();
 
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "editor"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -744,6 +745,7 @@ export default function TerminalChat({
           queuedInputText={queuedInputText}
           onPopQueuedInput={popQueuedInput}
           contextLeftPercent={contextLeftPercent}
+          config={config}
         />
       )}
 
@@ -868,6 +870,7 @@ export default function TerminalChat({
             enableSmartContext={!!config.enableSmartContext}
             searxngUrl={config.searxngUrl}
             webSearchUrl={config.webSearchUrl}
+            editorCommand={config.editorCommand}
             onToggleDryRun={() => {
               setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
             }}
@@ -886,6 +889,9 @@ export default function TerminalChat({
             onEditSearchUrl={(type) => {
               setOverlayMode(type === "searxng" ? "search-url-searxng" : "search-url-generic");
             }}
+            onEditEditorCommand={() => {
+              setOverlayMode("editor");
+            }}
             onToggleDeepThinking={() => {
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
             }}
@@ -894,6 +900,25 @@ export default function TerminalChat({
             }}
             onToggleSmartContext={() => {
               setConfig((prev) => ({ ...prev, enableSmartContext: !prev.enableSmartContext }));
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "editor" && (
+          <EditorOverlay
+            currentCommand={config.editorCommand || ""}
+            onSave={(newCommand) => {
+              setConfig((prev) => ({ ...prev, editorCommand: newCommand || undefined }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `Updated editor command to: ${newCommand || "default ($EDITOR)"}`,
+                },
+              ]);
+              setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
             theme={activeTheme}

@@ -136,9 +136,9 @@ export default class TextBuffer {
     const { spawnSync } = require("node:child_process");
 
     const editor =
-      opts.editor ??
-      process.env["VISUAL"] ??
-      process.env["EDITOR"] ??
+      opts.editor ||
+      process.env["VISUAL"] ||
+      process.env["EDITOR"] ||
       (process.platform === "win32" ? "notepad" : "vi");
 
     // Prepare a temporary file with the current contents.  We use mkdtempSync

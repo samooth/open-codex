@@ -9,6 +9,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import os from "os";
+import type { AppConfig } from "./config.js";
 
 export async function processInputVariables(text: string): Promise<string> {
   const regex = /\{\{(.+?)\}\}/g;
@@ -41,8 +42,8 @@ export async function processInputVariables(text: string): Promise<string> {
   return result;
 }
 
-export async function openExternalEditor(initialContent: string): Promise<string> {
-  const editor = process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
+export async function openExternalEditor(initialContent: string, config?: AppConfig): Promise<string> {
+  const editor = config?.editorCommand || process.env["VISUAL"] || process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
   const tmpDir = os.tmpdir();
   const tmpFilePath = path.join(tmpDir, `codex-prompt-${Date.now()}.md`);
 

@@ -1,6 +1,7 @@
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { Theme } from "../../utils/theme.js";
+import type { AppConfig } from "../../utils/config.js";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
@@ -83,6 +84,7 @@ export default function TerminalChatInput({
   queuedInputText,
   onPopQueuedInput,
   contextLeftPercent,
+  config,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -126,6 +128,7 @@ export default function TerminalChatInput({
   queuedInputText?: string;
   onPopQueuedInput?: () => string;
   contextLeftPercent: number;
+  config: AppConfig;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -336,7 +339,7 @@ export default function TerminalChatInput({
       }
 
       if (_key.ctrl && _input === "e") {
-        openExternalEditor(input).then((newContent) => {
+        openExternalEditor(input, config).then((newContent) => {
           clearTerminal();
           setInput(newContent);
         });
@@ -679,6 +682,7 @@ export default function TerminalChatInput({
               height={3}
               focus={active}
               onKeyDown={onKeyDown}
+              editor={config.editorCommand}
               onSubmit={(txt) => {
                 if (customInputMode) {
                   setCustomInputMode(false);

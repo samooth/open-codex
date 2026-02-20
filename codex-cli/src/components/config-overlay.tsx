@@ -12,6 +12,7 @@ type Props = {
   enableSmartContext: boolean;
   searxngUrl?: string;
   webSearchUrl?: string;
+  editorCommand?: string;
   onToggleDryRun: () => void;
   onToggleDebug: () => void;
   onToggleWebSearch: () => void;
@@ -19,6 +20,7 @@ type Props = {
   onToggleDeepLinter: () => void;
   onToggleSmartContext: () => void;
   onEditSearchUrl: (type: "searxng" | "generic") => void;
+  onEditEditorCommand: () => void;
   onExit: () => void;
   theme: Theme;
 };
@@ -32,6 +34,7 @@ export default function ConfigOverlay({
   enableSmartContext,
   searxngUrl,
   webSearchUrl,
+  editorCommand,
   onToggleDryRun,
   onToggleDebug,
   onToggleWebSearch,
@@ -39,6 +42,7 @@ export default function ConfigOverlay({
   onToggleDeepLinter,
   onToggleSmartContext,
   onEditSearchUrl,
+  onEditEditorCommand,
   onExit,
   theme,
 }: Props): JSX.Element {
@@ -52,6 +56,11 @@ export default function ConfigOverlay({
       label: `DEBUG LOGGING: ${debug ? "ACTIVE" : "INACTIVE"}`,
       value: "debug",
       description: "Enable verbose logging for troubleshooting.",
+    },
+    {
+      label: `EDITOR COMMAND: ${editorCommand || "DEFAULT"}`,
+      value: "editorCommand",
+      description: `Command: ${editorCommand || "$EDITOR / $VISUAL"}. Select to change.`,
     },
     {
       label: `WEB SEARCH: ${enableWebSearch ? "ENABLED" : "DISABLED"}`,
@@ -103,6 +112,8 @@ export default function ConfigOverlay({
       onToggleDryRun();
     } else if (item.value === "debug") {
       onToggleDebug();
+    } else if (item.value === "editorCommand") {
+      onEditEditorCommand();
     } else if (item.value === "webSearch") {
       onToggleWebSearch();
     } else if (item.value === "searxngUrl") {
