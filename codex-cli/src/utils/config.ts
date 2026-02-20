@@ -246,6 +246,7 @@ export const StoredConfigSchema = z.object({
   fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
   memory: MemoryConfigSchema.optional(),
   enableWebSearch: z.boolean().optional(),
+  searxngUrl: z.string().optional(),
   enableDeepThinking: z.boolean().optional(),
   embeddingModel: z.string().optional(),
   contextSize: z.number().optional(),
@@ -273,6 +274,7 @@ export type AppConfig = {
   allowAlwaysPatch?: boolean;
   skipSemanticMemory?: boolean;
   enableWebSearch?: boolean;
+  searxngUrl?: string;
   enableDeepThinking?: boolean;
   embeddingModel?: string;
   contextSize?: number;
@@ -551,6 +553,7 @@ export const loadConfig = (
     memory: storedConfig.memory,
     skipSemanticMemory: false,
     enableWebSearch: storedConfig.enableWebSearch ?? true,
+    searxngUrl: storedConfig.searxngUrl,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
     embeddingModel: storedConfig.embeddingModel,
     contextSize: storedConfig.contextSize,
@@ -635,6 +638,7 @@ export const saveConfig = (
     pinnedFiles: config.pinnedFiles,
     approvalMode: config.approvalMode,
     enableWebSearch: config.enableWebSearch,
+    searxngUrl: config.searxngUrl,
     enableDeepThinking: config.enableDeepThinking,
     embeddingModel: config.embeddingModel,
     contextSize: config.contextSize,

@@ -300,7 +300,8 @@ Codex looks for config files in **`~/.codex/`** (either YAML or JSON format). Th
   "fullAutoErrorMode": "ask-user", // or ignore-and-continue
   "memory": {
     "enabled": true
-  }
+  },
+  "searxngUrl": "https://your-searxng-instance.com" // Optional: URL for your SearXNG instance
 }
 ```
 

@@ -1232,6 +1232,35 @@ export async function handleWebSearch(
       };
     }
 
+    if (ctx.config.searxngUrl) {
+      const searxUrl = `${ctx.config.searxngUrl}/search?q=${encodeURIComponent(query)}&format=json`;
+      const execResult = await handleExecCommand(
+        { cmd: ["curl", "-s", searxUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+        ctx.config,
+        ctx.approvalPolicy,
+        ctx.getCommandConfirmation,
+        ctx.execAbortController?.signal,
+      );
+
+      if (execResult.metadata["exit_code"] === 0) {
+        try {
+          const json = JSON.parse(execResult.outputText);
+          if (json.results && Array.isArray(json.results)) {
+            const results = json.results.slice(0, 10).map((r: any) => 
+              `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content || r.snippet || ""}`
+            ).join("\n\n---\n\n");
+            
+            return {
+              outputText: results || "No results found on SearXNG.",
+              metadata: { ...execResult.metadata, query, type: "web_search_searxng", count: json.results.length },
+            };
+          }
+        } catch (e) {
+          if (process.env["DEBUG"]) log(`SearXNG JSON parse failed: ${String(e)}`);
+        }
+      }
+    }
+
     // Use DuckDuckGo HTML version for better parsing with lynx
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
