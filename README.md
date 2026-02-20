@@ -228,6 +228,7 @@ For more detailed information, please refer to the following documents:
 - **[Non-interactive / CI Mode](CI.md)**: Running OpenCodex in automated pipelines.
 - **[Recipes](RECIPES.md)**: A collection of common tasks and prompts.
 - **[Project Memory & Docs](#memoryprojectdocs)**: Managing persistent project context.
+- **[SearXNG Integration Guide](SEARXNG_INTEGRATION.md)**: Setting up a custom search provider.
 - **[Contributing](CONTRIBUTING.md)**: Workflow and guidelines for developers.
 - **[Internal Tools](TOOLS.md)**: Details on the built-in tool architecture.
 
