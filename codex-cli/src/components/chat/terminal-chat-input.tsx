@@ -240,6 +240,10 @@ export default function TerminalChatInput({
 
   useInput(
     (_input, _key) => {
+      if (onKeyDown(_input, _key)) {
+        return;
+      }
+
       if (awaitingContinueConfirmation && active && !loading) {
         if (_key.escape && !customInputMode) {
           setCustomInputMode(true);
@@ -685,6 +689,7 @@ export default function TerminalChatInput({
               initialText={input}
               height={8}
               focus={active}
+              onKeyDown={onKeyDown}
               onSubmit={(txt) => {
                 if (customInputMode) {
                   setCustomInputMode(false);

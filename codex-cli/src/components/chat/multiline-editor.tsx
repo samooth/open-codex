@@ -137,6 +137,11 @@ export interface MultilineTextEditorProps {
 
   // Called when the internal text buffer updates.
   readonly onChange?: (text: string) => void;
+
+  /**
+   * Custom key down handler. Return true to prevent default behavior.
+   */
+  readonly onKeyDown?: (input: string, key: any) => boolean;
 }
 
 // Expose a minimal imperative API so parent components (e.g. TerminalChatInput)
@@ -167,6 +172,7 @@ const MultilineTextEditorInner = (
     onSubmit,
     focus = true,
     onChange,
+    onKeyDown,
   }: MultilineTextEditorProps,
   ref: React.Ref<MultilineTextEditorHandle | null>,
 ): React.ReactElement => {
@@ -229,6 +235,10 @@ const MultilineTextEditorInner = (
   useInput(
     (input, key) => {
       if (!focus) {
+        return;
+      }
+
+      if (onKeyDown?.(input, key)) {
         return;
       }
 
