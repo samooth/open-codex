@@ -35,6 +35,7 @@ type MessageHistoryProps = {
   theme: Theme;
   streamingMessage?: ChatCompletionMessageParam;
   lastFileAccess?: string;
+  isActive?: boolean;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -51,6 +52,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   theme,
   streamingMessage,
   lastFileAccess,
+  isActive = true,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -119,6 +121,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             }
             return undefined;
           })()}
+          isActive={isActive}
         />
       )}
       {confirmationPrompt && (
@@ -129,6 +132,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             allowAlwaysPatch={allowAlwaysPatch}
             applyPatch={applyPatch}
             theme={theme}
+            isActive={isActive && !loading}
           />
         </Box>
       )}
@@ -149,7 +153,8 @@ const StreamingAssistantResponse = React.memo(({
   toolCallMap,
   model,
   showRole = false,
-  previousRole
+  previousRole,
+  isActive = false
 }: { 
   message: ChatCompletionMessageParam; 
   loading: boolean; 
@@ -159,6 +164,7 @@ const StreamingAssistantResponse = React.memo(({
   model: string;
   showRole?: boolean;
   previousRole?: string;
+  isActive?: boolean;
 }) => {
   return (
     <Box
@@ -175,6 +181,7 @@ const StreamingAssistantResponse = React.memo(({
         showRole={showRole}
         previousRole={previousRole}
         isStreaming={true}
+        isActive={isActive}
       />
     </Box>
   );

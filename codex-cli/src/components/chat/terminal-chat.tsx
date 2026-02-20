@@ -588,6 +588,7 @@ export default function TerminalChat({
           }}
           streamingMessage={memoizedStreamingMessage}
           lastFileAccess={lastFileAccess}
+          isActive={overlayMode === "none"}
         />
       ) : (
         <Box>

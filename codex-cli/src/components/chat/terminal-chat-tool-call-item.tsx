@@ -12,10 +12,12 @@ export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
   theme,
+  isActive = false,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
   theme: Theme;
+  isActive?: boolean;
 }): React.ReactElement {
   const { rows, columns } = useTerminalSize();
   const isPatch =
@@ -28,6 +30,8 @@ export function TerminalChatToolCallCommand({
   const [isExpandedAll, setIsExpandedAll] = useState(false);
 
   useInput((input, key) => {
+    if (!isActive) return;
+
     if (input === "e") {
       setIsExpandedAll(!isExpandedAll);
       return;
@@ -49,7 +53,7 @@ export function TerminalChatToolCallCommand({
         });
       }
     }
-  });
+  }, { isActive });
 
   const ops = React.useMemo(() => {
     if (applyPatch) return parseApplyPatch(applyPatch.patch);

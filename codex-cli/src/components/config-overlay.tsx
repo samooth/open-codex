@@ -126,6 +126,8 @@ export default function ConfigOverlay({
           items={items}
           onSelect={handleSelect}
           onHighlight={handleHighlight}
+          theme={theme}
+          isFocused={true}
         />
       </Box>
 

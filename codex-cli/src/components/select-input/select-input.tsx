@@ -10,6 +10,7 @@ import React, {
   useCallback,
 } from "react";
 import arrayToRotated from "to-rotated";
+import type { Theme } from "../../utils/theme.js";
 
 type Props<V> = {
   /**
@@ -56,6 +57,11 @@ type Props<V> = {
    * Function to call when user highlights an item. Item object is passed to that function as an argument.
    */
   readonly onHighlight?: (item: Item<V>) => void;
+
+  /**
+   * Current UI theme.
+   */
+  readonly theme: Theme;
 };
 
 export type Item<V> = {
@@ -73,6 +79,7 @@ function SelectInput<V>({
   limit: customLimit,
   onSelect,
   onHighlight,
+  theme,
 }: Props<V>): JSX.Element {
   const hasLimit =
     typeof customLimit === "number" && items.length > customLimit;
@@ -103,6 +110,8 @@ function SelectInput<V>({
   useInput(
     useCallback(
       (input, key) => {
+        if (!isFocused) return;
+
         if (input === "k" || key.upArrow) {
           const lastIndex = (hasLimit ? limit : items.length) - 1;
           const atFirstIndex = selectedIndex === 0;
@@ -161,6 +170,7 @@ function SelectInput<V>({
         items,
         onSelect,
         onHighlight,
+        isFocused,
       ],
     ),
     { isActive: isFocused },
@@ -177,8 +187,8 @@ function SelectInput<V>({
 
         return (
           <Box key={item.key ?? String(item.value)}>
-            {React.createElement(indicatorComponent, { isSelected })}
-            {React.createElement(itemComponent, { ...item, isSelected })}
+            {React.createElement(indicatorComponent, { isSelected, theme })}
+            {React.createElement(itemComponent, { ...item, isSelected, theme })}
           </Box>
         );
       })}

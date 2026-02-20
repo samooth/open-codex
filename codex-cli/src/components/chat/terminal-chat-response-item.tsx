@@ -395,11 +395,13 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
   fullStdout,
   toolCall,
   theme,
+  isActive = false,
 }: {
   content: string;
   fullStdout: boolean;
   toolCall?: ChatCompletionMessageToolCall;
   theme: Theme;
+  isActive?: boolean;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
   const { exit_code, duration_seconds, type, url, query } =
@@ -412,10 +414,11 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
   });
 
   useInput((input, key) => {
+    if (!isActive) return;
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
     }
-  });
+  }, { isActive });
 
   const isDebug =
     process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
@@ -664,6 +667,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   model,
   showRole = true,
   disableMarkdown = false,
+  isActive = false,
 }: {
   message: ChatCompletionMessageParam;
   fullStdout?: boolean;
@@ -672,6 +676,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   model?: string;
   showRole?: boolean;
   disableMarkdown?: boolean;
+  isActive?: boolean;
 }) {
   const contentParts: Array<string> = [];
   const imagePaths: Array<string> = [];
@@ -718,6 +723,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
         fullStdout={!!fullStdout}
         toolCall={toolCall}
         theme={theme}
+        isActive={isActive}
       />
     );
   }
@@ -893,11 +899,13 @@ function TerminalChatResponseToolBatch({
   toolCallMap,
   fullStdout,
   theme,
+  isActive = false,
 }: {
   group: GroupedResponseItem;
   toolCallMap: Map<string, any>;
   fullStdout: boolean;
   theme: Theme;
+  isActive?: boolean;
 }) {
   const items = group.items;
   const isLargeBatch = items.length > 3;
@@ -942,6 +950,7 @@ function TerminalChatResponseToolBatch({
               fullStdout={fullStdout}
               toolCallMap={toolCallMap}
               theme={theme}
+              isActive={isActive}
             />
           );
         })}
@@ -961,6 +970,7 @@ function TerminalChatResponseItem({
   showRole = true,
   previousRole,
   isStreaming = false,
+  isActive = false,
 }: {
   item?: ChatCompletionMessageParam;
   group?: GroupedResponseItem;
@@ -972,6 +982,7 @@ function TerminalChatResponseItem({
   showRole?: boolean;
   previousRole?: string;
   isStreaming?: boolean;
+  isActive?: boolean;
 }): React.ReactElement {
   if (group) {
     return (
@@ -980,6 +991,7 @@ function TerminalChatResponseItem({
         fullStdout={fullStdout}
         toolCallMap={toolCallMap}
         theme={theme}
+        isActive={isActive}
       />
     );
   }
@@ -994,7 +1006,7 @@ function TerminalChatResponseItem({
 
   switch (item.role) {
     case "user":
-      return <TerminalChatResponseMessage message={item} theme={theme} showRole={currentShowRole} />;
+      return <TerminalChatResponseMessage message={item} theme={theme} showRole={currentShowRole} isActive={isActive} />;
     case "assistant":
       return (
         <>
@@ -1004,6 +1016,7 @@ function TerminalChatResponseItem({
             model={model}
             showRole={currentShowRole} 
             disableMarkdown={isStreaming} 
+            isActive={isActive}
           />
           {item.tool_calls?.map((toolCall, i) => {
             return (
@@ -1026,6 +1039,7 @@ function TerminalChatResponseItem({
           theme={theme}
           model={model}
           showRole={false}
+          isActive={isActive}
         />
       );
     default:

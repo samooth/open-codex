@@ -87,6 +87,8 @@ export default function CommandPaletteOverlay({
           <SelectInput
             items={filteredItems}
             onSelect={(item: CommandItem) => onSelect(item.value, item.type)}
+            theme={theme}
+            isFocused={true}
           />
         ) : (
           <Text color={theme.warning} italic>No commands match your search.</Text>

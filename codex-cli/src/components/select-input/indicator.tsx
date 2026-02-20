@@ -1,16 +1,18 @@
 import figures from "figures";
 import { Box, Text } from "ink";
 import React from "react";
+import type { Theme } from "../../utils/theme.js";
 
 export type Props = {
   readonly isSelected?: boolean;
+  readonly theme: Theme;
 };
 
-function Indicator({ isSelected = false }: Props): JSX.Element {
+function Indicator({ isSelected = false, theme }: Props): JSX.Element {
   return (
     <Box marginRight={1}>
       {isSelected ? (
-        <Text color="blue">{figures.pointer}</Text>
+        <Text color={theme.highlight}>{figures.pointer}</Text>
       ) : (
         <Text> </Text>
       )}

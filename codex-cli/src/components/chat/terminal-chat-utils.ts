@@ -100,12 +100,12 @@ export function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
   } else if (toolName === "web_search") {
     label = "searching web";
     icon = "🌐";
-    color = "blueBright";
+    color = "cyanBright";
     summary = `"${args.query}"`;
   } else if (toolName === "fetch_url") {
     label = "fetching web";
     icon = "🌐";
-    color = "blueBright";
+    color = "cyanBright";
     summary = args.url;
   } else if (toolName.includes("memory")) {
     label = "memory";

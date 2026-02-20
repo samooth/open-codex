@@ -21,12 +21,14 @@ export function TerminalChatCommandReview({
   allowAlwaysPatch,
   applyPatch,
   theme,
+  isActive = true,
 }: {
   confirmationPrompt: React.ReactNode;
   onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
   allowAlwaysPatch?: boolean;
   applyPatch?: ApplyPatchCommand;
   theme: Theme;
+  isActive?: boolean;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -110,6 +112,8 @@ export function TerminalChatCommandReview({
   }, [showAlwaysApprove, applyPatch]);
 
   useInput(async (input, key) => {
+    if (!isActive) return;
+
     if (mode === "select") {
       if (input === "y") {
         onReviewCommand(ReviewDecision.YES);
@@ -149,7 +153,7 @@ export function TerminalChatCommandReview({
         );
       }
     }
-  });
+  }, { isActive });
 
   return (
     <Box 
@@ -164,7 +168,9 @@ export function TerminalChatCommandReview({
       marginTop={1}
       marginBottom={1}
     >
-      {confirmationPrompt}
+      {React.isValidElement(confirmationPrompt) 
+        ? React.cloneElement(confirmationPrompt as React.ReactElement<any>, { isActive }) 
+        : confirmationPrompt}
       <Box flexDirection="column" gap={0} marginTop={1}>
         {mode === "select" ? (
           <>
@@ -174,6 +180,7 @@ export function TerminalChatCommandReview({
             </Box>
             <Box paddingX={2} flexDirection="column" gap={0}>
               <Select
+                isDisabled={!isActive}
                 onChange={async (value: ReviewDecision | "edit" | "view-edit") => {
                   if (value === "edit") {
                     setMode("input");
@@ -213,7 +220,7 @@ export function TerminalChatCommandReview({
                 onChange={setMsg}
                 placeholder="type a reason"
                 showCursor
-                focus
+                focus={isActive}
               />
             </Box>
 

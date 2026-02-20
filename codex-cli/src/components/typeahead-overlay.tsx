@@ -123,7 +123,8 @@ export default function TypeaheadOverlay({
             limit={limit}
             items={selectItems}
             initialIndex={initialIndex === -1 ? 0 : initialIndex}
-            isFocused
+            isFocused={true}
+            theme={theme}
             onSelect={(item: TypeaheadItem) => {
               if (item.value) {
                 onSelect(item.value);
