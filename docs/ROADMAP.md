@@ -4,7 +4,7 @@ This project is divided into the core CLI and various infrastructure tools.
 
 ## Core CLI (OpenCodex)
 
-Detailed roadmap can be found in [codex-cli/TODO.md](codex-cli/TODO.md).
+Detailed roadmap can be found in [CLI_ROADMAP.md](./CLI_ROADMAP.md).
 
 ### Immediate Priorities:
 1. **Interactive Hunk Selection:** Finer control over code patches.

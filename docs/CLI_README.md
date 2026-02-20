@@ -224,13 +224,14 @@ For more detailed information, please refer to the following documents:
 
 - **[Installation Guide](#installation)**: How to install and build from source.
 - **[Configuration Guide](#configuration)**: Customizing models, providers, and settings.
-- **[Editor Integration](#editor-integration)**: Using OpenCodex with Sublime Text and other editors.
-- **[Non-interactive / CI Mode](CI.md)**: Running OpenCodex in automated pipelines.
-- **[Recipes](RECIPES.md)**: A collection of common tasks and prompts.
+- **[Editor Integration](./SUBLIME.md)**: Using OpenCodex with Sublime Text and other editors.
+- **[Non-interactive / CI Mode](./CI.md)**: Running OpenCodex in automated pipelines.
+- **[Recipes](./RECIPES.md)**: A collection of common tasks and prompts.
 - **[Project Memory & Docs](#memoryprojectdocs)**: Managing persistent project context.
-- **[SearXNG Integration Guide](SEARXNG_INTEGRATION.md)**: Setting up a custom search provider.
-- **[Contributing](CONTRIBUTING.md)**: Workflow and guidelines for developers.
-- **[Internal Tools](TOOLS.md)**: Details on the built-in tool architecture.
+- **[SearXNG Integration Guide](./SEARXNG_INTEGRATION.md)**: Setting up a custom search provider.
+- **[Contributing](./CLI_CONTRIBUTING.md)**: Workflow and guidelines for developers.
+- **[Internal Tools](./TOOLS.md)**: Details on the built-in tool architecture.
+- **[Roadmap](./ROADMAP.md)**: Planned features and project milestones.
 
 ---
 
