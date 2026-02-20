@@ -196,10 +196,10 @@ export function TerminalChatToolCallCommand({
     .split("\n")
     .map((line) => {
       if (line.startsWith("+") && !line.startsWith("++")) {
-        return chalk[theme.success](line);
+        return chalk.greenBright(line);
       }
       if (line.startsWith("-") && !line.startsWith("--")) {
-        return chalk[theme.error](line);
+        return chalk.redBright(line);
       }
       return line;
     })

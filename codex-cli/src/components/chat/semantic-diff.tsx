@@ -15,10 +15,10 @@ export function SemanticDiffLine({
   theme: Theme;
 }) {
   if (line.startsWith("+") && !line.startsWith("++")) {
-    return <Text color={theme.success}>{line}</Text>;
+    return <Text color="greenBright">{line}</Text>;
   }
   if (line.startsWith("-") && !line.startsWith("--")) {
-    return <Text color={theme.error}>{line}</Text>;
+    return <Text color="redBright">{line}</Text>;
   }
   if (line.startsWith("@@")) {
     return <Text color={theme.highlight} dimColor>{line}</Text>;
@@ -48,13 +48,13 @@ export function SemanticDiffPair({
     <Box flexDirection="column">
       {/* Removed line with highlights for deletions */}
       <Box>
-        <Text color={theme.error}>-</Text>
+        <Text color="redBright">-</Text>
         {diff.map((part, i) => {
           if (part.added) return null;
           return (
             <Text
               key={i}
-              color={theme.error}
+              color="redBright"
               backgroundColor={part.removed ? "red" : undefined}
               bold={part.removed}
             >
@@ -65,13 +65,13 @@ export function SemanticDiffPair({
       </Box>
       {/* Added line with highlights for additions */}
       <Box>
-        <Text color={theme.success}>+</Text>
+        <Text color="greenBright">+</Text>
         {diff.map((part, i) => {
           if (part.removed) return null;
           return (
             <Text
               key={i}
-              color={theme.success}
+              color="greenBright"
               backgroundColor={part.added ? "green" : undefined}
               bold={part.added}
             >

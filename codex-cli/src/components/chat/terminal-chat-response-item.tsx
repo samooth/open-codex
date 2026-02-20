@@ -511,14 +511,24 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
       } catch { /* ignore */ }
     }
 
-    return displayedContent
-      .split("\n")
-      .map((line) => {
-        if (line.startsWith("+") && !line.startsWith("++")) return chalk.green(line);
-        if (line.startsWith("-") && !line.startsWith("--")) return chalk.red(line);
-        return line;
-      })
-      .join("\n");
+    // Fallback: Check if it looks like a unified diff or our custom patch format
+    const isPatch = displayedContent.includes("*** Begin Patch") || 
+                    displayedContent.includes("--- ") || 
+                    displayedContent.includes("+++ ");
+
+    if (isPatch || toolName === TOOL_APPLY_PATCH) {
+      return displayedContent
+        .split("\n")
+        .map((line) => {
+          if (line.startsWith("+") && !line.startsWith("+++")) return chalk[theme.success](line);
+          if (line.startsWith("-") && !line.startsWith("---")) return chalk[theme.error](line);
+          if (line.startsWith("@@")) return chalk.cyan(line);
+          return line;
+        })
+        .join("\n");
+    }
+
+    return displayedContent;
   }, [
     displayedContent,
     toolName,
