@@ -33,6 +33,7 @@ Potential Improvements:
    29. [DONE] Refined Interaction Menus:
        * Improved regex-based detection for Yes/No questions and multi-choice `[Option]` lists.
        * Formalized the selection protocol in the system prompt to allow the model to reliably trigger interactive UI buttons.
+       * Added `Esc` key shortcut to quickly switch to "Custom..." input mode.
 
    30. [DONE] Reasoning Persistence:
        * Resolved an issue where `reasoning_content` (from models like o1 or o3-mini) would disappear from history once streaming finished.
@@ -41,6 +42,15 @@ Potential Improvements:
    31. [DONE] Type Safety & DX:
        * Resolved 20+ core TypeScript errors across 6 files, fixing issues with tool-call union types and broken imports.
        * Optimized system-prompt string handling to prevent template literal termination errors.
+       * Fixed `fileURLToPath` crashes and component hoisting in `TerminalChatResponseItem`.
+
+   38. [DONE] Advanced Input Experience:
+       * Implemented True Multi-line support using `Shift+Enter` for newlines.
+       * Added `Ctrl+Enter` as a primary submission shortcut for multi-line prompts.
+       * Improved fake cursor rendering to handle multiline wrap and newlines correctly.
+
+   39. [DONE] Enhanced Visual Clarity:
+       * Standardized link colors to `cyanBright` with underlines across the entire UI (Header, Markdown, and Tool Outputs) to ensure visibility against dark terminal backgrounds.
 
    4. [DONE] Loop Protection Strategy:
        * Instruct the agent that if a command fails twice with the same error, it should stop and ask for clarification instead of retrying blindly.

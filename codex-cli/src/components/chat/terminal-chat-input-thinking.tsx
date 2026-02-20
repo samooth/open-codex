@@ -232,59 +232,41 @@ export default function TerminalChatInputThinking({
 
   return (
     <Box 
-      flexDirection="column" 
-      gap={1}
-      borderStyle={(activeToolName || activeBlockType === "plan") ? "round" : undefined}
-      borderColor="dimGray"
-      paddingX={(activeToolName || activeBlockType === "plan") ? 1 : 0}
+      flexDirection="row" 
+      gap={2}
+      paddingY={1}
+      height={3}
     >
-      <Box gap={2}>
-        <Spinner type="dots" color={(activeToolName || activeBlockType === "plan") ? "magentaBright" : "cyan"} />
-        <Box flexDirection="column">
-          <Box gap={1}>
-            {(activeToolName || activeBlockType === "plan") && (
-              <Text bold color="magenta">
-                {activeBlockType === "plan" ? "Planning" : `Working: ${activeToolName}`}
-              </Text>
-            )}
-            <Text dimColor>({elapsedSeconds}s)</Text>
-          </Box>
-          {(!isStreamingResponse || activeToolName) && (
-            <>
-              <Text italic={!!partialReasoning} color={partialReasoning ? "cyan" : undefined}>
-                {showScrollIndicatorTop ? '▲ ' : ''}
-                {displayedLines.join('\n')}
-                {showScrollIndicatorBottom ? ' ▼' : ''}
-                {dots}
-              </Text>
-              {activeToolArguments && (
-                <Box borderStyle="single" borderColor="cyan" paddingX={1} marginTop={0}>
-                  <Text dimColor>
-                    {JSON.stringify(activeToolArguments, null, 1).slice(0, 200)}
-                    {JSON.stringify(activeToolArguments).length > 200 ? "..." : ""}
-                  </Text>
-                </Box>
-              )}
-            </>
-          )}
-          {isStreamingResponse && !activeToolName && (
-            <Text color="green">Generating output...</Text>
-          )}
-        </Box>
-      </Box>
-      {showLongDelayWarning && !partialReasoning && !activeToolName && (
-        <Box paddingLeft={2}>
-          <Text color="yellow">
-            ⚠️ Long delay detected. The model might be struggling to respond or the connection is slow.
+      <Spinner type="dots" color="cyan" />
+      <Box flexDirection="column">
+        <Box gap={1}>
+          <Text color="cyan" bold italic>
+            {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
           </Text>
+          <Text dimColor>[ {elapsedSeconds}s ]</Text>
         </Box>
-      )}
-      {awaitingConfirm && (
-        <Text dimColor>
-          Press <Text bold>Esc</Text> again to interrupt and enter a new
-          instruction
-        </Text>
-      )}
+        
+        {!isStreamingResponse && displayedLines.length > 0 && (
+          <Box flexDirection="column" marginTop={0}>
+            <Text italic color="gray">
+              {showScrollIndicatorTop ? '▲ ' : ''}
+              {displayedLines.join('\n')}
+              {showScrollIndicatorBottom ? ' ▼' : ''}
+              {dots}
+            </Text>
+          </Box>
+        )}
+        
+        {isStreamingResponse && !activeToolName && (
+          <Text color="green" italic>generating response...</Text>
+        )}
+        
+        {awaitingConfirm && (
+          <Text color="yellow" bold>
+            PRESS ESC AGAIN TO INTERRUPT
+          </Text>
+        )}
+      </Box>
     </Box>
   );
 }

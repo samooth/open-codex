@@ -34,6 +34,7 @@ type MessageHistoryProps = {
   fullStdout: boolean;
   theme: Theme;
   streamingMessage?: ChatCompletionMessageParam;
+  lastFileAccess?: string;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -49,6 +50,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   fullStdout,
   theme,
   streamingMessage,
+  lastFileAccess,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -67,7 +69,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
       <Static key={theme.name} items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {
-            return <TerminalHeader key="header" {...headerProps} theme={theme} />;
+            return <TerminalHeader key="header" {...headerProps} theme={theme} breadcrumb={lastFileAccess} />;
           }
           const { item, group } = entry as BatchEntry;
           const role = item?.role || (group?.items[0] as any)?.role;
@@ -126,6 +128,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             onReviewCommand={submitConfirmation}
             allowAlwaysPatch={allowAlwaysPatch}
             applyPatch={applyPatch}
+            theme={theme}
           />
         </Box>
       )}

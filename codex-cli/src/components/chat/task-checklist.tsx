@@ -16,37 +16,41 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
       flexDirection="column" 
       paddingX={1} 
       paddingY={0}
-      borderStyle="round" 
-      borderColor={theme.dim}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.plan}
       width="100%"
-      marginBottom={0}
+      marginBottom={1}
+      marginTop={1}
     >
       <Box gap={1} marginBottom={0}>
-        <Text bold color={theme.highlight}>📋 Current Roadmap</Text>
-        <Text dimColor italic>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
+        <Text bold color={theme.plan}>📋 ROADMAP</Text>
+        <Text dimColor italic size={0.8}>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
       </Box>
       <Box flexDirection="column" marginTop={0}>
         {tasks.map((task, i) => {
-          let icon = "⬜";
+          let icon = "  ○";
           let color = theme.dim;
           let bold = false;
 
           if (task.status === "done") {
-            icon = "✅";
+            icon = "  ●";
             color = theme.success;
           } else if (task.status === "in-progress") {
-            icon = "🔄";
+            icon = "  ▶";
             color = theme.highlight;
             bold = true;
           }
 
           return (
             <Box key={i} gap={1}>
-              <Text>{icon}</Text>
+              <Text color={color}>{icon}</Text>
               <Text color={color} bold={bold}>
                 {typeof task.label === "string" 
-                  ? task.label 
-                  : JSON.stringify(task.label)}
+                  ? task.label.toUpperCase()
+                  : JSON.stringify(task.label).toUpperCase()}
               </Text>
             </Box>
           );

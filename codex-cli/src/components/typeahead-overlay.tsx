@@ -2,6 +2,7 @@ import SelectInput from "./select-input/select-input.js";
 import TextInput from "./vendor/ink-text-input.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
+import type { Theme } from "../utils/theme.js";
 
 export type TypeaheadItem = { label: string; value: string };
 
@@ -13,6 +14,7 @@ type Props = {
   limit?: number;
   onSelect: (value: string) => void;
   onExit: () => void;
+  theme: Theme;
 };
 
 /**
@@ -28,6 +30,7 @@ export default function TypeaheadOverlay({
   limit = 10,
   onSelect,
   onExit,
+  theme,
 }: Props): JSX.Element {
   const [value, setValue] = useState("");
   const [items, setItems] = useState<Array<TypeaheadItem>>(initialItems);
@@ -56,21 +59,6 @@ export default function TypeaheadOverlay({
       ? items
       : items.filter((i) => i.label.toLowerCase().includes(q));
 
-  /*
-   * Sort logic:
-   *   1. Keep the currently‑selected value at the very top so switching back
-   *      to it is always a single <enter> press away.
-   *   2. When the user has not typed anything yet (q === ""), keep the
-   *      original order provided by `initialItems`.  This allows callers to
-   *      surface a hand‑picked list of recommended / frequently‑used options
-   *      at the top while still falling back to a deterministic alphabetical
-   *      order for the rest of the list (they can simply pre‑sort the array
-   *      before passing it in).
-   *   3. As soon as the user starts typing we revert to the previous ranking
-   *      mechanism that tries to put the best match first and then sorts the
-   *      remainder alphabetically.
-   */
-
   const ranked = filtered.sort((a, b) => {
     if (a.value === currentValue) {
       return -1;
@@ -79,8 +67,6 @@ export default function TypeaheadOverlay({
       return 1;
     }
 
-    // Preserve original order when no query is present so we keep any caller
-    // defined prioritisation (e.g. recommended models).
     if (q.length === 0) {
       return 0;
     }
@@ -94,54 +80,44 @@ export default function TypeaheadOverlay({
   });
 
   const selectItems = ranked;
-
-  if (
-    process.env["DEBUG_TYPEAHEAD"] === "1" ||
-    process.env["DEBUG_TYPEAHEAD"] === "true"
-  ) {
-    // eslint-disable-next-line no-console
-    console.log(
-      "[TypeaheadOverlay] value=",
-      value,
-      "items=",
-      items.length,
-      "visible=",
-      selectItems.map((i) => i.label),
-    );
-  }
   const initialIndex = selectItems.findIndex((i) => i.value === currentValue);
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="gray"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
       width={80}
+      marginY={1}
     >
-      <Box paddingX={1}>
-        <Text bold>{title}</Text>
+      <Box paddingX={1} marginBottom={1} gap={1}>
+        <Text bold color={theme.highlight} inverse paddingX={1}> {title.toUpperCase()} </Text>
+        {description && <Box paddingLeft={1}>{description}</Box>}
       </Box>
 
-      <Box flexDirection="column" paddingX={1} gap={1}>
-        {description}
-        <TextInput
-          value={value}
-          onChange={setValue}
-          onSubmit={(submitted) => {
-            // If there are items in the SelectInput, let its onSelect handle the submission.
-            // Only submit from TextInput if the list is empty.
-            if (selectItems.length === 0) {
-              const target = submitted.trim();
-              if (target) {
-                onSelect(target);
-              } else {
-                // If submitted value is empty and list is empty, just exit.
-                onExit();
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+        <Box gap={1} marginBottom={1}>
+          <Text color={theme.highlight} bold>SEARCH: </Text>
+          <TextInput
+            value={value}
+            onChange={setValue}
+            onSubmit={(submitted) => {
+              if (selectItems.length === 0) {
+                const target = submitted.trim();
+                if (target) {
+                  onSelect(target);
+                } else {
+                  onExit();
+                }
               }
-            }
-            // If selectItems.length > 0, do nothing here; SelectInput's onSelect will handle Enter.
-          }}
-        />
+            }}
+          />
+        </Box>
+        
         {selectItems.length > 0 && (
           <SelectInput
             limit={limit}
@@ -157,9 +133,17 @@ export default function TypeaheadOverlay({
         )}
       </Box>
 
-      <Box paddingX={1}>
-        {/* Slightly more verbose footer to make the search behaviour crystal‑clear */}
-        <Text dimColor>type to search · enter to confirm · esc to cancel</Text>
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
+        <Text dimColor italic>↑↓ navigate │ enter confirm │ esc close</Text>
       </Box>
     </Box>
   );

@@ -82,8 +82,7 @@ describe("AgentLoop – generic network/server errors", () => {
     const sysMsg = received.find(
       (i) =>
         i.role === "assistant" &&
-        typeof i.content?.[0]?.text === "string" &&
-        i.content[0].text.includes("Network error"),
+        (typeof i.content === "string" ? i.content : i.content?.[0]?.text)?.includes("Network error"),
     );
 
     expect(sysMsg).toBeTruthy();
@@ -123,8 +122,7 @@ describe("AgentLoop – generic network/server errors", () => {
     const sysMsg = received.find(
       (i) =>
         i.role === "assistant" &&
-        typeof i.content?.[0]?.text === "string" &&
-        i.content[0].text.includes("error"),
+        (typeof i.content === "string" ? i.content : i.content?.[0]?.text)?.includes("Network error"),
     );
 
     expect(sysMsg).toBeTruthy();

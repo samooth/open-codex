@@ -20,11 +20,13 @@ export function TerminalChatCommandReview({
   onReviewCommand,
   allowAlwaysPatch,
   applyPatch,
+  theme,
 }: {
   confirmationPrompt: React.ReactNode;
   onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
   allowAlwaysPatch?: boolean;
   applyPatch?: ApplyPatchCommand;
+  theme: Theme;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -150,13 +152,27 @@ export function TerminalChatCommandReview({
   });
 
   return (
-    <Box flexDirection="column" gap={1} borderStyle="round" marginTop={1}>
+    <Box 
+      flexDirection="column" 
+      gap={0} 
+      borderStyle="bold" 
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
+      paddingLeft={1}
+      marginTop={1}
+      marginBottom={1}
+    >
       {confirmationPrompt}
-      <Box flexDirection="column" gap={1}>
+      <Box flexDirection="column" gap={0} marginTop={1}>
         {mode === "select" ? (
           <>
-            <Text>Allow command?</Text>
-            <Box paddingX={2} flexDirection="column" gap={1}>
+            <Box gap={1} marginBottom={1} paddingLeft={1}>
+              <Text bold color={theme.highlight} inverse paddingX={1}> PROMPT </Text>
+              <Text color={theme.highlight} bold>Allow command execution?</Text>
+            </Box>
+            <Box paddingX={2} flexDirection="column" gap={0}>
               <Select
                 onChange={async (value: ReviewDecision | "edit" | "view-edit") => {
                   if (value === "edit") {
@@ -179,24 +195,32 @@ export function TerminalChatCommandReview({
           </>
         ) : (
           <>
-            <Text>Give the model feedback (↵ to submit):</Text>
-            <Box borderStyle="round">
-              <Box paddingX={1}>
-                <TextInput
-                  value={msg}
-                  onChange={setMsg}
-                  placeholder="type a reason"
-                  showCursor
-                  focus
-                />
-              </Box>
+            <Box gap={1} marginBottom={1} paddingLeft={1}>
+              <Text bold color={theme.highlight} inverse paddingX={1}> FEEDBACK </Text>
+              <Text color={theme.highlight} bold>Give the model feedback (↵ to submit):</Text>
+            </Box>
+            <Box 
+              borderStyle="bold" 
+              borderRight={false}
+              borderTop={false}
+              borderBottom={false}
+              borderLeftColor={theme.accent}
+              paddingLeft={2}
+              marginLeft={1}
+            >
+              <TextInput
+                value={msg}
+                onChange={setMsg}
+                placeholder="type a reason"
+                showCursor
+                focus
+              />
             </Box>
 
             {msg.trim() === "" && (
-              <Box paddingX={2} marginBottom={1}>
-                <Text dimColor>
-                  default:&nbsp;
-                  <Text>{DEFAULT_DENY_MESSAGE}</Text>
+              <Box paddingX={3} marginTop={1} marginBottom={1}>
+                <Text dimColor italic>
+                  Default: "{DEFAULT_DENY_MESSAGE}"
                 </Text>
               </Box>
             )}

@@ -167,15 +167,18 @@ function TextInput({
       const color = colors[i];
       let displayChar = color ? chalk[color](char) : char;
 
-      renderedValue +=
-        i >= cursorOffset - cursorActualWidth && i <= cursorOffset
-          ? chalk.inverse(displayChar)
-          : displayChar;
+      if (i >= cursorOffset - cursorActualWidth && i <= cursorOffset) {
+        // If it's a newline, we still want to show the cursor "after" the text on that line
+        // or effectively at the newline position.
+        renderedValue += chalk.inverse(displayChar === "\n" ? " \n" : displayChar);
+      } else {
+        renderedValue += displayChar;
+      }
 
       i++;
     }
 
-    if (value.length > 0 && cursorOffset === value.length) {
+    if (value.length >= 0 && cursorOffset === value.length) {
       renderedValue += chalk.inverse(" ");
     }
   } else if (highlight) {
@@ -281,13 +284,13 @@ function TextInput({
 
       // TODO: continue improving the cursor management to feel native
       if (key.return) {
-        if (key.meta) {
-          // This does not work yet. We would like to have this behavior:
-          //     Mac terminal: Settings → Profiles → Keyboard → Use Option as Meta key
-          //     iTerm2: Open Settings → Profiles → Keys → General → Set Left/Right Option as Esc+
-          // And then when Option+ENTER is pressed, we want to insert a newline.
-          // However, even with the settings, the input="\n" and only key.shift is True.
-          // This is likely an artifact of how ink works.
+        if (key.ctrl) {
+          if (onSubmit) {
+            onSubmit(originalValue);
+            return;
+          }
+        }
+        if (key.meta || key.shift) {
           nextValue =
             originalValue.slice(0, cursorOffset) +
             "\n" +

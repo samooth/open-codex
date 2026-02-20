@@ -24,7 +24,7 @@ import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
-import { clearTerminal } from "../../utils/terminal.js";
+import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
 import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
 import { detectInteraction } from "../../utils/interactive-detection.js";
@@ -39,8 +39,10 @@ import PromptSelectOverlay from "../prompt-select-overlay.js";
 import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
+import CommandPaletteOverlay from "../command-palette-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
+import clipboard from "clipboardy";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { useInterval } from "use-interval";
@@ -85,6 +87,10 @@ export default function TerminalChat({
     initialApprovalPolicy,
   );
 
+  const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
+  const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
+  const [bottomLock, setBottomLock] = useState(true);
+
   useEffect(() => {
     // Fetch all files once on mount to avoid blocking UI during chat
     setTimeout(() => {
@@ -127,10 +133,32 @@ export default function TerminalChat({
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
   >([]);
 
+  const queuedInputText = useMemo(() => {
+    if (promptQueue.length === 0) return "";
+    const firstTurn = promptQueue[0];
+    if (!firstTurn) return "";
+    return firstTurn.inputs
+      .map(item => {
+        if (typeof item.content === "string") return item.content;
+        if (Array.isArray(item.content)) {
+          return item.content.map(c => ("text" in c ? c.text : "")).join("\n");
+        }
+        return "";
+      })
+      .join("\n\n");
+  }, [promptQueue]);
+
+  const popQueuedInput = () => {
+    const text = queuedInputText;
+    setPromptQueue([]);
+    return text;
+  };
+
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
+
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -187,6 +215,25 @@ export default function TerminalChat({
     return null;
   }, [items, loading]);
 
+  // Update terminal title based on state
+  useEffect(() => {
+    let title = "OpenCodex: Ready";
+    if (awaitingContinueConfirmation) {
+      title = "⏳ OpenCodex: Question Pending";
+      beep();
+    } else if (confirmationPrompt) {
+      title = "🛡️ OpenCodex: Awaiting Approval";
+      beep();
+    } else if (loading) {
+      if (renderedPartialData.activeToolName) {
+        title = `⚙️ OpenCodex: Running ${renderedPartialData.activeToolName}...`;
+      } else {
+        title = "🧠 OpenCodex: Thinking...";
+      }
+    }
+    setTerminalTitle(title);
+  }, [loading, awaitingContinueConfirmation, confirmationPrompt, renderedPartialData.activeToolName]);
+
   const PWD = React.useMemo(() => shortCwd(), []);
 
   // Keep a single AgentLoop instance alive across renders;
@@ -230,6 +277,9 @@ export default function TerminalChat({
       onTasksUpdate: (newTasks) => {
         setTasks(newTasks);
       },
+      onFileAccess: (path) => {
+        setLastFileAccess(path);
+      },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         partialDataRef.current.content = content;
         if (reasoning) {
@@ -239,20 +289,16 @@ export default function TerminalChat({
             partialDataRef.current.reasoning += reasoning;
           }
         } else if (content) {
-          // Extract <thought>, <think>, or <plan> content if present
-          const thoughtMatch = content.match(/<(thought|think|plan)>([\s\S]*?)$|(<(thought|think|plan)>([\s\S]*?)<\/\4>)/g);
-          if (thoughtMatch && thoughtMatch.length > 0) {
-             const lastMatch = thoughtMatch[thoughtMatch.length - 1];
-             if (lastMatch) {
-               const type = lastMatch.startsWith("<thought") ? "thought" : lastMatch.startsWith("<think") ? "think" : "plan";
-               partialDataRef.current.activeBlockType = type;
-               const cleanThought = lastMatch
-                 .replace(/<\/?(thought|think|plan)>/g, "")
-                 .trim();
-               if (cleanThought) {
-                 partialDataRef.current.reasoning = cleanThought;
-               }
-             }
+          // Check if we are currently inside an unclosed thought/plan block
+          const openTagMatch = content.match(/<(thought|think|plan)>(?![\s\S]*<\/\1>)([\s\S]*?)$/i);
+          if (openTagMatch) {
+            const type = openTagMatch[1]!.toLowerCase() as "thought" | "think" | "plan";
+            partialDataRef.current.activeBlockType = type;
+            partialDataRef.current.reasoning = openTagMatch[2]!.trim();
+          } else {
+            // If no unclosed tag is found, clear the active block type so the Thinking indicator stops showing it
+            partialDataRef.current.activeBlockType = undefined;
+            // But keep reasoning for the streaming message until it's finalized
           }
         }
         partialDataRef.current.activeToolName = activeToolName;
@@ -271,6 +317,17 @@ export default function TerminalChat({
         setRenderedPartialData({ ...partialDataRef.current });
 
         setItems((prev) => {
+          // Extract code blocks if this is an assistant message
+          if (item.role === "assistant") {
+            const content = typeof item.content === "string" ? item.content : "";
+            const codeMatches = content.match(/```(?:\w+)?\n([\s\S]*?)(?:```|$)/g);
+            if (codeMatches && codeMatches.length > 0) {
+              const last = codeMatches[codeMatches.length - 1]!;
+              const code = last.replace(/```(?:\w+)?\n/, "").replace(/```$/, "").trim();
+              setLastCodeBlock(code);
+            }
+          }
+
           // If it's a streaming tool update, try to update the existing item
           if (item.role === "tool" && "tool_call_id" in item) {
             try {
@@ -442,6 +499,15 @@ export default function TerminalChat({
     if (currentGroup) {
       batches.push({ group: currentGroup });
     }
+
+    // Performance: Windowing
+    // We only pass the last 30 batches to the live rendering tree.
+    // Static component will ensure that previous batches are already printed to stdout
+    // and don't need to be part of the active Ink node tree.
+    if (batches.length > 30) {
+      return batches.slice(-30);
+    }
+
     return batches;
   }, [items]);
 
@@ -452,6 +518,16 @@ export default function TerminalChat({
     () => calculateContextPercentRemaining(items, model, config.contextSize),
     [items, model, config.contextSize],
   );
+
+  const [contextHistory, setContextHistory] = useState<number[]>([]);
+
+  useEffect(() => {
+    const used = 100 - contextLeftPercent;
+    setContextHistory(prev => {
+      if (prev[prev.length - 1] === used) return prev;
+      return [...prev, used].slice(-20); // Keep last 20 points
+    });
+  }, [contextLeftPercent]);
 
   const activeTheme = getTheme(config.theme);
 
@@ -510,6 +586,7 @@ export default function TerminalChat({
             theme: activeTheme,
           }}
           streamingMessage={memoizedStreamingMessage}
+          lastFileAccess={lastFileAccess}
         />
       ) : (
         <Box>
@@ -546,12 +623,12 @@ export default function TerminalChat({
           openMemoryOverlay={() => setOverlayMode("memory")}
           openHelpOverlay={() => setOverlayMode("help")}
                       openConfigOverlay={() => setOverlayMode("config")}
-                      openPromptOverlay={() => setOverlayMode("prompt")}
-                      openPromptsOverlay={() => setOverlayMode("prompts")}
-                      openRecipesOverlay={() => setOverlayMode("recipes")}
-                      openThemeOverlay={() => setOverlayMode("theme")}
-                      onUndo={handleUndo}
-                      onPin={(path) => {            setConfig((prev) => ({
+                                openPromptOverlay={() => setOverlayMode("prompt")}
+                                openPromptsOverlay={() => setOverlayMode("prompts")}
+                                openRecipesOverlay={() => setOverlayMode("recipes")}
+                                openCommandPalette={() => setOverlayMode("palette")}
+                                openThemeOverlay={() => setOverlayMode("theme")}
+                                onUndo={handleUndo}                      onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
@@ -576,6 +653,18 @@ export default function TerminalChat({
               },
             ]);
           }}
+          onCopy={() => {
+            if (lastCodeBlock) {
+              clipboard.writeSync(lastCodeBlock);
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: "📋 Last code block copied to clipboard.",
+                },
+              ]);
+            }
+          }}
           interruptAgent={() => {
             if (!agent) {
               return;
@@ -594,11 +683,33 @@ export default function TerminalChat({
           activeToolName={renderedPartialData.activeToolName}
           activeToolArguments={renderedPartialData.activeToolArguments}
           submitInput={(inputs) => {
-            // If agent is not loading, run immediately. Otherwise, queue.
+            // If agent is not loading, run immediately. Otherwise, merge into queue.
             if (!loading) {
               agent.run(inputs, prevItems);
             } else {
-              setPromptQueue((prev) => [...prev, { inputs, prevItems }]);
+              setPromptQueue((prev) => {
+                if (prev.length === 0) {
+                  return [{ inputs, prevItems }];
+                }
+                
+                const existing = prev[0]!;
+                const updatedInputs = [...existing.inputs];
+                const nextMsg = inputs[0];
+                
+                // Merge text if both are user messages
+                if (nextMsg && nextMsg.role === 'user' && updatedInputs[0]?.role === 'user') {
+                   const prevContent = typeof updatedInputs[0].content === 'string' ? updatedInputs[0].content : '';
+                   const nextContent = typeof nextMsg.content === 'string' ? nextMsg.content : '';
+                   updatedInputs[0] = {
+                     ...updatedInputs[0],
+                     content: prevContent + "\n\n" + nextContent
+                   };
+                } else {
+                   updatedInputs.push(...inputs);
+                }
+                
+                return [{ inputs: updatedInputs, prevItems: existing.prevItems }];
+              });
             }
             return {};
           }}
@@ -607,6 +718,8 @@ export default function TerminalChat({
           theme={activeTheme}
           allFiles={allFiles}
           isStreamingResponse={!!memoizedStreamingMessage}
+          queuedInputText={queuedInputText}
+          onPopQueuedInput={popQueuedInput}
         />
       )}
 
@@ -615,15 +728,17 @@ export default function TerminalChat({
           model={model}
           provider={config.provider || "openai"}
           contextLeftPercent={contextLeftPercent}
+          contextHistory={contextHistory}
           tokenBreakdown={calculateTokenBreakdown(items)}
           sessionId={agent.sessionId}
           approvalPolicy={approvalPolicy}
           theme={activeTheme}
           queuedPromptsCount={promptQueue.length}
+          queuedInputLength={queuedInputText.length}
         />
       )}
         {overlayMode === "history" && (
-          <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} />
+          <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
         {overlayMode === "history-select" && (
           <HistorySelectOverlay
@@ -640,6 +755,7 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
         {overlayMode === "model" && (
@@ -680,6 +796,7 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -709,11 +826,12 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
         {overlayMode === "help" && (
-          <HelpOverlay onExit={() => setOverlayMode("none")} />
+          <HelpOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
 
         {overlayMode === "config" && (
@@ -741,6 +859,7 @@ export default function TerminalChat({
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -770,6 +889,7 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -794,6 +914,7 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -818,6 +939,7 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -836,11 +958,54 @@ export default function TerminalChat({
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "palette" && (
+          <CommandPaletteOverlay
+            onSelect={(value, type) => {
+              if (type === "command") {
+                // Trigger slash command logic by submitting it
+                // We'll let TerminalChatInput handle it or implement it here
+                // For simplicity, we just set the overlay mode based on the command
+                if (value === "/model") setOverlayMode("model");
+                else if (value === "/clear") {
+                   // Reuse clear logic
+                   setSessionId("");
+                   setPrevItems([]);
+                   clearTerminal();
+                   setItems(prev => [...prev, { role: "assistant", content: "Context cleared" }]);
+                   setOverlayMode("none");
+                }
+                else if (value === "/history") setOverlayMode("history");
+                else if (value === "/history restore") setOverlayMode("history-select");
+                else if (value === "/memory") setOverlayMode("memory");
+                else if (value === "/approval") setOverlayMode("approval");
+                else if (value === "/config") setOverlayMode("config");
+                else if (value === "/prompt") setOverlayMode("prompt");
+                else if (value === "/prompts") setOverlayMode("prompts");
+                else if (value === "/theme") setOverlayMode("theme");
+                else if (value === "/undo") { handleUndo(); setOverlayMode("none"); }
+                else if (value === "/index") {
+                   agent?.run([{ role: "user", content: "Please index the codebase for semantic search." }], prevItems);
+                   setOverlayMode("none");
+                }
+              } else if (type === "recipe") {
+                const recipe = recipes.find(r => r.name === value);
+                if (recipe) {
+                  agent?.run([{ role: "user", content: recipe.prompt }], prevItems);
+                }
+                setOverlayMode("none");
+              }
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
         {overlayMode === "memory" && (
-          <MemoryOverlay onExit={() => setOverlayMode("none")} />
+          <MemoryOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
     </Box>
   );

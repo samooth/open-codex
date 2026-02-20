@@ -23,6 +23,7 @@ This is the "brain" of the agent. It controls:
     - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
     - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
     - `summarize_memory`: Retrieve all stored facts for review and consolidation.
+    - `browse`: Unified web interface. Intelligently searches the web (DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
     - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
@@ -81,6 +82,10 @@ OpenCodex includes a normalization layer to support models trained on other agen
 | `repo_browser.print_tree` | `list_files_recursive` |
 | `repo_browser.read_file_lines` | `read_file_lines` |
 | `repo_browser.list_directory` | `list_directory` |
+| `repo_browser.web_search` | `browse` |
+| `repo_browser.fetch_url` | `browse` |
+| `repo_browser.browse` | `browse` |
+| `google_search` | `browse` |
 
 ## User Control via Files
 

@@ -12,6 +12,7 @@ import { clearTerminal, onExit } from "../../utils/terminal.js";
 import { Select } from "../vendor/ink-select/select";
 import TextInput from "../vendor/ink-text-input.js";
 import { Box, Text, useApp, useInput } from "ink";
+import { useInterval } from "use-interval";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, useMemo, useEffect } from "react";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
@@ -76,6 +77,8 @@ export default function TerminalChatInput({
   theme,
   allFiles,
   isStreamingResponse,
+  queuedInputText,
+  onPopQueuedInput,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -99,10 +102,12 @@ export default function TerminalChatInput({
   openPromptOverlay: () => void;
   openPromptsOverlay: () => void;
   openRecipesOverlay: () => void;
+  openCommandPalette?: () => void;
   openThemeOverlay: () => void;
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
   onUndo: () => void;
+  onCopy?: () => void;
   interruptAgent: () => void;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
@@ -114,6 +119,8 @@ export default function TerminalChatInput({
   theme: Theme;
   allFiles: string[];
   isStreamingResponse?: boolean;
+  queuedInputText?: string;
+  onPopQueuedInput?: () => string;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -124,6 +131,11 @@ export default function TerminalChatInput({
   const [draftInput, setDraftInput] = useState<string>("");
 
   const [customInputMode, setCustomInputMode] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
+  useInterval(() => {
+    setPulse(p => !p);
+  }, active && !loading ? 800 : null);
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
@@ -170,6 +182,12 @@ export default function TerminalChatInput({
   );
 
   const onKeyDown = (_inputStr: string, key: any) => {
+    if (_inputStr === "" && key.upArrow && queuedInputText && onPopQueuedInput) {
+      const poppedText = onPopQueuedInput();
+      setInput(poppedText);
+      return true;
+    }
+
     if (filteredFiles.length > 0) {
       if (key.tab || key.downArrow || key.upArrow) {
         setSelectedFileIndex((s) => {
@@ -214,6 +232,11 @@ export default function TerminalChatInput({
   useInput(
     (_input, _key) => {
       if (awaitingContinueConfirmation && active && !loading) {
+        if (_key.escape && !customInputMode) {
+          setCustomInputMode(true);
+          return;
+        }
+
         if (awaitingContinueConfirmation.type === "yes-no") {
           if (_input === "y") {
             const item = {
@@ -247,6 +270,13 @@ export default function TerminalChatInput({
             // Handled in onKeyDown
             return;
           }
+
+          if (input === "" && queuedInputText && onPopQueuedInput) {
+            const poppedText = onPopQueuedInput();
+            setInput(poppedText);
+            return;
+          }
+
           if (history.length > 0) {
             if (historyIndex == null) {
               setDraftInput(input);
@@ -290,6 +320,16 @@ export default function TerminalChatInput({
           clearTerminal();
           setInput(newContent);
         });
+        return;
+      }
+
+      if (_key.ctrl && _input === "y" && onCopy) {
+        onCopy();
+        return;
+      }
+
+      if (_key.ctrl && _input === "p" && openCommandPalette) {
+        openCommandPalette();
         return;
       }
 
@@ -572,12 +612,24 @@ export default function TerminalChatInput({
   }
 
   return (
-    <Box flexDirection="column">
-      <Box borderStyle="single" borderColor={theme.user} paddingX={1}>
+    <Box flexDirection="column" marginTop={1} paddingX={1} minHeight={5}>
+      <Box 
+        flexDirection="row" 
+        gap={1} 
+        paddingX={1} 
+        borderStyle="bold" 
+        borderRight={false} 
+        borderTop={false} 
+        borderBottom={false}
+        borderLeftColor={active ? theme.highlight : theme.dim}
+      >
+        <Text color={active ? (pulse ? theme.highlight : theme.dim) : theme.dim} bold>
+          {customInputMode ? "?" : "❯"}
+        </Text>
         {awaitingContinueConfirmation && !customInputMode ? (
-          <Box flexDirection="column">
+          <Box flexDirection="row" gap={2}>
             <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
-            <Box paddingX={2}>
+            <Box>
               <Select
                 options={
                   awaitingContinueConfirmation.type === "yes-no"
@@ -606,43 +658,56 @@ export default function TerminalChatInput({
             </Box>
           </Box>
         ) : (
-          <TextInput
-            focus={active}
-            placeholder={
-              customInputMode
-                ? "type your custom response..."
-                : selectedSuggestion
-                ? `"${suggestions[selectedSuggestion - 1]}"`
-                : "send a message" +
-                  (isNew ? " (tab for suggestions)" : "")
-            }
-            showCursor
-            value={input}
-            onKeyDown={onKeyDown}
-            highlight={highlighter}
-            onChange={(value) => {
-              setDraftInput(value);
-              if (historyIndex != null) {
-                setHistoryIndex(null);
+          <Box flexGrow={1}>
+            <TextInput
+              focus={active}
+              placeholder={
+                customInputMode
+                  ? "type your custom response..."
+                  : selectedSuggestion
+                  ? `"${suggestions[selectedSuggestion - 1]}"`
+                  : "send a message" +
+                    (isNew ? " (tab for suggestions)" : "")
               }
-              setInput(value);
-            }}
-            onSubmit={(value) => {
-              if (customInputMode) {
-                setCustomInputMode(false);
-              }
-              onSubmit(value);
-            }}
-          />
+              showCursor
+              value={input}
+              onKeyDown={onKeyDown}
+              highlight={highlighter}
+              onChange={(value) => {
+                setDraftInput(value);
+                if (historyIndex != null) {
+                  setHistoryIndex(null);
+                }
+                setInput(value);
+              }}
+              onSubmit={(value) => {
+                if (customInputMode) {
+                  setCustomInputMode(false);
+                }
+                onSubmit(value);
+              }}
+            />
+          </Box>
         )}
       </Box>
+
       {filteredFiles.length > 0 && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0} width={60}>
+        <Box 
+          flexDirection="column" 
+          borderStyle="bold" 
+          borderRight={false}
+          borderTop={false}
+          borderBottom={false}
+          borderLeftColor={theme.highlight}
+          paddingLeft={2} 
+          marginTop={1} 
+          width={60}
+        >
           <Box marginBottom={0} justifyContent="space-between">
-            <Text bold color={theme.highlight}>File Autocomplete</Text>
+            <Text bold color={theme.highlight}>AUTOCOMPLETE</Text>
             <Text color={theme.dim}>{filteredFiles.length} matches</Text>
           </Box>
-          <Box flexDirection="column" marginTop={1}>
+          <Box flexDirection="column" marginTop={0}>
             {filteredFiles.map((f, i) => (
               <Box key={f} gap={2}>
                 <Text color={i === selectedFileIndex ? theme.highlight : theme.dim} bold={i === selectedFileIndex}>
@@ -651,17 +716,25 @@ export default function TerminalChatInput({
               </Box>
             ))}
           </Box>
-          <Box marginTop={1}>
-            <Text color={theme.dim}>↑↓/Tab to navigate · Enter to select</Text>
-          </Box>
         </Box>
       )}
+
       {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1} marginBottom={0}>
+        <Box 
+          flexDirection="column" 
+          borderStyle="bold" 
+          borderRight={false}
+          borderTop={false}
+          borderBottom={false}
+          borderLeftColor={theme.highlight}
+          paddingLeft={2} 
+          marginTop={1}
+        >
+          <Text bold color={theme.highlight} marginBottom={1}>COMMANDS</Text>
           {filteredSlashCommands.map((cmd, i) => (
             <Box key={cmd.name} gap={2}>
               <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>
-                {i === selectedSlashCommand ? "❯" : " "} {cmd.name.padEnd(10)}
+                {i === selectedSlashCommand ? "❯" : " "} {cmd.name.toUpperCase().padEnd(12)}
               </Text>
               <Text color={theme.dim} italic={i !== selectedSlashCommand}>{cmd.description}</Text>
             </Box>

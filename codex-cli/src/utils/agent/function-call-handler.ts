@@ -70,6 +70,7 @@ export async function handleFunctionCall(
       if (name === "repo_browser.checkpoint") { name = "checkpoint"; }
       if (name === "repo_browser.web_search") { name = "web_search"; }
       if (name === "repo_browser.fetch_url") { name = "fetch_url"; }
+      if (name === "repo_browser.browse" || name === "google_search") { name = "browse"; }
     }
 
     const rawArguments: string | undefined = isChatStyle
@@ -275,6 +276,10 @@ export async function handleFunctionCall(
       metadata = result.metadata;
     } else if (name === "fetch_url") {
       const result = await handlers.handleFetchUrl(ctx, rawArguments ?? "{}");
+      outputText = result.outputText;
+      metadata = result.metadata;
+    } else if (name === "browse") {
+      const result = await handlers.handleBrowse(ctx, rawArguments ?? "{}");
       outputText = result.outputText;
       metadata = result.metadata;
     } else if (name === "semantic_search") {

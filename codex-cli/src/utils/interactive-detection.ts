@@ -25,34 +25,57 @@ export function detectInteraction(content: string): InteractionType | null {
 
   const isQuestion = normalized.endsWith("?");
   
-  // Strip common markdown header prefixes for the "How" check
-  const cleanStart = normalized.replace(/^[#\s\-\*]+/, "");
-  const startsWithHow = cleanStart.startsWith("how ");
+  // Detect open-ended question starters that should NEVER trigger Yes/No
+  const openEndedStarters = ["how", "what", "why", "where", "who", "when", "which", "can i help", "can i do"];
+  
+  // Split into sentences and check if the message ends with an open-ended question
+  const sentences = normalized.split(/[.!?](?:\s+|$)/).filter(Boolean);
+  const lastSentence = sentences[sentences.length - 1] || "";
+  const cleanSentence = lastSentence.replace(/^[#\s\-\*]+/, "").trim();
+  const isLastSentenceOpenEnded = openEndedStarters.some(s => {
+    return cleanSentence === s || cleanSentence.startsWith(s + " ") || cleanSentence.startsWith(s + "?");
+  });
   
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  if (!startsWithHow && (hasTrigger || (isQuestion && (
-    normalized.includes("do you") || 
-    normalized.includes("would you") ||
-    normalized.includes("shall i")
-  )))) {
+  const isConfirmationQuestion = isQuestion && (
+    normalized.includes("do you want to") || 
+    normalized.includes("would you like me to") ||
+    normalized.includes("shall i") ||
+    normalized.includes("can i") ||
+    normalized.includes("should i")
+  );
+
+  if (!isLastSentenceOpenEnded && (hasTrigger || isConfirmationQuestion)) {
     return { type: "yes-no" };
   }
 
   // 2. Multi-choice detection: looks for [Option] patterns
-  const choiceMatches = content.match(/\[([^\]]+)\]/g);
+  // We use a negative lookahead to ensure it's not a standard Markdown link [text](url)
+  const choiceMatches = content.match(/\[([^\]]+)\](?!\()/g);
   if (choiceMatches && choiceMatches.length >= 2) {
     const choices = [
       ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
     ].filter(c => c.length > 0 && c.length < 50); // Sanity check on choice length
     
     if (choices.length >= 2) {
-      // Only trigger if near the end of the message or if explicitly asked to choose
-      const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
-      const isNearEnd = lastChoiceIndex > (content.length - 150);
-      const asksToChoose = normalized.includes("choose") || normalized.includes("select") || normalized.includes("option");
+      // Logic for detecting if this is a final interaction menu:
+      // 1. If explicit 'choose' keywords are present, we are more lenient with position.
+      // 2. If no keywords, we require it to be a question ending with the choices.
+      const lastChoiceMatch = choiceMatches[choiceMatches.length - 1]!;
+      const lastChoiceIndex = content.lastIndexOf(lastChoiceMatch);
+      const trailingText = content.slice(lastChoiceIndex + lastChoiceMatch.length).trim();
       
-      if (isNearEnd || asksToChoose) {
+      const isNearEnd = lastChoiceIndex > (content.length - 150);
+      const isAtTheVeryEnd = trailingText.length <= 10 && /^[.!?]*$/.test(trailingText);
+
+      const asksToChoose = normalized.includes("choose") || 
+                           normalized.includes("select") || 
+                           normalized.includes("option") ||
+                           normalized.includes("pick");
+      const isQuestionAtEnd = normalized.trim().endsWith("?");
+      
+      if ((asksToChoose && isNearEnd) || (isQuestionAtEnd && isAtTheVeryEnd)) {
         return { type: "choices", choices };
       }
     }

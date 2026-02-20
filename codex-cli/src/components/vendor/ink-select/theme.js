@@ -8,18 +8,18 @@ const theme = {
       paddingLeft: isFocused ? 0 : 2,
     }),
     selectedIndicator: () => ({
-      color: "green",
+      color: "greenBright",
     }),
     focusIndicator: () => ({
-      color: "blue",
+      color: "cyanBright",
     }),
     label({ isFocused, isSelected }) {
-      let color;
+      let color = "white";
       if (isSelected) {
-        color = "green";
+        color = "greenBright";
       }
       if (isFocused) {
-        color = "blue";
+        color = "cyanBright";
       }
       return { color };
     },

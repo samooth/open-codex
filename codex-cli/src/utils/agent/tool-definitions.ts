@@ -715,6 +715,33 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
+      name: "browse",
+      description: "The primary tool for web interaction. If 'url' is provided, it fetches the page text. If 'query' is provided, it performs a web search. If both are provided, it searches within that specific site.",
+      strict: false,
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "The URL to fetch (e.g., 'https://docs.npmjs.com').",
+          },
+          query: {
+            type: "string",
+            description: "The search query (e.g., 'bsv brc-20 specs').",
+          },
+          timeout: {
+            type: "number",
+            description: "Maximum time to wait in milliseconds (default: 30000).",
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_directory",
       description: "Lists the contents of a directory (non-recursive).",
       strict: false,

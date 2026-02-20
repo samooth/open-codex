@@ -550,7 +550,7 @@ export const loadConfig = (
     fullAutoErrorMode: storedConfig.fullAutoErrorMode,
     memory: storedConfig.memory,
     skipSemanticMemory: false,
-    enableWebSearch: storedConfig.enableWebSearch ?? false,
+    enableWebSearch: storedConfig.enableWebSearch ?? true,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
     embeddingModel: storedConfig.embeddingModel,
     contextSize: storedConfig.contextSize,

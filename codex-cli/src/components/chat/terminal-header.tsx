@@ -1,6 +1,7 @@
 import type { AgentLoop } from "../../utils/agent/agent-loop.js";
 import type { Theme } from "../../utils/theme.js";
 
+import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { Box, Text } from "ink";
 import path from "node:path";
@@ -15,6 +16,7 @@ export interface TerminalHeaderProps {
   agent?: AgentLoop;
   initialImagePaths?: Array<string>;
   theme: Theme;
+  breadcrumb?: string;
 }
 
 const TerminalHeader: React.FC<TerminalHeaderProps> = ({
@@ -23,61 +25,53 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   model,
   approvalPolicy,
   colorsByPolicy,
-  agent,
-  initialImagePaths,
   theme,
+  breadcrumb,
 }) => {
-  const { columns: terminalCols, rows: terminalRows } = useTerminalSize();
+  const { columns: terminalCols } = useTerminalSize();
 
-  // For very small terminals, render a compact, single-line header
-  if (terminalRows < 8 || terminalCols < 80) {
-    return (
-      <Box>
-        <Text>
-          ● OpenCodex <Text color={theme.highlight}>v{version}</Text> – {PWD} – {model} –{" "}
-          <Text color={colorsByPolicy[approvalPolicy] || theme.success}>{approvalPolicy}</Text>
-        </Text>
-      </Box>
-    );
-  }
-
-  // --- Main Header Design ---
-  const title = ` OpenCodex v${version} `;
-  const topBorder = "┌─" + title + "─".repeat(terminalCols - title.length - 3) + "┐";
-  const bottomBorder = "└" + "─".repeat(terminalCols - 2) + "┘";
-  const emptyLine = "│" + " ".repeat(terminalCols - 2) + "│";
-
-  const sessionInfo = `Session:  ${agent?.sessionId ?? "<no-session>"}`;
-  const workdirInfo = `Workdir:  ${PWD}`;
-  const modelInfo = `Model:    ${model}`;
-  const approvalInfo = `Approval: ${approvalPolicy}`;
-
-  const imageLines = (initialImagePaths || []).map(p => `Image:    ${path.basename(p)}`);
-  const allInfo = [sessionInfo, workdirInfo, modelInfo, approvalInfo, ...imageLines];
+  const labelStyle = { color: theme.dim };
+  const valueStyle = { color: theme.highlight, bold: true };
+  const separator = <Text color={theme.divider}> │ </Text>;
 
   return (
-    <Box flexDirection="column">
-      <Text color={theme.dim}>{topBorder}</Text>
-      <Text color={theme.dim}>{emptyLine}</Text>
-      {allInfo.map((line, index) => (
-         <Text key={index} color={theme.dim}>
-           {'│'}{'   '}
-           <Text color={theme.user}>
-             {line.startsWith('Approval:') ? (
-               <>
-                 Approval: <Text bold color={colorsByPolicy[approvalPolicy] || theme.success}>
-                   {approvalPolicy}
-                 </Text>
-               </>
-             ) : (
-               line
-             )}
-           </Text>
-           {' '.repeat(Math.max(0, terminalCols - line.length - 5))}{'│'}
-         </Text>
-      ))}
-      <Text color={theme.dim}>{emptyLine}</Text>
-      <Text color={theme.dim}>{bottomBorder}</Text>
+    <Box 
+      width={terminalCols} 
+      paddingX={1} 
+      borderStyle="single" 
+      borderTop={false} 
+      borderLeft={false} 
+      borderRight={false} 
+      borderBottomColor={theme.divider}
+      marginBottom={1}
+      flexDirection="column"
+    >
+      <Box flexDirection="row">
+        <Box flexGrow={1}>
+          <Text {...labelStyle}>OpenCodex </Text>
+          <Text {...valueStyle}>v{version}</Text>
+          {separator}
+          <Text {...labelStyle}>📁 </Text>
+          <TerminalHyperlink url={getFileUrl(process.cwd())}>
+            <Text {...valueStyle}>{PWD}</Text>
+          </TerminalHyperlink>
+        </Box>
+        <Box>
+          <Text {...labelStyle}>🤖 </Text>
+          <Text {...valueStyle}>{model}</Text>
+          {separator}
+          <Text {...labelStyle}>🛡️ </Text>
+          <Text color={colorsByPolicy[approvalPolicy] || theme.success} bold>{approvalPolicy}</Text>
+        </Box>
+      </Box>
+      {breadcrumb && (
+        <Box marginTop={0}>
+          <Text color={theme.dim}>❯ </Text>
+          <TerminalHyperlink url={getFileUrl(breadcrumb)}>
+            <Text color={theme.highlight} italic>{breadcrumb}</Text>
+          </TerminalHyperlink>
+        </Box>
+      )}
     </Box>
   );
 };

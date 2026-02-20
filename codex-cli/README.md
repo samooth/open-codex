@@ -1,7 +1,8 @@
-<h1 align="center">Open Codex CLI</h1>
-<p align="center">Lightweight coding agent that runs in your terminal</p>
+# Open Codex CLI
 
-<p align="center"><code>npm i -g @samooth/open-codex</code></p>
+Lightweight coding agent that runs in your terminal
+
+`npm i -g @samooth/open-codex`
 
 > **Important Note**: This is a fork of the [original OpenAI Codex CLI](https://github.com/openai/codex) with expanded model support and changed installation instructions. The main differences in this fork are:
 > 
@@ -12,8 +13,7 @@
 
 ---
 
-<details>
-<summary><strong>Table&nbsp;of&nbsp;Contents</strong></summary>
+## Table of Contents
 
 - [Experimental Technology Disclaimer](#experimental-technology-disclaimer)
 - [Quickstart](#quickstart)
@@ -30,18 +30,9 @@
 - [Configuration](#configuration)
 - [FAQ](#faq)
 - [Contributing](#contributing)
-  - [Development workflow](#development-workflow)
-  - [Writing high‑impact code changes](#writing-highimpact-code-changes)
-  - [Opening a pull request](#opening-a-pull-request)
-  - [Review process](#review-process)
-  - [Community values](#community-values)
-  - [Getting help](#getting-help)
-  - [Releasing `codex`](#releasing-codex)
 - [Security & Responsible AI](#securityresponsibleai)
 - [License](#license)
 - [Zero Data Retention (ZDR) Organization Limitation](#zero-data-retention-zdr-organization-limitation)
-
-</details>
 
 ---
 
@@ -122,7 +113,7 @@ development_ that understands and executes your repo.
 - **Interactive Roadmap** — persistent task checklist in the UI to track multi-step goal progress 📋
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
 - **Context Management** — automated sliding window history truncation to prevent TPM/token limit errors 🧠
-- **Beautiful UI** — 🤖 Bot icons, model labels, and truly full-width bordered tool boxes for clarity ✨
+- **Beautiful UI** — bot icons, model labels, and sleek left-accent bars for clarity ✨
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
 - **Multimodal** — pass in screenshots or diagrams to implement features ✨
@@ -141,11 +132,11 @@ And it's **fully open-source** so you can see and contribute to how it develops!
 Codex lets you decide _how much autonomy_ the agent receives and auto-approval policy via the
 `--approval-mode` flag (or the interactive onboarding prompt):
 
-| Mode                      | What the agent may do without asking            | Still requires approval                                         |
-| ------------------------- | ----------------------------------------------- | -------------------------------------------------------------- |
-| **Suggest** <br>(default) | • Read any file in the repo                     | • **All** file writes/patches <br>• **All** shell/Bash commands |
-| **Auto Edit**             | • Read **and** apply‑patch writes to files      | • **All** shell/Bash commands                                  |
-| **Full Auto**             | • Read/write files <br>• Execute shell commands | –                                                              |
+| Mode | What the agent may do without asking | Still requires approval |
+| :--- | :--- | :--- |
+| **Suggest** (default) | • Read any file in the repo | • **All** file writes/patches <br>• **All** shell/Bash commands |
+| **Auto Edit** | • Read **and** apply‑patch writes to files | • **All** shell/Bash commands |
+| **Full Auto** | • Read/write files <br>• Execute shell commands | – |
 
 In **Full Auto** every command is run **network‑disabled** and confined to the
 current working directory (plus temporary files) for defense‑in‑depth. Codex
@@ -166,7 +157,6 @@ open-codex --dry-run "Refactor all components to TypeScript"
 The hardening mechanism Codex uses depends on your OS:
 
 - **macOS 12+** – commands are wrapped with **Apple Seatbelt** (`sandbox-exec`).
-
   - Everything is placed in a read‑only jail except for a small set of
     writable roots (`$PWD`, `$TMPDIR`, `~/.codex`, etc.).
   - Outbound network is _fully blocked_ by default – even if a child process
@@ -183,13 +173,13 @@ The hardening mechanism Codex uses depends on your OS:
 
 ## System Requirements
 
-| Requirement                 | Details                                                         |
-| --------------------------- | --------------------------------------------------------------- |
-| Operating systems           | macOS 12+, Ubuntu 20.04+/Debian 10+, or Windows 11 **via WSL2** |
-| Node.js                     | **22 or newer** (LTS recommended)                               |
-| Git (optional, recommended) | 2.23+ for built‑in PR helpers                                   |
-| Lynx (optional)             | Required for web searching and Snyk auditing                    |
-| RAM                         | 4‑GB minimum (8‑GB recommended)                                 |
+| Requirement | Details |
+| :--- | :--- |
+| Operating systems | macOS 12+, Ubuntu 20.04+/Debian 10+, or Windows 11 **via WSL2** |
+| Node.js | **22 or newer** (LTS recommended) |
+| Git (optional, recommended) | 2.23+ for built‑in PR helpers |
+| Lynx (optional) | Required for web searching and Snyk auditing |
+| RAM | 4‑GB minimum (8‑GB recommended) |
 
 > Never run `sudo npm install -g`; fix npm permissions instead.
 
@@ -197,28 +187,32 @@ The hardening mechanism Codex uses depends on your OS:
 
 ## CLI Reference
 
-| Command                                   | Purpose                             | Example                              |
-| ----------------------------------------- | ----------------------------------- | ------------------------------------ |
-| `open-codex`                              | Interactive REPL                    | `codex`                              |
-| `open-codex "…"`                          | Initial prompt for interactive REPL | `codex "fix lint errors"`            |
-| `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY  | `codex "explain utils.ts"`           |
-| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template| `codex -r test "src/utils.ts"`       |
-| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script       | `codex completion bash`              |
+| Command | Purpose | Example |
+| :--- | :--- | :--- |
+| `open-codex` | Interactive REPL | `codex` |
+| `open-codex "…"` | Initial prompt for interactive REPL | `codex "fix lint errors"` |
+| `open-codex "…"` | Auto-enabled quiet mode if non-TTY | `codex "explain utils.ts"` |
+| `open-codex -r <recipe> "…"` | Run with a predefined prompt template | `codex -r test "src/utils.ts"` |
+| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script | `codex completion bash` |
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
 
-Key keyboard shortcuts:
+### Key keyboard shortcuts:
 - `Ctrl+E`: Open the current prompt in your system's `$EDITOR` (e.g., Vim, Nano) for easier multi-line editing.
+- `Ctrl+P`: Open the Command Palette to search all actions and recipes.
+- `Ctrl+Y`: Yank (copy) the last generated code block to the system clipboard.
 - `Ctrl+J`: Insert a newline in the chat input.
+- `Up Arrow`: Pull merged instructions from the queue for editing (if idle).
 - `@`: Trigger file path autocomplete.
 
-Key flags:
+### Key flags:
 - `--provider / -p`: AI provider to use.
 - `--model / -m`: Model to use for completions.
 - `--recipe / -r`: Apply a predefined prompt template (recipe).
 - `--approval-mode / -a`: Override the approval policy.
 - `--dry-run`: Preview changes without applying them.
 - `--quiet / -q`: Non-interactive mode.
+- `--think`: Enable deep thinking subroutine prefix.
 
 ---
 
@@ -258,12 +252,9 @@ DEBUG=true open-codex
 
 ---
 
-## Editor Integration
-
 ## Installation
 
-<details open>
-<summary><strong>From npm (Recommended)</strong></summary>
+### From npm (Recommended)
 
 ```bash
 npm install -g @samooth/open-codex
@@ -271,10 +262,7 @@ npm install -g @samooth/open-codex
 yarn global add @samooth/open-codex
 ```
 
-</details>
-
-<details>
-<summary><strong>Build from source</strong></summary>
+### Build from source
 
 ```bash
 # Clone the repository and navigate to the CLI package
@@ -294,8 +282,6 @@ node ./dist/cli.js
 # Or link the command globally for convenience
 npm link
 ```
-
-</details>
 
 ---
 
@@ -417,19 +403,19 @@ To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context o
 
 Inside the interactive chat, you can use several slash commands to manage your session:
 
-| Command     | Description                                                                 |
-| ----------- | --------------------------------------------------------------------------- |
-| `/help`     | Show the help overlay with all available commands and shortcuts.             |
-| `/model`    | Open the model picker to switch the current AI model.                       |
-| `/index`    | Index the current codebase for semantic search.                             |
-| `/pin <path>`| Pin a file to the context window (it will always be included in the prompt).|
-| `/unpin <path>`| Unpin a file from the context window.                                     |
-| `/approval` | Change the current approval mode (Suggest, Auto Edit, Full Auto).            |
-| `/config`   | Toggle settings like Dry Run and Debug mode.                                |
-| `/history`  | View and select from your prompt history.                                   |
-| `/memory`   | View and manage the agent's persistent project memory.                       |
-| `/theme`    | Change the UI theme (Default, Nord, One Dark, Synthwave, Gruvbox, Cyberpunk).|
-| `/clear`    | Clear the chat history (start a fresh session).                             |
+| Command | Description |
+| :--- | :--- |
+| `/help` | Show the help overlay with all available commands and shortcuts. |
+| `/model` | Open the model picker to switch the current AI model. |
+| `/index` | Index the current codebase for semantic search. |
+| `/pin <path>` | Pin a file to the context window (it will always be included in the prompt). |
+| `/unpin <path>` | Unpin a file from the context window. |
+| `/approval` | Change the current approval mode (Suggest, Auto Edit, Full Auto). |
+| `/config` | Toggle settings like Dry Run and Debug mode. |
+| `/history` | View and select from your prompt history. |
+| `/memory` | View and manage the agent's persistent project memory. |
+| `/theme` | Change the UI theme (Default, Nord, One Dark, Synthwave, Gruvbox, Cyberpunk). |
+| `/clear` | Clear the chat history (start a fresh session). |
 
 #### File Pinning
 
@@ -446,16 +432,16 @@ For many providers, you can use the `/models` command within the interactive cha
 
 Here's a list of all the providers and their default models:
 
-| Provider   | Environment Variable Required | Default Agentic Model        | Default Full Context Model |
-| ---------- | ----------------------------- | ---------------------------- | -------------------------- |
-| openai     | OPENAI_API_KEY                | o4-mini                      | o3                         |
-| anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6              | claude-opus-4-6            |
-| gemini     | GEMINI_API_KEY                | gemini-2.5-flash             | gemini-2.5-flash           |
-| openrouter | OPENROUTER_API_KEY            | openai/o4-mini               | openai/o3                  |
-| ollama     | OLLAMA_API_KEY (optional)     | User must specify            | User must specify          |
-| xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning      | grok-4-1-fast-reasoning    |
-| deepseek   | DS_API_KEY                    | deepseek-chat                | deepseek-reasoner          |
-| hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5         | moonshotai/Kimi-K2.5       |
+| Provider | Environment Variable Required | Default Agentic Model | Default Full Context Model |
+| :--- | :--- | :--- | :--- |
+| openai | OPENAI_API_KEY | o4-mini | o3 |
+| anthropic | ANTHROPIC_API_KEY | claude-opus-4-6 | claude-opus-4-6 |
+| gemini | GEMINI_API_KEY | gemini-2.5-flash | gemini-2.5-flash |
+| openrouter | OPENROUTER_API_KEY | openai/o4-mini | openai/o3 |
+| ollama | OLLAMA_API_KEY (optional) | User must specify | User must specify |
+| xai | XAI_API_KEY | grok-4-1-fast-reasoning | grok-4-1-fast-reasoning |
+| deepseek | DS_API_KEY | deepseek-chat | deepseek-reasoner |
+| hf | HF_API_KEY | moonshotai/Kimi-K2.5 | moonshotai/Kimi-K2.5 |
 
 #### When using an alternative provider, make sure you have the correct environment variables set.
 
@@ -469,35 +455,17 @@ export OLLAMA_API_KEY="your-ollama-api-key-here"
 
 ## FAQ
 
-<details>
-<summary>What's the difference between this and the original OpenAI Codex CLI?</summary>
-
+**What's the difference between this and the original OpenAI Codex CLI?**
 This is a fork of the original OpenAI Codex CLI project with expanded support for multiple AI providers beyond just OpenAI. The installation package is also different (`open-codex` instead of `@openai/codex`), but the core functionality remains similar.
 
-</details>
-
-<details>
-<summary>How do I stop Codex from touching my repo?</summary>
-
+**How do I stop Codex from touching my repo?**
 Codex always runs in a **sandbox first**. If a proposed command or file change looks suspicious you can simply answer **n** when prompted and nothing happens to your working tree. For extra safety, use the `--dry-run` flag.
 
-</details>
-
-<details>
-<summary>Does it work on Windows?</summary>
-
+**Does it work on Windows?**
 Not directly. It requires [Windows Subsystem for Linux (WSL2)](https://learn.microsoft.com/en-us/windows/wsl/install) – Codex has been tested on macOS and Linux with Node ≥ 22.
 
-</details>
-
-<details>
-<summary>Which models are supported?</summary>
-
-The default is `o4-mini`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override.
-
-You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
-
-</details>
+**Which models are supported?**
+The default is `o4-mini`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override. You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
 
 ---
 
@@ -512,13 +480,11 @@ OpenAI rejected the request. Error details: Status: 400, Code: unsupported_param
 ```
 
 **Why?**
-
 - Codex CLI relies on the Responses API with `store:true` to enable internal reasoning steps.
 - As noted in the [docs](https://platform.openai.com/docs/guides/your-data#responses-api), the Responses API requires a 30-day retention period by default, or when the store parameter is set to true.
 - ZDR organizations cannot use `store:true`, so requests will fail.
 
 **What can I do?**
-
 - If you are part of a ZDR organization, Codex CLI will not work until support is added.
 - We are tracking this limitation and will update the documentation if support becomes available.
 

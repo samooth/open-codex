@@ -37,26 +37,73 @@ function assistantMessage(text: string) {
 describe("TerminalChatResponseItem", () => {
   it("renders a user message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={userMessage("Hello world")} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={userMessage("Hello world")} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
-    expect(frame).toContain("user");
+    expect(frame).toContain("USER");
     expect(frame).toContain("Hello world");
   });
 
   it("renders an assistant message", () => {
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={assistantMessage("Sure thing")} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={assistantMessage("Sure thing")} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
-    // assistant messages are labelled "codex" in the UI
-    expect(frame.toLowerCase()).toContain("codex");
+    // assistant messages are labelled "ASSISTANT" in the UI
+    expect(frame.toUpperCase()).toContain("ASSISTANT");
     expect(frame).toContain("Sure thing");
+    expect(frame).toContain("gpt-4o");
+  });
+
+  it("renders an assistant message with thoughts", () => {
+    const item = {
+      role: "assistant",
+      content: "<thought>I should check the file first</thought>I will check the file.",
+    } as any;
+
+    const { lastFrameStripped } = renderTui(
+      <TerminalChatResponseItem item={item} theme={themes["default"]!} model="gpt-4o" />,
+    );
+
+    const frame = lastFrameStripped();
+    expect(frame.toLowerCase()).toContain("( thought )");
+    expect(frame).toContain("I should check the file first");
+    expect(frame).toContain("I will check the file.");
+  });
+
+  it("renders an assistant message with a plan", () => {
+    const item = {
+      role: "assistant",
+      content: "<plan>1. Read file\n2. Edit file</plan>Starting the plan.",
+    } as any;
+
+    const { lastFrameStripped } = renderTui(
+      <TerminalChatResponseItem item={item} theme={themes["default"]!} model="gpt-4o" />,
+    );
+
+    const frame = lastFrameStripped();
+    expect(frame.toUpperCase()).toContain("PLAN");
+    expect(frame).toContain("1. Read file");
+    expect(frame).toContain("Starting the plan.");
+  });
+
+  it("renders markdown code blocks with borders and language label", () => {
+    const message = assistantMessage("Here is some code:\n```typescript\nconst x = 1;\n```");
+    const { lastFrameStripped } = renderTui(
+      <TerminalChatResponseItem item={message} theme={themes["default"]!} model="gpt-4o" />,
+    );
+
+    const frame = lastFrameStripped();
+    expect(frame.toUpperCase()).toContain("TYPESCRIPT");
+    expect(frame).toContain("const x = 1;");
+    // The border is bold, which rendered as some character or space in stripped output,
+    // but we can check if the language label is present.
   });
 
   it("renders an integrated tool response box", () => {
+
     const toolCall = {
       id: "call_1",
       type: "function",
@@ -77,12 +124,12 @@ describe("TerminalChatResponseItem", () => {
     toolCallMap.set("call_1", toolCall);
 
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={toolMessage} toolCallMap={toolCallMap} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
-    // integrated header should show tool info (label mapping list_directory -> listing)
-    expect(frame).toContain("listing");
+    // integrated header should show tool info (label mapping list_directory -> LISTING)
+    expect(frame.toUpperCase()).toContain("LISTING");
     expect(frame).toContain(".");
     // output should be shown
     expect(frame).toContain("file1.txt");
@@ -97,11 +144,11 @@ describe("TerminalChatResponseItem", () => {
     } as any;
 
     const { lastFrameStripped } = renderTui(
-      <TerminalChatResponseItem item={item} theme={themes["default"]!} />,
+      <TerminalChatResponseItem item={item} theme={themes["default"]!} model="gpt-4o" />,
     );
 
     const frame = lastFrameStripped();
-    expect(frame.toLowerCase()).toContain("thought");
+    expect(frame.toLowerCase()).toContain("( thought )");
     expect(frame).toContain("I am thinking deeply");
   });
 });
