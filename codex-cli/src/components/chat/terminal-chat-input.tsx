@@ -45,7 +45,7 @@ const slashCommands = [
   { name: "/help", description: "show help" },
 ];
 
-const typeHelpText = `ctrl+c to exit | "/clear" to reset context | "/help" for commands | ↑↓ to recall history | ctrl+x to open external editor | enter to send`;
+const typeHelpText = `ctrl+c to exit | "/clear" to reset context | "/help" for commands | ↑↓ history | ctrl+x edit | ctrl+j newline | enter to send`;
 
 export default function TerminalChatInput({
   isNew,

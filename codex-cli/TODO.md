@@ -12,7 +12,7 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 
 ## High Priority: Productivity & Feedback
 
-*   **[DONE] True Multi-line Support:** Integrated `MultilineTextEditor` into the main chat input with `Shift+Enter` for newlines and `Ctrl+Enter` for submission.
+*   **[DONE] True Multi-line Support:** Integrated `MultilineTextEditor` into the main chat input with `Shift+Enter`, `Ctrl+J`, and `Alt+Enter` for newlines and `Ctrl+Enter` for submission.
 *   **[DONE] Variable/File Injection (`{{file}}`):** Automatically inject file contents into prompts using template syntax.
 *   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and execute/edit it.
 *   **[DONE] Web Search by Default:** Enabled web research capabilities for all sessions by default and consolidated into a robust `browse` tool.
