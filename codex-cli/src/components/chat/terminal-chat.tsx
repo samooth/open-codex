@@ -842,6 +842,7 @@ export default function TerminalChat({
             debug={!!process.env["DEBUG"]}
             enableWebSearch={!!config.enableWebSearch}
             enableDeepThinking={!!config.enableDeepThinking}
+            enableDeepLinter={!!config.enableDeepLinter}
             searxngUrl={config.searxngUrl}
             onToggleDryRun={() => {
               setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
@@ -863,6 +864,9 @@ export default function TerminalChat({
             }}
             onToggleDeepThinking={() => {
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
+            }}
+            onToggleDeepLinter={() => {
+              setConfig((prev) => ({ ...prev, enableDeepLinter: !prev.enableDeepLinter }));
             }}
             onExit={() => setOverlayMode("none")}
             theme={activeTheme}

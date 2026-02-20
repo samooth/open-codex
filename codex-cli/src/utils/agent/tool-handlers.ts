@@ -153,12 +153,12 @@ export async function handleWriteFile(
       writeFileSync(tempPath, content, "utf-8");
       
       // Validate syntax before committing
-      const validation = await validateFileSyntax(tempPath);
+      const validation = await validateFileSyntax(tempPath, { enableDeepLinter: ctx.config.enableDeepLinter });
       if (!validation.isValid) {
         // Clean up temp file
         try { unlinkSync(tempPath); } catch {}
         return {
-          outputText: `Error: File contains syntax errors:\n${validation.error}`,
+          outputText: `Error: File contains issues:\n${validation.error}`,
           metadata: { exit_code: 1, path: filePath, syntax_error: true },
         };
       }
@@ -252,11 +252,11 @@ export async function handleEditFile(
     const tempPath = `${fullPath}.tmp.${Date.now()}`;
     try {
       writeFileSync(tempPath, newContent!, "utf-8");
-      const validation = await validateFileSyntax(tempPath);
+      const validation = await validateFileSyntax(tempPath, { enableDeepLinter: ctx.config.enableDeepLinter });
       if (!validation.isValid) {
         try { unlinkSync(tempPath); } catch {}
         return {
-          outputText: `Error: Edits resulted in syntax errors in ${filePath}:\n${validation.error}`,
+          outputText: `Error: Edits resulted in issues in ${filePath}:\n${validation.error}`,
           metadata: { exit_code: 1, path: filePath, syntax_error: true },
         };
       }

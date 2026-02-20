@@ -179,9 +179,9 @@ export async function handleFunctionCall(
 
         if (metadata["exit_code"] === 0) {
           for (const file of affectedFiles) {
-            const validation = await validateFileSyntax(file);
+            const validation = await validateFileSyntax(file, { enableDeepLinter: ctx.config.enableDeepLinter });
             if (!validation.isValid) {
-              outputText = `Error: The patch was applied but file "${file}" now contains syntax errors:\n${validation.error}\nPlease fix the errors and apply a new patch.`;
+              outputText = `Error: The patch was applied but file "${file}" now contains issues:\n${validation.error}\nPlease fix these issues and apply a new patch.`;
               metadata["exit_code"] = 1;
               metadata["syntax_error"] = true;
               break;

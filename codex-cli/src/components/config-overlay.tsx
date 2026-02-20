@@ -8,11 +8,13 @@ type Props = {
   debug: boolean;
   enableWebSearch: boolean;
   enableDeepThinking: boolean;
+  enableDeepLinter: boolean;
   searxngUrl?: string;
   onToggleDryRun: () => void;
   onToggleDebug: () => void;
   onToggleWebSearch: () => void;
   onToggleDeepThinking: () => void;
+  onToggleDeepLinter: () => void;
   onEditSearXNGUrl: () => void;
   onExit: () => void;
   theme: Theme;
@@ -23,11 +25,13 @@ export default function ConfigOverlay({
   debug,
   enableWebSearch,
   enableDeepThinking,
+  enableDeepLinter,
   searxngUrl,
   onToggleDryRun,
   onToggleDebug,
   onToggleWebSearch,
   onToggleDeepThinking,
+  onToggleDeepLinter,
   onEditSearXNGUrl,
   onExit,
   theme,
@@ -52,6 +56,11 @@ export default function ConfigOverlay({
       label: `SEARCH PROVIDER: ${searxngUrl ? "SEARXNG" : "DUCKDUCKGO"}`,
       value: "searxngUrl",
       description: `Provider: ${searxngUrl || "https://html.duckduckgo.com"}. Select to change URL.`,
+    },
+    {
+      label: `AUTO LINTING: ${enableDeepLinter ? "ENABLED" : "DISABLED"}`,
+      value: "deepLinter",
+      description: "Automatically run project linters after each file modification.",
     },
     {
       label: `DEEP THINKING: ${enableDeepThinking ? "ACTIVE" : "INACTIVE"}`,
@@ -82,6 +91,8 @@ export default function ConfigOverlay({
       onToggleWebSearch();
     } else if (item.value === "searxngUrl") {
       onEditSearXNGUrl();
+    } else if (item.value === "deepLinter") {
+      onToggleDeepLinter();
     } else if (item.value === "deepThinking") {
       onToggleDeepThinking();
     } else if (item.value === "exit") {
