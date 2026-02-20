@@ -4,7 +4,12 @@ Potential Improvements:
        * Explicitly mention the new parallel execution capability. If the model needs information from multiple files, it should call multiple read_file tools in one turn to save time.
        * Encourage using read_file_lines for files over a certain size (e.g., > 500 lines) to preserve context window.
 
-   2. [DONE] Dry-Run Awareness:
+   2. [DONE] Web Research Robustness:
+       * Consolidated web interaction into a single `browse` tool.
+       * Fixed a bug where the base system prompt (including browsing instructions) was skipped when Deep Thinking was disabled.
+       * Strengthened browsing instructions in the system prompt to prevent the model from claiming it has no internet access.
+
+   3. [DONE] Dry-Run Awareness:
        * Tell the agent about the --dry-run flag. If it's active (which we can inject into the prompt), the agent should know its changes won't be committed and it might need to explain
          its reasoning more thoroughly.
 

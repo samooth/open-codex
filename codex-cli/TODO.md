@@ -12,19 +12,20 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 
 ## High Priority: Productivity & Feedback
 
-*   **[ ] True Multi-line Support:** Enable native multi-line handling (Shift+Enter) in the main chat input.
+*   **[DONE] True Multi-line Support:** Integrated `MultilineTextEditor` into the main chat input with `Shift+Enter` for newlines and `Ctrl+Enter` for submission.
 *   **[ ] Variable/File Injection (`{{file}}`):** Automatically inject file contents into prompts using template syntax.
 *   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and execute/edit it.
-*   **[DONE] Web Search by Default:** Enabled web research capabilities for all sessions by default.
+*   **[DONE] Web Search by Default:** Enabled web research capabilities for all sessions by default and consolidated into a robust `browse` tool.
 *   **[ ] Smart Context (Auto-Pinning):** Automatically detect and persist core files into the session context based on access frequency.
 *   **[ ] Cost Tracking:** Estimate and display the cost of the current session based on token usage.
 
 ## UI/UX Enhancements
 
 *   **[ ] Interactive Hunk Selection:** Allow users to pick specific "hunks" from an `apply_patch` instead of the whole file.
-*   **[DONE] Improved Interaction Detection:** Fixed "How" questions triggering Yes/No prompts and refined multi-choice detection.
+*   **[DONE] Improved Interaction Detection:** Fixed "How" questions triggering Yes/No prompts and refined detection logic to distinguish strong vs weak triggers.
 *   **[DONE] Improved Visibility:** Fixed dark blue links in terminal outputs to use visible `cyanBright` with underlines.
 *   **[DONE] Esc key for Custom Prompts:** Made the `Esc` key automatically select "Custom..." mode in interactive prompts.
+*   **[DONE] Response Stability:** Refactored Markdown renderer to use robust placeholders for code blocks, preventing rendering glitches.
 *   **[ ] Collapsible History Blocks:** Ability to collapse entire message turns to focus on the current task.
 *   **[ ] Live Indexing Status:** A more subtle, non-blocking progress indicator for background semantic indexing.
 *   **[ ] Responsive Breakpoints:** Improve UI density and layout switching for narrow terminal windows.
