@@ -618,20 +618,6 @@ export default function TerminalChatInput({
         <Box borderStyle="single" borderColor={theme.dim} paddingX={1} height={3} justifyContent="center">
           <Text dimColor italic>Waiting for approval above...</Text>
         </Box>
-        {loading && (
-          <Box paddingLeft={1}>
-            <TerminalChatInputThinking
-              onInterrupt={interruptAgent}
-              active={active}
-              partialReasoning={partialReasoning}
-              activeBlockType={activeBlockType}
-              activeToolName={activeToolName}
-              activeToolArguments={activeToolArguments}
-              isStreamingResponse={isStreamingResponse}
-              theme={theme}
-            />
-          </Box>
-        )}
       </Box>
     );
   }
@@ -793,7 +779,7 @@ export default function TerminalChatInput({
           ))}
         </Box>
       )}
-      {loading && (
+      {loading && !confirmationPrompt && (
         <Box paddingLeft={1}>
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}

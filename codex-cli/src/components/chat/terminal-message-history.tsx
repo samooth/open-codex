@@ -132,7 +132,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             allowAlwaysPatch={allowAlwaysPatch}
             applyPatch={applyPatch}
             theme={theme}
-            isActive={isActive && !loading}
+            isActive={isActive}
           />
         </Box>
       )}
