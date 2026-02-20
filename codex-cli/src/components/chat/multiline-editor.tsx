@@ -316,27 +316,33 @@ const MultilineTextEditorInner = (
       }
 
       // 2) Single‑byte control chars ------------------------------------------------
-      const isPlainReturn = (input === "\r") || (key.return && !key.shift && !key.ctrl && !key.meta);
-      const isShiftReturn = (input === "\n") || (key.return && key.shift);
+      if (key.return) {
+        if (key.ctrl) {
+          // Ctrl+Enter -> Always submit
+          onSubmit?.(buffer.current.getText());
+          return;
+        }
 
-      if (isPlainReturn) {
+        if (key.shift || key.meta) {
+          // Shift+Enter or Alt+Enter -> Newline.
+          // In some environments, Shift+Enter sends \r with shift:true.
+          // We prioritize submission for raw \r unless meta is held.
+          if (input === "\r" && !key.meta) {
+            // fall through to plain enter (submit)
+          } else {
+            buffer.current.newline();
+            setVersion((v) => v + 1);
+            return;
+          }
+        }
+
+        // Plain Enter – submit (works on all basic terminals).
         if (onSubmit) {
           onSubmit(buffer.current.getText());
         } else {
           buffer.current.newline();
           setVersion((v) => v + 1);
         }
-        return;
-      }
-
-      if (isShiftReturn) {
-        buffer.current.newline();
-        setVersion((v) => v + 1);
-        return;
-      }
-
-      if (key.return && key.ctrl) {
-        onSubmit?.(buffer.current.getText());
         return;
       }
 
