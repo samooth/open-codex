@@ -761,44 +761,6 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "fetch_url",
-      description: "Fetches the text content of a URL using the lynx browser.",
-      strict: false,
-      parameters: {
-        type: "object",
-        properties: {
-          url: {
-            type: "string",
-            description: "The URL to fetch.",
-          },
-        },
-        required: ["url"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "web_search",
-      description: "Performs a web search using DuckDuckGo and returns the results as text.",
-      strict: false,
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query.",
-          },
-        },
-        required: ["query"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "semantic_search",
       description: "Searches the codebase using natural language (semantic search). Requires the codebase to be indexed.",
       strict: false,
