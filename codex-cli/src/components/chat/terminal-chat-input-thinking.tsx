@@ -173,6 +173,10 @@ export default function TerminalChatInputThinking({
 
   useInput(
     (_input, key) => {
+      if (!active || isStreamingResponse) {
+        return;
+      }
+
       if (!key.escape) {
         return;
       }
@@ -191,7 +195,7 @@ export default function TerminalChatInputThinking({
         setTimeout(() => setAwaitingConfirm(false), 1500);
       }
     },
-    { isActive: active },
+    { isActive: active && !isStreamingResponse },
   );
 
   const displayReasoning = partialReasoning || thinkingText;

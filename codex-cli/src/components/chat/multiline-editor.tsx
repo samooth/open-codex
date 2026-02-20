@@ -142,6 +142,10 @@ const MultilineTextEditorInner = (
         return;
       }
 
+      if (key.escape) {
+        return;
+      }
+
       // Check if this event was preceded by a raw Escape byte (Alt sequence)
       const isAlt = key.meta || lastRawWasEscape.current || input.includes("\u001b");
       

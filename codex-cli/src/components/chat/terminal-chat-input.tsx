@@ -240,6 +240,11 @@ export default function TerminalChatInput({
 
   useInput(
     (_input, _key) => {
+      if (_key.escape && !customInputMode && !awaitingContinueConfirmation) {
+        // If nothing else handles ESC, we just ignore it to prevent it from leaking into buffer
+        return;
+      }
+
       if (awaitingContinueConfirmation && active && !loading && !customInputMode) {
         if (_key.escape) {
           setCustomInputMode(true);
