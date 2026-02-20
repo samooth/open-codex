@@ -11,10 +11,11 @@ import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "../vendor/ink-select/select";
 import TextInput from "../vendor/ink-text-input.js";
+import MultilineTextEditor, { type MultilineTextEditorHandle } from "./multiline-editor.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { useInterval } from "use-interval";
 import { fileURLToPath } from "node:url";
-import React, { useCallback, useState, useMemo, useEffect } from "react";
+import React, { useCallback, useState, useMemo, useEffect, Fragment } from "react";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
 
 const suggestions = [
@@ -43,6 +44,8 @@ const slashCommands = [
   { name: "/undo", description: "revert last turn and file changes" },
   { name: "/help", description: "show help" },
 ];
+
+const typeHelpText = `ctrl+c to exit | "/clear" to reset context | "/help" for commands | ↑↓ to recall history | ctrl+x to open external editor | enter to send`;
 
 export default function TerminalChatInput({
   isNew,
@@ -79,6 +82,7 @@ export default function TerminalChatInput({
   isStreamingResponse,
   queuedInputText,
   onPopQueuedInput,
+  contextLeftPercent,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -121,6 +125,7 @@ export default function TerminalChatInput({
   isStreamingResponse?: boolean;
   queuedInputText?: string;
   onPopQueuedInput?: () => string;
+  contextLeftPercent: number;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -129,6 +134,10 @@ export default function TerminalChatInput({
   const [history, setHistory] = useState<Array<string>>([]);
   const [historyIndex, setHistoryIndex] = useState<number | null>(null);
   const [draftInput, setDraftInput] = useState<string>("");
+
+  const [editorKey, setEditorKey] = useState(0);
+  const editorRef = React.useRef<MultilineTextEditorHandle | null>(null);
+  const prevCursorRow = React.useRef<number | null>(null);
 
   const [customInputMode, setCustomInputMode] = useState(false);
   const [pulse, setPulse] = useState(false);
@@ -277,9 +286,13 @@ export default function TerminalChatInput({
             return;
           }
 
-          if (history.length > 0) {
+          const cursorRow = editorRef.current?.getRow?.() ?? 0;
+          const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
+
+          if (history.length > 0 && cursorRow === 0 && wasAtFirstRow) {
             if (historyIndex == null) {
-              setDraftInput(input);
+              const currentDraft = editorRef.current?.getText?.() ?? input;
+              setDraftInput(currentDraft);
             }
 
             let newIndex: number;
@@ -290,8 +303,9 @@ export default function TerminalChatInput({
             }
             setHistoryIndex(newIndex);
             setInput(history[newIndex] ?? "");
+            setEditorKey((k) => k + 1);
+            return;
           }
-          return;
         }
 
         if (_key.downArrow) {
@@ -299,19 +313,20 @@ export default function TerminalChatInput({
             // Handled in onKeyDown
             return;
           }
-          if (historyIndex == null) {
+          
+          if (historyIndex != null && (editorRef.current?.isCursorAtLastRow() ?? true)) {
+            const newIndex = historyIndex + 1;
+            if (newIndex >= history.length) {
+              setHistoryIndex(null);
+              setInput(draftInput);
+              setEditorKey((k) => k + 1);
+            } else {
+              setHistoryIndex(newIndex);
+              setInput(history[newIndex] ?? "");
+              setEditorKey((k) => k + 1);
+            }
             return;
           }
-
-          const newIndex = historyIndex + 1;
-          if (newIndex >= history.length) {
-            setHistoryIndex(null);
-            setInput(draftInput);
-          } else {
-            setHistoryIndex(newIndex);
-            setInput(history[newIndex] ?? "");
-          }
-          return;
         }
       }
 
@@ -356,6 +371,10 @@ export default function TerminalChatInput({
           process.exit(0);
         }, 60);
       }
+
+      // Update the cached cursor position *after* we've potentially handled
+      // the key so that the next event has the correct "previous" reference.
+      prevCursorRow.current = editorRef.current?.getRow?.() ?? null;
     },
     { isActive: active },
   );
@@ -659,36 +678,61 @@ export default function TerminalChatInput({
           </Box>
         ) : (
           <Box flexGrow={1}>
-            <TextInput
+            <MultilineTextEditor
+              ref={editorRef}
+              onChange={(txt: string) => setInput(txt)}
+              key={editorKey}
+              initialText={input}
+              height={8}
               focus={active}
-              placeholder={
-                customInputMode
-                  ? "type your custom response..."
-                  : selectedSuggestion
-                  ? `"${suggestions[selectedSuggestion - 1]}"`
-                  : "send a message" +
-                    (isNew ? " (tab for suggestions)" : "")
-              }
-              showCursor
-              value={input}
-              onKeyDown={onKeyDown}
-              highlight={highlighter}
-              onChange={(value) => {
-                setDraftInput(value);
-                if (historyIndex != null) {
-                  setHistoryIndex(null);
-                }
-                setInput(value);
-              }}
-              onSubmit={(value) => {
+              onSubmit={(txt) => {
                 if (customInputMode) {
                   setCustomInputMode(false);
                 }
-                onSubmit(value);
+                onSubmit(txt);
+
+                setEditorKey((k) => k + 1);
+                setInput("");
+                setHistoryIndex(null);
+                setDraftInput("");
               }}
             />
           </Box>
         )}
+      </Box>
+
+      <Box paddingX={2} marginBottom={1}>
+        <Text dimColor>
+          {!input ? (
+            <>
+              try:{" "}
+              {suggestions.map((m, key) => (
+                <Fragment key={key}>
+                  {key !== 0 ? " | " : ""}
+                  <Text
+                    backgroundColor={
+                      key + 1 === selectedSuggestion ? "blackBright" : ""
+                    }
+                  >
+                    {m}
+                  </Text>
+                </Fragment>
+              ))}
+            </>
+          ) : (
+            <>
+              {typeHelpText}
+              {contextLeftPercent < 25 && (
+                <>
+                  {" — "}
+                  <Text color={theme.deletion}>
+                    {Math.round(contextLeftPercent)}% context left
+                  </Text>
+                </>
+              )}
+            </>
+          )}
+        </Text>
       </Box>
 
       {filteredFiles.length > 0 && (

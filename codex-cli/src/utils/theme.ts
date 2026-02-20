@@ -254,6 +254,26 @@ export const themes: Record<string, Theme> = {
     statusBarModel: "yellowBright",
     statusBarSession: "blueBright",
     deletion: "magentaBright",
+  },
+  matrix: {
+    name: "Matrix",
+    assistant: "greenBright",
+    user: "green",
+    thought: "gray",
+    plan: "greenBright",
+    toolLabel: "green",
+    toolIcon: "greenBright",
+    shellCommand: "green",
+    error: "redBright",
+    success: "greenBright",
+    warning: "yellow",
+    highlight: "greenBright",
+    dim: "gray",
+    accent: "greenBright",
+    divider: "gray",
+    statusBarModel: "greenBright",
+    statusBarSession: "green",
+    deletion: "greenBright",
   }
 };
 

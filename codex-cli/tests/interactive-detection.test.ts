@@ -30,6 +30,7 @@ describe("Interactive Interaction Detection", () => {
       expect(detectInteraction("How?")).toBeNull();
       expect(detectInteraction("What should I do next?")).toBeNull();
       expect(detectInteraction("The task is done. How should I proceed?")).toBeNull();
+      expect(detectInteraction("Hi! How can I assist you today? Feel free to ask any questions about Bitcoin SV, blockchain technology, or any other topics.")).toBeNull();
     });
   });
 

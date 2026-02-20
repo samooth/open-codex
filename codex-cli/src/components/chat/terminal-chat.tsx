@@ -720,6 +720,7 @@ export default function TerminalChat({
           isStreamingResponse={!!memoizedStreamingMessage}
           queuedInputText={queuedInputText}
           onPopQueuedInput={popQueuedInput}
+          contextLeftPercent={contextLeftPercent}
         />
       )}
 

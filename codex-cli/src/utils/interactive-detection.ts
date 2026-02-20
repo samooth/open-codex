@@ -16,17 +16,17 @@ export function detectInteraction(content: string): InteractionType | null {
   
   // 1. Yes/No Detection
   // Expanded Yes/No detection keywords
-  const yesNoTriggers = [
+  const strongTriggers = ["(yes/no)", "please confirm"];
+  const weakTriggers = [
     "continue?", "proceed?", "go ahead?", "is this correct?", 
     "is this okay?", "is this right?", "ready to proceed?",
-    "want me to", "should i", "allow me to", "can i",
-    "(yes/no)", "please confirm"
+    "want me to", "should i", "allow me to", "can i?", "can i "
   ];
 
   const isQuestion = normalized.endsWith("?");
   
   // Detect open-ended question starters that should NEVER trigger Yes/No
-  const openEndedStarters = ["how", "what", "why", "where", "who", "when", "which", "can i help", "can i do"];
+  const openEndedStarters = ["how", "what", "why", "where", "who", "when", "which", "can i help", "can i do", "how can i"];
   
   // Split into sentences and check if the message ends with an open-ended question
   const sentences = normalized.split(/[.!?](?:\s+|$)/).filter(Boolean);
@@ -36,9 +36,10 @@ export function detectInteraction(content: string): InteractionType | null {
     return cleanSentence === s || cleanSentence.startsWith(s + " ") || cleanSentence.startsWith(s + "?");
   });
   
-  const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
+  const hasStrongTrigger = strongTriggers.some(t => normalized.includes(t));
+  const hasWeakTrigger = weakTriggers.some(t => normalized.includes(t));
 
-  const isConfirmationQuestion = isQuestion && (
+  const isConfirmationQuestion = (
     normalized.includes("do you want to") || 
     normalized.includes("would you like me to") ||
     normalized.includes("shall i") ||
@@ -46,7 +47,14 @@ export function detectInteraction(content: string): InteractionType | null {
     normalized.includes("should i")
   );
 
-  if (!isLastSentenceOpenEnded && (hasTrigger || isConfirmationQuestion)) {
+  // Strong triggers work regardless of question mark (e.g. "Ready (yes/no)")
+  if (hasStrongTrigger) {
+    return { type: "yes-no" };
+  }
+
+  // Weak triggers and general confirmation phrasing require a trailing question mark
+  // and MUST NOT be open-ended (e.g. "How can I help you?" vs "Can I help you?")
+  if (isQuestion && !isLastSentenceOpenEnded && (hasWeakTrigger || isConfirmationQuestion)) {
     return { type: "yes-no" };
   }
 
