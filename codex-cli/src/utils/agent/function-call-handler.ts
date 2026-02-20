@@ -1,4 +1,4 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
 import { appendFileSync } from "fs";
 import { parseToolCallArguments } from "../parsers.js";
 import { handleExecCommand } from "./handle-exec-command.js";
@@ -24,8 +24,6 @@ export async function handleFunctionCall(
   if (itemArg.role !== "assistant" || !itemArg.tool_calls) {
     return [];
   }
-
-  const results: Array<ChatCompletionMessageParam> = [];
 
   const toolCallPromises = itemArg.tool_calls.map(async (toolCall) => {
     // Normalise the function‑call item
@@ -96,8 +94,8 @@ export async function handleFunctionCall(
     }
 
     if (history.count >= 2) {
-      return [
-        {
+      return {
+        toolOutput: {
           role: "tool",
           tool_call_id: callId,
           content: JSON.stringify({
@@ -105,7 +103,7 @@ export async function handleFunctionCall(
             metadata: { exit_code: 1, duration_seconds: 0, loop_detected: true },
           }),
         } as ChatCompletionMessageParam,
-      ];
+      };
     }
 
     if (!result.success) {
@@ -113,8 +111,8 @@ export async function handleFunctionCall(
         const provider = ctx.config.provider || "unknown";
         appendFileSync("opencodex.error.log", `[${new Date().toISOString()}] Provider: ${provider}, Model: ${ctx.model}\nTool Argument Parsing Failed: ${name}\nArguments: ${rawArguments}\nError: ${result.error}\n\n`);
       } catch { /* ignore logging errors */ }
-      return [
-        {
+      return {
+        toolOutput: {
           role: "tool",
           tool_call_id: callId,
           content: JSON.stringify({
@@ -122,7 +120,7 @@ export async function handleFunctionCall(
             metadata: { exit_code: 1, duration_seconds: 0 },
           }),
         } as ChatCompletionMessageParam,
-      ];
+      };
     }
 
     const args = (result as any).args;
@@ -350,7 +348,7 @@ export async function handleFunctionCall(
       }
       metadata = { exit_code: 0 };
     } else {
-      return [outputItem];
+      return { toolOutput: outputItem };
     }
 
     outputItem.content = JSON.stringify({ output: outputText, metadata });
@@ -374,21 +372,54 @@ export async function handleFunctionCall(
       toolCallHistory.delete(toolCallKey);
     }
 
-    const callResults: Array<ChatCompletionMessageParam> = [outputItem];
-    if (additionalItems) {
-      if (thought_signature) {
-        for (const item of additionalItems) {
-          (item as any).thought_signature = thought_signature;
-        }
+    if (additionalItems && thought_signature) {
+      for (const item of additionalItems) {
+        (item as any).thought_signature = thought_signature;
       }
-      callResults.push(...additionalItems);
     }
-    return callResults;
+
+    return { toolOutput: outputItem, additionalItems };
   });
 
   const allCallResults = await Promise.all(toolCallPromises);
-  for (const callResults of allCallResults) {
-    results.push(...callResults);
+  const results: Array<ChatCompletionMessageParam> = [];
+  const seenAdditionalItems = new Set<string>();
+  const abortedMessages = new Set<string>();
+
+  for (const res of allCallResults) {
+    results.push(res.toolOutput);
+    
+    // Check if the tool output metadata indicates an abortion
+    try {
+      const content = JSON.parse(res.toolOutput.content as string);
+      if (content.metadata?.aborted && content.metadata?.note) {
+        abortedMessages.add(content.metadata.note);
+      }
+    } catch { /* ignore */ }
+  }
+
+  // First, add any unique aborted messages
+  for (const note of abortedMessages) {
+    const item: ChatCompletionMessageParam = {
+      role: "user",
+      content: [{ type: "text", text: note }],
+    };
+    const key = JSON.stringify(item);
+    results.push(item);
+    seenAdditionalItems.add(key);
+  }
+
+  // Then, add any other unique additionalItems
+  for (const res of allCallResults) {
+    if (res.additionalItems) {
+      for (const item of res.additionalItems) {
+        const key = JSON.stringify(item);
+        if (!seenAdditionalItems.has(key)) {
+          results.push(item);
+          seenAdditionalItems.add(key);
+        }
+      }
+    }
   }
 
   return results;

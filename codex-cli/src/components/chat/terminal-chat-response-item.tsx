@@ -404,7 +404,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
   isActive?: boolean;
 }) {
   const { output, metadata } = parseToolCallOutput(content);
-  const { exit_code, duration_seconds, type, url, query } =
+  const { exit_code, duration_seconds, type, url, query, aborted } =
     metadata as any;
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -422,7 +422,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
 
   const isDebug =
     process.env["DEBUG"] === "1" || process.env["NODE_ENV"] === "development";
-  const isError = exit_code !== 0 && typeof exit_code !== "undefined";
+  const isError = exit_code !== 0 && typeof exit_code !== "undefined" && !aborted;
 
   const {
     label: callLabel,
@@ -488,6 +488,8 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
   }
 
   const colorizedContent = useMemo(() => {
+    if (aborted) return chalk.italic.gray("Execution aborted by user.");
+
     let language: string | undefined;
     if (toolName === "search_codebase" || toolName === "semantic_search") {
       language = "json";
@@ -536,22 +538,23 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
     displayedContent,
     toolName,
     JSON.stringify(toolCall),
+    aborted,
   ]);
 
   return (
     <Box
       flexDirection="column"
       gap={0}
-      marginY={1}
+      marginY={aborted ? 0 : 1}
       paddingLeft={1}
       borderStyle="bold"
       borderRight={false}
       borderTop={false}
       borderBottom={false}
-      borderLeftColor={isError ? theme.error : theme.divider}
+      borderLeftColor={isError ? theme.error : (aborted ? theme.dim : theme.divider)}
     >
       {toolCall && (
-        <Box gap={1} paddingX={1} marginBottom={isDebug || isError ? 1 : 0}>
+        <Box gap={1} paddingX={1} marginBottom={(isDebug || isError) && !aborted ? 1 : 0}>
           <Text color={theme.toolIcon} bold>
             {icon}
           </Text>
@@ -562,7 +565,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
         </Box>
       )}
 
-      {(isError || isDebug) && toolCall && (toolCall as any).function && (
+      {(isError || isDebug) && !aborted && toolCall && (toolCall as any).function && (
         <Box flexDirection="column" paddingLeft={3} paddingRight={1} marginBottom={1}>
           <Box gap={1}>
             <Text bold color={theme.dim}>ARGS:</Text>
@@ -571,25 +574,27 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
         </Box>
       )}
 
-      <Box gap={1} paddingX={1}>
-        <Text color={labelColor} bold wrap="wrap">
-          {label}
-        </Text>
-        <Text color={theme.dim} wrap="wrap">{metadataInfo ? `(${metadataInfo})` : ""}</Text>
-      </Box>
-      {headerContent && (
+      {!aborted && (
+        <Box gap={1} paddingX={1}>
+          <Text color={labelColor} bold wrap="wrap">
+            {label}
+          </Text>
+          <Text color={theme.dim} wrap="wrap">{metadataInfo ? `(${metadataInfo})` : ""}</Text>
+        </Box>
+      )}
+      {!aborted && headerContent && (
         <Box paddingX={1}>
           <Text italic color="cyanBright" wrap="wrap">
             {headerContent}
           </Text>
         </Box>
       )}
-      <Box marginTop={displayedContent ? 0 : 0} paddingX={1}>
-        <Text color={type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
+      <Box marginTop={!aborted && displayedContent ? 0 : 0} paddingX={1}>
+        <Text color={!aborted && type !== "web_fetch" && type !== "web_search" ? theme.dim : undefined} wrap="wrap">
           {colorizedContent || chalk.italic.gray("(no output)")}
         </Text>
       </Box>
-      {!isCollapsed && isLargeOutput && (
+      {!aborted && !isCollapsed && isLargeOutput && (
         <Box marginTop={0} paddingX={1}>
           <Text color={theme.dim} italic>(press 'c' to collapse)</Text>
         </Box>

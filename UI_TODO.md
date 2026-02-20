@@ -10,6 +10,7 @@ This document tracks planned improvements for the OpenCodex terminal interface, 
 
 ## 2. Advanced Tooling Visuals
 - [x] **Semantic Diff Highlighting:** Integrated character-level diffs with bold/background highlights for precise code review.
+- [x] **Interactive Hunk Selection:** Users can now surgically toggle individual file hunks within a patch using arrow keys and the space bar.
 - [x] **OSC 8 Hyperlinks:** Added terminal-native clickable links for file paths in headers and tool outputs.
 - [x] **Terminal Graphics Protocol:** Implemented image thumbnail support for iTerm2, Kitty, and WezTerm.
 - [x] **Enhanced Code Block Interaction:** Added a `Ctrl+Y` global shortcut to copy the last generated code block to the system clipboard.

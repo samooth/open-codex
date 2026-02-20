@@ -22,7 +22,7 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 
 ## UI/UX Enhancements
 
-*   **[ ] Interactive Hunk Selection:** Allow users to pick specific "hunks" from an `apply_patch` instead of the whole file.
+*   **[DONE] Interactive Hunk Selection:** Allow users to pick specific "hunks" from an `apply_patch` instead of the whole file. (Using space to toggle)
 *   **[DONE] Improved Interaction Detection:** Fixed "How" questions triggering Yes/No prompts and refined detection logic to distinguish strong vs weak triggers.
 *   **[DONE] Improved Visibility:** Fixed dark blue links in terminal outputs to use visible `cyanBright` with underlines.
 *   **[DONE] Esc key for Custom Prompts:** Made the `Esc` key automatically select "Custom..." mode in interactive prompts.

@@ -152,6 +152,9 @@ Potential Improvements:
    39. [DONE] Smart Context (Auto-Pinning):
        * Automatically detect and persist core files/interfaces into the session context based on access frequency. Enabled by default.
 
+   40. [DONE] Interactive Hunk Selection:
+       * Allow users to pick specific "hunks" from an `apply_patch` instead of the whole file. (Using space to toggle)
+
 TODO List (Future Improvements):
 
    * **Cost & Token Auditing:** Real-time price estimation per turn/session based on actual token usage and model pricing.

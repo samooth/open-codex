@@ -291,7 +291,7 @@ async function execCommand(
   const start = Date.now();
   const execResult =
     applyPatchCommand != null
-      ? execApplyPatch(applyPatchCommand.patch)
+      ? execApplyPatch(applyPatchCommand.patch, applyPatchCommand.excludedHunks)
       : await exec(
           execInput,
           await getSandbox(runInSandbox),
@@ -376,13 +376,7 @@ async function askUserPermission(
         : "No, don't do that — stop for now.";
     return {
       outputText: "aborted",
-      metadata: {},
-      additionalItems: [
-        {
-          role: "user",
-          content: [{ type: "text", text: note }],
-        },
-      ],
+      metadata: { aborted: true, decision, note },
     };
   } else {
     return null;

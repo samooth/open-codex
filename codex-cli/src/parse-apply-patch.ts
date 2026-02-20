@@ -1,7 +1,15 @@
+export type ApplyPatchHunk = {
+  header: string;
+  lines: string[];
+  added: number;
+  deleted: number;
+};
+
 export type ApplyPatchCreateFileOp = {
   type: "create";
   path: string;
   content: string;
+  hunks: ApplyPatchHunk[];
 };
 
 export type ApplyPatchDeleteFileOp = {
@@ -15,6 +23,7 @@ export type ApplyPatchUpdateFileOp = {
   update: string;
   added: number;
   deleted: number;
+  hunks: ApplyPatchHunk[];
 };
 
 export type ApplyPatchOp =
@@ -60,6 +69,7 @@ export function parseApplyPatch(patch: string): Array<ApplyPatchOp> | null {
         type: "create",
         path: line.slice(ADD_FILE_PREFIX.length).trim(),
         content: "",
+        hunks: [],
       });
       continue;
     } else if (line.startsWith(DELETE_FILE_PREFIX)) {
@@ -75,6 +85,7 @@ export function parseApplyPatch(patch: string): Array<ApplyPatchOp> | null {
         update: "",
         added: 0,
         deleted: 0,
+        hunks: [],
       });
       continue;
     }
@@ -83,18 +94,49 @@ export function parseApplyPatch(patch: string): Array<ApplyPatchOp> | null {
 
     if (lastOp?.type === "create") {
       if (line.startsWith("@@")) {
+        lastOp.hunks.push({
+          header: line,
+          lines: [],
+          added: 0,
+          deleted: 0,
+        });
         continue;
       }
       const contentLine = line.startsWith(HUNK_ADD_LINE_PREFIX)
         ? line.slice(HUNK_ADD_LINE_PREFIX.length)
         : line;
       lastOp.content = appendLine(lastOp.content, contentLine);
+      
+      if (lastOp.hunks.length > 0) {
+        lastOp.hunks[lastOp.hunks.length - 1]!.lines.push(line);
+        if (line.startsWith(HUNK_ADD_LINE_PREFIX)) {
+          lastOp.hunks[lastOp.hunks.length - 1]!.added++;
+        } else if (line.startsWith("-")) {
+          lastOp.hunks[lastOp.hunks.length - 1]!.deleted++;
+        }
+      }
       continue;
     }
 
     if (lastOp?.type !== "update") {
       // Expected update op but got ${lastOp?.type} for line ${line}
       return null;
+    }
+
+    if (line.startsWith("@@")) {
+      lastOp.hunks.push({
+        header: line,
+        lines: [],
+        added: 0,
+        deleted: 0,
+      });
+    } else if (lastOp.hunks.length > 0) {
+      lastOp.hunks[lastOp.hunks.length - 1]!.lines.push(line);
+      if (line.startsWith(HUNK_ADD_LINE_PREFIX)) {
+        lastOp.hunks[lastOp.hunks.length - 1]!.added++;
+      } else if (line.startsWith("-")) {
+        lastOp.hunks[lastOp.hunks.length - 1]!.deleted++;
+      }
     }
 
     if (line.startsWith(HUNK_ADD_LINE_PREFIX)) {

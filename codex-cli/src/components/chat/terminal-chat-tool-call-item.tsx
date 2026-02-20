@@ -15,7 +15,7 @@ export function TerminalChatToolCallCommand({
   isActive = false,
 }: {
   commandForDisplay: string;
-  applyPatch?: { patch: string };
+  applyPatch?: ApplyPatchCommand;
   theme: Theme;
   isActive?: boolean;
 }): React.ReactElement {
@@ -28,6 +28,20 @@ export function TerminalChatToolCallCommand({
   const [selectedOpIndex, setSelectedOpIndex] = useState(0);
   const [collapsedOps, setCollapsedOps] = useState<Set<number>>(new Set());
   const [isExpandedAll, setIsExpandedAll] = useState(false);
+  
+  // path -> hunkIndices
+  const [excludedHunks, setExcludedHunks] = useState<Record<string, number[]>>(
+    applyPatch?.excludedHunks || {}
+  );
+
+  const ops = React.useMemo(() => {
+    if (applyPatch) return parseApplyPatch(applyPatch.patch);
+    if (commandForDisplay.includes("*** Begin Patch")) {
+      const match = commandForDisplay.match(/\*\*\* Begin Patch[\s\S]*\*\*\* End Patch/);
+      if (match) return parseApplyPatch(match[0]);
+    }
+    return null;
+  }, [applyPatch, commandForDisplay]);
 
   useInput((input, key) => {
     if (!isActive) return;
@@ -36,7 +50,8 @@ export function TerminalChatToolCallCommand({
       setIsExpandedAll(!isExpandedAll);
       return;
     }
-    if (isPatch && ops && ops.length > 1) {
+    
+    if (isPatch && ops && ops.length > 0) {
       if (key.upArrow) {
         setSelectedOpIndex(prev => (prev - 1 + ops.length) % ops.length);
       } else if (key.downArrow) {
@@ -51,18 +66,36 @@ export function TerminalChatToolCallCommand({
           }
           return next;
         });
+      } else if (input === " ") {
+        const op = ops[selectedOpIndex];
+        if (op && (op.type === "update" || op.type === "create")) {
+          const path = op.path;
+          // For now, toggle the WHOLE file if it's not expanded to hunks,
+          // OR if we want to implement hunk-level toggling we need another cursor.
+          // Let's implement hunk toggling if the file has hunks.
+          // Actually, let's keep it simple: Space toggles the CURRENT selected file.
+          // If we want HUNKS, we need a 2D cursor.
+          // For MVP: Toggle all hunks of this file.
+          setExcludedHunks(prev => {
+            const next = { ...prev };
+            const currentExcl = next[path] || [];
+            if (currentExcl.length > 0) {
+              delete next[path];
+            } else {
+              next[path] = op.hunks.map((_, idx) => idx);
+            }
+            
+            // Sync back to the parent state if possible
+            if (applyPatch) {
+              applyPatch.excludedHunks = next;
+            }
+            
+            return next;
+          });
+        }
       }
     }
   }, { isActive });
-
-  const ops = React.useMemo(() => {
-    if (applyPatch) return parseApplyPatch(applyPatch.patch);
-    if (commandForDisplay.includes("*** Begin Patch")) {
-      const match = commandForDisplay.match(/\*\*\* Begin Patch[\s\S]*\*\*\* End Patch/);
-      if (match) return parseApplyPatch(match[0]);
-    }
-    return null;
-  }, [applyPatch, commandForDisplay]);
 
   if (isPatch && ops) {
     // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded
@@ -85,12 +118,12 @@ export function TerminalChatToolCallCommand({
             <Text bold color={theme.accent} inverse paddingX={1}>
               {isEditFile ? " EDIT FILE " : " APPLY PATCH "}
             </Text>
-            <Text dimColor italic size={0.8}> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
+            <Text dimColor italic size={0.8}> (↑↓ navigate │ space toggle │ 'e' {isExpandedAll ? 'collapse' : 'expand'})</Text>
           </Box>
           
           {ops.length > 1 && (
             <Box marginBottom={1}>
-              <Text dimColor italic size={0.8}> [ ↑↓ navigate │ 'c' toggle ]</Text>
+              <Text dimColor italic size={0.8}> [ ↑↓ navigate │ 'c' toggle file ]</Text>
             </Box>
           )}
 
@@ -99,6 +132,8 @@ export function TerminalChatToolCallCommand({
 
             const isSelected = i === selectedOpIndex;
             const isCollapsed = collapsedOps.has(i) && !isSelected;
+            const isExcluded = (op.type === "update" || op.type === "create") && 
+                               excludedHunks[op.path] && excludedHunks[op.path]!.length === op.hunks.length;
 
             const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
               .split("\n")
@@ -128,18 +163,30 @@ export function TerminalChatToolCallCommand({
                 borderLeftColor={isSelected ? theme.highlight : theme.divider}
               >
                 <Box gap={1}>
-                  <Text bold color={op.type === "delete" ? theme.error : theme.highlight}>
+                  <Text 
+                    bold 
+                    color={isExcluded ? theme.dim : (op.type === "delete" ? theme.error : theme.highlight)}
+                    strikethrough={isExcluded}
+                  >
                     {isSelected ? "❯ " : "  "}{op.type.toUpperCase()}
                   </Text>
                   <TerminalHyperlink url={getFileUrl(op.path)}>
-                    <Text bold wrap="wrap" color={isSelected ? theme.accent : undefined}>{shortenPath(op.path)}</Text>
+                    <Text 
+                      bold 
+                      wrap="wrap" 
+                      color={isSelected ? theme.accent : undefined}
+                      strikethrough={isExcluded}
+                    >
+                      {shortenPath(op.path)}
+                    </Text>
                   </TerminalHyperlink>
                   <Text color={theme.dim}>
                     (+{op.added} -{op.deleted})
                   </Text>
+                  {isExcluded && <Text color={theme.error} bold> [EXCLUDED]</Text>}
                   {isCollapsed && <Text italic color={theme.dim}> [collapsed]</Text>}
                 </Box>
-                {!isCollapsed && (
+                {!isCollapsed && !isExcluded && (
                   <Box marginTop={0} flexDirection="column" paddingLeft={2}>
                     {op.type === "delete" && (
                       <Text color={theme.error} italic>File will be deleted</Text>
