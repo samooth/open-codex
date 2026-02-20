@@ -635,74 +635,73 @@ export default function TerminalChatInput({
   }
 
   return (
-    <Box flexDirection="column" marginTop={1} paddingX={1} minHeight={5}>
-      <Box 
-        flexDirection="row" 
-        gap={1} 
-        paddingX={1} 
-        borderStyle="bold" 
-        borderRight={false} 
-        borderTop={false} 
-        borderBottom={false}
-        borderLeftColor={active ? theme.highlight : theme.dim}
-      >
+    <Box flexDirection="column" marginTop={1} paddingX={1}>
+      <Box flexDirection="row" gap={1} paddingLeft={1}>
         <Text color={active ? (pulse ? theme.highlight : theme.dim) : theme.dim} bold>
           {customInputMode ? "?" : "❯"}
         </Text>
-        {awaitingContinueConfirmation && !customInputMode ? (
-          <Box flexDirection="row" gap={2}>
-            <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
-            <Box>
-              <Select
-                options={
-                  awaitingContinueConfirmation.type === "yes-no"
-                    ? [
-                        { label: "Yes (y)", value: "Yes" },
-                        { label: "No (n)", value: "No" },
-                        { label: "Custom...", value: "__custom__" },
-                      ]
-                    : [
-                        ...awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c })),
-                        { label: "Custom...", value: "__custom__" }
-                      ]
-                }
-                onChange={(value: string) => {
-                  if (value === "__custom__") {
-                    setCustomInputMode(true);
-                    return;
-                  }
-                  const item = {
-                    role: "user" as const,
-                    content: [{ type: "text" as const, text: value }],
-                  };
-                  submitInput([item]);
-                }}
-              />
-            </Box>
-          </Box>
-        ) : (
-          <Box flexGrow={1}>
-            <MultilineTextEditor
-              ref={editorRef}
-              onChange={(txt: string) => setInput(txt)}
-              key={editorKey}
-              initialText={input}
-              height={8}
-              focus={active}
-              onKeyDown={onKeyDown}
-              onSubmit={(txt) => {
-                if (customInputMode) {
-                  setCustomInputMode(false);
-                }
-                onSubmit(txt);
+        <Text color={theme.dim} italic>
+          {awaitingContinueConfirmation && !customInputMode 
+            ? (awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:")
+            : (customInputMode ? "type your custom response..." : "chat context")}
+        </Text>
+      </Box>
 
-                setEditorKey((k) => k + 1);
-                setInput("");
-                setHistoryIndex(null);
-                setDraftInput("");
+      <Box 
+        flexDirection="column"
+        borderStyle="round" 
+        borderColor={active ? theme.highlight : theme.dim}
+        paddingX={1}
+      >
+        {awaitingContinueConfirmation && !customInputMode ? (
+          <Box paddingY={1}>
+            <Select
+              options={
+                awaitingContinueConfirmation.type === "yes-no"
+                  ? [
+                      { label: "Yes (y)", value: "Yes" },
+                      { label: "No (n)", value: "No" },
+                      { label: "Custom...", value: "__custom__" },
+                    ]
+                  : [
+                      ...awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c })),
+                      { label: "Custom...", value: "__custom__" }
+                    ]
+              }
+              onChange={(value: string) => {
+                if (value === "__custom__") {
+                  setCustomInputMode(true);
+                  return;
+                }
+                const item = {
+                  role: "user" as const,
+                  content: [{ type: "text" as const, text: value }],
+                };
+                submitInput([item]);
               }}
             />
           </Box>
+        ) : (
+          <MultilineTextEditor
+            ref={editorRef}
+            onChange={(txt: string) => setInput(txt)}
+            key={editorKey}
+            initialText={input}
+            height={10}
+            focus={active}
+            onKeyDown={onKeyDown}
+            onSubmit={(txt) => {
+              if (customInputMode) {
+                setCustomInputMode(false);
+              }
+              onSubmit(txt);
+
+              setEditorKey((k) => k + 1);
+              setInput("");
+              setHistoryIndex(null);
+              setDraftInput("");
+            }}
+          />
         )}
       </Box>
 

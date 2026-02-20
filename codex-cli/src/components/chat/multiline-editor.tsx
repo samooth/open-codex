@@ -387,13 +387,21 @@ const MultilineTextEditorInner = (
     height,
     width: effectiveWidth,
   });
+
+  // Pad the visible lines to always show 'height' lines if desired.
+  // This ensures the input area has a consistent "nice" look even if empty.
+  const paddedLines = [...visibleLines];
+  while (paddedLines.length < height) {
+    paddedLines.push("");
+  }
+
   const [cursorRow, cursorCol] = buffer.current.getCursor();
   const scrollRow = (buffer.current as any).scrollRow as number;
   const scrollCol = (buffer.current as any).scrollCol as number;
 
   return (
     <Box flexDirection="column" key={version}>
-      {visibleLines.map((lineText, idx) => {
+      {paddedLines.map((lineText, idx) => {
         const absoluteRow = scrollRow + idx;
 
         // apply horizontal slice
