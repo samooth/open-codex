@@ -671,35 +671,20 @@ export default class TextBuffer {
     const before = cpSlice(this.line(this.cursorRow), 0, this.cursorCol);
     const after = cpSlice(this.line(this.cursorRow), this.cursorCol);
 
-    // Replace current line with first part combined with before text
-    this.lines[this.cursorRow] = before + parts[0];
+    // The first line gets the text before the cursor + the first part of the insertion
+    this.lines[this.cursorRow] = before + (parts[0] || "");
 
-    // Middle lines (if any) are inserted verbatim after current row
-    if (parts.length > 2) {
-      const middle = parts.slice(1, -1);
-      this.lines.splice(this.cursorRow + 1, 0, ...middle);
+    // The rest of the parts are inserted as new lines
+    // The very last part also gets the text after the cursor
+    const rest = parts.slice(1);
+    if (rest.length > 0) {
+      rest[rest.length - 1] = (rest[rest.length - 1] || "") + after;
+      this.lines.splice(this.cursorRow + 1, 0, ...rest);
     }
 
-    // Smart handling of the *final* inserted part:
-    //   • When the caret is mid‑line we preserve existing behaviour – merge
-    //     the last part with the text to the **right** of the caret so that
-    //     inserting in the middle of a line keeps the remainder on the same
-    //     row (e.g. "he|llo" → paste "x\ny" ⇒ "he x", "y llo").
-    //   • When the caret is at column‑0 we instead treat the current line as
-    //     a *separate* row that follows the inserted block.  This mirrors
-    //     common editor behaviour and avoids the unintuitive merge that led
-    //     to "cd"+"ef" → "cdef" in the failing tests.
-
-    // Append the last part combined with original after text as a new line
-    const last = parts[parts.length - 1] + after;
-    this.lines.splice(this.cursorRow + (parts.length - 1), 0, last);
-
-    // Update cursor position to end of last inserted part (before 'after')
+    // Move cursor to the end of the insertion
     this.cursorRow += parts.length - 1;
-    // `parts` is guaranteed to have at least one element here because
-    // `split("\n")` always returns an array with ≥1 entry.  Tell the
-    // compiler so we can pass a plain `string` to `cpLen`.
-    this.cursorCol = cpLen(parts[parts.length - 1]!);
+    this.cursorCol = cpLen(parts[parts.length - 1] || "");
 
     this.version++;
     return true;
@@ -784,85 +769,45 @@ export default class TextBuffer {
       return false;
     }
 
-    if (
-      key["leftArrow"] &&
-      !key["meta"] &&
-      !key["ctrl"] &&
-      !key["alt"]
-    ) {
-      /* navigation */
-      this.move("left");
-    } else if (
-      key["rightArrow"] &&
-      !key["meta"] &&
-      !key["ctrl"] &&
-      !key["alt"]
-    ) {
-      this.move("right");
-    } else if (key["upArrow"]) {
+    // 1. Navigation
+    if (key["upArrow"]) {
       this.move("up");
     } else if (key["downArrow"]) {
       this.move("down");
-    } else if ((key["meta"] || key["ctrl"] || key["alt"]) && key["leftArrow"]) {
-      this.move("wordLeft");
-    } else if (
-      (key["meta"] || key["ctrl"] || key["alt"]) &&
-      key["rightArrow"]
-    ) {
-      this.move("wordRight");
+    } else if (key["leftArrow"]) {
+      if (key["meta"] || key["ctrl"] || key["alt"]) this.move("wordLeft");
+      else this.move("left");
+    } else if (key["rightArrow"]) {
+      if (key["meta"] || key["ctrl"] || key["alt"]) this.move("wordRight");
+      else this.move("right");
     } else if (key["home"]) {
       this.move("home");
     } else if (key["end"]) {
       this.move("end");
     }
-    /* delete */
-    // In raw terminal mode many frameworks (Ink included) surface a physical
-    // Backspace key‑press as the single DEL (0x7f) byte placed in `input` with
-    // no `key.backspace` flag set.  Treat that byte exactly like an ordinary
-    // Backspace for parity with textarea.rs and to make interactive tests
-    // feedable through the simpler `(ch, {}, vp)` path.
-    else if (
-      (key["meta"] || key["ctrl"] || key["alt"]) &&
-      (key["backspace"] || input === "\x7f")
-    ) {
-      this.deleteWordLeft();
-    } else if ((key["meta"] || key["ctrl"] || key["alt"]) && key["delete"]) {
-      this.deleteWordRight();
-    } else if (
-      key["backspace"] ||
-      input === "\x7f" ||
-      (key["delete"] && !key["shift"])
-    ) {
-      // Treat un‑modified "delete" (the common Mac backspace key) as a
-      // standard backspace.  Holding Shift+Delete continues to perform a
-      // forward deletion so we don't lose that capability on keyboards that
-      // expose both behaviours.
-      this.backspace();
+    // 2. Deletion
+    else if (key["backspace"] || input === "\x7f") {
+      if (key["meta"] || key["ctrl"] || key["alt"]) this.deleteWordLeft();
+      else this.backspace();
+    } else if (key["delete"]) {
+      if (key["meta"] || key["ctrl"] || key["alt"]) this.deleteWordRight();
+      else if (key["shift"]) this.del();
+      else this.backspace(); // standard Mac behavior: delete is backspace
     }
-    // Forward deletion (Fn+Delete on macOS, or Delete key with Shift held after
-    // the branch above) – remove the character *under / to the right* of the
-    // caret, merging lines when at EOL similar to many editors.
-    else if (key["delete"]) {
-      this.del();
-    } else if (input && !key["ctrl"] && !key["meta"]) {
-      this.insert(input);
+    // 3. Insertion
+    else if (input && !key["ctrl"] && !key["meta"]) {
+      // Skip newline characters if they are handled by the editor component
+      if (input !== "\r" && input !== "\n") {
+        this.insert(input);
+      }
     }
 
-    /* printable */
-
-    /* clamp + scroll */
     this.ensureCursorInRange();
     this.ensureCursorVisible(vp);
 
     const cursorMoved =
       this.cursorRow !== beforeRow || this.cursorCol !== beforeCol;
 
-    if (DEBUG) {
-      dbg("handleInput:after", {
-        cursor: this.getCursor(),
-        text: this.getText(),
-      });
-    }
     return this.version !== beforeVer || cursorMoved;
   }
 }

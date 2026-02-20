@@ -189,10 +189,12 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
+            if (onChange) onChange(buffer.current.getText());
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
+            if (onChange) onChange(buffer.current.getText());
           }
           setVersion((v) => v + 1);
           return;
@@ -205,10 +207,12 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
+            if (onChange) onChange(buffer.current.getText());
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
+            if (onChange) onChange(buffer.current.getText());
           }
           setVersion((v) => v + 1);
           return;
@@ -232,6 +236,7 @@ const MultilineTextEditorInner = (
         if (isNewlineRequest) {
           buffer.current.newline();
           setVersion((v) => v + 1);
+          if (onChange) onChange(buffer.current.getText());
           return;
         }
 
@@ -244,6 +249,7 @@ const MultilineTextEditorInner = (
         } else {
           buffer.current.newline();
           setVersion((v) => v + 1);
+          if (onChange) onChange(buffer.current.getText());
         }
         return;
       }
@@ -258,11 +264,7 @@ const MultilineTextEditorInner = (
       );
       if (modified) {
         setVersion((v) => v + 1);
-      }
-
-      const newText = buffer.current.getText();
-      if (onChange) {
-        onChange(newText);
+        if (onChange) onChange(buffer.current.getText());
       }
     },
     { isActive: focus },

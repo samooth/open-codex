@@ -67,3 +67,5 @@ Icon?
 yarn.lock
 pnpm-lock.yaml
 
+opencodex-error.log
+codex-cli/opencodex-error.log
