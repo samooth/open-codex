@@ -703,7 +703,7 @@ export default function TerminalChatInput({
 
       <Box paddingX={2} marginBottom={1}>
         <Text dimColor>
-          {!input ? (
+          {!input && isNew ? (
             <>
               try:{" "}
               {suggestions.map((m, key) => (

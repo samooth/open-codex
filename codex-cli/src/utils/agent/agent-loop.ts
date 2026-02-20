@@ -1028,7 +1028,7 @@ export class AgentLoop {
               await finalizeMessage(message);
               turnInput.push({
                 role: "user",
-                content: "Please continue.",
+                content: "Please finish your previous response from exactly where you left off.",
               });
               continue; // Continue the while(turnInput.length > 0) loop
             }
