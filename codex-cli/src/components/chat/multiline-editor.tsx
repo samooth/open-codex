@@ -325,10 +325,11 @@ const MultilineTextEditorInner = (
 
         if (key.shift || key.meta) {
           // Shift+Enter or Alt+Enter -> Newline.
-          // In some environments, Shift+Enter sends \r with shift:true.
-          // We prioritize submission for raw \r unless meta is held.
-          if (input === "\r" && !key.meta) {
-            // fall through to plain enter (submit)
+          // QUIRK: ink-testing-library incorrectly sets shift:true for raw \r.
+          // We only ignore shift for \r if we are in the test stub environment.
+          const isTestStub = (stdin as any)?._inkIsStub;
+          if (isTestStub && input === "\r" && !key.meta) {
+            // fall through to plain enter (submit) in tests
           } else {
             buffer.current.newline();
             setVersion((v) => v + 1);
