@@ -5,9 +5,41 @@ import type {
 
 import { fileTypeFromBuffer } from "file-type";
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import os from "os";
+
+export async function processInputVariables(text: string): Promise<string> {
+  const regex = /\{\{(.+?)\}\}/g;
+  let result = text;
+  const matches = [...text.matchAll(regex)];
+
+  for (const match of matches) {
+    const fullMatch = match[0];
+    const key = match[1].trim();
+
+    // 1. Check environment variables
+    if (process.env[key]) {
+      result = result.replace(fullMatch, process.env[key]!);
+      continue;
+    }
+
+    // 2. Check local files
+    const filePath = path.resolve(process.cwd(), key);
+    if (existsSync(filePath)) {
+      try {
+        const content = await fs.readFile(filePath, "utf-8");
+        const entry = `--- Content from ${key} ---\n\n${content}\n--- End of Context from ${key} ---`;
+        result = result.replace(fullMatch, entry);
+      } catch (err) {
+        // Fallback to original if reading fails
+      }
+    }
+  }
+
+  return result;
+}
 
 export async function openExternalEditor(initialContent: string): Promise<string> {
   const editor = process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
@@ -60,7 +92,8 @@ export async function createInputItem(
   text: string,
   images: Array<string>,
 ): Promise<ChatCompletionMessageParam> {
-  const content: Array<ChatCompletionContentPart> = [{ type: "text", text }];
+  const processedText = await processInputVariables(text);
+  const content: Array<ChatCompletionContentPart> = [{ type: "text", text: processedText }];
 
   for (const filePath of images) {
     try {
