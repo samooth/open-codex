@@ -23,6 +23,53 @@ The `handleWebSearch` tool now follows this logic:
 2. **Process JSON**: It extracts the top 10 results (Title, URL, and Content/Snippet) and formats them into a clean, token-efficient string for the agent.
 3. **Graceful Fallback**: If the SearXNG request fails, the instance is unreachable, or the response is not valid JSON, it automatically falls back to the legacy DuckDuckGo scraping method using `lynx -dump`.
 
+## Self-Hosting with Docker Compose
+
+To run your own SearXNG instance locally using Docker, you can use the following `docker-compose.yml` configuration:
+
+```yaml
+version: '3'
+
+services:
+  searxng:
+    container_name: searxng
+    image: searxng/searxng:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    restart: always
+```
+
+### Steps to Setup:
+
+1. **Create a configuration directory**:
+   ```bash
+   mkdir searxng
+   ```
+
+2. **Create a basic `settings.yml`** inside that directory. You **must** enable the JSON format for OpenCodex to work:
+   ```yaml
+   # searxng/settings.yml
+   search:
+     formats:
+       - html
+       - json
+   server:
+     secret_key: "use-a-secure-random-string-here"
+     bind_address: "0.0.0.0"
+   ```
+
+3. **Start the container**:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Update OpenCodex Config**:
+   Set `"searxngUrl": "http://localhost:8080"` in your `~/.codex/config.json`.
+
 ### 3. Benefits
 - **Structured Data**: Provides high-signal snippets instead of raw text dumps.
 - **Privacy**: Allows the use of self-hosted search instances.
