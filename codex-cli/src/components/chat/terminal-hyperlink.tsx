@@ -9,10 +9,12 @@ export function TerminalHyperlink({
   url,
   children,
   fallback = true,
+  color = "cyanBright",
 }: {
   url: string;
   children: React.ReactNode;
   fallback?: boolean;
+  color?: string;
 }) {
   const isTTY = process.stdout.isTTY;
 
@@ -24,7 +26,7 @@ export function TerminalHyperlink({
   const osc8End = `\x1b]8;;\x1b`;
 
   return (
-    <Text>
+    <Text color={color}>
       {osc8Start}
       {children}
       {osc8End}

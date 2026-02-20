@@ -52,7 +52,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
           <Text {...valueStyle}>v{version}</Text>
           {separator}
           <Text {...labelStyle}>📁 </Text>
-          <TerminalHyperlink url={getFileUrl(process.cwd())}>
+          <TerminalHyperlink url={getFileUrl(process.cwd())} color={valueStyle.color}>
             <Text {...valueStyle}>{PWD}</Text>
           </TerminalHyperlink>
         </Box>
@@ -67,7 +67,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
       {breadcrumb && (
         <Box marginTop={0}>
           <Text color={theme.dim}>❯ </Text>
-          <TerminalHyperlink url={getFileUrl(breadcrumb)}>
+          <TerminalHyperlink url={getFileUrl(breadcrumb)} color={theme.highlight}>
             <Text color={theme.highlight} italic>{breadcrumb}</Text>
           </TerminalHyperlink>
         </Box>

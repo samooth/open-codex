@@ -334,7 +334,7 @@ export function getSyntaxTheme(theme: Theme) {
     emphasis: chalk.italic,
     strong: chalk.bold,
     formula: chalk.gray,
-    link: chalk[theme.highlight as ForegroundColorName]?.underline || chalk.cyanBright.underline,
+    link: chalk.cyanBright.underline,
     quote: chalk.gray,
     "selector-tag": chalk.magentaBright,
     "selector-id": chalk.magentaBright,

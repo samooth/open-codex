@@ -182,7 +182,8 @@ export function Markdown({
         strong: chalk.bold,
         em: chalk.italic,
         codespan: chalk.cyan,
-        link: chalk[theme.highlight as ForegroundColorName]?.underline || chalk.cyanBright.underline,
+        link: chalk.cyanBright.underline,
+        href: chalk.cyanBright.underline,
         code: chalk.reset,
         tableOptions: {
           style: {
@@ -565,7 +566,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
       </Box>
       {headerContent && (
         <Box paddingX={1}>
-          <Text italic color={theme.highlight} wrap="wrap">
+          <Text italic color="cyanBright" wrap="wrap">
             {headerContent}
           </Text>
         </Box>
