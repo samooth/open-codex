@@ -89,6 +89,7 @@ export default function TerminalChat({
   );
 
   const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
+  const fileAccessCounts = React.useRef<Record<string, number>>({});
   const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
   const [bottomLock, setBottomLock] = useState(true);
 
@@ -280,6 +281,26 @@ export default function TerminalChat({
       },
       onFileAccess: (path) => {
         setLastFileAccess(path);
+        
+        // Smart Context: Track access frequency and auto-pin
+        if (config.enableSmartContext) {
+          const count = (fileAccessCounts.current[path] || 0) + 1;
+          fileAccessCounts.current[path] = count;
+          
+          if (count >= 3 && !(config.pinnedFiles || []).includes(path)) {
+            setConfig((prev) => ({
+              ...prev,
+              pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
+            }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `📍 Smart Context: Automatically pinned frequently accessed file: ${path}`,
+              },
+            ]);
+          }
+        }
       },
       onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
         partialDataRef.current.content = content;
@@ -844,6 +865,7 @@ export default function TerminalChat({
             enableWebSearch={!!config.enableWebSearch}
             enableDeepThinking={!!config.enableDeepThinking}
             enableDeepLinter={!!config.enableDeepLinter}
+            enableSmartContext={!!config.enableSmartContext}
             searxngUrl={config.searxngUrl}
             webSearchUrl={config.webSearchUrl}
             onToggleDryRun={() => {
@@ -869,6 +891,9 @@ export default function TerminalChat({
             }}
             onToggleDeepLinter={() => {
               setConfig((prev) => ({ ...prev, enableDeepLinter: !prev.enableDeepLinter }));
+            }}
+            onToggleSmartContext={() => {
+              setConfig((prev) => ({ ...prev, enableSmartContext: !prev.enableSmartContext }));
             }}
             onExit={() => setOverlayMode("none")}
             theme={activeTheme}

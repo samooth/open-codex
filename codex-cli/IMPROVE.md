@@ -146,13 +146,17 @@ Potential Improvements:
    37. [DONE] Thinking UI Stability:
        * Increased long delay warning to 45s and decoupled turn timer from reasoning chunks to prevent visual resets.
 
+   38. [DONE] Deep Linter Feedback:
+       * Automatically trigger project linters (ESLint, Ruff, cargo check) after patches and pipe errors back to the model for self-correction. Configurable via TUI.
+
+   39. [DONE] Smart Context (Auto-Pinning):
+       * Automatically detect and persist core files/interfaces into the session context based on access frequency. Enabled by default.
+
 TODO List (Future Improvements):
 
    * **Cost & Token Auditing:** Real-time price estimation per turn/session based on actual token usage and model pricing.
-   * **Deep Linter Feedback:** Automatically trigger project linters (ESLint, Ruff, cargo check) after patches and pipe errors back to the model for self-correction.
    * **Hybrid Search:** Combine ripgrep keyword matching with semantic vector embeddings for more accurate and comprehensive code discovery.
    * **Image Generation Support:** Integrate Imagen 4.0 models for generating UI mockups or assets directly from the CLI.
    * **Diff Chunking:** Automatically break down extremely large patches into smaller, verifiable hunks to reduce the risk of "Invalid Context" errors.
    * **Undo Buffer:** Implement a `/undo` command that rolls back the last file modification using git or temporary backups.
-   * **Smart Context (Auto-Pinning):** Automatically detect and persist core files/interfaces into the session context based on access frequency.
    * **Fetch Docs (Deep Crawl):** Expand `fetch_url` to intelligently crawl and summarize entire documentation sub-trees for new libraries.

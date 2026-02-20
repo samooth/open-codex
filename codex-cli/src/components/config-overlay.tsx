@@ -9,6 +9,7 @@ type Props = {
   enableWebSearch: boolean;
   enableDeepThinking: boolean;
   enableDeepLinter: boolean;
+  enableSmartContext: boolean;
   searxngUrl?: string;
   webSearchUrl?: string;
   onToggleDryRun: () => void;
@@ -16,6 +17,7 @@ type Props = {
   onToggleWebSearch: () => void;
   onToggleDeepThinking: () => void;
   onToggleDeepLinter: () => void;
+  onToggleSmartContext: () => void;
   onEditSearchUrl: (type: "searxng" | "generic") => void;
   onExit: () => void;
   theme: Theme;
@@ -27,6 +29,7 @@ export default function ConfigOverlay({
   enableWebSearch,
   enableDeepThinking,
   enableDeepLinter,
+  enableSmartContext,
   searxngUrl,
   webSearchUrl,
   onToggleDryRun,
@@ -34,6 +37,7 @@ export default function ConfigOverlay({
   onToggleWebSearch,
   onToggleDeepThinking,
   onToggleDeepLinter,
+  onToggleSmartContext,
   onEditSearchUrl,
   onExit,
   theme,
@@ -63,6 +67,11 @@ export default function ConfigOverlay({
       label: `GENERIC SEARCH: ${webSearchUrl ? "CUSTOM" : "DUCKDUCKGO"}`,
       value: "webSearchUrl",
       description: `URL: ${webSearchUrl || "https://html.duckduckgo.com"}.`,
+    },
+    {
+      label: `SMART CONTEXT: ${enableSmartContext ? "ENABLED" : "DISABLED"}`,
+      value: "smartContext",
+      description: "Automatically pin frequently accessed files to the context.",
     },
     {
       label: `AUTO LINTING: ${enableDeepLinter ? "ENABLED" : "DISABLED"}`,
@@ -100,6 +109,8 @@ export default function ConfigOverlay({
       onEditSearchUrl("searxng");
     } else if (item.value === "webSearchUrl") {
       onEditSearchUrl("generic");
+    } else if (item.value === "smartContext") {
+      onToggleSmartContext();
     } else if (item.value === "deepLinter") {
       onToggleDeepLinter();
     } else if (item.value === "deepThinking") {

@@ -248,6 +248,7 @@ export const StoredConfigSchema = z.object({
   enableWebSearch: z.boolean().optional(),
   searxngUrl: z.string().optional(),
   webSearchUrl: z.string().optional(),
+  enableSmartContext: z.boolean().optional(),
   enableDeepLinter: z.boolean().optional(),
   enableDeepThinking: z.boolean().optional(),
   embeddingModel: z.string().optional(),
@@ -278,6 +279,7 @@ export type AppConfig = {
   enableWebSearch?: boolean;
   searxngUrl?: string;
   webSearchUrl?: string;
+  enableSmartContext?: boolean;
   enableDeepLinter?: boolean;
   enableDeepThinking?: boolean;
   embeddingModel?: string;
@@ -559,6 +561,7 @@ export const loadConfig = (
     enableWebSearch: storedConfig.enableWebSearch ?? true,
     searxngUrl: storedConfig.searxngUrl,
     webSearchUrl: storedConfig.webSearchUrl,
+    enableSmartContext: storedConfig.enableSmartContext ?? true,
     enableDeepLinter: storedConfig.enableDeepLinter ?? false,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
     embeddingModel: storedConfig.embeddingModel,
@@ -646,6 +649,7 @@ export const saveConfig = (
     enableWebSearch: config.enableWebSearch,
     searxngUrl: config.searxngUrl,
     webSearchUrl: config.webSearchUrl,
+    enableSmartContext: config.enableSmartContext,
     enableDeepLinter: config.enableDeepLinter,
     enableDeepThinking: config.enableDeepThinking,
     embeddingModel: config.embeddingModel,

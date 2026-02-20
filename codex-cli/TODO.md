@@ -17,7 +17,7 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 *   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and execute/edit it.
 *   **[DONE] Web Search by Default:** Enabled web research capabilities for all sessions by default and consolidated into a robust `browse` tool.
 *   **[DONE] SearXNG Integration:** Support for custom, privacy-focused search instances with JSON API integration.
-*   **[ ] Smart Context (Auto-Pinning):** Automatically detect and persist core files into the session context based on access frequency.
+*   **[DONE] Smart Context (Auto-Pinning):** Automatically detect and persist core files into the session context based on access frequency.
 *   **[ ] Cost Tracking:** Estimate and display the cost of the current session based on token usage.
 
 ## UI/UX Enhancements
