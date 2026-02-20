@@ -723,6 +723,11 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
     return resp;
   });
 
+  // Final cleanup: strip any stray unclosed or leftover closing tags
+  displayContent = displayContent
+    .replace(/<\/(thought|think|plan|response)>| <\/(thought|think|plan|response)>/gim, "")
+    .trim();
+
   const hasThoughts = thoughts.length > 0;
   const hasPlans = plans.length > 0;
   const hasContent = displayContent.trim().length > 0;
