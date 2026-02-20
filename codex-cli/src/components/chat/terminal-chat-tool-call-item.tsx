@@ -1,3 +1,5 @@
+import { SemanticDiffLine, SemanticDiffPair } from "./semantic-diff.js";
+import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { parseApplyPatch } from "../../parse-apply-patch";
 import { shortenPath } from "../../utils/short-path";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
@@ -10,14 +12,12 @@ export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
   theme,
-  height,
 }: {
   commandForDisplay: string;
   applyPatch?: { patch: string };
   theme: Theme;
-  height?: number;
 }): React.ReactElement {
-  useTerminalSize();
+  const { rows, columns } = useTerminalSize();
   const isPatch =
     !!applyPatch ||
     commandForDisplay.includes("apply_patch") ||
@@ -61,125 +61,133 @@ export function TerminalChatToolCallCommand({
   }, [applyPatch, commandForDisplay]);
 
   if (isPatch && ops) {
-    // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded.
-    // Use the provided height if available, otherwise fall back to a reasonable default.
-    const maxTotalLines = isExpandedAll ? 1000 : (height ? Math.max(4, height - 10) : 8);
+    // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded
+    const maxTotalLines = isExpandedAll ? 1000 : 8;
     let totalLinesRendered = 0;
     const isEditFile = commandForDisplay.startsWith("edit_file");
 
     return (
-      <Box flexDirection="column" gap={0} width="100%">
-        <Box gap={1} paddingX={1}>
-          <Text bold color={theme.toolLabel} wrap="wrap">
-            {isEditFile ? "📝 Edit File" : "🩹 Apply Patch"}
-          </Text>
-          <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand all'})</Text>
-        </Box>
-        {ops.length > 1 && (
-          <Box paddingX={1}>
-            <Text dimColor italic> (↑↓ to navigate files, 'c' to toggle visibility)</Text>
+      <Box flexDirection="column" gap={0} width="100%" marginY={1}>
+        <Box 
+          flexDirection="column" 
+          paddingLeft={1} 
+          borderStyle="bold" 
+          borderRight={false} 
+          borderTop={false} 
+          borderBottom={false} 
+          borderLeftColor={theme.accent}
+        >
+          <Box gap={1} marginBottom={1}>
+            <Text bold color={theme.accent} inverse paddingX={1}>
+              {isEditFile ? " EDIT FILE " : " APPLY PATCH "}
+            </Text>
+            <Text dimColor italic size={0.8}> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
           </Box>
-        )}
-        {ops.map((op, i) => {
-          if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) return null;
-
-          const isSelected = i === selectedOpIndex;
-          const isCollapsed = collapsedOps.has(i) && !isSelected;
-
-          const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
-            .split("\n")
-            .filter(l => l.trim().length > 0 || op.type === "create");
           
-          const availableLines = isCollapsed ? 0 : Math.max(1, maxTotalLines - totalLinesRendered - 2); 
-          const showTruncated = !isCollapsed && lines.length > availableLines;
-          const linesToDisplay = isCollapsed ? [] : (showTruncated ? lines.slice(0, availableLines) : lines);
-          
-          if (!isCollapsed) {
-            totalLinesRendered += linesToDisplay.length + 2;
-          } else {
-            totalLinesRendered += 1;
-          }
-
-          return (
-            <Box key={i} flexDirection="column" marginTop={1} paddingLeft={2} borderStyle="round" borderColor={isSelected ? theme.highlight : theme.dim}>
-              <Box gap={1}>
-                <Text bold color={op.type === "delete" ? theme.deletion : theme.highlight}>
-                  {op.type === "create" ? "CREATE" : op.type === "delete" ? "DELETE" : "UPDATE"}
-                </Text>
-                <Text bold wrap="wrap">{shortenPath(op.path)}</Text>
-                {op.type === "update" && (
-                  <Text color={theme.dim}>
-                    ({op.added} added, {op.deleted} deleted)
-                  </Text>
-                )}
-                {isCollapsed && <Text italic color={theme.dim}> (collapsed, press 'c' to expand)</Text>}
-              </Box>
-              {!isCollapsed && (
-                <Box marginTop={1} flexDirection="column">
-                  {op.type === "delete" && (
-                    <Text color={theme.deletion} italic>File will be deleted</Text>
-                  )}
-                  {linesToDisplay
-                    .map((line, j) => {
-                      if (!line && op.type === "update") return null; 
-                      const displayLine = op.type === "create" ? `+${line}` : line;
-                      const lineNum = (j + 1).toString().padStart(3);
-                      
-                      if (displayLine.startsWith("+") && !displayLine.startsWith("++")) {
-                        return (
-                          <Box key={j}>
-                            <Text color="gray">{lineNum} </Text>
-                            <Box flexShrink={1}>
-                              <Text wrap="wrap">{chalk.bgGreen.white(displayLine.padEnd(displayLine.length + 1))}</Text>
-                            </Box>
-                          </Box>
-                        );
-                      }
-                      if (displayLine.startsWith("-") && !displayLine.startsWith("--")) {
-                        const bgMethod = `bg${theme.deletion.charAt(0).toUpperCase()}${theme.deletion.slice(1)}` as any;
-                        const styledLine = (chalk as any)[bgMethod] ? (chalk as any)[bgMethod].white(displayLine.padEnd(displayLine.length + 1)) : chalk.bgMagenta.white(displayLine.padEnd(displayLine.length + 1));
-                        return (
-                          <Box key={j}>
-                            <Text color="gray">{lineNum} </Text>
-                            <Box flexShrink={1}>
-                              <Text wrap="wrap">{styledLine}</Text>
-                            </Box>
-                          </Box>
-                        );
-                      }
-                      if (displayLine.startsWith("@@")) {
-                        return (
-                          <Box key={j}>
-                            <Text color="gray">{lineNum} </Text>
-                            <Text color={theme.highlight} dimColor wrap="wrap">{displayLine}</Text>
-                          </Box>
-                        );
-                      }
-                      return (
-                        <Box key={j}>
-                          <Text color="gray">{lineNum} </Text>
-                          <Text wrap="wrap" color={theme.dim}>{displayLine}</Text>
-                        </Box>
-                      );
-                    })}
-                  {showTruncated && (
-                    <Text color={theme.dim} italic>... ({lines.length - availableLines} more lines truncated)</Text>
-                  )}
-                </Box>
-              )}
+          {ops.length > 1 && (
+            <Box marginBottom={1}>
+              <Text dimColor italic size={0.8}> [ ↑↓ navigate │ 'c' toggle ]</Text>
             </Box>
-          );
-        })}
-        {ops.length > 0 && totalLinesRendered >= maxTotalLines && (
-           <Box paddingLeft={2} marginTop={1}>
-             <Text color={theme.dim} italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
-           </Box>
-        )}
+          )}
+
+          {ops.map((op, i) => {
+            if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) return null;
+
+            const isSelected = i === selectedOpIndex;
+            const isCollapsed = collapsedOps.has(i) && !isSelected;
+
+            const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
+              .split("\n")
+              .filter(l => l.trim().length > 0 || op.type === "create");
+            
+            const availableLines = isCollapsed ? 0 : Math.max(1, maxTotalLines - totalLinesRendered - 2); 
+            const showTruncated = !isCollapsed && lines.length > availableLines;
+            const linesToDisplay = isCollapsed ? [] : (showTruncated ? lines.slice(0, availableLines) : lines);
+            
+            if (!isCollapsed) {
+              totalLinesRendered += linesToDisplay.length + 2;
+            } else {
+              totalLinesRendered += 1;
+            }
+
+            return (
+              <Box 
+                key={i} 
+                flexDirection="column" 
+                marginTop={0} 
+                marginBottom={1}
+                paddingLeft={1} 
+                borderStyle="bold" 
+                borderRight={false} 
+                borderTop={false} 
+                borderBottom={false} 
+                borderLeftColor={isSelected ? theme.highlight : theme.divider}
+              >
+                <Box gap={1}>
+                  <Text bold color={op.type === "delete" ? theme.error : theme.highlight}>
+                    {isSelected ? "❯ " : "  "}{op.type.toUpperCase()}
+                  </Text>
+                  <TerminalHyperlink url={getFileUrl(op.path)}>
+                    <Text bold wrap="wrap" color={isSelected ? theme.accent : undefined}>{shortenPath(op.path)}</Text>
+                  </TerminalHyperlink>
+                  <Text color={theme.dim}>
+                    (+{op.added} -{op.deleted})
+                  </Text>
+                  {isCollapsed && <Text italic color={theme.dim}> [collapsed]</Text>}
+                </Box>
+                {!isCollapsed && (
+                  <Box marginTop={0} flexDirection="column" paddingLeft={2}>
+                    {op.type === "delete" && (
+                      <Text color={theme.error} italic>File will be deleted</Text>
+                    )}
+                    {(() => {
+                      const renderedLines: React.ReactNode[] = [];
+                      for (let j = 0; j < linesToDisplay.length; j++) {
+                        const line = linesToDisplay[j]!;
+                        const nextLine = linesToDisplay[j + 1];
+                        
+                        // Semantic pair detection: current is '-' and next is '+'
+                        if (line.startsWith("-") && nextLine?.startsWith("+") && op.type === "update") {
+                          renderedLines.push(
+                            <SemanticDiffPair 
+                              key={j} 
+                              removed={line} 
+                              added={nextLine} 
+                              theme={theme} 
+                            />
+                          );
+                          j++; // Skip the next line
+                        } else {
+                          renderedLines.push(
+                            <SemanticDiffLine 
+                              key={j} 
+                              line={line} 
+                              theme={theme} 
+                            />
+                          );
+                        }
+                      }
+                      return renderedLines;
+                    })()}
+                    {showTruncated && (
+                      <Text color={theme.dim} italic>... ({lines.length - availableLines} more lines)</Text>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+          {ops.length > 0 && totalLinesRendered >= maxTotalLines && (
+             <Box paddingLeft={1} marginTop={0}>
+               <Text color={theme.dim} italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
+             </Box>
+          )}
+        </Box>
       </Box>
     );
   }
 
-  const maxTotalLines = isExpandedAll ? 1000 : (height ? Math.max(3, height - 10) : 5);
+  const maxTotalLines = isExpandedAll ? 1000 : 5;
   const commandLines = commandForDisplay.split("\n");
   const showTruncatedCmd = commandLines.length > maxTotalLines;
   const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;
@@ -191,7 +199,7 @@ export function TerminalChatToolCallCommand({
         return chalk[theme.success](line);
       }
       if (line.startsWith("-") && !line.startsWith("--")) {
-        return chalk[theme.deletion](line);
+        return chalk[theme.error](line);
       }
       return line;
     })
@@ -201,23 +209,27 @@ export function TerminalChatToolCallCommand({
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="round"
-      borderColor={theme.highlight}
       width="100%"
       marginY={1}
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.warning}
     >
-      <Box gap={1} paddingX={1}>
-        <Text bold color={theme.warning} wrap="wrap">
-          🐚 Shell Command
+      <Box gap={1} marginBottom={1}>
+        <Text bold color={theme.warning} inverse paddingX={1}>
+          SHELL COMMAND
         </Text>
-        <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand all'})</Text>
+        <Text dimColor italic size={0.8}> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
       </Box>
-      <Box paddingLeft={3} paddingRight={1} marginTop={1} flexDirection="column">
+      <Box paddingLeft={2} flexDirection="column">
         <Text wrap="wrap">
-          <Text color={theme.dim}>$</Text> {colorizedCommand}
+          <Text color={theme.dim} bold>$</Text> <Text color={theme.shellCommand}>{colorizedCommand}</Text>
         </Text>
         {showTruncatedCmd && (
-          <Text color={theme.dim} italic>... ({commandLines.length - maxTotalLines} more lines truncated)</Text>
+          <Text color={theme.dim} italic>... ({commandLines.length - maxTotalLines} more lines)</Text>
         )}
       </Box>
     </Box>
@@ -227,11 +239,9 @@ export function TerminalChatToolCallCommand({
 export function TerminalChatToolCallApplyPatch({
   commandForDisplay,
   patch,
-  theme,
 }: {
   commandForDisplay: string;
   patch: string;
-  theme: Theme;
 }): React.ReactElement {
   const ops = React.useMemo(() => parseApplyPatch(patch), [patch]);
   const firstOp = ops?.[0];
@@ -252,29 +262,29 @@ export function TerminalChatToolCallApplyPatch({
 
   if (ops == null) {
     return (
-      <Box flexDirection="column">
-        <Text bold color={theme.deletion}>
+      <>
+        <Text bold color="red">
           Invalid Patch
         </Text>
-        <Text color={theme.deletion} dimColor>
+        <Text color="red" dimColor>
           The provided patch command is invalid.
         </Text>
         <Text dimColor>{commandForDisplay}</Text>
-      </Box>
+      </>
     );
   }
 
   if (!firstOp) {
     return (
-      <Box flexDirection="column">
-        <Text bold color={theme.warning}>
+      <>
+        <Text bold color="yellow">
           Empty Patch
         </Text>
-        <Text color={theme.warning} dimColor>
+        <Text color="yellow" dimColor>
           No operations found in the patch command.
         </Text>
         <Text dimColor>{commandForDisplay}</Text>
-      </Box>
+      </>
     );
   }
 

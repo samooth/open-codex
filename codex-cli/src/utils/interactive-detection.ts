@@ -15,6 +15,7 @@ export function detectInteraction(content: string): InteractionType | null {
   const normalized = content.trim().toLowerCase();
   
   // 1. Yes/No Detection
+  // Expanded Yes/No detection keywords
   const yesNoTriggers = [
     "continue?", "proceed?", "go ahead?", "is this correct?", 
     "is this okay?", "is this right?", "ready to proceed?",
@@ -23,63 +24,58 @@ export function detectInteraction(content: string): InteractionType | null {
   ];
 
   const isQuestion = normalized.endsWith("?");
+  
+  // Detect open-ended question starters that should NEVER trigger Yes/No
+  const openEndedStarters = ["how", "what", "why", "where", "who", "when", "which", "can i help", "can i do"];
+  
+  // Split into sentences and check if the message ends with an open-ended question
+  const sentences = normalized.split(/[.!?](?:\s+|$)/).filter(Boolean);
+  const lastSentence = sentences[sentences.length - 1] || "";
+  const cleanSentence = lastSentence.replace(/^[#\s\-\*]+/, "").trim();
+  const isLastSentenceOpenEnded = openEndedStarters.some(s => {
+    return cleanSentence === s || cleanSentence.startsWith(s + " ") || cleanSentence.startsWith(s + "?");
+  });
+  
   const hasTrigger = yesNoTriggers.some(t => normalized.includes(t));
 
-  // Determine if ANY part of the message is an informational question (How/What/Why/Who/Where/Which)
-  // We split by common sentence delimiters (including newlines and colons)
-  const parts = normalized.split(/\s*[\n.!?;:]\s*/);
-  
-  const isAnyInformational = parts.some(part => {
-    const cleanPart = part.trim().replace(/^[#\s\-\*]+/, "");
-    return (
-      cleanPart.startsWith("how ") || 
-      cleanPart.startsWith("what ") || 
-      cleanPart.startsWith("why ") || 
-      cleanPart.startsWith("who ") ||
-      cleanPart.startsWith("where ") ||
-      cleanPart.startsWith("which ")
-    );
-  });
-
-  // Check if it looks like a list of options (e.g. 1. 2. 3. or * *)
-  const hasNumberedList = /\n\s*\d+\.\s+/.test(normalized);
-  const hasBulletedList = /\n\s*[\-\*]\s+/.test(normalized);
-  const isLikelySelectionMenu = hasNumberedList || hasBulletedList;
-
-  // We only trigger yes-no if:
-  // 1. It contains a specific yes-no trigger OR is a general "do you/would you" question
-  // 2. AND the message is NOT informational (How/What/Why)
-  // 3. AND it doesn't look like a numbered/bulleted list of options
-  // 4. UNLESS it explicitly has "(yes/no)" which overrides everything.
-  const hasForcedMarker = normalized.includes("(yes/no)");
-
-  if (hasForcedMarker) {
-    return { type: "yes-no" };
-  }
-
-  if (!isAnyInformational && !isLikelySelectionMenu && (hasTrigger || (isQuestion && (
-    normalized.includes("do you") || 
-    normalized.includes("would you") ||
+  const isConfirmationQuestion = isQuestion && (
+    normalized.includes("do you want to") || 
+    normalized.includes("would you like me to") ||
     normalized.includes("shall i") ||
-    normalized.includes("can i")
-  )))) {
+    normalized.includes("can i") ||
+    normalized.includes("should i")
+  );
+
+  if (!isLastSentenceOpenEnded && (hasTrigger || isConfirmationQuestion)) {
     return { type: "yes-no" };
   }
 
   // 2. Multi-choice detection: looks for [Option] patterns
-  const choiceMatches = content.match(/\[([^\]]+)\]/g);
+  // We use a negative lookahead to ensure it's not a standard Markdown link [text](url)
+  const choiceMatches = content.match(/\[([^\]]+)\](?!\()/g);
   if (choiceMatches && choiceMatches.length >= 2) {
     const choices = [
       ...new Set(choiceMatches.map((m) => m.slice(1, -1).trim())),
     ].filter(c => c.length > 0 && c.length < 50); // Sanity check on choice length
     
     if (choices.length >= 2) {
-      // Only trigger if near the end of the message or if explicitly asked to choose
-      const lastChoiceIndex = content.lastIndexOf(choiceMatches[choiceMatches.length - 1]!);
-      const isNearEnd = lastChoiceIndex > (content.length - 150);
-      const asksToChoose = normalized.includes("choose") || normalized.includes("select") || normalized.includes("option");
+      // Logic for detecting if this is a final interaction menu:
+      // 1. If explicit 'choose' keywords are present, we are more lenient with position.
+      // 2. If no keywords, we require it to be a question ending with the choices.
+      const lastChoiceMatch = choiceMatches[choiceMatches.length - 1]!;
+      const lastChoiceIndex = content.lastIndexOf(lastChoiceMatch);
+      const trailingText = content.slice(lastChoiceIndex + lastChoiceMatch.length).trim();
       
-      if (isNearEnd || asksToChoose) {
+      const isNearEnd = lastChoiceIndex > (content.length - 150);
+      const isAtTheVeryEnd = trailingText.length <= 10 && /^[.!?]*$/.test(trailingText);
+
+      const asksToChoose = normalized.includes("choose") || 
+                           normalized.includes("select") || 
+                           normalized.includes("option") ||
+                           normalized.includes("pick");
+      const isQuestionAtEnd = normalized.trim().endsWith("?");
+      
+      if ((asksToChoose && isNearEnd) || (isQuestionAtEnd && isAtTheVeryEnd)) {
         return { type: "choices", choices };
       }
     }

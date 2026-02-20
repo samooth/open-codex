@@ -69,14 +69,6 @@ export default function ModelOverlay({
     })();
   }, [config, currentModel]);
 
-  // ---------------------------------------------------------------------------
-  // If the conversation already contains a response we cannot change the model
-  // anymore because the backend requires a consistent model across the entire
-  // run.  In that scenario we replace the regular typeahead picker with a
-  // simple message instructing the user to start a new chat.  The only
-  // available action is to dismiss the overlay (Esc or Enter).
-  // ---------------------------------------------------------------------------
-
   // Always register input handling so hooks are called consistently.
   useInput((_input, key) => {
     if (hasLastResponse && (key.escape || key.return)) {
@@ -88,23 +80,36 @@ export default function ModelOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="gray"
+        paddingLeft={1}
+        borderStyle="bold"
+        borderRight={false}
+        borderTop={false}
+        borderBottom={false}
+        borderLeftColor={theme.error}
         width={80}
+        marginY={1}
       >
-        <Box paddingX={1}>
-          <Text bold color={theme.deletion}>
-            Unable to switch model
-          </Text>
+        <Box paddingX={1} marginBottom={1} gap={1}>
+          <Text bold color={theme.error} inverse paddingX={1}> LOCKED </Text>
+          <Text bold color={theme.error}>UNABLE TO SWITCH MODEL</Text>
         </Box>
-        <Box paddingX={1}>
-          <Text>
+        <Box paddingX={1} marginBottom={1}>
+          <Text color={theme.dim}>
             You can only pick a model before the assistant sends its first
             response. To use a different model please start a new chat.
           </Text>
         </Box>
-        <Box paddingX={1}>
-          <Text dimColor>press esc or enter to close</Text>
+        <Box 
+          borderStyle="single" 
+          borderRight={false} 
+          borderTop={true} 
+          borderBottom={false} 
+          borderLeft={false}
+          borderTopColor={theme.divider}
+          paddingX={1}
+          paddingTop={1}
+        >
+          <Text dimColor italic>press esc or enter to close</Text>
         </Box>
       </Box>
     );
@@ -114,14 +119,15 @@ export default function ModelOverlay({
     <TypeaheadOverlay
       title="Switch model"
       description={
-        <Text>
-          Current model: <Text color="greenBright">{currentModel}</Text>
+        <Text color={theme.dim}>
+          CURRENT MODEL: <Text color={theme.success} bold>{currentModel}</Text>
         </Text>
       }
       initialItems={items}
       currentValue={currentModel}
       onSelect={onSelect}
       onExit={onExit}
+      theme={theme}
     />
   );
 }

@@ -1,15 +1,18 @@
 import MultilineTextEditor, { type MultilineTextEditorHandle } from "./chat/multiline-editor.js";
 import { Box, Text, useInput } from "ink";
 import React, { useRef } from "react";
+import type { Theme } from "../utils/theme.js";
 
 export default function PromptOverlay({
   currentInstructions,
   onSave,
   onExit,
+  theme,
 }: {
   currentInstructions: string;
   onSave: (newInstructions: string) => void;
   onExit: () => void;
+  theme: Theme;
 }) {
   const editorRef = useRef<MultilineTextEditorHandle>(null);
 
@@ -26,20 +29,48 @@ export default function PromptOverlay({
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
-      <Box marginBottom={1}>
-        <Text bold>Edit System Prompt</Text>
+    <Box
+      flexDirection="column"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
+      width={100}
+      marginY={1}
+    >
+      <Box paddingX={1} marginBottom={1} gap={1}>
+        <Text bold color={theme.highlight} inverse paddingX={1}> PROMPT </Text>
+        <Text color={theme.highlight} bold>EDIT SYSTEM INSTRUCTIONS</Text>
       </Box>
-      <Box borderStyle="single" padding={1}>
+
+      <Box 
+        borderStyle="single" 
+        padding={1} 
+        borderColor={theme.divider}
+        marginLeft={1}
+      >
         <MultilineTextEditor
           ref={editorRef}
           initialText={currentInstructions}
           height={15}
         />
       </Box>
-      <Box marginTop={1}>
-        <Text dimColor>
-            Press <Text bold>Enter</Text> for newline • <Text bold>Ctrl+S</Text> to save • <Text bold>Esc</Text> to cancel
+
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+        marginTop={1}
+      >
+        <Text dimColor italic>
+            enter NEWLINE │ ctrl+s SAVE │ esc CANCEL
         </Text>
       </Box>
     </Box>

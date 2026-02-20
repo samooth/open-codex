@@ -80,7 +80,10 @@ export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
   };
 
   useInput((input, key) => {
-    if (isSearching) return;
+    if (isSearching) {
+      if (key.escape) setIsSearching(false);
+      return;
+    }
 
     if (key.escape) {
       onExit();
@@ -126,15 +129,23 @@ export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.statusBarSession}
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
       width={100}
+      marginY={1}
     >
-      <Box paddingX={1} flexDirection="column">
-        <Text bold color={theme.statusBarSession}>Project Memory ({filteredEntries.length})</Text>
+      <Box paddingX={1} marginBottom={1} justifyContent="space-between" gap={1}>
+        <Box gap={1}>
+          <Text bold color={theme.highlight} inverse paddingX={1}> MEMORY </Text>
+          <Text bold color={theme.highlight}>PROJECT KNOWLEDGE ({filteredEntries.length})</Text>
+        </Box>
         {isSearching ? (
-          <Box>
-            <Text color={theme.highlight}>Search: </Text>
+          <Box gap={1}>
+            <Text color={theme.highlight} bold>SEARCH: </Text>
             <TextInput 
               value={searchQuery} 
               onChange={setSearchQuery} 
@@ -142,30 +153,30 @@ export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
             />
           </Box>
         ) : (
-          searchQuery && <Text dimColor italic>Filtering for: {searchQuery} (press / to change)</Text>
+          <Text dimColor>Press <Text bold color={theme.highlight}>/</Text> to filter</Text>
         )}
       </Box>
       
-      <Box flexDirection="column" paddingX={1} marginTop={1}>
+      <Box flexDirection="column" paddingX={1} marginBottom={1} minHeight={4}>
         {visible.length === 0 ? (
-          <Text dimColor>No memory entries found.</Text>
+          <Text color={theme.warning} italic>No memory entries found.</Text>
         ) : (
           visible.map((entry, idx) => {
             const absIdx = firstVisible + idx;
             const selected = absIdx === cursor;
             return (
               <Box key={absIdx} justifyContent="space-between">
-                <Box>
-                  <Text color={selected ? theme.highlight : undefined}>
-                    {selected ? "› " : "  "}
+                <Box gap={1}>
+                  <Text color={selected ? theme.highlight : theme.dim} bold={selected}>
+                    {selected ? "❯" : " "}
                   </Text>
                   <Box width={15}>
-                    <Text color={theme.toolLabel}>[{entry.category}]</Text>
+                    <Text color={theme.accent}>[{entry.category.toUpperCase()}]</Text>
                   </Box>
-                  <Text color={selected ? "white" : theme.dim}>{entry.fact}</Text>
+                  <Text color={selected ? theme.highlight : undefined}>{entry.fact}</Text>
                 </Box>
                 <Box>
-                  <Text dimColor>[{entry.timestamp}]</Text>
+                  <Text color={theme.dim} italic>[{entry.timestamp}]</Text>
                 </Box>
               </Box>
             );
@@ -173,9 +184,18 @@ export default function MemoryOverlay({ onExit, theme }: Props): JSX.Element {
         )}
       </Box>
 
-      <Box paddingX={1} marginTop={1} flexDirection="column" borderStyle="single" borderColor={theme.dim}>
-        <Text dimColor>
-          esc Close | ↑↓ Scroll | / Search | d/Del Delete entry | g/G Start/End
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
+        <Text dimColor italic>
+          ↑↓ SCROLL │ / SEARCH │ d DELETE │ esc CLOSE
         </Text>
       </Box>
     </Box>

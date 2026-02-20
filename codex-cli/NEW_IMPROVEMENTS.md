@@ -45,6 +45,9 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     *   **[DONE] Empty Command Fallback:** If the model emits an empty command block (e.g., `command {}`), the system now defaults to executing `ls -F` to help the model gather context about the current directory.
     *   **[DONE] Tool Arguments Preview:** A concise preview of tool arguments is now shown next to the active tool name.
 *   **[DONE] Structured Tool Output Display:** Tool calls and outputs are rendered in rounded boxes. Failed commands are highlighted with a red border and include "Tool Call Details" (name and arguments) for easier debugging.
+*   **[DONE] Unified Web Browser:** A new `browse` tool replaces fragmented `web_search` and `fetch_url` tools. It intelligently searches the web, fetches page text using `lynx`, or performs site-specific searches within a single interface.
+    *   **[DONE] Context-Efficient Browsing:** Uses `lynx -dump` to strip HTML/JS noise, reducing context usage by up to 90% and automatically extracting reference links for easy navigation.
+    *   **[DONE] Web Search Enabled by Default:** Web research capabilities are now enabled by default in the system configuration.
 *   **[DONE] Robust Shell Execution:** Improved handling of complex shell commands, avoiding over-quoting and correctly identifying shell built-ins.
 *   **[DONE] Cross-Platform Support:** 
     *   **Windows Support:** Fully implemented Unix-to-Windows command mapping and native process termination using `taskkill`.
@@ -52,6 +55,9 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 ---
 ## 2. Improved User Input and Interaction
 
+    * **[DONE] True Multi-line Support:** The chat input now handles newlines natively. Use `Shift+Enter` to insert a newline and `Ctrl+Enter` to submit long prompts or pasted code blocks.
+    * **[DONE] Improved Link Visibility:** All terminal links (OSC 8) and syntax-highlighted links now use a high-visibility `cyanBright` color with underlines, replacing the hard-to-read dark blue.
+    * **[DONE] Esc for Custom Prompts:** Pressing `Esc` during a Yes/No or choice prompt now automatically switches to "Custom..." mode for immediate text input.
     * **[DONE] Integrated Tool Display:** Tool calls and responses are now merged into a single visual unit, reducing vertical spacing and providing immediate context for results.
 
     * **[DONE] Language-Aware Output Highlighting:** All tool outputs (file reads, search results, etc.) now feature automatic syntax highlighting based on content type and file extensions.

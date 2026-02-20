@@ -62,7 +62,6 @@ export default function PromptSelectOverlay({
           const files = readdirSync(dir);
           for (const file of files) {
             if (file.endsWith(".md") || file.endsWith(".txt")) {
-              // Avoid duplicates if the same filename exists in multiple searched dirs
               if (!allPrompts.find(p => p.label === file)) {
                 allPrompts.push({
                   label: file,
@@ -99,32 +98,57 @@ export default function PromptSelectOverlay({
 
   if (loading) {
     return (
-      <Box borderStyle="round" borderColor={theme.highlight} paddingX={1}>
-        <Text italic>Loading prompts...</Text>
+      <Box paddingLeft={1} borderStyle="bold" borderRight={false} borderTop={false} borderBottom={false} borderLeftColor={theme.highlight} marginY={1}>
+        <Text italic color={theme.dim}>LOADING PROMPT LIBRARY...</Text>
       </Box>
     );
   }
 
   if (prompts.length === 0) {
     return (
-      <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1}>
-        <Box marginBottom={1}>
-          <Text bold>Select System Prompt</Text>
+      <Box
+        flexDirection="column"
+        paddingLeft={1}
+        borderStyle="bold"
+        borderRight={false}
+        borderTop={false}
+        borderBottom={false}
+        borderLeftColor={theme.error}
+        width={80}
+        marginY={1}
+      >
+        <Box marginBottom={1} gap={1}>
+          <Text bold color={theme.error} inverse paddingX={1}> EMPTY </Text>
+          <Text bold color={theme.error}>NO PROMPT FILES FOUND</Text>
         </Box>
-        <Text color={theme.deletion}>No prompts found in ./prompts, ./.codex/prompts, or ~/.codex/prompts</Text>
+        <Box paddingX={1}>
+          <Text color={theme.dim}>Searched in: ./prompts, ./.codex/prompts, and ~/.codex/prompts</Text>
+        </Box>
         <Box marginTop={1}>
-          <Text dimColor>Press Esc to cancel</Text>
+          <Text dimColor>Press esc to cancel</Text>
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={theme.highlight} paddingX={1}>
-      <Box marginBottom={1}>
-        <Text bold>Select System Prompt</Text>
+    <Box
+      flexDirection="column"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
+      width={80}
+      marginY={1}
+    >
+      <Box paddingX={1} marginBottom={1} gap={1}>
+        <Text bold color={theme.highlight} inverse paddingX={1}> LIBRARY </Text>
+        <Text color={theme.highlight} bold>SELECT SYSTEM PROMPT</Text>
       </Box>
-      <Box borderStyle="single" paddingX={1}>
+
+      <Box paddingX={1} marginBottom={1}>
         <Select
           options={prompts}
           onChange={(value: string) => {
@@ -135,9 +159,19 @@ export default function PromptSelectOverlay({
           }}
         />
       </Box>
-      <Box marginTop={1}>
-        <Text dimColor>
-          Use arrow keys to select • Press <Text bold>Enter</Text> to confirm • <Text bold>Esc</Text> to cancel
+
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
+        <Text dimColor italic>
+          ↑↓ navigate │ enter confirm │ esc close
         </Text>
       </Box>
     </Box>

@@ -25,6 +25,7 @@ import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { prefix } from "./system-prompt.js";
+import { type StateSnapshot, parseStateSnapshot, formatStateForPrompt } from "./state-manager.js";
 import type { AgentContext, AgentLoopParams, CommandConfirmation, Task } from "./types.js";
 export type { AgentContext, AgentLoopParams, CommandConfirmation, Task };
 import { SemanticMemory } from "./semantic-memory.js";
@@ -110,6 +111,8 @@ export class AgentLoop {
   private currentActiveToolName: string | undefined = undefined;
   private currentActiveToolRawArguments: string | undefined = undefined;
 
+  private stateSnapshot: StateSnapshot = {};
+
   private onReset: () => void;
 
   /**
@@ -154,6 +157,7 @@ export class AgentLoop {
     if (this.pendingAborts.size === 0) {
       try {
         this.toolCallHistory.clear();
+        this.stateSnapshot = {};
         this.onReset();
       } catch {
         /* ignore */
@@ -553,7 +557,13 @@ export class AgentLoop {
               pinnedFilesContent = `\n\n--- Pinned Files ---\n${pinnedFileSnippets.join("\n\n")}`;
             }
 
-            const mergedInstructions = [basePrefix, this.instructions, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
+            const deepThinkingPrefix = this.config.enableDeepThinking 
+              ? "Enable deep thinking subroutine.\n\n" 
+              : "";
+
+            const missionStateInfo = formatStateForPrompt(this.stateSnapshot);
+
+            const mergedInstructions = [deepThinkingPrefix, basePrefix, this.instructions, missionStateInfo, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
               .filter(Boolean)
               .join("\n");
             if (isLoggingEnabled()) {
@@ -731,7 +741,7 @@ export class AgentLoop {
             }
 
             if (isErrorTooManyTokens(error)) {
-              this.onItem(createTokenLimitErrorSystemMessage());
+              stageItem(createTokenLimitErrorSystemMessage());
               this.onLoading(false);
               return;
             }
@@ -742,7 +752,7 @@ export class AgentLoop {
                 // that no amount of retrying will fix unless we reduce the prompt.
                 const rawMsg = (error as any).message || "";
                 if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
-                  this.onItem(createTokenLimitErrorSystemMessage());
+                  stageItem(createTokenLimitErrorSystemMessage());
                   this.onLoading(false);
                   return;
                 }
@@ -780,7 +790,7 @@ export class AgentLoop {
                 // why the request failed and can decide how to proceed (e.g. wait and retry later
                 // or switch to a different model / account).
 
-                this.onItem(createRateLimitErrorSystemMessage(error));
+                stageItem(createRateLimitErrorSystemMessage(error));
 
                 this.onLoading(false);
                 return;
@@ -788,7 +798,7 @@ export class AgentLoop {
             }
 
             if (isErrorClientError(error)) {
-              this.onItem(createInvalidRequestErrorSystemMessage(error, this.config.provider));
+              stageItem(createInvalidRequestErrorSystemMessage(error, this.config.provider));
               this.onLoading(false);
               return;
             }
@@ -834,6 +844,23 @@ export class AgentLoop {
             messageProcessed = true;
 
             if (thisGeneration === this.generation && !this.canceled) {
+              // Extract Structured State Snapshot if present
+              const content = typeof msg.content === "string" ? msg.content : "";
+              const newSnapshot = parseStateSnapshot(content);
+              if (newSnapshot) {
+                this.stateSnapshot = { ...this.stateSnapshot, ...newSnapshot };
+                
+                // If the snapshot contains task_state, sync it with the UI TaskChecklist
+                if (newSnapshot.task_state && this.onTasksUpdate) {
+                  const tasks: Task[] = newSnapshot.task_state.map(line => {
+                    const status = line.includes("[DONE]") ? "done" : line.includes("[IN_PROGRESS]") ? "in-progress" : "todo";
+                    const label = line.replace(/\[(DONE|IN_PROGRESS|TODO)\]/, "").trim();
+                    return { label, status };
+                  });
+                  this.onTasksUpdate(tasks);
+                }
+              }
+
               // If there's content but no tool_calls, try to extract one from the content.
               if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
                 const extracted = tryExtractToolCallsFromContent(msg.content);
@@ -1167,7 +1194,7 @@ export class AgentLoop {
 
       if (isErrorClientError(err)) {
         try {
-          this.onItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
+          stageItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best-effort */
         }
@@ -1177,7 +1204,7 @@ export class AgentLoop {
 
       if (isErrorNetworkOrServer(err)) {
         try {
-          this.onItem(createNetworkErrorSystemMessage(err, this.config.provider));
+          stageItem(createNetworkErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best‑effort */
         }

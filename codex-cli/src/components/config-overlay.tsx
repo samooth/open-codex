@@ -1,6 +1,7 @@
 import SelectInput from "./select-input/select-input.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
+import type { Theme } from "../utils/theme.js";
 
 type Props = {
   dryRun: boolean;
@@ -12,6 +13,7 @@ type Props = {
   onToggleWebSearch: () => void;
   onToggleDeepThinking: () => void;
   onExit: () => void;
+  theme: Theme;
 };
 
 export default function ConfigOverlay({
@@ -24,31 +26,37 @@ export default function ConfigOverlay({
   onToggleWebSearch,
   onToggleDeepThinking,
   onExit,
+  theme,
 }: Props): JSX.Element {
-  const [selectedIndex] = useState(0);
-
   const items = [
     {
-      label: `Dry Run: ${dryRun ? "ON" : "OFF"}`,
+      label: `DRY RUN: ${dryRun ? "ENABLED" : "DISABLED"}`,
       value: "dryRun",
+      description: "Preview changes without modifying actual files.",
     },
     {
-      label: `Debug Logging: ${debug ? "ON" : "OFF"}`,
+      label: `DEBUG LOGGING: ${debug ? "ACTIVE" : "INACTIVE"}`,
       value: "debug",
+      description: "Enable verbose logging for troubleshooting.",
     },
     {
-      label: `Web Search (Lynx): ${enableWebSearch ? "ON" : "OFF"}`,
+      label: `WEB SEARCH: ${enableWebSearch ? "ENABLED" : "DISABLED"}`,
       value: "webSearch",
+      description: "Allow the agent to search the web for information.",
     },
     {
-      label: `Deep Thinking Prefix: ${enableDeepThinking ? "ON" : "OFF"}`,
+      label: `DEEP THINKING: ${enableDeepThinking ? "ACTIVE" : "INACTIVE"}`,
       value: "deepThinking",
+      description: "Force models to use thorough reasoning subroutine.",
     },
     {
-      label: "Close",
+      label: "CLOSE",
       value: "exit",
+      description: "Return to the chat session.",
     },
   ];
+
+  const [selectedDescription, setSelectedDescription] = useState(items[0]!.description);
 
   useInput((_input, key) => {
     if (key.escape) {
@@ -70,27 +78,50 @@ export default function ConfigOverlay({
     }
   };
 
+  const handleHighlight = (item: { description: string }) => {
+    setSelectedDescription(item.description);
+  };
+
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="gray"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
       width={80}
+      marginY={1}
     >
-      <Box paddingX={1}>
-        <Text bold>Session Configuration</Text>
+      <Box paddingX={1} marginBottom={1} gap={1}>
+        <Text bold color={theme.highlight} inverse paddingX={1}> SETTINGS </Text>
+        <Text color={theme.highlight} bold>CONFIGURATION DASHBOARD</Text>
       </Box>
 
-      <Box flexDirection="column" paddingX={1} marginY={1}>
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
         <SelectInput
           items={items}
           onSelect={handleSelect}
-          initialIndex={selectedIndex}
+          onHighlight={handleHighlight}
         />
       </Box>
 
-      <Box paddingX={1}>
-        <Text dimColor>↑↓ to navigate · enter to toggle/select · esc to close</Text>
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
+        <Text italic color={theme.dim}>{selectedDescription}</Text>
+      </Box>
+
+      <Box paddingX={1} marginTop={1}>
+        <Text dimColor>↑↓ navigate │ enter toggle │ esc close</Text>
       </Box>
     </Box>
   );

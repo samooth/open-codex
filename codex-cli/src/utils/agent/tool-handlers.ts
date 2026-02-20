@@ -1255,6 +1255,50 @@ export async function handleWebSearch(
   }
 }
 
+export async function handleBrowse(
+  ctx: AgentContext,
+  rawArgs: string,
+): Promise<{
+  outputText: string;
+  metadata: Record<string, unknown>;
+}> {
+  try {
+    const args = JSON.parse(rawArgs);
+    let { url, query, timeout = 30000 } = args;
+
+    // Heuristic: models often wrap arguments in a nested object named after the parameter
+    // or use 'search_term' instead of 'query'.
+    if (typeof query === "object" && query !== null) {
+      const q = query as any;
+      url = url || q.url;
+      query = q.query || q.search_term || q.pattern;
+    }
+    if (!query && args.search_term) {
+      query = args.search_term;
+    }
+
+    if (url && query) {
+      // Site-specific search using DuckDuckGo syntax
+      const siteQuery = `site:${url.replace(/^https?:\/\//, "").split("/")[0]} ${query}`;
+      return handleWebSearch(ctx, JSON.stringify({ query: siteQuery, timeout }));
+    } else if (url) {
+      return handleFetchUrl(ctx, JSON.stringify({ url, timeout }));
+    } else if (query) {
+      return handleWebSearch(ctx, JSON.stringify({ query, timeout }));
+    } else {
+      return {
+        outputText: "Error: Either 'url' or 'query' must be provided for browse.",
+        metadata: { exit_code: 1 },
+      };
+    }
+  } catch (err) {
+    return {
+      outputText: `Error in browse: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
+  }
+}
+
 export async function handleSemanticSearch(
   ctx: AgentContext,
   rawArgs: string,

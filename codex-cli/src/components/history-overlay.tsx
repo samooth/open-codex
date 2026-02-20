@@ -76,8 +76,8 @@ export default function HistoryOverlay({ items, onExit, theme }: Props): JSX.Ele
   });
 
   const rows = process.stdout.rows || 24;
-  const headerRows = 2;
-  const footerRows = 1;
+  const headerRows = 4;
+  const footerRows = 2;
   const maxVisible = Math.max(4, rows - headerRows - footerRows);
 
   const firstVisible = Math.min(
@@ -89,18 +89,25 @@ export default function HistoryOverlay({ items, onExit, theme }: Props): JSX.Ele
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.dim}
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
       width={100}
+      marginY={1}
     >
-      <Box paddingX={1} justifyContent="space-between">
-        <Text bold>
-          {mode === "commands" ? "Commands run" : "Files touched"} (
-          {list.length})
-        </Text>
+      <Box paddingX={1} marginBottom={1} justifyContent="space-between" gap={1}>
+        <Box gap={1}>
+          <Text bold color={theme.highlight} inverse paddingX={1}> HISTORY </Text>
+          <Text bold color={theme.highlight}>
+            {mode === "commands" ? "COMMANDS RUN" : "FILES TOUCHED"} ({list.length})
+          </Text>
+        </Box>
         {isSearching ? (
           <Box gap={1}>
-            <Text color={theme.highlight}>Search: </Text>
+            <Text color={theme.highlight} bold>SEARCH: </Text>
             <TextInput
               value={filter}
               onChange={(val) => {
@@ -111,30 +118,45 @@ export default function HistoryOverlay({ items, onExit, theme }: Props): JSX.Ele
             />
           </Box>
         ) : (
-          <Text dimColor>Press <Text bold>/</Text> to search</Text>
+          <Text dimColor>Press <Text bold color={theme.highlight}>/</Text> to filter</Text>
         )}
       </Box>
-      <Box flexDirection="column" paddingX={1}>
+
+      <Box flexDirection="column" paddingX={1} marginBottom={1} minHeight={4}>
         {list.length > 0 ? (
           visible.map((txt, idx) => {
             const absIdx = firstVisible + idx;
             const selected = absIdx === cursor;
             return (
-              <Text key={absIdx} color={selected ? theme.highlight : undefined}>
-                {selected ? "› " : "  "}
-                {txt}
-              </Text>
+              <Box key={absIdx} gap={1}>
+                <Text color={selected ? theme.highlight : theme.dim} bold={selected}>
+                  {selected ? "❯" : " "}
+                </Text>
+                <Text color={selected ? theme.highlight : undefined} wrap="truncate-end">
+                  {txt}
+                </Text>
+              </Box>
             );
           })
         ) : (
           <Box paddingLeft={2}>
-            <Text color={theme.warning}>No matches found.</Text>
+            <Text color={theme.warning} italic>No entries matching filter.</Text>
           </Box>
         )}
       </Box>
-      <Box paddingX={1}>
+
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
         <Text dimColor>
-          esc Close ↑↓ Scroll PgUp/PgDn g/G First/Last c Commands f Files / Search
+          c COMMANDS │ f FILES │ ↑↓ SCROLL │ / SEARCH │ esc CLOSE
         </Text>
       </Box>
     </Box>

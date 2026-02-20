@@ -1,4 +1,4 @@
-import type { ForegroundColorName } from "chalk";
+import chalk, { type ForegroundColorName } from "chalk";
 import { z } from "zod";
 
 /**
@@ -19,6 +19,8 @@ export const ThemeSchema = z.object({
   warning: z.string().optional(),
   highlight: z.string().optional(),
   dim: z.string().optional(),
+  accent: z.string().optional(),
+  divider: z.string().optional(),
   statusBarModel: z.string().optional(),
   statusBarSession: z.string().optional(),
   deletion: z.string().optional(),
@@ -41,6 +43,8 @@ export type Theme = {
   warning: ForegroundColorName;
   highlight: ForegroundColorName;
   dim: ForegroundColorName;
+  accent: ForegroundColorName;
+  divider: ForegroundColorName;
   statusBarModel: ForegroundColorName;
   statusBarSession: ForegroundColorName;
   deletion: ForegroundColorName;
@@ -65,6 +69,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "cyanBright",
     dim: "gray",
+    accent: "blue",
+    divider: "gray",
     statusBarModel: "cyan",
     statusBarSession: "magenta",
     deletion: "magenta",
@@ -83,6 +89,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellow",
     highlight: "blueBright",
     dim: "gray",
+    accent: "blue",
+    divider: "gray",
     statusBarModel: "blue",
     statusBarSession: "cyan",
     deletion: "magenta",
@@ -101,6 +109,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellow",
     highlight: "magenta",
     dim: "gray",
+    accent: "magenta",
+    divider: "gray",
     statusBarModel: "magenta",
     statusBarSession: "cyan",
     deletion: "magenta",
@@ -119,6 +129,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "magenta",
     dim: "gray",
+    accent: "blue",
+    divider: "gray",
     statusBarModel: "blue",
     statusBarSession: "green",
     deletion: "red", // Solarized red is distinct
@@ -137,6 +149,8 @@ export const themes: Record<string, Theme> = {
     warning: "white",
     highlight: "white",
     dim: "gray",
+    accent: "white",
+    divider: "gray",
     statusBarModel: "white",
     statusBarSession: "white",
     deletion: "gray",
@@ -155,6 +169,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellow",
     highlight: "blue",
     dim: "gray",
+    accent: "blue",
+    divider: "gray",
     statusBarModel: "blueBright",
     statusBarSession: "cyan",
     deletion: "magenta",
@@ -173,6 +189,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellow",
     highlight: "blue",
     dim: "gray",
+    accent: "magenta",
+    divider: "gray",
     statusBarModel: "blue",
     statusBarSession: "magenta",
     deletion: "magentaBright",
@@ -191,6 +209,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "blueBright",
     dim: "gray",
+    accent: "magentaBright",
+    divider: "gray",
     statusBarModel: "magentaBright",
     statusBarSession: "cyanBright",
     deletion: "magenta",
@@ -209,6 +229,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "cyan",
     dim: "gray",
+    accent: "yellow",
+    divider: "gray",
     statusBarModel: "yellow",
     statusBarSession: "blue",
     deletion: "red", // Gruvbox red is iconic
@@ -227,6 +249,8 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "magenta",
     dim: "gray",
+    accent: "yellowBright",
+    divider: "gray",
     statusBarModel: "yellowBright",
     statusBarSession: "blueBright",
     deletion: "magentaBright",
@@ -256,4 +280,50 @@ export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Th
     ...themes["default"]!,
     ...themeConfig,
   } as Theme;
+}
+
+/**
+ * Returns a theme object compatible with `cli-highlight`.
+ * Uses the provided UI theme to ensure consistency and readability.
+ */
+export function getSyntaxTheme(theme: Theme) {
+  return {
+    keyword: chalk.magentaBright,
+    built_in: chalk.cyanBright,
+    type: chalk.cyanBright,
+    literal: chalk.yellowBright,
+    number: chalk.yellowBright,
+    regexp: chalk.redBright,
+    string: chalk.greenBright,
+    class: chalk.blueBright,
+    function: chalk.blueBright,
+    comment: chalk.gray,
+    doctag: chalk.gray,
+    meta: chalk.gray,
+    "meta-keyword": chalk.gray,
+    "meta-string": chalk.gray,
+    section: chalk.bold,
+    tag: chalk.cyanBright,
+    name: chalk.cyanBright,
+    attr: chalk.cyanBright,
+    attribute: chalk.cyanBright,
+    property: chalk.cyanBright, // Added for JSON keys
+    variable: chalk.white,
+    bullet: chalk.magentaBright,
+    code: chalk.white,
+    emphasis: chalk.italic,
+    strong: chalk.bold,
+    formula: chalk.gray,
+    link: chalk[theme.highlight as ForegroundColorName]?.underline || chalk.cyanBright.underline,
+    quote: chalk.gray,
+    "selector-tag": chalk.magentaBright,
+    "selector-id": chalk.magentaBright,
+    "selector-class": chalk.magentaBright,
+    "selector-attr": chalk.magentaBright,
+    "selector-pseudo": chalk.magentaBright,
+    "template-tag": chalk.magentaBright,
+    "template-variable": chalk.white,
+    addition: chalk.green,
+    deletion: chalk.red,
+  };
 }

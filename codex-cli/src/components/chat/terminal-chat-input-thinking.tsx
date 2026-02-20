@@ -1,8 +1,8 @@
+import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import Spinner from "../vendor/ink-spinner.js";
 import { Box, Text, useInput, useStdin } from "ink";
 import React, { useState } from "react";
 import { useInterval } from "use-interval";
-import type { Theme } from "../../utils/theme.js";
 
 const thinkingTexts = [
   "Thinking",
@@ -67,19 +67,19 @@ const thinkingTexts = [
 export default function TerminalChatInputThinking({
   onInterrupt,
   active,
+  partialReasoning,
+  activeBlockType,
+  activeToolName,
+  activeToolArguments,
   isStreamingResponse,
-  theme,
 }: {
   onInterrupt: () => void;
   active: boolean;
-  isStreamingResponse?: boolean;
-  theme: Theme;
-  // These are now handled in the main history area to save vertical space
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
-  maxHeight?: number;
+  isStreamingResponse?: boolean;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -93,6 +93,7 @@ export default function TerminalChatInputThinking({
   const { stdin, setRawMode } = useStdin();
 
   React.useEffect(() => {
+    // Reset elapsed timer only when becoming active
     if (active) {
       setElapsedSeconds(0);
       const startTime = Date.now();
@@ -101,33 +102,49 @@ export default function TerminalChatInputThinking({
       }, 1000);
       return () => clearInterval(timerInterval);
     }
-    return undefined;
   }, [active]);
 
   React.useEffect(() => {
+    // Reset warning when component mounts or active state changes
     setShowLongDelayWarning(false);
+    
     let warningTimeout: NodeJS.Timeout | undefined;
+
     if (active) {
       warningTimeout = setTimeout(() => {
         setShowLongDelayWarning(true);
-      }, 45000);
+      }, 45000); // 45 seconds
     }
+
     return () => {
       if (warningTimeout) clearTimeout(warningTimeout);
     };
-  }, [active]);
+  }, [active, partialReasoning, activeToolName]);
 
   React.useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      return;
+    }
+
     setRawMode?.(true);
+
     const onData = (data: Buffer | string) => {
-      if (awaitingConfirm) return;
+      if (awaitingConfirm) {
+        return;
+      }
+
       const str = Buffer.isBuffer(data) ? data.toString("utf8") : data;
       if (str === "\x1b\x1b") {
+        if (isLoggingEnabled()) {
+          log(
+            "raw stdin: received collapsed ESC ESC – starting confirmation timer",
+          );
+        }
         setAwaitingConfirm(true);
         setTimeout(() => setAwaitingConfirm(false), 1500);
       }
     };
+
     stdin?.on("data", onData);
     return () => {
       stdin?.off("data", onData);
@@ -144,7 +161,8 @@ export default function TerminalChatInputThinking({
         let next = prev;
         if (thinkingTexts.length > 1) {
           while (next === prev) {
-            next = thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
+            next =
+              thinkingTexts[Math.floor(Math.random() * thinkingTexts.length)];
           }
         }
         return next;
@@ -155,11 +173,20 @@ export default function TerminalChatInputThinking({
 
   useInput(
     (_input, key) => {
-      if (!key.escape) return;
+      if (!key.escape) {
+        return;
+      }
+
       if (awaitingConfirm) {
+        if (isLoggingEnabled()) {
+          log("useInput: second ESC detected – triggering onInterrupt()");
+        }
         onInterrupt();
         setAwaitingConfirm(false);
       } else {
+        if (isLoggingEnabled()) {
+          log("useInput: first ESC detected – waiting for confirmation");
+        }
         setAwaitingConfirm(true);
         setTimeout(() => setAwaitingConfirm(false), 1500);
       }
@@ -167,36 +194,79 @@ export default function TerminalChatInputThinking({
     { isActive: active },
   );
 
+  const displayReasoning = partialReasoning || thinkingText;
+
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const maxDisplayLines = (activeToolName || activeBlockType === "plan") ? 3 : 1; // Minimal lines here as full reasoning is in history
+
+  const rawLines = (displayReasoning || "").split('\n');
+  const totalLines = rawLines.length;
+  let displayedLines = rawLines;
+  let showScrollIndicatorTop = false;
+  let showScrollIndicatorBottom = false;
+
+  let actualStartIndex = 0;
+
+  if (totalLines > maxDisplayLines) {
+    actualStartIndex = Math.max(0, totalLines - maxDisplayLines - scrollOffset);
+    displayedLines = rawLines.slice(actualStartIndex, actualStartIndex + maxDisplayLines);
+
+    if (actualStartIndex > 0) {
+      showScrollIndicatorTop = true;
+    }
+    if ((actualStartIndex + maxDisplayLines) < totalLines) {
+      showScrollIndicatorBottom = true;
+    }
+  }
+
+  // Handle scrolling with arrow keys
+  useInput((_input, key) => {
+    if (active && partialReasoning) {
+      if (key.upArrow) {
+        setScrollOffset((prev) => Math.min(totalLines - maxDisplayLines, prev + 1));
+      } else if (key.downArrow) {
+        setScrollOffset((prev) => Math.max(0, prev - 1));
+      }
+    }
+  });
+
   return (
-    <Box flexDirection="column" gap={0} paddingX={0}>
-      <Box gap={2}>
-        <Spinner type="dots" color={theme.highlight} />
-        <Box flexDirection="column">
-          <Box gap={1}>
-            <Text italic color={theme.dim}>
-              {thinkingText}
-            </Text>
-            <Text dimColor>({elapsedSeconds}s){dots}</Text>
-          </Box>
-          {isStreamingResponse && (
-            <Text color={theme.success}>Generating output...</Text>
-          )}
-        </Box>
-      </Box>
-
-      {showLongDelayWarning && (
-        <Box paddingLeft={2}>
-          <Text color={theme.warning}>
-            ⚠️ Long delay detected. The model might be struggling or connection is slow.
+    <Box 
+      flexDirection="row" 
+      gap={2}
+      paddingY={1}
+      height={3}
+    >
+      <Spinner type="dots" color="cyan" />
+      <Box flexDirection="column">
+        <Box gap={1}>
+          <Text color="cyan" bold italic>
+            {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
           </Text>
+          <Text dimColor>[ {elapsedSeconds}s ]</Text>
         </Box>
-      )}
-
-      {awaitingConfirm && (
-        <Text dimColor>
-          Press <Text bold>Esc</Text> again to interrupt and enter a new instruction
-        </Text>
-      )}
+        
+        {!isStreamingResponse && displayedLines.length > 0 && (
+          <Box flexDirection="column" marginTop={0}>
+            <Text italic color="gray">
+              {showScrollIndicatorTop ? '▲ ' : ''}
+              {displayedLines.join('\n')}
+              {showScrollIndicatorBottom ? ' ▼' : ''}
+              {dots}
+            </Text>
+          </Box>
+        )}
+        
+        {isStreamingResponse && !activeToolName && (
+          <Text color="green" italic>generating response...</Text>
+        )}
+        
+        {awaitingConfirm && (
+          <Text color="yellow" bold>
+            PRESS ESC AGAIN TO INTERRUPT
+          </Text>
+        )}
+      </Box>
     </Box>
   );
 }

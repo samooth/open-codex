@@ -3,13 +3,16 @@ import React from "react";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "./vendor/ink-select/select.js";
 import { recipes, type Recipe } from "../utils/recipes.js";
+import type { Theme } from "../utils/theme.js";
 
 export default function RecipesOverlay({
   onSelect,
   onExit,
+  theme,
 }: {
   onSelect: (recipe: Recipe) => void;
   onExit: () => void;
+  theme: Theme;
 }) {
   useInput((_input, key) => {
     if (key.escape) {
@@ -18,17 +21,28 @@ export default function RecipesOverlay({
   });
 
   const options = recipes.map((r) => ({
-    label: `${r.name.padEnd(25)} - ${r.description}`,
+    label: `${r.name.toUpperCase().padEnd(20)} │ ${r.description}`,
     value: r.name,
   }));
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="magentaBright" paddingX={1}>
-      <Box marginBottom={1}>
-        <Text bold color="magentaBright">Select Prompt Template (Recipe)</Text>
+    <Box
+      flexDirection="column"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
+      width={100}
+      marginY={1}
+    >
+      <Box paddingX={1} marginBottom={1} gap={1}>
+        <Text bold color={theme.highlight} inverse paddingX={1}> RECIPES </Text>
+        <Text color={theme.highlight} bold>SELECT PROMPT TEMPLATE</Text>
       </Box>
-      
-      <Box borderStyle="single" paddingX={1}>
+
+      <Box paddingX={1} marginBottom={1}>
         <Select
           options={options}
           onChange={(value: string) => {
@@ -40,9 +54,18 @@ export default function RecipesOverlay({
         />
       </Box>
 
-      <Box marginTop={1}>
-        <Text dimColor>
-          Use arrow keys to select • Press <Text bold>Enter</Text> to apply • <Text bold>Esc</Text> to cancel
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
+        <Text dimColor italic>
+          ↑↓ navigate │ enter apply │ esc close
         </Text>
       </Box>
     </Box>

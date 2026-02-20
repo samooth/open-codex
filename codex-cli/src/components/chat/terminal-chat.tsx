@@ -18,14 +18,13 @@ import TerminalStatusBar from "./terminal-status-bar.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
-import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
-import { clearTerminal } from "../../utils/terminal.js";
+import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
 import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
 import { detectInteraction } from "../../utils/interactive-detection.js";
@@ -40,8 +39,10 @@ import PromptSelectOverlay from "../prompt-select-overlay.js";
 import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
+import CommandPaletteOverlay from "../command-palette-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
+import clipboard from "clipboardy";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { useInterval } from "use-interval";
@@ -72,36 +73,23 @@ export default function TerminalChat({
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AppConfig>(initialConfig);
   const [model, setModel] = useState<string>(config.model);
-  const { rows } = useTerminalSize();
-  
-  // Group related state to ensure atomic updates and avoid flickering.
-  // We separate committedItems (rendered by Static) from turnItems (rendered normally)
-  // to prevent re-printing the whole history when a new token arrives.
-  const [chatState, setChatState] = useState({
-    committedItems: initialRollout?.items || [] as Array<ChatCompletionMessageParam>,
-    turnItems: [] as Array<ChatCompletionMessageParam>,
-    prevItems: initialRollout?.items || [] as Array<ChatCompletionMessageParam>,
-    loading: false,
-    historyKey: 0,
-    renderedPartialData: {
-      content: "",
-      reasoning: "",
-      activeToolName: undefined as string | undefined,
-      activeToolArguments: undefined as Record<string, any> | undefined,
-      activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
-    }
-  });
-
-  const { committedItems, turnItems, prevItems, loading, renderedPartialData, historyKey } = chatState;
-  const items = [...committedItems, ...turnItems];
-
+  const [prevItems, setPrevItems] = useState<Array<ChatCompletionMessageParam>>(
+    initialRollout?.items || [],
+  );
+  const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
+    initialRollout?.items || [],
+  );
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allFiles, setAllFiles] = useState<string[]>([]);
-  const [pendingApplyPatch, setPendingApplyPatch] = useState<ApplyPatchCommand | undefined>();
+  const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     initialApprovalPolicy,
   );
+
+  const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
+  const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
+  const [bottomLock, setBottomLock] = useState(true);
 
   useEffect(() => {
     // Fetch all files once on mount to avoid blocking UI during chat
@@ -120,6 +108,15 @@ export default function TerminalChat({
     activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
   });
 
+  // Throttled state for rendering to avoid flickering
+  const [renderedPartialData, setRenderedPartialData] = useState({
+    content: "",
+    reasoning: "",
+    activeToolName: undefined as string | undefined,
+    activeToolArguments: undefined as Record<string, any> | undefined,
+    activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
+  });
+
   useInterval(() => {
     if (
       renderedPartialData.content !== partialDataRef.current.content ||
@@ -128,30 +125,51 @@ export default function TerminalChat({
       renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments ||
       renderedPartialData.activeBlockType !== partialDataRef.current.activeBlockType
     ) {
-      setChatState(prev => ({
-        ...prev,
-        renderedPartialData: { ...partialDataRef.current }
-      }));
+      setRenderedPartialData({ ...partialDataRef.current });
     }
-  }, loading ? 600 : null);
+  }, loading ? 200 : null);
 
   const [promptQueue, setPromptQueue] = useState<
     Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
   >([]);
 
+  const queuedInputText = useMemo(() => {
+    if (promptQueue.length === 0) return "";
+    const firstTurn = promptQueue[0];
+    if (!firstTurn) return "";
+    return firstTurn.inputs
+      .map(item => {
+        if (typeof item.content === "string") return item.content;
+        if (Array.isArray(item.content)) {
+          return item.content.map(c => ("text" in c ? c.text : "")).join("\n");
+        }
+        return "";
+      })
+      .join("\n\n");
+  }, [promptQueue]);
+
+  const popQueuedInput = () => {
+    const text = queuedInputText;
+    setPromptQueue([]);
+    return text;
+  };
+
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
+
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
 
+  const [restoring, setRestoring] = useState(false);
+
   const handleUndo = async () => {
     if (!agent) return;
-    setChatState(prev => ({ ...prev, loading: true }));
+    setLoading(true);
     const result = await undoLastChange(
       agent.sessionId,
       (p, c) => fs.writeFileSync(p, c, "utf-8"),
@@ -159,38 +177,30 @@ export default function TerminalChat({
     );
     
     if (result.success) {
-      const assistantMsg = {
-        role: "assistant" as const,
-        content: `🔄 ${result.message}`
-      };
-      setChatState(prev => ({
+      setItems(result.items);
+      setPrevItems(result.items);
+      setItems(prev => [
         ...prev,
-        committedItems: [...result.items, assistantMsg],
-        turnItems: [],
-        prevItems: result.items,
-        loading: false,
-        historyKey: prev.historyKey + 1
-      }));
+        {
+          role: "assistant",
+          content: `🔄 ${result.message}`
+        }
+      ]);
     } else {
-      const errorMsg = {
-        role: "assistant" as const,
-        content: `⚠️ ${result.message}`
-      };
-      setChatState(prev => ({
+      setItems(prev => [
         ...prev,
-        committedItems: [...prev.committedItems, errorMsg],
-        turnItems: [],
-        loading: false,
-        historyKey: prev.historyKey + 1
-      }));
+        {
+          role: "assistant",
+          content: `⚠️ ${result.message}`
+        }
+      ]);
     }
+    setLoading(false);
   };
 
   const awaitingContinueConfirmation = useMemo(() => {
     const lastItem = items[items.length - 1];
-    // Only show if the agent is idle, no confirmation is pending, and the prompt queue is completely empty.
-    // This prevents the box from popping up during automatic "Please continue" sequences.
-    if (lastItem && lastItem.role === "assistant" && !loading && !confirmationPrompt && promptQueue.length === 0) {
+    if (lastItem && lastItem.role === "assistant" && !loading) {
       const content =
         typeof lastItem.content === "string"
           ? lastItem.content
@@ -203,7 +213,26 @@ export default function TerminalChat({
       return detectInteraction(content);
     }
     return null;
-  }, [items, loading, confirmationPrompt, promptQueue.length]);
+  }, [items, loading]);
+
+  // Update terminal title based on state
+  useEffect(() => {
+    let title = "OpenCodex: Ready";
+    if (awaitingContinueConfirmation) {
+      title = "⏳ OpenCodex: Question Pending";
+      beep();
+    } else if (confirmationPrompt) {
+      title = "🛡️ OpenCodex: Awaiting Approval";
+      beep();
+    } else if (loading) {
+      if (renderedPartialData.activeToolName) {
+        title = `⚙️ OpenCodex: Running ${renderedPartialData.activeToolName}...`;
+      } else {
+        title = "🧠 OpenCodex: Thinking...";
+      }
+    }
+    setTerminalTitle(title);
+  }, [loading, awaitingContinueConfirmation, confirmationPrompt, renderedPartialData.activeToolName]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
 
@@ -240,185 +269,148 @@ export default function TerminalChat({
       model,
       config,
       instructions: config.instructions,
-                        approvalPolicy,
-                        onReset: () => {
-                          setChatState(prev => ({ ...prev, committedItems: [], turnItems: [], prevItems: [], historyKey: prev.historyKey + 1 }));
-                          setTasks([]);
-                        },            onTasksUpdate: (newTasks) => {
-              setTasks(newTasks);
-            },
-            onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
-              partialDataRef.current.content = content;
-              if (reasoning) {
-                if (activeToolName) {
-                  partialDataRef.current.reasoning = reasoning;
-                } else {
-                  partialDataRef.current.reasoning += reasoning;
+      approvalPolicy,
+      onReset: () => {
+        setPrevItems([]);
+        setTasks([]);
+      },
+      onTasksUpdate: (newTasks) => {
+        setTasks(newTasks);
+      },
+      onFileAccess: (path) => {
+        setLastFileAccess(path);
+      },
+      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
+        partialDataRef.current.content = content;
+        if (reasoning) {
+          if (activeToolName) {
+            partialDataRef.current.reasoning = reasoning;
+          } else {
+            partialDataRef.current.reasoning += reasoning;
+          }
+        } else if (content) {
+          // Check if we are currently inside an unclosed thought/plan block
+          const openTagMatch = content.match(/<(thought|think|plan)>(?![\s\S]*<\/\1>)([\s\S]*?)$/i);
+          if (openTagMatch) {
+            const type = openTagMatch[1]!.toLowerCase() as "thought" | "think" | "plan";
+            partialDataRef.current.activeBlockType = type;
+            partialDataRef.current.reasoning = openTagMatch[2]!.trim();
+          } else {
+            // If no unclosed tag is found, clear the active block type so the Thinking indicator stops showing it
+            partialDataRef.current.activeBlockType = undefined;
+            // But keep reasoning for the streaming message until it's finalized
+          }
+        }
+        partialDataRef.current.activeToolName = activeToolName;
+        partialDataRef.current.activeToolArguments = activeToolArguments;
+      },
+      onItem: (item: ChatCompletionMessageParam) => {
+        log(`onItem: ${JSON.stringify(item)}`);
+        // Clear partials when a full item is received
+        partialDataRef.current = {
+          content: "",
+          reasoning: "",
+          activeToolName: undefined,
+          activeToolArguments: undefined,
+          activeBlockType: undefined,
+        };
+        setRenderedPartialData({ ...partialDataRef.current });
+
+        setItems((prev) => {
+          // Extract code blocks if this is an assistant message
+          if (item.role === "assistant") {
+            const content = typeof item.content === "string" ? item.content : "";
+            const codeMatches = content.match(/```(?:\w+)?\n([\s\S]*?)(?:```|$)/g);
+            if (codeMatches && codeMatches.length > 0) {
+              const last = codeMatches[codeMatches.length - 1]!;
+              const code = last.replace(/```(?:\w+)?\n/, "").replace(/```$/, "").trim();
+              setLastCodeBlock(code);
+            }
+          }
+
+          // If it's a streaming tool update, try to update the existing item
+          if (item.role === "tool" && "tool_call_id" in item) {
+            try {
+              const content = JSON.parse(item.content as string);
+              if (content.streaming) {
+                const existingIndex = prev.findLastIndex(
+                  (i) =>
+                    i.role === "tool" &&
+                    "tool_call_id" in i &&
+                    i.tool_call_id === item.tool_call_id,
+                );
+                if (existingIndex !== -1) {
+                  const updated = [...prev];
+                  updated[existingIndex] = item;
+                  return updated;
                 }
-                                      } else if (content) {
-                                        // Extract <thought>, <think>, or <plan> content if present (handles unclosed tags)
-                                        // We prioritize the most recently opened tag that is still open.
-                                        const planMatch = content.match(/<plan>([\s\S]*?)$/i);
-                                        const thoughtMatch = content.match(/<(thought|think)>([\s\S]*?)$/i);
-                                        
-                                        if (planMatch) {
-                                          partialDataRef.current.activeBlockType = "plan";
-                                          partialDataRef.current.reasoning = (planMatch[1] || "").trim();
-                                        } else if (thoughtMatch) {
-                                          partialDataRef.current.activeBlockType = thoughtMatch[1]?.toLowerCase() === "think" ? "think" : "thought";
-                                          partialDataRef.current.reasoning = (thoughtMatch[2] || "").trim();
-                                        } else {
-                                          // Fallback to searching for the last closed/unclosed block if no trailing open tag found
-                                          const anyMatch = content.match(/<(thought|think|plan)>([\s\S]*?)(?:<\/(?:thought|think|plan)>|$)/gi);
-                                          if (anyMatch && anyMatch.length > 0) {
-                                            const lastMatch = anyMatch[anyMatch.length - 1];
-                                            if (lastMatch) {
-                                              const typeMatch = lastMatch.match(/<(thought|think|plan)>/i);
-                                              const type = typeMatch ? (typeMatch[1]?.toLowerCase() as any) : "thought";
-                                              partialDataRef.current.activeBlockType = type;
-                                              partialDataRef.current.reasoning = lastMatch
-                                                .replace(/<\/?(thought|think|plan)>/gi, "")
-                                                .trim();
-                                            }
-                                          }
-                                        }
-                                      }              partialDataRef.current.activeToolName = activeToolName;
-              partialDataRef.current.activeToolArguments = activeToolArguments;
-            },
-            onItem: (item: ChatCompletionMessageParam) => {
-              log(`onItem: ${JSON.stringify(item)}`);
-              
-              // Clear partials when a full item is received
-              partialDataRef.current = {
-                content: "",
-                reasoning: "",
-                activeToolName: undefined,
-                activeToolArguments: undefined,
-                activeBlockType: undefined,
-              };
-      
-              setChatState((prev) => {
-                let nextTurnItems = [...prev.turnItems];
-                let nextPrevItems = [...prev.prevItems];
-      
-                // If it's a streaming tool update, try to update the existing item in the current turn
-                if (item.role === "tool" && "tool_call_id" in item) {
-                  try {
-                    const content = JSON.parse(item.content as string);
-                    if (content.streaming) {
-                      const existingIndex = nextTurnItems.findLastIndex(
-                        (i) =>
-                          i.role === "tool" &&
-                          "tool_call_id" in i &&
-                          i.tool_call_id === item.tool_call_id,
-                      );
-                      if (existingIndex !== -1) {
-                        nextTurnItems[existingIndex] = item;
-                      } else {
-                        nextTurnItems.push(item);
-                      }
-      
-                      const existingPrevIndex = nextPrevItems.findLastIndex(
-                        (i) =>
-                          i.role === "tool" &&
-                          "tool_call_id" in i &&
-                          i.tool_call_id === item.tool_call_id,
-                      );
-                      if (existingPrevIndex !== -1) {
-                        nextPrevItems[existingPrevIndex] = item;
-                      } else {
-                        nextPrevItems.push(item);
-                      }
-                    } else {
-                      nextTurnItems.push(item);
-                      nextPrevItems.push(item);
-                    }
-                  } catch {
-                    nextTurnItems.push(item);
-                    nextPrevItems.push(item);
-                  }
-                } else {
-                  nextTurnItems.push(item);
-                  nextPrevItems.push(item);
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+
+          const updated = [...prev, item];
+          saveRollout(updated);
+          return updated;
+        });
+        setPrevItems((prev) => {
+          // Same logic for prevItems
+          if (item.role === "tool" && "tool_call_id" in item) {
+            try {
+              const content = JSON.parse(item.content as string);
+              if (content.streaming) {
+                const existingIndex = prev.findLastIndex(
+                  (i) =>
+                    i.role === "tool" &&
+                    "tool_call_id" in i &&
+                    i.tool_call_id === item.tool_call_id,
+                );
+                if (existingIndex !== -1) {
+                  const updated = [...prev];
+                  updated[existingIndex] = item;
+                  return updated;
                 }
-      
-                saveRollout([...prev.committedItems, ...nextTurnItems]);
-                
-                return {
-                  ...prev,
-                  turnItems: nextTurnItems,
-                  prevItems: nextPrevItems,
-                  renderedPartialData: { ...partialDataRef.current }
-                };
-              });
-            },
-            onLoading: (isLoading: boolean) => {
-              setChatState(prev => {
-                if (isLoading) {
-                  // Starting a new turn - items from previous turn are now committed
-                  return {
-                    ...prev,
-                    committedItems: [...prev.committedItems, ...prev.turnItems],
-                    turnItems: [],
-                    loading: true,
-                    renderedPartialData: {
-                      content: "",
-                      reasoning: "",
-                      activeToolName: undefined,
-                      activeToolArguments: undefined,
-                      activeBlockType: undefined,
-                    }
-                  };
-                } else {
-                  // Turn finished
-                  return {
-                    ...prev,
-                    loading: false,
-                    renderedPartialData: {
-                      content: "",
-                      reasoning: "",
-                      activeToolName: undefined,
-                      activeToolArguments: undefined,
-                      activeBlockType: undefined,
-                    }
-                  };
-                }
-              });
-            },
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+          return [...prev, item];
+        });
+      },
+      onLoading: (isLoading: boolean) => {
+        if (isLoading) {
+          partialDataRef.current = {
+            content: "",
+            reasoning: "",
+            activeToolName: undefined,
+            activeToolArguments: undefined,
+            activeBlockType: undefined,
+          };
+          setRenderedPartialData({ ...partialDataRef.current });
+        }
+        setLoading(isLoading);
+      },
       getCommandConfirmation: async (
         command: Array<string>,
         applyPatch: ApplyPatchCommand | undefined,
       ): Promise<CommandConfirmation> => {
         log(`getCommandConfirmation: ${command}`);
         const commandForDisplay = formatCommandForDisplay(command);
-        setPendingApplyPatch(applyPatch);
+        
+        // Attach the patch to the request function so it can be passed to the overlay
+        (requestConfirmation as any)._pendingApplyPatch = applyPatch;
+
         const { decision: review, customDenyMessage, updatedApplyPatch } =
           await requestConfirmation(
             <TerminalChatToolCallCommand
               commandForDisplay={commandForDisplay}
               applyPatch={applyPatch}
               theme={activeTheme}
-              height={rows}
             />,
           );
-        setPendingApplyPatch(undefined);
         return { review, customDenyMessage, applyPatch: updatedApplyPatch || applyPatch };
-      },
-      getUserChoice: async (prompt: string, choices?: string[]): Promise<string> => {
-        log(`getUserChoice: ${prompt} (${choices?.join(", ")})`);
-        const { decision, customDenyMessage } = await requestConfirmation(
-          <Box flexDirection="column" gap={1}>
-            <Text bold color={activeTheme.highlight}>{prompt}</Text>
-            {choices && (
-              <Box flexDirection="column" paddingLeft={2}>
-                {choices.map((c, i) => (
-                  <Text key={i} color={activeTheme.dim}>• {c}</Text>
-                ))}
-              </Box>
-            )}
-          </Box>,
-        );
-        return customDenyMessage || decision;
       },
     });
 
@@ -462,17 +454,14 @@ export default function TerminalChat({
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
   // ---------------------------------------------------------------------
 
-  const initialPromptProcessed = React.useRef(false);
   useEffect(() => {
     const processInitialInputItems = async () => {
-      if (initialPromptProcessed.current) return;
       if (
         (!initialPrompt || initialPrompt.trim() === "") &&
         (!initialImagePaths || initialImagePaths.length === 0)
       ) {
         return;
       }
-      initialPromptProcessed.current = true;
       const inputItems = [
         await createInputItem(initialPrompt || "", initialImagePaths || []),
       ];
@@ -482,14 +471,14 @@ export default function TerminalChat({
       agent?.run(inputItems, prevItems);
     };
     processInitialInputItems();
-  }, [agent, initialPrompt, initialImagePaths]); // Removed prevItems from dependencies
+  }, [agent, initialPrompt, initialImagePaths, prevItems]);
 
   // Group consecutive tool messages into batches
-  const getBatches = (itemsArr: ChatCompletionMessageParam[]) => {
+  const lastMessageBatch = useMemo(() => {
     const batches: Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }> = [];
     let currentGroup: GroupedResponseItem | null = null;
 
-    for (const item of itemsArr) {
+    for (const item of items) {
       if (item.role === "tool") {
         if (!currentGroup) {
           currentGroup = {
@@ -510,24 +499,19 @@ export default function TerminalChat({
     if (currentGroup) {
       batches.push({ group: currentGroup });
     }
-    return batches;
-  };
 
-  const committedBatches = useMemo(() => getBatches(committedItems), [committedItems]);
-  const turnBatches = useMemo(() => getBatches(turnItems), [turnItems]);
-
-  const toolCallMap = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const item of items) {
-      if (item.role === "assistant" && item.tool_calls) {
-        for (const tc of item.tool_calls) {
-          map.set(tc.id, tc);
-        }
-      }
+    // Performance: Windowing
+    // We only pass the last 30 batches to the live rendering tree.
+    // Static component will ensure that previous batches are already printed to stdout
+    // and don't need to be part of the active Ink node tree.
+    if (batches.length > 30) {
+      return batches.slice(-30);
     }
-    return map;
+
+    return batches;
   }, [items]);
 
+  const groupCounts: Record<string, number> = {};
   const userMsgCount = items.filter((i) => i.role === "user").length;
 
   const contextLeftPercent = useMemo(
@@ -535,13 +519,17 @@ export default function TerminalChat({
     [items, model, config.contextSize],
   );
 
-  const activeTheme = getTheme(config.theme);
+  const [contextHistory, setContextHistory] = useState<number[]>([]);
 
-  // Dynamic layout constraints
-  const statusBarHeight = 1;
-  const roadmapHeight = (tasks.length > 0 && !confirmationPrompt) ? tasks.length + 2 : 0;
-  const inputHeight = loading ? 4 : 10; // Thinking indicator vs full editor
-  const availableHistoryHeight = Math.max(5, rows - statusBarHeight - roadmapHeight - inputHeight - 6);
+  useEffect(() => {
+    const used = 100 - contextLeftPercent;
+    setContextHistory(prev => {
+      if (prev[prev.length - 1] === used) return prev;
+      return [...prev, used].slice(-20); // Keep last 20 points
+    });
+  }, [contextLeftPercent]);
+
+  const activeTheme = getTheme(config.theme);
 
   const memoizedStreamingMessage = useMemo(() => {
     if (!loading || (!renderedPartialData.content && !renderedPartialData.reasoning)) {
@@ -559,15 +547,15 @@ export default function TerminalChat({
       role: "assistant" as const,
       content: finalContent,
     };
-  }, [loading, renderedPartialData.content, renderedPartialData.reasoning, historyKey]);
+  }, [loading, renderedPartialData.content, renderedPartialData.reasoning]);
 
   return (
     <Box flexDirection="column">
       {agent ? (
         <TerminalMessageHistory
-          committedBatches={committedBatches}
-          turnBatches={turnBatches}
-          toolCallMap={toolCallMap}
+          batch={lastMessageBatch}
+          groupCounts={groupCounts}
+          items={items}
           userMsgCount={userMsgCount}
           model={model}
           confirmationPrompt={confirmationPrompt}
@@ -583,7 +571,7 @@ export default function TerminalChat({
             })
           }
           allowAlwaysPatch={config.allowAlwaysPatch}
-          applyPatch={pendingApplyPatch}
+          applyPatch={confirmationPrompt ? (requestConfirmation as any)._pendingApplyPatch : undefined}
           loading={loading}
           fullStdout={fullStdout}
           theme={activeTheme}
@@ -594,11 +582,11 @@ export default function TerminalChat({
             approvalPolicy,
             colorsByPolicy,
             agent,
-            initialImagePaths: _initialImagePaths,
+            initialImagePaths,
             theme: activeTheme,
           }}
           streamingMessage={memoizedStreamingMessage}
-          historyKey={historyKey}
+          lastFileAccess={lastFileAccess}
         />
       ) : (
         <Box>
@@ -606,17 +594,18 @@ export default function TerminalChat({
         </Box>
       )}
 
-      {tasks.length > 0 && !confirmationPrompt && (
+      {tasks.length > 0 && (
         <Box marginTop={1}>
-          <TaskChecklist tasks={tasks} theme={activeTheme} maxHeight={Math.max(3, Math.floor(rows / 4))} />
+          <TaskChecklist tasks={tasks} theme={activeTheme} />
         </Box>
       )}
 
       {overlayMode === "none" && agent && (
         <TerminalChatInput
           loading={loading}
-          setChatState={setChatState}
+          setItems={setItems}
           isNew={Boolean(items.length === 0)}
+          setPrevItems={setPrevItems}
           confirmationPrompt={confirmationPrompt}
           submitConfirmation={(
             decision: ReviewDecision,
@@ -634,41 +623,47 @@ export default function TerminalChat({
           openMemoryOverlay={() => setOverlayMode("memory")}
           openHelpOverlay={() => setOverlayMode("help")}
                       openConfigOverlay={() => setOverlayMode("config")}
-                      openPromptOverlay={() => setOverlayMode("prompt")}
-                      openPromptsOverlay={() => setOverlayMode("prompts")}
-                      openRecipesOverlay={() => setOverlayMode("recipes")}
-                      openThemeOverlay={() => setOverlayMode("theme")}
-                      onUndo={handleUndo}
-                      onPin={(path) => {            setConfig((prev) => ({
+                                openPromptOverlay={() => setOverlayMode("prompt")}
+                                openPromptsOverlay={() => setOverlayMode("prompts")}
+                                openRecipesOverlay={() => setOverlayMode("recipes")}
+                                openCommandPalette={() => setOverlayMode("palette")}
+                                openThemeOverlay={() => setOverlayMode("theme")}
+                                onUndo={handleUndo}                      onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
-            setChatState((prev) => ({
+            setItems((prev) => [
               ...prev,
-              turnItems: [
-                ...prev.turnItems,
-                {
-                  role: "assistant",
-                  content: `Pinned file: ${path}`,
-                },
-              ]
-            }));
+              {
+                role: "assistant",
+                content: `Pinned file: ${path}`,
+              },
+            ]);
           }}
           onUnpin={(path) => {
             setConfig((prev) => ({
               ...prev,
               pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
             }));
-            setChatState((prev) => ({
+            setItems((prev) => [
               ...prev,
-              turnItems: [
-                ...prev.turnItems,
+              {
+                role: "assistant",
+                content: `Unpinned file: ${path}`,
+              },
+            ]);
+          }}
+          onCopy={() => {
+            if (lastCodeBlock) {
+              clipboard.writeSync(lastCodeBlock);
+              setItems((prev) => [
+                ...prev,
                 {
                   role: "assistant",
-                  content: `Unpinned file: ${path}`,
+                  content: "📋 Last code block copied to clipboard.",
                 },
-              ]
-            }));
+              ]);
+            }
           }}
           interruptAgent={() => {
             if (!agent) {
@@ -680,7 +675,7 @@ export default function TerminalChat({
               );
             }
             agent.cancel();
-            setChatState(prev => ({ ...prev, loading: false }));
+            setLoading(false);
           }}
           active={overlayMode === "none"}
           partialReasoning={renderedPartialData.reasoning}
@@ -688,11 +683,33 @@ export default function TerminalChat({
           activeToolName={renderedPartialData.activeToolName}
           activeToolArguments={renderedPartialData.activeToolArguments}
           submitInput={(inputs) => {
-            // If agent is not loading, run immediately. Otherwise, queue.
+            // If agent is not loading, run immediately. Otherwise, merge into queue.
             if (!loading) {
               agent.run(inputs, prevItems);
             } else {
-              setPromptQueue((prev) => [...prev, { inputs, prevItems }]);
+              setPromptQueue((prev) => {
+                if (prev.length === 0) {
+                  return [{ inputs, prevItems }];
+                }
+                
+                const existing = prev[0]!;
+                const updatedInputs = [...existing.inputs];
+                const nextMsg = inputs[0];
+                
+                // Merge text if both are user messages
+                if (nextMsg && nextMsg.role === 'user' && updatedInputs[0]?.role === 'user') {
+                   const prevContent = typeof updatedInputs[0].content === 'string' ? updatedInputs[0].content : '';
+                   const nextContent = typeof nextMsg.content === 'string' ? nextMsg.content : '';
+                   updatedInputs[0] = {
+                     ...updatedInputs[0],
+                     content: prevContent + "\n\n" + nextContent
+                   };
+                } else {
+                   updatedInputs.push(...inputs);
+                }
+                
+                return [{ inputs: updatedInputs, prevItems: existing.prevItems }];
+              });
             }
             return {};
           }}
@@ -701,7 +718,8 @@ export default function TerminalChat({
           theme={activeTheme}
           allFiles={allFiles}
           isStreamingResponse={!!memoizedStreamingMessage}
-          maxHeight={availableHistoryHeight}
+          queuedInputText={queuedInputText}
+          onPopQueuedInput={popQueuedInput}
         />
       )}
 
@@ -710,11 +728,13 @@ export default function TerminalChat({
           model={model}
           provider={config.provider || "openai"}
           contextLeftPercent={contextLeftPercent}
+          contextHistory={contextHistory}
           tokenBreakdown={calculateTokenBreakdown(items)}
           sessionId={agent.sessionId}
           approvalPolicy={approvalPolicy}
           theme={activeTheme}
           queuedPromptsCount={promptQueue.length}
+          queuedInputLength={queuedInputText.length}
         />
       )}
         {overlayMode === "history" && (
@@ -723,13 +743,8 @@ export default function TerminalChat({
         {overlayMode === "history-select" && (
           <HistorySelectOverlay
             onSelect={(rollout) => {
-              setChatState(prev => ({
-                ...prev,
-                committedItems: rollout.items,
-                turnItems: [],
-                prevItems: rollout.items,
-                historyKey: prev.historyKey + 1
-              }));
+              setItems(rollout.items);
+              setPrevItems(rollout.items);
               if (rollout.session?.id) {
                 setSessionId(rollout.session.id);
               }
@@ -747,7 +762,6 @@ export default function TerminalChat({
           <ModelOverlay
             currentModel={model}
             config={config}
-            theme={activeTheme}
             hasLastResponse={Boolean(prevItems.length > 0)}
             onSelect={(newModel) => {
               if (isLoggingEnabled()) {
@@ -759,30 +773,30 @@ export default function TerminalChat({
                 }
               }
               agent?.cancel();
+              setLoading(false);
 
               setModel(newModel);
-              
-              setChatState(prev => ({
+              setPrevItems((prev) => {
+                return prev && newModel !== model ? [] : prev;
+              });
+
+              setItems((prev) => [
                 ...prev,
-                loading: false,
-                prevItems: newModel !== model ? [] : prev.prevItems,
-                turnItems: [
-                  ...prev.turnItems,
-                  {
-                    role: "assistant",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Switched model to ${newModel}`,
-                      },
-                    ],
-                  },
-                ]
-              }));
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched model to ${newModel}`,
+                    },
+                  ],
+                },
+              ]);
 
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -791,38 +805,33 @@ export default function TerminalChat({
             currentMode={approvalPolicy}
             onSelect={(newMode) => {
               agent?.cancel();
-              
+              setLoading(false);
               if (newMode === approvalPolicy) {
-                setChatState(prev => ({ ...prev, loading: false }));
-                setOverlayMode("none");
                 return;
               }
               setApprovalPolicy(newMode as ApprovalPolicy);
-              setChatState(prev => ({
+              setItems((prev) => [
                 ...prev,
-                loading: false,
-                turnItems: [
-                  ...prev.turnItems,
-                  {
-                    role: "assistant",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Switched approval mode to ${newMode}`,
-                      },
-                    ],
-                  },
-                ]
-              }));
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched approval mode to ${newMode}`,
+                    },
+                  ],
+                },
+              ]);
 
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
         {overlayMode === "help" && (
-          <HelpOverlay onExit={() => setOverlayMode("none")} />
+          <HelpOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
         )}
 
         {overlayMode === "config" && (
@@ -850,6 +859,7 @@ export default function TerminalChat({
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -862,26 +872,24 @@ export default function TerminalChat({
             }
             onSave={(newInstructions) => {
               agent?.cancel();
+              setLoading(false);
               setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setChatState(prev => ({
+              setItems((prev) => [
                 ...prev,
-                loading: false,
-                turnItems: [
-                  ...prev.turnItems,
-                  {
-                    role: "assistant",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Updated system instructions.`,
-                      },
-                    ],
-                  },
-                ]
-              }));
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Updated system instructions.`,
+                    },
+                  ],
+                },
+              ]);
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
@@ -889,23 +897,20 @@ export default function TerminalChat({
           <PromptSelectOverlay
             onSelect={(newInstructions, name) => {
               agent?.cancel();
+              setLoading(false);
               setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setChatState(prev => ({
+              setItems((prev) => [
                 ...prev,
-                loading: false,
-                turnItems: [
-                  ...prev.turnItems,
-                  {
-                    role: "assistant",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Switched system instructions to prompt: ${name}`,
-                      },
-                    ],
-                  },
-                ]
-              }));
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched system instructions to prompt: ${name}`,
+                    },
+                  ],
+                },
+              ]);
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
@@ -919,43 +924,83 @@ export default function TerminalChat({
             onSelect={(newTheme: any) => {
               clearTerminal();
               setConfig((prev) => ({ ...prev, theme: newTheme }));
-              setChatState(prev => ({
+              setItems((prev) => [
                 ...prev,
-                turnItems: [
-                  ...prev.turnItems,
-                  {
-                    role: "assistant",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
-                      },
-                    ],
-                  },
-                ]
-              }));
+                {
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
+                    },
+                  ],
+                },
+              ]);
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 
         {overlayMode === "recipes" && (
           <RecipesOverlay
             onSelect={(recipe) => {
-              setChatState(prev => ({
-                ...prev,
-                turnItems: [
-                  ...prev.turnItems,
+              agent?.run(
+                [
                   {
-                    role: "user" as const,
-                    content: [{ type: "text" as const, text: recipe.prompt }],
+                    role: "user",
+                    content: [{ type: "text", text: recipe.prompt }],
                   },
-                ]
-              }));
+                ],
+                prevItems,
+              );
               setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "palette" && (
+          <CommandPaletteOverlay
+            onSelect={(value, type) => {
+              if (type === "command") {
+                // Trigger slash command logic by submitting it
+                // We'll let TerminalChatInput handle it or implement it here
+                // For simplicity, we just set the overlay mode based on the command
+                if (value === "/model") setOverlayMode("model");
+                else if (value === "/clear") {
+                   // Reuse clear logic
+                   setSessionId("");
+                   setPrevItems([]);
+                   clearTerminal();
+                   setItems(prev => [...prev, { role: "assistant", content: "Context cleared" }]);
+                   setOverlayMode("none");
+                }
+                else if (value === "/history") setOverlayMode("history");
+                else if (value === "/history restore") setOverlayMode("history-select");
+                else if (value === "/memory") setOverlayMode("memory");
+                else if (value === "/approval") setOverlayMode("approval");
+                else if (value === "/config") setOverlayMode("config");
+                else if (value === "/prompt") setOverlayMode("prompt");
+                else if (value === "/prompts") setOverlayMode("prompts");
+                else if (value === "/theme") setOverlayMode("theme");
+                else if (value === "/undo") { handleUndo(); setOverlayMode("none"); }
+                else if (value === "/index") {
+                   agent?.run([{ role: "user", content: "Please index the codebase for semantic search." }], prevItems);
+                   setOverlayMode("none");
+                }
+              } else if (type === "recipe") {
+                const recipe = recipes.find(r => r.name === value);
+                if (recipe) {
+                  agent?.run([{ role: "user", content: recipe.prompt }], prevItems);
+                }
+                setOverlayMode("none");
+              }
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
           />
         )}
 

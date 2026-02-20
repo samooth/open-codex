@@ -331,7 +331,6 @@ export function tryExtractToolCallsFromContent(
   content: string,
 ): Array<ChatCompletionMessageToolCall> {
   const toolCalls: Array<ChatCompletionMessageToolCall> = [];
-
   // 1. Try to extract from Markdown code blocks (json, bash, shell)
   const codeBlockRegex = /```(?:json|bash|shell|sh)\n([\s\S]*?)\n```/g;
   let match;
@@ -382,81 +381,6 @@ export function tryExtractToolCallsFromContent(
             }),
           },
         } as any);
-      }
-    }
-  }
-
-  // If we found code blocks, we assume those are the intended tool calls
-  if (toolCalls.length > 0) {
-    return toolCalls;
-  }
-
-  // Enhanced approach using our robust JSON splitter
-  const jsonStrings = splitConcatenatedJSON(content);
-  if (jsonStrings.length > 0) {
-    // Convert each parsed object to a tool call
-    for (const jsonStr of jsonStrings) {
-      try {
-        const obj = JSON.parse(jsonStr);
-        const normalized = normalizeJsonToolCall(obj, jsonStr);
-        if (normalized) {
-          toolCalls.push({
-            id: `call_multi_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
-            type: "function",
-            function: normalized,
-          } as any);
-        }
-      } catch {
-        // Skip invalid JSON
-      }
-    }
-    if (toolCalls.length > 0) {
-      return toolCalls;
-    }
-  }
-
-  // 2. Fallback to the existing brace-counting approach for raw JSON objects
-  let braceCount = 0;
-  let start = -1;
-
-  for (let i = 0; i < content.length; i++) {
-    if (content[i] === "{") {
-      if (braceCount === 0) {
-        start = i;
-      }
-      braceCount++;
-    } else if (content[i] === "}") {
-      braceCount--;
-      if (braceCount === 0 && start !== -1) {
-        const jsonStr = content.slice(start, i + 1);
-        try {
-          const json = JSON.parse(jsonStr);
-          if (typeof json === "object" && json !== null) {
-            if (
-              json.name ||
-              json.cmd ||
-              json.command ||
-              json.patch ||
-              json.path ||
-              json.pattern ||
-              json.depth
-            ) {
-              const normalized = normalizeJsonToolCall(json, jsonStr);
-              if (normalized) {
-                toolCalls.push({
-                  id: `call_${Math.random().toString(36).slice(2, 11)}_${
-                    toolCalls.length
-                  }`,
-                  type: "function",
-                  function: normalized,
-                } as any);
-              }
-            }
-          }
-        } catch (err) {
-          // Ignore parse errors for individual blocks
-        }
-        start = -1;
       }
     }
   }

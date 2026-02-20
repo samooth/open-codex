@@ -73,9 +73,9 @@ export default function HistorySelectOverlay({
 
   if (loading || restoring) {
     return (
-      <Box borderStyle="round" borderColor={theme.highlight} paddingX={1}>
-        <Text italic>
-          {restoring ? "Restoring session..." : "Loading session history..."}
+      <Box paddingLeft={1} borderStyle="bold" borderRight={false} borderTop={false} borderBottom={false} borderLeftColor={theme.highlight} marginY={1}>
+        <Text italic color={theme.dim}>
+          {restoring ? "RESTORING SESSION..." : "LOADING SESSION HISTORY..."}
         </Text>
       </Box>
     );
@@ -85,16 +85,21 @@ export default function HistorySelectOverlay({
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor={theme.highlight}
-        paddingX={1}
+        paddingLeft={1}
+        borderStyle="bold"
+        borderRight={false}
+        borderTop={false}
+        borderBottom={false}
+        borderLeftColor={theme.error}
+        width={80}
+        marginY={1}
       >
-        <Box marginBottom={1}>
-          <Text bold>Restore Past Session</Text>
+        <Box marginBottom={1} gap={1}>
+          <Text bold color={theme.error} inverse paddingX={1}> EMPTY </Text>
+          <Text bold color={theme.error}>NO SAVED SESSIONS FOUND</Text>
         </Box>
-        <Text color={theme.deletion}>No saved sessions found.</Text>
         <Box marginTop={1}>
-          <Text dimColor>Press Esc to cancel</Text>
+          <Text dimColor>Press esc to exit</Text>
         </Box>
       </Box>
     );
@@ -114,16 +119,23 @@ export default function HistorySelectOverlay({
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.highlight}
-      paddingX={1}
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
       width={100}
+      marginY={1}
     >
-      <Box marginBottom={1} justifyContent="space-between">
-        <Text bold>Restore Past Session ({filteredRollouts.length})</Text>
+      <Box marginBottom={1} justifyContent="space-between" gap={1} paddingX={1}>
+        <Box gap={1}>
+          <Text bold color={theme.highlight} inverse paddingX={1}> RESTORE </Text>
+          <Text bold color={theme.highlight}>PAST SESSIONS ({filteredRollouts.length})</Text>
+        </Box>
         {isSearching ? (
           <Box gap={1}>
-            <Text color={theme.highlight}>Search: </Text>
+            <Text color={theme.highlight} bold>SEARCH: </Text>
             <TextInput
               value={filter}
               onChange={setFilter}
@@ -131,14 +143,14 @@ export default function HistorySelectOverlay({
             />
           </Box>
         ) : (
-          <Text dimColor>Press <Text bold>/</Text> to search</Text>
+          <Text dimColor>Press <Text bold color={theme.highlight}>/</Text> to filter</Text>
         )}
       </Box>
 
-      <Box borderStyle="single" paddingX={1} flexDirection="column">
+      <Box paddingX={1} flexDirection="column" marginBottom={1}>
         {renamingId ? (
           <Box gap={1}>
-            <Text color={theme.warning}>New Name: </Text>
+            <Text color={theme.warning} bold>NEW NAME: </Text>
             <TextInput
               value={newName}
               onChange={setNewName}
@@ -168,15 +180,22 @@ export default function HistorySelectOverlay({
             }}
           />
         ) : (
-          <Text color={theme.warning}>No sessions match your search.</Text>
+          <Text color={theme.warning} italic>No sessions match your search.</Text>
         )}
       </Box>
 
-      <Box marginTop={1}>
+      <Box 
+        borderStyle="single" 
+        borderRight={false} 
+        borderTop={true} 
+        borderBottom={false} 
+        borderLeft={false}
+        borderTopColor={theme.divider}
+        paddingX={1}
+        paddingTop={1}
+      >
         <Text dimColor>
-          Use arrow keys to select • Press <Text bold>Enter</Text> to restore •{" "}
-          <Text bold color={theme.warning}>r</Text> to rename •{" "}
-          <Text bold>Esc</Text> to cancel
+          ↑↓ SELECT │ enter RESTORE │ r RENAME │ / FILTER │ esc CLOSE
         </Text>
       </Box>
     </Box>

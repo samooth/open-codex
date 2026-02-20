@@ -55,6 +55,26 @@ export function clearTerminal(): void {
   }
 }
 
+/**
+ * Updates the terminal window title using XTerm escape sequences.
+ */
+export function setTerminalTitle(title: string): void {
+  if (process.env["CODEX_QUIET_MODE"] === "1" || !process.stdout.isTTY) {
+    return;
+  }
+  process.stdout.write(`\x1b]0;${title}\x07`);
+}
+
+/**
+ * Emits a terminal bell (beep) sound.
+ */
+export function beep(): void {
+  if (process.env["CODEX_QUIET_MODE"] === "1" || !process.stdout.isTTY) {
+    return;
+  }
+  process.stdout.write("\u0007");
+}
+
 export function onExit(): void {
   // Ensure the clean‑up logic only runs once even if multiple exit signals
   // (e.g. Ctrl‑C data handler *and* the process "exit" event) invoke this
