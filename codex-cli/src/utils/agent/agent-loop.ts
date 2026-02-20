@@ -507,8 +507,8 @@ export class AgentLoop {
               : "";
             // If the instructions already contain the core identity string from the prefix,
             // we assume the user has fine-tuned the entire prompt and we should not
-            // prepend the default prefix again. Also skip if enableDeepThinking is false.
-            const basePrefix = (this.instructions?.includes("You are operating as and within OpenCodex") || this.config.enableDeepThinking === false)
+            // prepend the default prefix again.
+            const basePrefix = this.instructions?.includes("You are operating as and within OpenCodex")
               ? ""
               : prefix;
 
@@ -587,7 +587,7 @@ export class AgentLoop {
               ]);
 
               const googleTools = mapOpenAiToGoogleTools(tools.filter((tool: any) => {
-                if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                if (tool.function.name === "browse") {
                   return !!this.config.enableWebSearch;
                 }
                 return true;
@@ -609,7 +609,7 @@ export class AgentLoop {
               ]);
 
               const anthropicTools = mapOpenAiToAnthropicTools(tools.filter((tool: any) => {
-                if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                if (tool.function.name === "browse") {
                   return !!this.config.enableWebSearch;
                 }
                 return true;
@@ -698,7 +698,7 @@ export class AgentLoop {
                 ],
                 reasoning_effort: reasoning,
                 tools: tools.filter((tool: any) => {
-                  if (tool.function.name === "web_search" || tool.function.name === "fetch_url") {
+                  if (tool.function.name === "browse") {
                     return !!this.config.enableWebSearch;
                   }
                   return true;
