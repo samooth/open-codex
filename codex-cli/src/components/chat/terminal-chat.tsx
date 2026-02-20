@@ -40,6 +40,7 @@ import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
+import SearXNGOverlay from "../searxng-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
@@ -158,7 +159,7 @@ export default function TerminalChat({
     useConfirmation();
 
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "searxng"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -841,6 +842,7 @@ export default function TerminalChat({
             debug={!!process.env["DEBUG"]}
             enableWebSearch={!!config.enableWebSearch}
             enableDeepThinking={!!config.enableDeepThinking}
+            searxngUrl={config.searxngUrl}
             onToggleDryRun={() => {
               setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
             }}
@@ -856,8 +858,30 @@ export default function TerminalChat({
             onToggleWebSearch={() => {
               setConfig((prev) => ({ ...prev, enableWebSearch: !prev.enableWebSearch }));
             }}
+            onEditSearXNGUrl={() => {
+              setOverlayMode("searxng");
+            }}
             onToggleDeepThinking={() => {
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "searxng" && (
+          <SearXNGOverlay
+            currentUrl={config.searxngUrl || ""}
+            onSave={(newUrl) => {
+              setConfig((prev) => ({ ...prev, searxngUrl: newUrl || undefined }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `Updated SearXNG URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
+                },
+              ]);
+              setOverlayMode("none");
             }}
             onExit={() => setOverlayMode("none")}
             theme={activeTheme}

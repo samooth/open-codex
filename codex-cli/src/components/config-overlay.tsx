@@ -8,10 +8,12 @@ type Props = {
   debug: boolean;
   enableWebSearch: boolean;
   enableDeepThinking: boolean;
+  searxngUrl?: string;
   onToggleDryRun: () => void;
   onToggleDebug: () => void;
   onToggleWebSearch: () => void;
   onToggleDeepThinking: () => void;
+  onEditSearXNGUrl: () => void;
   onExit: () => void;
   theme: Theme;
 };
@@ -21,10 +23,12 @@ export default function ConfigOverlay({
   debug,
   enableWebSearch,
   enableDeepThinking,
+  searxngUrl,
   onToggleDryRun,
   onToggleDebug,
   onToggleWebSearch,
   onToggleDeepThinking,
+  onEditSearXNGUrl,
   onExit,
   theme,
 }: Props): JSX.Element {
@@ -43,6 +47,11 @@ export default function ConfigOverlay({
       label: `WEB SEARCH: ${enableWebSearch ? "ENABLED" : "DISABLED"}`,
       value: "webSearch",
       description: "Allow the agent to search the web for information.",
+    },
+    {
+      label: `SEARCH PROVIDER: ${searxngUrl ? "SEARXNG" : "DUCKDUCKGO"}`,
+      value: "searxngUrl",
+      description: `Provider: ${searxngUrl || "https://html.duckduckgo.com"}. Select to change URL.`,
     },
     {
       label: `DEEP THINKING: ${enableDeepThinking ? "ACTIVE" : "INACTIVE"}`,
@@ -71,6 +80,8 @@ export default function ConfigOverlay({
       onToggleDebug();
     } else if (item.value === "webSearch") {
       onToggleWebSearch();
+    } else if (item.value === "searxngUrl") {
+      onEditSearXNGUrl();
     } else if (item.value === "deepThinking") {
       onToggleDeepThinking();
     } else if (item.value === "exit") {
