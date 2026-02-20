@@ -7,19 +7,19 @@ const theme = {
       gap: 1,
       paddingLeft: isFocused ? 0 : 2,
     }),
-    selectedIndicator: () => ({
-      color: "greenBright",
+    selectedIndicator: ({ theme }) => ({
+      color: theme?.success || "greenBright",
     }),
-    focusIndicator: () => ({
-      color: "cyanBright",
+    focusIndicator: ({ theme }) => ({
+      color: theme?.highlight || "cyanBright",
     }),
-    label({ isFocused, isSelected }) {
+    label({ isFocused, isSelected, theme }) {
       let color = "white";
       if (isSelected) {
-        color = "greenBright";
+        color = theme?.success || "greenBright";
       }
       if (isFocused) {
-        color = "cyanBright";
+        color = theme?.highlight || "cyanBright";
       }
       return { color };
     },

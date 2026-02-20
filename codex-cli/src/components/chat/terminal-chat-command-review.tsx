@@ -180,6 +180,7 @@ export function TerminalChatCommandReview({
             </Box>
             <Box paddingX={2} flexDirection="column" gap={0}>
               <Select
+                theme={theme}
                 isDisabled={!isActive}
                 onChange={async (value: ReviewDecision | "edit" | "view-edit") => {
                   if (value === "edit") {

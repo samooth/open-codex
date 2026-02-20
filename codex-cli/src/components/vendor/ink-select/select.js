@@ -11,6 +11,7 @@ export function Select({
   options,
   defaultValue,
   onChange,
+  theme,
 }) {
   const state = useSelectState({
     visibleOptionCount,
@@ -45,6 +46,7 @@ export function Select({
           key: option.value,
           isFocused: !isDisabled && state.focusedValue === option.value,
           isSelected: state.value === option.value,
+          theme,
         },
         label,
       );

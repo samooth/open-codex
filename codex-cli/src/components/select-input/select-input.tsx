@@ -92,6 +92,7 @@ function SelectInput<V>({
     initialIndex ? (initialIndex > lastIndex ? lastIndex : initialIndex) : 0,
   );
   const previousItems = useRef<Array<Item<V>>>(items);
+  const lastInputTime = useRef(0);
 
   useEffect(() => {
     if (
@@ -111,6 +112,12 @@ function SelectInput<V>({
     useCallback(
       (input, key) => {
         if (!isFocused) return;
+
+        const now = Date.now();
+        if (now - lastInputTime.current < 50) {
+          return;
+        }
+        lastInputTime.current = now;
 
         if (input === "k" || key.upArrow) {
           const lastIndex = (hasLimit ? limit : items.length) - 1;

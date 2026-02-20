@@ -69,7 +69,7 @@ export const themes: Record<string, Theme> = {
     warning: "yellowBright",
     highlight: "cyanBright",
     dim: "gray",
-    accent: "blue",
+    accent: "blueBright",
     divider: "gray",
     statusBarModel: "cyan",
     statusBarSession: "magenta",

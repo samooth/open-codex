@@ -9,7 +9,7 @@ export type Props = {
 };
 
 function Item({ isSelected = false, label, theme }: Props): JSX.Element {
-  return <Text color={isSelected ? theme.accent : undefined}>{label}</Text>;
+  return <Text color={isSelected ? theme.highlight : undefined}>{label}</Text>;
 }
 
 export default Item;

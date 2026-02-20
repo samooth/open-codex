@@ -240,10 +240,6 @@ export default function TerminalChatInput({
 
   useInput(
     (_input, _key) => {
-      if (onKeyDown(_input, _key)) {
-        return;
-      }
-
       if (awaitingContinueConfirmation && active && !loading && !customInputMode) {
         if (_key.escape) {
           setCustomInputMode(true);
@@ -654,6 +650,7 @@ export default function TerminalChatInput({
             <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
             <Box>
               <Select
+                theme={theme}
                 options={
                   awaitingContinueConfirmation.type === "yes-no"
                     ? [
