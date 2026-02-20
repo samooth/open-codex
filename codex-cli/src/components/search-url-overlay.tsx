@@ -3,12 +3,14 @@ import { Box, Text, useInput } from "ink";
 import React, { useRef } from "react";
 import type { Theme } from "../utils/theme.js";
 
-export default function SearXNGOverlay({
+export default function SearchUrlOverlay({
+  title,
   currentUrl,
   onSave,
   onExit,
   theme,
 }: {
+  title: string;
   currentUrl: string;
   onSave: (newUrl: string) => void;
   onExit: () => void;
@@ -41,7 +43,7 @@ export default function SearXNGOverlay({
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
         <Text bold color={theme.highlight} inverse paddingX={1}> SEARCH </Text>
-        <Text color={theme.highlight} bold>SET SEARXNG URL</Text>
+        <Text color={theme.highlight} bold>{title}</Text>
       </Box>
 
       <Box 
@@ -73,7 +75,7 @@ export default function SearXNGOverlay({
             enter SAVE │ esc CANCEL
         </Text>
         <Text dimColor size={0.8} marginTop={1}>
-            e.g. http://localhost:8080 or https://searx.be
+            Use %s as a placeholder for the search query.
         </Text>
       </Box>
     </Box>

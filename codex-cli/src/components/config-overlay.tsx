@@ -10,12 +10,13 @@ type Props = {
   enableDeepThinking: boolean;
   enableDeepLinter: boolean;
   searxngUrl?: string;
+  webSearchUrl?: string;
   onToggleDryRun: () => void;
   onToggleDebug: () => void;
   onToggleWebSearch: () => void;
   onToggleDeepThinking: () => void;
   onToggleDeepLinter: () => void;
-  onEditSearXNGUrl: () => void;
+  onEditSearchUrl: (type: "searxng" | "generic") => void;
   onExit: () => void;
   theme: Theme;
 };
@@ -27,12 +28,13 @@ export default function ConfigOverlay({
   enableDeepThinking,
   enableDeepLinter,
   searxngUrl,
+  webSearchUrl,
   onToggleDryRun,
   onToggleDebug,
   onToggleWebSearch,
   onToggleDeepThinking,
   onToggleDeepLinter,
-  onEditSearXNGUrl,
+  onEditSearchUrl,
   onExit,
   theme,
 }: Props): JSX.Element {
@@ -53,9 +55,14 @@ export default function ConfigOverlay({
       description: "Allow the agent to search the web for information.",
     },
     {
-      label: `SEARCH PROVIDER: ${searxngUrl ? "SEARXNG" : "DUCKDUCKGO"}`,
+      label: `SEARXNG INSTANCE: ${searxngUrl ? "CONFIGURED" : "NONE"}`,
       value: "searxngUrl",
-      description: `Provider: ${searxngUrl || "https://html.duckduckgo.com"}. Select to change URL.`,
+      description: `JSON API: ${searxngUrl || "Not set (falls back to scraping)"}.`,
+    },
+    {
+      label: `GENERIC SEARCH: ${webSearchUrl ? "CUSTOM" : "DUCKDUCKGO"}`,
+      value: "webSearchUrl",
+      description: `URL: ${webSearchUrl || "https://html.duckduckgo.com"}.`,
     },
     {
       label: `AUTO LINTING: ${enableDeepLinter ? "ENABLED" : "DISABLED"}`,
@@ -90,7 +97,9 @@ export default function ConfigOverlay({
     } else if (item.value === "webSearch") {
       onToggleWebSearch();
     } else if (item.value === "searxngUrl") {
-      onEditSearXNGUrl();
+      onEditSearchUrl("searxng");
+    } else if (item.value === "webSearchUrl") {
+      onEditSearchUrl("generic");
     } else if (item.value === "deepLinter") {
       onToggleDeepLinter();
     } else if (item.value === "deepThinking") {

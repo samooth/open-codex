@@ -1233,7 +1233,17 @@ export async function handleWebSearch(
     }
 
     if (ctx.config.searxngUrl) {
-      const searxUrl = `${ctx.config.searxngUrl}/search?q=${encodeURIComponent(query)}&format=json`;
+      let searxUrl = ctx.config.searxngUrl;
+      if (searxUrl.includes("%s")) {
+        searxUrl = searxUrl.replace("%s", encodeURIComponent(query));
+      } else {
+        const separator = searxUrl.endsWith("/") ? "" : "/";
+        // If the URL doesn't look like a full search query, append the standard SearXNG path
+        if (!searxUrl.includes("?q=")) {
+          searxUrl = `${searxUrl}${separator}search?q=${encodeURIComponent(query)}&format=json`;
+        }
+      }
+
       const execResult = await handleExecCommand(
         { cmd: ["curl", "-s", searxUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
         ctx.config,
@@ -1261,8 +1271,18 @@ export async function handleWebSearch(
       }
     }
 
-    // Use DuckDuckGo HTML version for better parsing with lynx
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    // Use custom search URL if provided, otherwise default to DuckDuckGo
+    let searchUrl = ctx.config.webSearchUrl;
+    if (searchUrl) {
+      if (searchUrl.includes("%s")) {
+        searchUrl = searchUrl.replace("%s", encodeURIComponent(query));
+      } else {
+        // If it's just a base URL like https://www.google.com/search?q=, just append
+        searchUrl = `${searchUrl}${encodeURIComponent(query)}`;
+      }
+    } else {
+      searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    }
 
     const execResult = await handleExecCommand(
       { cmd: ["lynx", "-dump", searchUrl], workdir: process.cwd(), timeoutInMillis: 30000 },

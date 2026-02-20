@@ -40,7 +40,7 @@ import HistorySelectOverlay from "../history-select-overlay.js";
 import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
-import SearXNGOverlay from "../searxng-overlay.js";
+import SearchUrlOverlay from "../search-url-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
 import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
@@ -159,7 +159,7 @@ export default function TerminalChat({
     useConfirmation();
 
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "searxng"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -845,6 +845,7 @@ export default function TerminalChat({
             enableDeepThinking={!!config.enableDeepThinking}
             enableDeepLinter={!!config.enableDeepLinter}
             searxngUrl={config.searxngUrl}
+            webSearchUrl={config.webSearchUrl}
             onToggleDryRun={() => {
               setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
             }}
@@ -860,8 +861,8 @@ export default function TerminalChat({
             onToggleWebSearch={() => {
               setConfig((prev) => ({ ...prev, enableWebSearch: !prev.enableWebSearch }));
             }}
-            onEditSearXNGUrl={() => {
-              setOverlayMode("searxng");
+            onEditSearchUrl={(type) => {
+              setOverlayMode(type === "searxng" ? "search-url-searxng" : "search-url-generic");
             }}
             onToggleDeepThinking={() => {
               setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
@@ -874,8 +875,9 @@ export default function TerminalChat({
           />
         )}
 
-        {overlayMode === "searxng" && (
-          <SearXNGOverlay
+        {overlayMode === "search-url-searxng" && (
+          <SearchUrlOverlay
+            title="SET SEARXNG INSTANCE URL"
             currentUrl={config.searxngUrl || ""}
             onSave={(newUrl) => {
               setConfig((prev) => ({ ...prev, searxngUrl: newUrl || undefined }));
@@ -884,6 +886,26 @@ export default function TerminalChat({
                 {
                   role: "assistant",
                   content: `Updated SearXNG URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
+                },
+              ]);
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "search-url-generic" && (
+          <SearchUrlOverlay
+            title="SET GENERIC SEARCH URL"
+            currentUrl={config.webSearchUrl || ""}
+            onSave={(newUrl) => {
+              setConfig((prev) => ({ ...prev, webSearchUrl: newUrl || undefined }));
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `Updated generic search URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
                 },
               ]);
               setOverlayMode("none");
