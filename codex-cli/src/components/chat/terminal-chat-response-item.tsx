@@ -761,7 +761,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const hasContent = displayContent.trim().length > 0;
   const hasImages = imagePaths.length > 0;
 
-  const roleColor = message.role === "assistant" ? theme.assistant : "yellowBright";
+  const roleColor = message.role === "assistant" ? theme.assistant : theme.user;
   const isAssistant = message.role === "assistant";
 
   return (

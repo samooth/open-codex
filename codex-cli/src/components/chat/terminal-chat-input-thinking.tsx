@@ -3,6 +3,7 @@ import Spinner from "../vendor/ink-spinner.js";
 import { Box, Text, useInput, useStdin } from "ink";
 import React, { useState } from "react";
 import { useInterval } from "use-interval";
+import type { Theme } from "../../utils/theme.js";
 
 const thinkingTexts = [
   "Thinking",
@@ -72,6 +73,7 @@ export default function TerminalChatInputThinking({
   activeToolName,
   activeToolArguments,
   isStreamingResponse,
+  theme,
 }: {
   onInterrupt: () => void;
   active: boolean;
@@ -80,6 +82,7 @@ export default function TerminalChatInputThinking({
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   isStreamingResponse?: boolean;
+  theme: Theme;
 }): React.ReactElement {
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -241,10 +244,10 @@ export default function TerminalChatInputThinking({
       paddingY={1}
       height={3}
     >
-      <Spinner type="dots" color="cyan" />
+      <Spinner type="dots" color={theme.thought} />
       <Box flexDirection="column">
         <Box gap={1}>
-          <Text color="cyan" bold italic>
+          <Text color={theme.thought} bold italic>
             {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
           </Text>
           <Text dimColor>[ {elapsedSeconds}s ]</Text>
@@ -252,7 +255,7 @@ export default function TerminalChatInputThinking({
         
         {!isStreamingResponse && displayedLines.length > 0 && (
           <Box flexDirection="column" marginTop={0}>
-            <Text italic color="gray">
+            <Text italic color={theme.dim}>
               {showScrollIndicatorTop ? '▲ ' : ''}
               {displayedLines.join('\n')}
               {showScrollIndicatorBottom ? ' ▼' : ''}
@@ -262,11 +265,11 @@ export default function TerminalChatInputThinking({
         )}
         
         {isStreamingResponse && !activeToolName && (
-          <Text color="green" italic>generating response...</Text>
+          <Text color={theme.success} italic>generating response...</Text>
         )}
         
         {awaitingConfirm && (
-          <Text color="yellow" bold>
+          <Text color={theme.warning} bold>
             PRESS ESC AGAIN TO INTERRUPT
           </Text>
         )}

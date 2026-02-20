@@ -628,6 +628,7 @@ export default function TerminalChatInput({
               activeToolName={activeToolName}
               activeToolArguments={activeToolArguments}
               isStreamingResponse={isStreamingResponse}
+              theme={theme}
             />
           </Box>
         )}
@@ -802,6 +803,7 @@ export default function TerminalChatInput({
             activeToolName={activeToolName}
             activeToolArguments={activeToolArguments}
             isStreamingResponse={isStreamingResponse}
+            theme={theme}
           />
         </Box>
       )}
