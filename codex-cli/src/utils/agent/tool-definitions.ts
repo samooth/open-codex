@@ -716,7 +716,7 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "browse",
-      description: "The primary tool for web interaction. If 'url' is provided, it fetches the page text. If 'query' is provided, it performs a web search. If both are provided, it searches within that specific site.",
+      description: "The primary tool for web interaction and retrieving real-time information (weather, news, stock prices, documentation, etc.). If 'url' is provided, it fetches the page text. If 'query' is provided, it performs a web search. If both are provided, it searches within that specific site.",
       strict: false,
       parameters: {
         type: "object",
