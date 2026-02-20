@@ -32,7 +32,7 @@ describe("MultilineTextEditor – Shift+Enter", () => {
     await type(stdin, "hi", flush);
 
     // send Shift+Enter (\n)
-    await type(stdin, "\n", flush, { shift: true });
+    await type(stdin, "\n", flush);
 
     // type 'there'
     await type(stdin, "there", flush);

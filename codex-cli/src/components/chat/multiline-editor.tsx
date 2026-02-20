@@ -239,7 +239,7 @@ const MultilineTextEditorInner = (
       }
 
       // Standardize return key for raw bytes (test environment stub)
-      if ((input === "\r" || input === "\n") && key.return === false) {
+      if (input === "\r" && key.return === false) {
         (key as any).return = true;
       }
 
@@ -316,6 +316,15 @@ const MultilineTextEditorInner = (
       }
 
       // 2) Single‑byte control chars ------------------------------------------------
+      
+      // Explicit Line Feed (\n) -> usually Shift+Enter or Ctrl+J.
+      // We always treat this as a newline in OpenCodex multiline mode.
+      if (input === "\n" && !key.ctrl && !key.meta) {
+        buffer.current.newline();
+        setVersion((v) => v + 1);
+        return;
+      }
+
       if (key.return) {
         if (key.ctrl) {
           // Ctrl+Enter -> Always submit
@@ -337,7 +346,7 @@ const MultilineTextEditorInner = (
           }
         }
 
-        // Plain Enter – submit (works on all basic terminals).
+        // Plain Enter (\r) – submit (works on all basic terminals).
         if (onSubmit) {
           onSubmit(buffer.current.getText());
         } else {
