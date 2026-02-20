@@ -75,7 +75,7 @@ const MultilineTextEditorInner = (
   const { stdin, setRawMode } = useStdin();
 
   useEffect(() => {
-    if (!stdin) return;
+    if (!stdin || !focus) return;
     const handleData = (data: Buffer | string) => {
       const s = data.toString();
       // If we see a raw ESC byte (0x1b), mark it. 
@@ -88,7 +88,7 @@ const MultilineTextEditorInner = (
     return () => {
       stdin.off("data", handleData);
     };
-  }, [stdin]);
+  }, [stdin, focus]);
 
   // Sync with initialText if it changes from outside (e.g. autocomplete)
   useEffect(() => {
@@ -142,16 +142,15 @@ const MultilineTextEditorInner = (
         return;
       }
 
-      if (key.escape) {
-        return;
-      }
-
       // Check if this event was preceded by a raw Escape byte (Alt sequence)
       const isAlt = key.meta || lastRawWasEscape.current || input.includes("\u001b");
       
-      // Reset the raw escape flag after we've checked it for this event
-      if (input.length > 0) {
-        lastRawWasEscape.current = false;
+      // Reset the raw escape flag after we've checked it for this event.
+      // Must do this before any 'return' to avoid leakage to next key event.
+      lastRawWasEscape.current = false;
+
+      if (key.escape) {
+        return;
       }
 
       // Explicit Line Feed (\n) is usually Ctrl+J or Shift+Enter.
