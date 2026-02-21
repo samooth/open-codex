@@ -83,10 +83,12 @@ export default function TerminalChatInputThinking({
   activeToolArguments?: Record<string, any>;
   isStreamingResponse?: boolean;
   theme: Theme;
-}): React.ReactElement {
+}): React.ReactElement | null {
+  if (!active) {
+    return null;
+  }
   const [dots, setDots] = useState("");
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
-  const [showLongDelayWarning, setShowLongDelayWarning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const [thinkingText, setThinkingText] = useState(
@@ -106,23 +108,6 @@ export default function TerminalChatInputThinking({
       return () => clearInterval(timerInterval);
     }
   }, [active]);
-
-  React.useEffect(() => {
-    // Reset warning when component mounts or active state changes
-    setShowLongDelayWarning(false);
-    
-    let warningTimeout: NodeJS.Timeout | undefined;
-
-    if (active) {
-      warningTimeout = setTimeout(() => {
-        setShowLongDelayWarning(true);
-      }, 45000); // 45 seconds
-    }
-
-    return () => {
-      if (warningTimeout) clearTimeout(warningTimeout);
-    };
-  }, [active, partialReasoning, activeToolName]);
 
   React.useEffect(() => {
     if (!active) {
@@ -250,6 +235,9 @@ export default function TerminalChatInputThinking({
           <Text color={theme.thought} bold italic>
             {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
           </Text>
+          {activeToolArguments && activeToolName && (
+             <Text dimColor italic>({Object.entries(activeToolArguments).map(([k,v]) => `${k}:${JSON.stringify(v)}`).join(", ").slice(0, 40)}${Object.keys(activeToolArguments).length > 0 ? "..." : ""})</Text>
+          )}
           <Text dimColor>[ {elapsedSeconds}s ]</Text>
         </Box>
         

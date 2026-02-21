@@ -8,11 +8,13 @@ export default function PromptOverlay({
   onSave,
   onExit,
   theme,
+  onRefresh,
 }: {
   currentInstructions: string;
   onSave: (newInstructions: string) => void;
   onExit: () => void;
   theme: Theme;
+  onRefresh?: () => void;
 }) {
   const editorRef = useRef<MultilineTextEditorHandle>(null);
 
@@ -55,6 +57,7 @@ export default function PromptOverlay({
           ref={editorRef}
           initialText={currentInstructions}
           height={15}
+          onRefresh={onRefresh}
         />
       </Box>
 

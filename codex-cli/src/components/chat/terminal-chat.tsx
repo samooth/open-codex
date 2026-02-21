@@ -43,6 +43,7 @@ import CommandPaletteOverlay from "../command-palette-overlay.js";
 import SearchUrlOverlay from "../search-url-overlay.js";
 import EditorOverlay from "../editor-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
+import { recipes } from "../../utils/recipes.js";
 import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
 import { Box, Text } from "ink";
@@ -168,7 +169,11 @@ export default function TerminalChat({
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
 
-  const [restoring, setRestoring] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey((k) => k + 1);
+  };
 
   const handleUndo = async () => {
     if (!agent) return;
@@ -497,6 +502,8 @@ export default function TerminalChat({
   }, [agent, initialPrompt, initialImagePaths, prevItems]);
 
   // Group consecutive tool messages into batches
+  const batchesRef = React.useRef<Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }>>([]);
+  
   const lastMessageBatch = useMemo(() => {
     const batches: Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }> = [];
     let currentGroup: GroupedResponseItem | null = null;
@@ -523,15 +530,23 @@ export default function TerminalChat({
       batches.push({ group: currentGroup });
     }
 
+    // Stabilize objects: if item at index i is the same as before, reuse the object wrapper
+    const stabilized = batches.map((batch, i) => {
+       const prev = batchesRef.current[i];
+       if (prev && prev.item === batch.item && prev.group?.items === batch.group?.items) {
+          return prev;
+       }
+       return batch;
+    });
+    batchesRef.current = stabilized;
+
     // Performance: Windowing
     // We only pass the last 30 batches to the live rendering tree.
-    // Static component will ensure that previous batches are already printed to stdout
-    // and don't need to be part of the active Ink node tree.
-    if (batches.length > 30) {
-      return batches.slice(-30);
+    if (stabilized.length > 30) {
+      return stabilized.slice(-30);
     }
 
-    return batches;
+    return stabilized;
   }, [items]);
 
   const groupCounts: Record<string, number> = {};
@@ -561,9 +576,11 @@ export default function TerminalChat({
     
     const content = renderedPartialData.content;
     let finalContent = content;
-    // If reasoning is already embedded in content with tags, don't double wrap
-    if (!content.includes("<thought>") && !content.includes("<think>")) {
-      finalContent = content + (renderedPartialData.reasoning ? `<thought>${renderedPartialData.reasoning}</thought>` : "");
+    
+    // If we have separate reasoning from the model (e.g. o1/o3 reasoning_content), 
+    // always show it wrapped in <thought> at the beginning.
+    if (renderedPartialData.reasoning && !content.includes(renderedPartialData.reasoning)) {
+      finalContent = `<thought>${renderedPartialData.reasoning}</thought>\n${content}`;
     }
 
     return {
@@ -611,6 +628,8 @@ export default function TerminalChat({
           streamingMessage={memoizedStreamingMessage}
           lastFileAccess={lastFileAccess}
           isActive={overlayMode === "none"}
+          refreshKey={refreshKey}
+          onRefresh={handleRefresh}
         />
       ) : (
         <Box>
@@ -652,7 +671,9 @@ export default function TerminalChat({
                                 openRecipesOverlay={() => setOverlayMode("recipes")}
                                 openCommandPalette={() => setOverlayMode("palette")}
                                 openThemeOverlay={() => setOverlayMode("theme")}
-                                onUndo={handleUndo}                      onPin={(path) => {            setConfig((prev) => ({
+                                onUndo={handleUndo}
+                                onRefresh={handleRefresh}
+                                onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
@@ -909,6 +930,7 @@ export default function TerminalChat({
         {overlayMode === "editor" && (
           <EditorOverlay
             currentCommand={config.editorCommand || ""}
+            onRefresh={handleRefresh}
             onSave={(newCommand) => {
               setConfig((prev) => ({ ...prev, editorCommand: newCommand || undefined }));
               setItems((prev) => [
@@ -929,6 +951,7 @@ export default function TerminalChat({
           <SearchUrlOverlay
             title="SET SEARXNG INSTANCE URL"
             currentUrl={config.searxngUrl || ""}
+            onRefresh={handleRefresh}
             onSave={(newUrl) => {
               setConfig((prev) => ({ ...prev, searxngUrl: newUrl || undefined }));
               setItems((prev) => [
@@ -949,6 +972,7 @@ export default function TerminalChat({
           <SearchUrlOverlay
             title="SET GENERIC SEARCH URL"
             currentUrl={config.webSearchUrl || ""}
+            onRefresh={handleRefresh}
             onSave={(newUrl) => {
               setConfig((prev) => ({ ...prev, webSearchUrl: newUrl || undefined }));
               setItems((prev) => [
@@ -972,6 +996,7 @@ export default function TerminalChat({
                 ? config.instructions
                 : [prefix, config.instructions].filter(Boolean).join("\n")
             }
+            onRefresh={handleRefresh}
             onSave={(newInstructions) => {
               agent?.cancel();
               setLoading(false);
@@ -1025,6 +1050,7 @@ export default function TerminalChat({
             currentTheme={typeof config.theme === 'string' ? config.theme : 'custom'}
             onSelect={(newTheme: any) => {
               clearTerminal();
+              handleRefresh();
               setConfig((prev) => ({ ...prev, theme: newTheme }));
               setItems((prev) => [
                 ...prev,

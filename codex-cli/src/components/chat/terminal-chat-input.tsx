@@ -3,7 +3,6 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import type { Theme } from "../../utils/theme.js";
 import type { AppConfig } from "../../utils/config.js";
 
-import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
 import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
@@ -11,7 +10,6 @@ import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "../vendor/ink-select/select";
-import TextInput from "../vendor/ink-text-input.js";
 import MultilineTextEditor, { type MultilineTextEditorHandle } from "./multiline-editor.js";
 import { Box, Text, useApp, useInput } from "ink";
 import { useInterval } from "use-interval";
@@ -70,6 +68,7 @@ export default function TerminalChatInput({
   onPin,
   onUnpin,
   onUndo,
+  onRefresh,
   interruptAgent,
   partialReasoning,
   activeBlockType,
@@ -85,6 +84,8 @@ export default function TerminalChatInput({
   onPopQueuedInput,
   contextLeftPercent,
   config,
+  onCopy,
+  openCommandPalette,
 }: {
   isNew: boolean;
   loading: boolean;
@@ -113,6 +114,7 @@ export default function TerminalChatInput({
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
   onUndo: () => void;
+  onRefresh?: () => void;
   onCopy?: () => void;
   interruptAgent: () => void;
   partialReasoning?: string;
@@ -173,25 +175,6 @@ export default function TerminalChatInput({
   useEffect(() => {
     setSelectedSlashCommand(0);
   }, [filteredSlashCommands.length]);
-
-  const highlighter = useCallback(
-    (text: string) => {
-      const colors = new Array(text.length).fill(undefined);
-      const regex = /@[\w\/\.-]+/g;
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        // Simple check to avoid highlighting emails
-        const isEmail = match.index > 0 && !/[\s(\[{"'<=]/.test(text[match.index - 1]);
-        if (!isEmail) {
-          for (let i = 0; i < match[0].length; i++) {
-            colors[match.index + i] = theme.highlight;
-          }
-        }
-      }
-      return colors;
-    },
-    [theme.highlight],
-  );
 
   const onKeyDown = (_inputStr: string, key: any) => {
     if (_inputStr === "" && key.upArrow && queuedInputText && onPopQueuedInput) {
@@ -340,8 +323,11 @@ export default function TerminalChatInput({
 
       if (_key.ctrl && _input === "e") {
         openExternalEditor(input, config).then((newContent) => {
-          clearTerminal();
-          setInput(newContent);
+          if (newContent) {
+            clearTerminal();
+            setInput(newContent);
+            onRefresh?.();
+          }
         });
         return;
       }
@@ -535,6 +521,7 @@ export default function TerminalChatInput({
         setSessionId("");
         setPrevItems([]);
         clearTerminal();
+        onRefresh?.();
 
         // Emit a system message to confirm the clear action.  We *append*
         // it so Ink's <Static> treats it as new output and actually renders it.
@@ -683,6 +670,7 @@ export default function TerminalChatInput({
               focus={active}
               onKeyDown={onKeyDown}
               editor={config.editorCommand}
+              onRefresh={onRefresh}
               onSubmit={(txt) => {
                 if (customInputMode) {
                   setCustomInputMode(false);
@@ -699,7 +687,7 @@ export default function TerminalChatInput({
         )}
       </Box>
 
-      <Box paddingX={2} marginBottom={1}>
+      <Box paddingX={2} marginTop={1}>
         <Text dimColor>
           {!input && isNew ? (
             <>

@@ -49,7 +49,7 @@ export function SemanticDiffPair({
       {/* Removed line with highlights for deletions */}
       <Box>
         <Text color="redBright">-</Text>
-        {diff.map((part, i) => {
+        {diff.map((part: { added?: boolean; removed?: boolean; value: string }, i: number) => {
           if (part.added) return null;
           return (
             <Text
@@ -66,7 +66,7 @@ export function SemanticDiffPair({
       {/* Added line with highlights for additions */}
       <Box>
         <Text color="greenBright">+</Text>
-        {diff.map((part, i) => {
+        {diff.map((part: { added?: boolean; removed?: boolean; value: string }, i: number) => {
           if (part.removed) return null;
           return (
             <Text

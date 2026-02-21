@@ -36,6 +36,8 @@ type MessageHistoryProps = {
   streamingMessage?: ChatCompletionMessageParam;
   lastFileAccess?: string;
   isActive?: boolean;
+  refreshKey?: number;
+  onRefresh?: () => void;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -53,6 +55,8 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   streamingMessage,
   lastFileAccess,
   isActive = true,
+  refreshKey = 0,
+  onRefresh,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -68,7 +72,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
-      <Static key={theme.name} items={["header", ...messages]}>
+      <Static key={`${theme.name}-${refreshKey}`} items={["header", ...messages]}>
         {(entry, index) => {
           if (entry === "header") {
             return <TerminalHeader key="header" {...headerProps} theme={theme} breadcrumb={lastFileAccess} />;
@@ -133,6 +137,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             applyPatch={applyPatch}
             theme={theme}
             isActive={isActive}
+            onRefresh={onRefresh}
           />
         </Box>
       )}

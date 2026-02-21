@@ -9,12 +9,14 @@ export default function SearchUrlOverlay({
   onSave,
   onExit,
   theme,
+  onRefresh,
 }: {
   title: string;
   currentUrl: string;
   onSave: (newUrl: string) => void;
   onExit: () => void;
   theme: Theme;
+  onRefresh?: () => void;
 }) {
   const editorRef = useRef<MultilineTextEditorHandle>(null);
 
@@ -57,6 +59,7 @@ export default function SearchUrlOverlay({
           initialText={currentUrl}
           height={1}
           onSubmit={(text) => onSave(text.trim())}
+          onRefresh={onRefresh}
         />
       </Box>
 

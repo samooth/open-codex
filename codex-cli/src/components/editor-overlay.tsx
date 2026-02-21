@@ -8,11 +8,13 @@ export default function EditorOverlay({
   onSave,
   onExit,
   theme,
+  onRefresh,
 }: {
   currentCommand: string;
   onSave: (newCommand: string) => void;
   onExit: () => void;
   theme: Theme;
+  onRefresh?: () => void;
 }) {
   const editorRef = useRef<MultilineTextEditorHandle>(null);
 
@@ -55,6 +57,7 @@ export default function EditorOverlay({
           initialText={currentCommand}
           height={1}
           onSubmit={(text) => onSave(text.trim())}
+          onRefresh={onRefresh}
         />
       </Box>
 

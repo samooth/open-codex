@@ -27,7 +27,7 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
     >
       <Box gap={1} marginBottom={0}>
         <Text bold color={theme.plan}>📋 ROADMAP</Text>
-        <Text dimColor italic size={0.8}>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
+        <Text dimColor italic>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
       </Box>
       <Box flexDirection="column" marginTop={0}>
         {tasks.map((task, i) => {

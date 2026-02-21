@@ -34,6 +34,11 @@ export interface MultilineTextEditorProps {
    * Custom editor command (e.g. "code --wait")
    */
   readonly editor?: string;
+
+  /**
+   * Called when the external editor exits to refresh the UI.
+   */
+  readonly onRefresh?: () => void;
 }
 
 // Expose a minimal imperative API so parent components (e.g. TerminalChatInput)
@@ -66,6 +71,7 @@ const MultilineTextEditorInner = (
     onChange,
     onKeyDown,
     editor,
+    onRefresh,
   }: MultilineTextEditorProps,
   ref: React.Ref<MultilineTextEditorHandle | null>,
 ): React.ReactElement => {
@@ -135,8 +141,9 @@ const MultilineTextEditorInner = (
         setRawMode?.(true);
       }
       setVersion((v) => v + 1);
+      onRefresh?.();
     }
-  }, [buffer, stdin, setRawMode]);
+  }, [buffer, stdin, setRawMode, onRefresh]);
 
   // ---------------------------------------------------------------------------
   // Keyboard handling.

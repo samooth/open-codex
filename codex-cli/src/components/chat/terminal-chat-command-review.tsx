@@ -2,6 +2,7 @@ import { ReviewDecision } from "../../utils/agent/review";
 import { openExternalEditor } from "../../utils/input-utils.js";
 import { clearTerminal } from "../../utils/terminal.js";
 import type { ApplyPatchCommand } from "../../approvals.js";
+import type { Theme } from "../../utils/theme.js";
 // TODO: figure out why `cli-spinners` fails on Node v20.9.0
 // which is why we have to do this in the first place
 //
@@ -22,6 +23,7 @@ export function TerminalChatCommandReview({
   applyPatch,
   theme,
   isActive = true,
+  onRefresh,
 }: {
   confirmationPrompt: React.ReactNode;
   onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
@@ -29,6 +31,7 @@ export function TerminalChatCommandReview({
   applyPatch?: ApplyPatchCommand;
   theme: Theme;
   isActive?: boolean;
+  onRefresh?: () => void;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -120,6 +123,7 @@ export function TerminalChatCommandReview({
       } else if (input === "v" && applyPatch) {
         const edited = await openExternalEditor(applyPatch.patch);
         clearTerminal();
+        onRefresh?.();
         if (edited && edited !== applyPatch.patch) {
           onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
         } else {
@@ -175,10 +179,10 @@ export function TerminalChatCommandReview({
         {mode === "select" ? (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Text bold color={theme.highlight} inverse paddingX={1}> PROMPT </Text>
+              <Text bold color={theme.highlight} inverse paddingLeft={1} paddingRight={1}> PROMPT </Text>
               <Text color={theme.highlight} bold>Allow command execution?</Text>
             </Box>
-            <Box paddingX={2} flexDirection="column" gap={0}>
+            <Box paddingLeft={2} paddingRight={2} flexDirection="column" gap={0}>
               <Select
                 theme={theme}
                 isDisabled={!isActive}
@@ -188,6 +192,7 @@ export function TerminalChatCommandReview({
                   } else if (value === "view-edit" && applyPatch) {
                     const edited = await openExternalEditor(applyPatch.patch);
                     clearTerminal();
+                    onRefresh?.();
                     if (edited && edited !== applyPatch.patch) {
                       onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
                     } else {
@@ -204,7 +209,7 @@ export function TerminalChatCommandReview({
         ) : (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Text bold color={theme.highlight} inverse paddingX={1}> FEEDBACK </Text>
+              <Text bold color={theme.highlight} inverse paddingLeft={1} paddingRight={1}> FEEDBACK </Text>
               <Text color={theme.highlight} bold>Give the model feedback (↵ to submit):</Text>
             </Box>
             <Box 
@@ -226,7 +231,7 @@ export function TerminalChatCommandReview({
             </Box>
 
             {msg.trim() === "" && (
-              <Box paddingX={3} marginTop={1} marginBottom={1}>
+              <Box paddingLeft={3} paddingRight={3} marginTop={1} marginBottom={1}>
                 <Text dimColor italic>
                   Default: "{DEFAULT_DENY_MESSAGE}"
                 </Text>
