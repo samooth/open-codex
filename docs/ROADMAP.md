@@ -7,8 +7,8 @@ This project is divided into the core CLI and various infrastructure tools.
 Detailed roadmap can be found in [CLI_ROADMAP.md](./CLI_ROADMAP.md).
 
 ### Immediate Priorities:
-1. **Interactive Hunk Selection:** Finer control over code patches.
-2. **Command Re-run:** Productivty boost for shell tasks.
+1. **Diff Chunking:** Break down large patches into verifiable hunks.
+2. **Fetch Docs (Deep Crawl):** Intelligently crawl library documentation.
 3. **Plugin System:** Extensibility for custom tools.
 4. **Enhanced Linux Security:** Landlock/Namespaces integration.
 

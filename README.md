@@ -212,7 +212,7 @@ Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/confi
 
 ### Key keyboard shortcuts:
 - `Ctrl+E`: Open the current prompt in your system's `$EDITOR` (e.g., Vim, Nano) for easier multi-line editing.
-- `Ctrl+P`: Open the Command Palette to search all actions and recipes.
+- `Ctrl+P`: Open the Command Palette to search all actions and recipes (look for the hint in the status bar).
 - `Ctrl+R`: Open the Command History overlay to re-run or edit previous shell commands.
 - `Ctrl+Y`: Yank (copy) the last generated code block to the system clipboard.
 - `Ctrl+B`: Toggle detailed token usage breakdown in the status bar.

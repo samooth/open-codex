@@ -31,6 +31,7 @@ import {
 import { recipes } from "./utils/recipes";
 import { CLI_VERSION, setSessionId } from "./utils/session";
 import { loadRollouts, loadRollout, flushRollout } from "./utils/storage/save-rollout";
+import { loadPlugins } from "./utils/plugins/plugin-loader";
 import { onExit, setInkRenderer } from "./utils/terminal";
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -52,14 +53,11 @@ process.on("unhandledRejection", (reason) => {
   console.error("\n⚠️  An unexpected error occurred. Please check the logs for details.");
 });
 
-// Increase MaxListeners limit on process.stdout to prevent warnings when many 
-// components use the useTerminalSize hook (e.g. during history restore).
-process.stdout.setMaxListeners(100);
+// Check for updates early
+checkForUpdates().catch();
 
-// TODO: migrate to new versions of quiet mode
-//
-//     -q, --quiet    Non-interactive quiet mode that only prints final message
-//     -j, --json     Non-interactive JSON output mode that prints JSON messages
+// Load dynamic plugins from ~/.codex/plugins and .codex/plugins
+await loadPlugins();
 
 const cli = meow(
   `

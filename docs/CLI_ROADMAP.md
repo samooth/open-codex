@@ -14,7 +14,8 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 
 *   **[DONE] True Multi-line Support:** Integrated `MultilineTextEditor` into the main chat input with `Shift+Enter`, `Ctrl+J`, and `Alt+Enter` for newlines and `Ctrl+Enter` for submission.
 *   **[DONE] Variable/File Injection (`{{file}}`):** Automatically inject file contents into prompts using template syntax.
-*   **[ ] Command Re-run:** Add an interactive mode to select a previous shell command from history and execute/edit it.
+*   **[DONE] Command Re-run:** Added a dedicated `Ctrl+R` history overlay to select and edit previous shell commands.
+*   **[DONE] Global Shell Focus Mode:** Added `Ctrl+F` to pipe `stdin` to interactive shell commands.
 *   **[DONE] Web Search by Default:** Enabled web research capabilities for all sessions by default and consolidated into a robust `browse` tool.
 *   **[DONE] SearXNG Integration:** Support for custom, privacy-focused search instances with JSON API integration.
 *   **[DONE] Smart Context (Auto-Pinning):** Automatically detect and persist core files into the session context based on access frequency.
@@ -27,13 +28,15 @@ This document tracks planned features, architectural refinements, and UI/UX enha
 *   **[DONE] Improved Visibility:** Fixed dark blue links in terminal outputs to use visible `cyanBright` with underlines.
 *   **[DONE] Esc key for Custom Prompts:** Made the `Esc` key automatically select "Custom..." mode in interactive prompts.
 *   **[DONE] Response Stability:** Refactored Markdown renderer to use robust placeholders for code blocks, preventing rendering glitches.
-*   **[ ] Collapsible History Blocks:** Ability to collapse entire message turns to focus on the current task.
-*   **[ ] Live Indexing Status:** A more subtle, non-blocking progress indicator for background semantic indexing.
-*   **[ ] Responsive Breakpoints:** Improve UI density and layout switching for narrow terminal windows.
+*   **[DONE] Collapsible History Blocks:** Ability to collapse large tool outputs and assistant turns using the `C` key.
+*   **[DONE] Live Indexing Status:** Integrated background progress indicator for semantic indexing in the status bar.
+*   **[DONE] Responsive Breakpoints:** Improved UI density and layout switching for narrow terminal windows.
+*   **[DONE] Clearer AI State Feedback:** Loading indicator now maps specific tool calls to human-readable actions.
+*   **[DONE] Command Palette Discoverability:** Added a subtle `Ctrl+P` hint in the status bar.
 
 ## Architecture & Logic
 
-*   **[ ] Plugin System:** Define a formal interface for community-contributed tools and providers.
+*   **[IN PROGRESS] Plugin System:** Foundation and dynamic loading implemented. Next: Hot reloading and community plugins.
 *   **[ ] Enhanced Linux Sandbox:** Move beyond basic containerization to use native Landlock or Linux Namespaces.
 *   **[ ] Intelligent Context Rotation:** Use the LLM or embeddings to "forget" the least relevant parts of the history.
 *   **[ ] Multi-Agent Coordination:** Allow the primary agent to spawn specialized sub-agents for specific sub-tasks.

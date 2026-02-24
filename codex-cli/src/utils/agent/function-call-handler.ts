@@ -135,7 +135,19 @@ export async function handleFunctionCall(
     let metadata: Record<string, unknown>;
     let additionalItems: Array<ChatCompletionMessageParam> | undefined;
 
-    if (
+    // Check for plugin handlers first
+    const pluginHandler = ctx.pluginRegistry.getHandler(name || "");
+    if (pluginHandler) {
+      if (process.env["DEBUG"] === "1") {
+        log(`Executing plugin handler for tool: ${name}`);
+      }
+      const pluginCtx: any = { ...ctx };
+      delete pluginCtx.agent; // restricted context
+      const result = await pluginHandler(args, pluginCtx);
+      outputText = result.outputText;
+      metadata = result.metadata;
+      additionalItems = result.additionalItems;
+    } else if (
       (name === "container.exec" ||
         name === TOOL_SHELL ||
         name === TOOL_APPLY_PATCH) &&

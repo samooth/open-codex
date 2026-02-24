@@ -23,6 +23,8 @@ This document tracks planned improvements for the OpenCodex terminal interface, 
 - [x] **Real-time Breadcrumbs:** Displayed the current file path being accessed by the agent in the header, with clickable OSC 8 support.
 - [x] **TUI Configuration Dashboard:** Replaced basic settings with an interactive, professional dashboard with descriptions and theme support.
 - [x] **Command Pallette:** Added a `Ctrl+P` global command search for quickly accessing all slash commands and recipes from a unified interface.
+- [x] **Command Palette Discoverability:** Added a subtle `Ctrl+P` hint in the status bar to help users discover the power-user interface.
+- [x] **Clearer AI State Feedback:** Enhanced the loading indicator to map specific tool calls to human-readable actions (e.g., "Reading Files", "Generating Patch"), providing better transparency.
 
 
 ## 4. Visual Refinement

@@ -157,9 +157,27 @@ Potential Improvements:
 
 TODO List (Future Improvements):
 
+   * **Hybrid Search:** Combine ripgrep keyword matching with semantic vector embeddings for more accurate and comprehensive code discovery. Implemented in `handleSearchCodebase`.
+   * **Undo Buffer:** Implement a `/undo` command that rolls back the last file modification using git or temporary backups.
+
+   41. [DONE] Global Shell Interaction (Focus Mode):
+       * Implemented `Ctrl+F` to toggle "Shell Focus Mode", allowing direct `stdin` interaction with long-running or interactive shell commands (e.g. `npm init`, `ssh`).
+   
+   42. [DONE] Improved Visibility (Collapsible Blocks):
+       * Added the ability to collapse/expand large tool outputs and assistant turns using the `C` key to manage screen real estate.
+
+   43. [DONE] Productivity (Command Re-run):
+       * Added a dedicated `Ctrl+R` overlay to select, edit, and re-execute previous shell commands from the current session.
+
+   44. [DONE] Visual Polish & Adaptability:
+       * Implemented responsive layout breakpoints for narrow terminals.
+       * Integrated real-time background indexing status into the status bar.
+       * Added total token count and granular breakdown to the status bar.
+
+TODO List (Future Improvements):
+
    * **Cost & Token Auditing:** Real-time price estimation per turn/session based on actual token usage and model pricing.
-   * **Hybrid Search:** Combine ripgrep keyword matching with semantic vector embeddings for more accurate and comprehensive code discovery.
    * **Image Generation Support:** Integrate Imagen 4.0 models for generating UI mockups or assets directly from the CLI.
    * **Diff Chunking:** Automatically break down extremely large patches into smaller, verifiable hunks to reduce the risk of "Invalid Context" errors.
-   * **Undo Buffer:** Implement a `/undo` command that rolls back the last file modification using git or temporary backups.
    * **Fetch Docs (Deep Crawl):** Expand `fetch_url` to intelligently crawl and summarize entire documentation sub-trees for new libraries.
+   * **Semantic Memory Pruning:** Implement structured background cleanup for redundant or contradictory facts in project memory.

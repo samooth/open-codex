@@ -223,6 +223,19 @@ export default function TerminalChatInputThinking({
     }
   }, { isActive: active });
 
+  const getHumanReadableAction = (toolName: string) => {
+    const name = toolName.toLowerCase();
+    if (name.includes("read_file")) return "READING FILES";
+    if (name.includes("write_file")) return "WRITING FILE";
+    if (name.includes("edit_file") || name.includes("apply_patch")) return "GENERATING PATCH";
+    if (name.includes("list_directory") || name.includes("list_files")) return "EXPLORING DIRECTORY";
+    if (name.includes("search_codebase") || name.includes("semantic_search")) return "SEARCHING CODEBASE";
+    if (name.includes("run_diagnostics")) return "RUNNING VALIDATOR";
+    if (name.includes("browse") || name.includes("web_search")) return "RESEARCHING WEB";
+    if (name.includes("memory")) return "UPDATING MEMORY";
+    return `EXERTING: ${toolName.toUpperCase()}`;
+  };
+
   return (
     <Box 
       flexDirection="row" 
@@ -234,7 +247,7 @@ export default function TerminalChatInputThinking({
       <Box flexDirection="column">
         <Box gap={1}>
           <Text color={theme.thought} bold italic>
-            {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
+            {activeToolName ? getHumanReadableAction(activeToolName) : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
           </Text>
           {activeToolArguments && activeToolName && (
              <Text dimColor italic>({Object.entries(activeToolArguments).map(([k,v]) => `${k}:${JSON.stringify(v)}`).join(", ").slice(0, 40)}${Object.keys(activeToolArguments).length > 0 ? "..." : ""})</Text>

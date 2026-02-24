@@ -121,6 +121,8 @@ const TerminalStatusBar: React.FC<Props> = ({
           {!isNarrow && (
             <>
               {separator}
+              <Text color={theme.dim}>ctrl+p actions</Text>
+              {separator}
               <Text color={theme.dim}>ctrl+b info</Text>
             </>
           )}

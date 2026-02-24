@@ -23,6 +23,7 @@ const commands = [
   ["/memory", "Manage project knowledge"],
   ["/config", "TUI settings dashboard"],
   ["/theme", "Switch UI theme"],
+  ["/plugins", "List active extensions"],
 ];
 
 export default function HelpOverlay({
@@ -46,7 +47,7 @@ export default function HelpOverlay({
       borderBottom={false}
       borderLeftColor={theme.highlight}
       width={80}
-      height={22}
+      height={23}
       marginY={1}
     >
       <Box gap={1} marginBottom={1}>

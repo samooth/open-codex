@@ -13,8 +13,8 @@
     "format": "prettier --check src tests",
     "format:fix": "prettier --write src tests",
     "dev": "tsc --watch",
-    "lint": "eslint src tests --ext ts --ext tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint src tests --ext ts --ext tsx --fix",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" --fix",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
@@ -50,39 +50,17 @@
     "shell-quote": "^1.8.2",
     "to-rotated": "^1.0.0",
     "use-interval": "1.4.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "boxen": "^8.0.1",
+    "which": "^5.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.22.0",
     "@types/diff": "^8.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/marked-terminal": "^6.1.1",
     "@types/react": "^19.0.0",
     "@types/shell-quote": "^1.7.5",
-    "@types/which": "^3.0.4",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "boxen": "^8.0.1",
-    "esbuild": "^0.25.2",
-    "eslint-plugin-react": "^7.32.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "ink-testing-library": "^3.0.0",
-    "prettier": "^2.8.7",
-    "punycode": "^2.3.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.0.3",
-    "vitest": "^3.0.9",
-    "whatwg-url": "^14.2.0",
-    "which": "^5.0.0"
-  },
-  "resolutions": {
-    "braces": "^3.0.3",
-    "micromatch": "^4.0.8",
-    "semver": "^7.7.1"
-  },
-  "overrides": {
-    "punycode": "^2.3.1"
+    "@types/which": "^3.0.4"
   },
   "repository": {
     "type": "git",

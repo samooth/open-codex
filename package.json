@@ -1,4 +1,4 @@
-{ 
+{
   "name": "Open Codex",
   "version": "0.3.23",
   "description": "Tools for repo-wide maintenance.",
@@ -9,6 +9,35 @@
     "typecheck": "tsc -p codex-cli/tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "prettier": "^3.5.3"
+    "@eslint/js": "^9.39.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "esbuild": "^0.25.2",
+    "eslint": "^9.39.3",
+    "eslint-config-flat-gitignore": "^2.2.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.3.0",
+    "ink-testing-library": "^3.0.0",
+    "prettier": "^3.5.3",
+    "punycode": "^2.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.3",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^3.0.9",
+    "whatwg-url": "^14.2.0"
+  },
+  "private": true,
+  "workspaces": [
+    "codex-cli"
+  ],
+  "resolutions": {
+    "braces": "^3.0.3",
+    "micromatch": "^4.0.8",
+    "semver": "^7.7.1"
+  },
+  "overrides": {
+    "punycode": "^2.3.1"
   }
 }

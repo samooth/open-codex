@@ -41,6 +41,7 @@ import {
   anthropicToOpenAiStream,
 } from "./anthropic-utils.js";
 import { handleFunctionCall } from "./function-call-handler.js";
+import { PluginRegistry, pluginRegistry as defaultPluginRegistry } from "../plugins/plugin-registry.js";
 import { 
   createInvalidRequestErrorSystemMessage, 
   createRateLimitErrorSystemMessage, 
@@ -77,6 +78,7 @@ export class AgentLoop {
   private onFileAccess?: (path: string) => void;
   private onTasksUpdate?: (tasks: Task[]) => void;
   private onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
+  private onShellFocus?: (isFocused: boolean) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -93,7 +95,9 @@ export class AgentLoop {
    * after the user has canceled and issued a new command. */
   private generation = 0;
   private staged: Array<ChatCompletionMessageParam | undefined> = [];
+  private runPromise: Promise<void> | null = null;
   private semanticMemory: SemanticMemory;
+  private pluginRegistry: PluginRegistry;
   /** AbortController for in‑progress tool calls (e.g. shell commands). */
   private execAbortController: AbortController | null = null;
   /** Set to true when `cancel()` is called so `run()` can exit early. */
@@ -321,12 +325,14 @@ export class AgentLoop {
     onTasksUpdate,
     onIndexingStatus,
     onShellFocus,
+    pluginRegistry,
     getCommandConfirmation,
     onReset,
   }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
     this.instructions = instructions;
     this.approvalPolicy = approvalPolicy;
+    this.pluginRegistry = pluginRegistry ?? defaultPluginRegistry;
 
     // If no `config` has been provided we derive a minimal stub so that the
     // rest of the implementation can rely on `this.config` always being a
@@ -407,6 +413,26 @@ export class AgentLoop {
     
 
       public async run(
+    input: Array<ChatCompletionMessageParam>,
+    prevItems: Array<ChatCompletionMessageParam> = [],
+  ): Promise<void> {
+    if (this.runPromise) {
+      if (isLoggingEnabled()) {
+        log("AgentLoop.run(): Turn already in progress, cancelling previous turn before starting new one");
+      }
+      this.cancel();
+      await this.runPromise.catch(() => {});
+    }
+
+    this.runPromise = this.doRun(input, prevItems);
+    try {
+      await this.runPromise;
+    } finally {
+      this.runPromise = null;
+    }
+  }
+
+  private async doRun(
     input: Array<ChatCompletionMessageParam>,
     prevItems: Array<ChatCompletionMessageParam> = [],
   ): Promise<void> {
@@ -566,16 +592,26 @@ export class AgentLoop {
               : "";
 
             const missionStateInfo = formatStateForPrompt(this.stateSnapshot);
+            const pluginInstructions = this.pluginRegistry.getSystemInstructions();
 
-            const mergedInstructions = [deepThinkingPrefix, basePrefix, this.instructions, missionStateInfo, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
+            const mergedInstructions = [deepThinkingPrefix, basePrefix, this.instructions, missionStateInfo, pluginInstructions, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
               .filter(Boolean)
               .join("\n");
+            
+            const pluginTools = this.pluginRegistry.getTools();
+            const allTools = [...tools, ...pluginTools].filter((tool: any) => {
+              if (tool.function.name === "browse") {
+                return !!this.config.enableWebSearch;
+              }
+              return true;
+            });
+
             if (isLoggingEnabled()) {
               log(
                 `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
-              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 1}, Tools: ${tools.length}`);
+              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 1}, Tools: ${allTools.length}`);
             }
 
             if (this.config.provider === "google" || this.config.provider === "gemini") {
@@ -590,12 +626,7 @@ export class AgentLoop {
                 ) as Array<ChatCompletionMessageParam>),
               ]);
 
-              const googleTools = mapOpenAiToGoogleTools(tools.filter((tool: any) => {
-                if (tool.function.name === "browse") {
-                  return !!this.config.enableWebSearch;
-                }
-                return true;
-              }), sanitizeGoogleToolName);
+              const googleTools = mapOpenAiToGoogleTools(allTools, sanitizeGoogleToolName);
 
               const googleStream = await this.oai.models.generateContentStream({
                 model: this.model,
@@ -612,12 +643,7 @@ export class AgentLoop {
                 ...(this.staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
               ]);
 
-              const anthropicTools = mapOpenAiToAnthropicTools(tools.filter((tool: any) => {
-                if (tool.function.name === "browse") {
-                  return !!this.config.enableWebSearch;
-                }
-                return true;
-              }));
+              const anthropicTools = mapOpenAiToAnthropicTools(allTools);
 
               const response = await fetch(`${this.config.baseURL}/v1/messages`, {
                 method: "POST",
@@ -701,12 +727,7 @@ export class AgentLoop {
                   ) as Array<ChatCompletionMessageParam>),
                 ],
                 reasoning_effort: reasoning,
-                tools: tools.filter((tool: any) => {
-                  if (tool.function.name === "browse") {
-                    return !!this.config.enableWebSearch;
-                  }
-                  return true;
-                }),
+                tools: allTools,
               });
             }
             if (isLoggingEnabled()) {
@@ -834,88 +855,91 @@ export class AgentLoop {
           return;
         }
 
-        try {
-          let message:
-            | Extract<ChatCompletionMessageParam, { role: "assistant" }>
-            | undefined;
-          let messageProcessed = false;
-          let lastFinishReason: string | null = null;
+        let message:
+          | Extract<ChatCompletionMessageParam, { role: "assistant" }>
+          | undefined;
+        let messageProcessed = false;
 
-          const finalizeMessage = async (
-            msg: Extract<ChatCompletionMessageParam, { role: "assistant" }>,
-          ) => {
-            if (messageProcessed) return;
-            messageProcessed = true;
+        const finalizeMessage = async (
+          msg: Extract<ChatCompletionMessageParam, { role: "assistant" }>,
+        ) => {
+          if (messageProcessed) return;
+          messageProcessed = true;
 
-            if (this.lastThoughtSignature) {
-              (msg as any).thought_signature = this.lastThoughtSignature;
+          if (this.lastThoughtSignature) {
+            (msg as any).thought_signature = this.lastThoughtSignature;
+          }
+
+          if (thisGeneration === this.generation && !this.canceled) {
+            // Extract Structured State Snapshot if present
+            const content = typeof msg.content === "string" ? msg.content : "";
+            const newSnapshot = parseStateSnapshot(content);
+            if (newSnapshot) {
+              this.stateSnapshot = { ...this.stateSnapshot, ...newSnapshot };
+              
+              // If the snapshot contains task_state, sync it with the UI TaskChecklist
+              if (newSnapshot.task_state && this.onTasksUpdate) {
+                const tasks: Task[] = newSnapshot.task_state.map(line => {
+                  const status = line.includes("[DONE]") ? "done" : line.includes("[IN_PROGRESS]") ? "in-progress" : "todo";
+                  const label = line.replace(/\[(DONE|IN_PROGRESS|TODO)\]/, "").trim();
+                  return { label, status };
+                });
+                this.onTasksUpdate(tasks);
+              }
             }
 
-            if (thisGeneration === this.generation && !this.canceled) {
-              // Extract Structured State Snapshot if present
-              const content = typeof msg.content === "string" ? msg.content : "";
-              const newSnapshot = parseStateSnapshot(content);
-              if (newSnapshot) {
-                this.stateSnapshot = { ...this.stateSnapshot, ...newSnapshot };
-                
-                // If the snapshot contains task_state, sync it with the UI TaskChecklist
-                if (newSnapshot.task_state && this.onTasksUpdate) {
-                  const tasks: Task[] = newSnapshot.task_state.map(line => {
-                    const status = line.includes("[DONE]") ? "done" : line.includes("[IN_PROGRESS]") ? "in-progress" : "todo";
-                    const label = line.replace(/\[(DONE|IN_PROGRESS|TODO)\]/, "").trim();
-                    return { label, status };
-                  });
-                  this.onTasksUpdate(tasks);
-                }
-              }
-
-              // If there's content but no tool_calls, try to extract one from the content.
-              if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
-                const extracted = tryExtractToolCallsFromContent(msg.content);
-                if (extracted.length > 0) {
-                  (msg as any).tool_calls = extracted;
-                  for (const call of extracted) {
-                    if (call.id) {
-                      this.pendingAborts.add(call.id);
-                    }
+            // If there's content but no tool_calls, try to extract one from the content.
+            if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
+              const extracted = tryExtractToolCallsFromContent(msg.content);
+              if (extracted.length > 0) {
+                (msg as any).tool_calls = extracted;
+                for (const call of extracted) {
+                  if (call.id) {
+                    this.pendingAborts.add(call.id);
                   }
                 }
               }
-
-              // Process completed tool calls
-              if (msg?.tool_calls?.[0]) {
-                msg.tool_calls = flattenToolCalls(msg.tool_calls);
-                this.stageItem(msg, thisGeneration);
-                const ctx: AgentContext = {
-                  config: this.config,
-                  approvalPolicy: this.approvalPolicy,
-                  execAbortController: this.execAbortController,
-                  getCommandConfirmation: this.getCommandConfirmation,
-                  onItem: this.onItem,
-                  onFileAccess: this.onFileAccess,
-                  onTasksUpdate: this.onTasksUpdate,
-                  oai: this.oai,
-                  model: this.model,
-                  agent: this,
-                };
-                const results = await handleFunctionCall(
-                  ctx,
-                  msg,
-                  this.toolCallHistory,
-                  this.onLoading,
-                  this.onPartialUpdate,
-                  this.isFocused,
-                );
-                this.currentActiveToolName = undefined;
-                this.currentActiveToolRawArguments = undefined;
-                if (results.length > 0) {
-                  turnInput.push(...results);
-                }
-              } else if (msg && Object.keys(msg).length > 0) {
-                this.stageItem(msg, thisGeneration);
-              }
             }
-          };
+
+            // Process completed tool calls
+            if (msg?.tool_calls?.[0]) {
+              msg.tool_calls = flattenToolCalls(msg.tool_calls);
+              this.stageItem(msg, thisGeneration);
+              const ctx: AgentContext = {
+                config: this.config,
+                approvalPolicy: this.approvalPolicy,
+                execAbortController: this.execAbortController,
+                getCommandConfirmation: this.getCommandConfirmation,
+                onItem: this.onItem,
+                onFileAccess: this.onFileAccess,
+                onTasksUpdate: this.onTasksUpdate,
+                onShellFocus: this.onShellFocus,
+                pluginRegistry: this.pluginRegistry,
+                oai: this.oai,
+                model: this.model,
+                agent: this,
+              };
+              const results = await handleFunctionCall(
+                ctx,
+                msg,
+                this.toolCallHistory,
+                this.onLoading,
+                this.onPartialUpdate,
+                this.isFocused,
+              );
+              this.currentActiveToolName = undefined;
+              this.currentActiveToolRawArguments = undefined;
+              if (results.length > 0) {
+                turnInput.push(...results);
+              }
+            } else if (msg && Object.keys(msg).length > 0) {
+              this.stageItem(msg, thisGeneration);
+            }
+          }
+        };
+
+        try {
+          let lastFinishReason: string | null = null;
 
           // eslint-disable-next-line no-await-in-loop
           let chunkCount = 0;
@@ -1058,6 +1082,14 @@ export class AgentLoop {
             if (!this.canceled) {
               // It was aborted for some other reason; surface the error.
               throw err;
+            }
+            // Finalize what we have so far before exiting, so the next turn starts
+            // with a consistent history (especially for Gemini sequence).
+            if (message && !messageProcessed) {
+              if (this.lastThoughtSignature) {
+                (message as any).thought_signature = this.lastThoughtSignature;
+              }
+              this.stageItem(message, thisGeneration);
             }
             this.onLoading(false);
             return;
@@ -1254,6 +1286,8 @@ export class AgentLoop {
           onItem: this.onItem,
           onFileAccess: this.onFileAccess,
           onTasksUpdate: this.onTasksUpdate,
+          onShellFocus: this.onShellFocus,
+          pluginRegistry: this.pluginRegistry,
           oai: this.oai,
           model: this.model,
           agent: this,

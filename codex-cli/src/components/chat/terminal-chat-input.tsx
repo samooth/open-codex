@@ -15,6 +15,7 @@ import { useInterval } from "use-interval";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, useMemo, useEffect, Fragment } from "react";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
+import { pluginRegistry } from "../../utils/plugins/plugin-registry.js";
 
 const suggestions = [
   "explain this codebase to me",
@@ -40,6 +41,7 @@ const slashCommands = [
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/theme", description: "change UI theme" },
   { name: "/undo", description: "revert last turn and file changes" },
+  { name: "/plugins", description: "list active plugins and tools" },
   { name: "/help", description: "show help" },
 ];
 
@@ -275,9 +277,8 @@ export default function TerminalChatInput({
           }
 
           const cursorRow = editorRef.current?.getRow?.() ?? 0;
-          const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
 
-          if (history.length > 0 && cursorRow === 0 && wasAtFirstRow) {
+          if (history.length > 0 && cursorRow === 0) {
             if (historyIndex == null) {
               const currentDraft = editorRef.current?.getText?.() ?? input;
               setDraftInput(currentDraft);
@@ -402,6 +403,21 @@ export default function TerminalChatInput({
       if (inputValue === "/help") {
         setInput("");
         openHelpOverlay();
+        return;
+      }
+
+      if (inputValue === "/plugins") {
+        const plugins = pluginRegistry.getAll();
+        setItems((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: plugins.length > 0 
+              ? `Active Plugins:\n${plugins.map(p => `- ${p.name} v${p.version}: ${p.tools.length} tool(s)`).join("\n")}`
+              : "No active plugins found. Add plugins to `~/.codex/plugins/` to extend functionality.",
+          },
+        ]);
+        setInput("");
         return;
       }
 

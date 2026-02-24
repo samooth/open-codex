@@ -117,7 +117,8 @@ describe("TerminalChatInput – history navigation with multiline drafts", () =>
     await type(stdin, "\x1b[A", flush); // up‑arrow
 
     const frameAfter = lastFrameStripped();
-
+    throw new Error("FRAME: " + frameAfter);
+    
     // The buffer should be unchanged – we *haven't* entered history‑navigation
     // mode yet because the caret only moved vertically inside the draft.
     expect(frameAfter.includes("prev")).toBe(false);
