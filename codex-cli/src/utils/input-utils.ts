@@ -18,7 +18,8 @@ export async function processInputVariables(text: string): Promise<string> {
 
   for (const match of matches) {
     const fullMatch = match[0];
-    const key = match[1].trim();
+    const key = match[1]?.trim();
+    if (!key) continue;
 
     // 1. Check environment variables
     if (process.env[key]) {

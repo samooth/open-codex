@@ -1,6 +1,6 @@
-import MultilineTextEditor, { type MultilineTextEditorHandle } from "./chat/multiline-editor.js";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import React, { useRef } from "react";
+import TextInput from "./vendor/ink-text-input.js";
 import type { Theme } from "../utils/theme.js";
 
 export default function EditorOverlay({
@@ -8,25 +8,18 @@ export default function EditorOverlay({
   onSave,
   onExit,
   theme,
-  onRefresh,
 }: {
   currentCommand: string;
-  onSave: (newCommand: string) => void;
+  onRefresh?: () => void;
+  onSave: (command: string) => void;
   onExit: () => void;
   theme: Theme;
-  onRefresh?: () => void;
 }) {
-  const editorRef = useRef<MultilineTextEditorHandle>(null);
+  const [command, setCommand] = useState(currentCommand);
 
-  useInput((input, key) => {
-    if (key.escape) {
-      onExit();
-    }
-    if (key.return && !key.shift && !key.ctrl) {
-        if (editorRef.current) {
-            onSave(editorRef.current.getText().trim());
-        }
-    }
+  useInput((_input, key) => {
+    if (key.escape) onExit();
+    if (key.return) onSave(command.trim());
   });
 
   return (
@@ -42,23 +35,26 @@ export default function EditorOverlay({
       marginY={1}
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> EDITOR </Text>
-        <Text color={theme.highlight} bold>SET EDITOR COMMAND</Text>
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> EDITOR </Text>
+        </Box>
+        <Text color={theme.highlight} bold>CONFIGURE EXTERNAL EDITOR</Text>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        padding={1} 
-        borderColor={theme.divider}
-        marginLeft={1}
-      >
-        <MultilineTextEditor
-          ref={editorRef}
-          initialText={currentCommand}
-          height={1}
-          onSubmit={(text) => onSave(text.trim())}
-          onRefresh={onRefresh}
-        />
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+        <Box gap={1} marginBottom={1}>
+          <Text color={theme.highlight} bold>COMMAND: </Text>
+          <TextInput
+            value={command}
+            onChange={setCommand}
+            placeholder="e.g. code --wait, nvim, vim, etc."
+          />
+        </Box>
+        
+        <Text color={theme.dim}>
+          This command will be used when you press Ctrl+E in the chat.
+          If empty, it will default to $EDITOR or $VISUAL environment variables.
+        </Text>
       </Box>
 
       <Box 
@@ -70,13 +66,14 @@ export default function EditorOverlay({
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
-        marginTop={1}
       >
-        <Text dimColor italic>
-            enter SAVE │ esc CANCEL
-        </Text>
-        <Text dimColor size={0.8} marginTop={1}>
-            e.g. 'code --wait' or 'vim' or 'nano'
+        <Text dimColor italic>enter save │ esc close</Text>
+      </Box>
+
+      <Box paddingX={1} marginTop={1}>
+        <Text dimColor>
+          Tip: Use a command that blocks the terminal (like 'code --wait') 
+          so OpenCodex knows when you're done editing.
         </Text>
       </Box>
     </Box>

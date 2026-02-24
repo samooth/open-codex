@@ -76,6 +76,7 @@ export class AgentLoop {
   private onLoading: (loading: boolean) => void;
   private onFileAccess?: (path: string) => void;
   private onTasksUpdate?: (tasks: Task[]) => void;
+  private onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -91,6 +92,7 @@ export class AgentLoop {
    * from streams that belong to a previous run which might still be emitting
    * after the user has canceled and issued a new command. */
   private generation = 0;
+  private staged: Array<ChatCompletionMessageParam | undefined> = [];
   private semanticMemory: SemanticMemory;
   /** AbortController for in‑progress tool calls (e.g. shell commands). */
   private execAbortController: AbortController | null = null;
@@ -110,6 +112,8 @@ export class AgentLoop {
 
   private currentActiveToolName: string | undefined = undefined;
   private currentActiveToolRawArguments: string | undefined = undefined;
+  private lastThoughtSignature: string | undefined = undefined;
+  private isFocused = false;
 
   private stateSnapshot: StateSnapshot = {};
 
@@ -190,7 +194,15 @@ export class AgentLoop {
   }
 
   public async indexCodebase(onProgress?: (current: number, total: number, file: string) => void): Promise<void> {
-    return this.semanticMemory.indexCodebase(onProgress);
+    this.onIndexingStatus?.({ indexing: true });
+    try {
+      await this.semanticMemory.indexCodebase((current, total, file) => {
+        this.onIndexingStatus?.({ indexing: true, current, total, file });
+        onProgress?.(current, total, file);
+      });
+    } finally {
+      this.onIndexingStatus?.({ indexing: false });
+    }
   }
 
   public async searchCode(query: string, limit: number = 5): Promise<any[]> {
@@ -199,6 +211,17 @@ export class AgentLoop {
 
   public hasIndex(): boolean {
     return this.semanticMemory.hasIndex();
+  }
+
+  private stageItem(item: ChatCompletionMessageParam, generation?: number) {
+    // Ignore any stray events that belong to older generations.
+    if (generation !== undefined && generation !== this.generation) {
+      return;
+    }
+
+    // Store the item so the final flush can still operate on a complete list.
+    this.onItem(item);
+    this.staged.push(item);
   }
 
   /**
@@ -296,6 +319,8 @@ export class AgentLoop {
     onLoading,
     onFileAccess,
     onTasksUpdate,
+    onIndexingStatus,
+    onShellFocus,
     getCommandConfirmation,
     onReset,
   }: AgentLoopParams & { config?: AppConfig }) {
@@ -319,6 +344,12 @@ export class AgentLoop {
     this.onLoading = onLoading;
     this.onFileAccess = onFileAccess;
     this.onTasksUpdate = onTasksUpdate;
+    this.onIndexingStatus = onIndexingStatus;
+    const originalOnShellFocus = onShellFocus;
+    onShellFocus = (isFocused: boolean) => {
+      this.isFocused = isFocused;
+      originalOnShellFocus?.(isFocused);
+    };
     this.getCommandConfirmation = getCommandConfirmation;
     this.onReset = onReset;
     this.sessionId = getSessionId() || randomUUID().replaceAll("-", "");
@@ -428,10 +459,12 @@ export class AgentLoop {
               output: "aborted",
               metadata: { exit_code: 1, duration_seconds: 0 },
             }),
+            ...(this.lastThoughtSignature ? { thought_signature: this.lastThoughtSignature } as any : {}),
           });
         }
         // Once converted the pending list can be cleared.
         this.pendingAborts.clear();
+        this.lastThoughtSignature = undefined;
       }
 
       // Automatically manage context window size to prevent TPM/Token limits
@@ -442,37 +475,7 @@ export class AgentLoop {
       let turnInput = [...abortOutputs, ...currentInput];
 
       this.onLoading(true);
-
-      const staged: Array<ChatCompletionMessageParam | undefined> = [];
-      const stageItem = (item: ChatCompletionMessageParam) => {
-        // Ignore any stray events that belong to older generations.
-        if (thisGeneration !== this.generation) {
-          return;
-        }
-
-        // Store the item so the final flush can still operate on a complete list.
-        // We'll nil out entries once they're delivered.
-        this.onItem(item);
-        staged.push(item);
-        // // Instead of emitting synchronously we schedule a short‑delay delivery.
-        // // This accomplishes two things:
-        // //   1. The UI still sees new messages almost immediately, creating the
-        // //      perception of real‑time updates.
-        // //   2. If the user calls `cancel()` in the small window right after the
-        // //      item was staged we can still abort the delivery because the
-        // //      generation counter will have been bumped by `cancel()`.
-        // setTimeout(() => {
-        //   if (
-        //     thisGeneration === this.generation &&
-        //     !this.canceled &&
-        //     !this.hardAbort.signal.aborted
-        //   ) {
-        //     this.onItem(item);
-        //     // Mark as delivered so flush won't re-emit it
-        //     staged[idx] = undefined;
-        //   }
-        // }, 10);
-      };
+      this.staged = [];
 
       while (turnInput.length > 0) {
         if (this.canceled || this.hardAbort.signal.aborted) {
@@ -481,7 +484,7 @@ export class AgentLoop {
         }
         // send request to openAI
         for (const item of turnInput) {
-          stageItem(item);
+          this.stageItem(item, thisGeneration);
         }
 
         // Send request to OpenAI with retry on timeout
@@ -514,11 +517,12 @@ export class AgentLoop {
 
             // Context-Aware Memory Search: Inject relevant snippets from project memory
             let relevantMemory = "";
-            const latestUserInput = currentInput.findLast((i) => i.role === "user");
+            const userMessages = currentInput.filter((i) => i.role === "user");
+            const latestUserInput = userMessages[userMessages.length - 1];
             const queryText = typeof latestUserInput?.content === "string" 
               ? latestUserInput.content 
               : Array.isArray(latestUserInput?.content) 
-                ? latestUserInput.content.map(c => "text" in c ? c.text : "").join(" ") 
+                ? (latestUserInput.content as any).map((c: any) => "text" in c ? c.text : "").join(" ") 
                 : "";
 
             if (queryText && !this.config.skipSemanticMemory && this.semanticMemory.memoryExists()) {
@@ -571,7 +575,7 @@ export class AgentLoop {
                 `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
-              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + staged.length + 1}, Tools: ${tools.length}`);
+              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 1}, Tools: ${tools.length}`);
             }
 
             if (this.config.provider === "google" || this.config.provider === "gemini") {
@@ -581,7 +585,7 @@ export class AgentLoop {
                   content: mergedInstructions,
                 },
                 ...currentPrevItems,
-                ...(staged.filter(
+                ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
               ]);
@@ -605,7 +609,7 @@ export class AgentLoop {
             } else if (this.config.provider === "anthropic") {
               const { messages: anthropicMessages, system } = mapOpenAiToAnthropicMessages([
                 ...currentPrevItems,
-                ...(staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
+                ...(this.staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
               ]);
 
               const anthropicTools = mapOpenAiToAnthropicTools(tools.filter((tool: any) => {
@@ -692,7 +696,7 @@ export class AgentLoop {
                     content: mergedInstructions,
                   },
                   ...currentPrevItems,
-                  ...(staged.filter(
+                  ...(this.staged.filter(
                     Boolean,
                   ) as Array<ChatCompletionMessageParam>),
                 ],
@@ -741,7 +745,7 @@ export class AgentLoop {
             }
 
             if (isErrorTooManyTokens(error)) {
-              stageItem(createTokenLimitErrorSystemMessage());
+              this.stageItem(createTokenLimitErrorSystemMessage(), thisGeneration);
               this.onLoading(false);
               return;
             }
@@ -752,7 +756,7 @@ export class AgentLoop {
                 // that no amount of retrying will fix unless we reduce the prompt.
                 const rawMsg = (error as any).message || "";
                 if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
-                  stageItem(createTokenLimitErrorSystemMessage());
+                  this.stageItem(createTokenLimitErrorSystemMessage(), thisGeneration);
                   this.onLoading(false);
                   return;
                 }
@@ -790,7 +794,7 @@ export class AgentLoop {
                 // why the request failed and can decide how to proceed (e.g. wait and retry later
                 // or switch to a different model / account).
 
-                stageItem(createRateLimitErrorSystemMessage(error));
+                this.stageItem(createRateLimitErrorSystemMessage(error), thisGeneration);
 
                 this.onLoading(false);
                 return;
@@ -798,7 +802,7 @@ export class AgentLoop {
             }
 
             if (isErrorClientError(error)) {
-              stageItem(createInvalidRequestErrorSystemMessage(error, this.config.provider));
+              this.stageItem(createInvalidRequestErrorSystemMessage(error, this.config.provider), thisGeneration);
               this.onLoading(false);
               return;
             }
@@ -843,6 +847,10 @@ export class AgentLoop {
             if (messageProcessed) return;
             messageProcessed = true;
 
+            if (this.lastThoughtSignature) {
+              (msg as any).thought_signature = this.lastThoughtSignature;
+            }
+
             if (thisGeneration === this.generation && !this.canceled) {
               // Extract Structured State Snapshot if present
               const content = typeof msg.content === "string" ? msg.content : "";
@@ -877,7 +885,7 @@ export class AgentLoop {
               // Process completed tool calls
               if (msg?.tool_calls?.[0]) {
                 msg.tool_calls = flattenToolCalls(msg.tool_calls);
-                stageItem(msg);
+                this.stageItem(msg, thisGeneration);
                 const ctx: AgentContext = {
                   config: this.config,
                   approvalPolicy: this.approvalPolicy,
@@ -896,6 +904,7 @@ export class AgentLoop {
                   this.toolCallHistory,
                   this.onLoading,
                   this.onPartialUpdate,
+                  this.isFocused,
                 );
                 this.currentActiveToolName = undefined;
                 this.currentActiveToolRawArguments = undefined;
@@ -903,7 +912,7 @@ export class AgentLoop {
                   turnInput.push(...results);
                 }
               } else if (msg && Object.keys(msg).length > 0) {
-                stageItem(msg);
+                this.stageItem(msg, thisGeneration);
               }
             }
           };
@@ -920,6 +929,10 @@ export class AgentLoop {
             const reasoning = (delta as any)?.reasoning_content;
             const tool_calls = delta?.tool_calls;
             const thought_signature = (chunk?.choices?.[0] as any)?.thought_signature;
+
+            if (thought_signature) {
+              this.lastThoughtSignature = thought_signature;
+            }
 
             if (
               content ||
@@ -1194,7 +1207,7 @@ export class AgentLoop {
 
       if (isErrorClientError(err)) {
         try {
-          stageItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
+          this.stageItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best-effort */
         }
@@ -1204,7 +1217,7 @@ export class AgentLoop {
 
       if (isErrorNetworkOrServer(err)) {
         try {
-          stageItem(createNetworkErrorSystemMessage(err, this.config.provider));
+          this.stageItem(createNetworkErrorSystemMessage(err, this.config.provider));
         } catch {
           /* best‑effort */
         }
@@ -1252,6 +1265,7 @@ export class AgentLoop {
           this.toolCallHistory,
           this.onLoading,
           this.onPartialUpdate,
+          this.isFocused,
         );
         turnInput.push(...result);
       }

@@ -8,7 +8,7 @@ export type Props = {
   readonly theme: Theme;
 };
 
-function Item({ isSelected = false, label, theme }: Props): JSX.Element {
+function Item({ isSelected = false, label, theme }: Props): React.ReactElement {
   return <Text color={isSelected ? theme.highlight : undefined}>{label}</Text>;
 }
 

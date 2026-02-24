@@ -6,7 +6,7 @@ This document tracks planned improvements for the OpenCodex terminal interface, 
 - [x] **History Virtualization (Windowing):** Implemented a windowing system to only render the last 30 turns in the active tree, significantly improving speed in long sessions.
 - [x] **Incremental Markdown Rendering:** Developed a `LiteMarkdown` fast-path renderer for streaming chunks to avoid heavy AST re-parsing.
 - [x] **Height-Stable Buffers:** Forced fixed heights for Input and Status Bar components, preventing vertical "jumping" during state transitions.
-- [ ] **Render Throttling Optimization:** Refine the current 200ms throttle to be dynamic based on the volume of incoming streaming tokens.
+- [ ] **Render Throttling Optimization:** Refine the current 500ms throttle to be dynamic based on the volume of incoming streaming tokens.
 
 ## 2. Advanced Tooling Visuals
 - [x] **Semantic Diff Highlighting:** Integrated character-level diffs with bold/background highlights for precise code review.
@@ -30,7 +30,10 @@ This document tracks planned improvements for the OpenCodex terminal interface, 
 - [x] **Unified Iconography:** Standardized icons and labels for a cohesive, professional look.
 - [x] **Color Interpolation:** Added a subtle "active glow" to the tail of streaming assistant text to make it feel more dynamic and "alive."
 - [x] **Context Usage Micro-Charts:** Replaced the character-based progress bar with high-resolution Unicode sparklines for token usage history in the status bar.
-- [ ] **Responsive Breakpoints:** Improve UI density and layout switching for extremely narrow or short terminal windows.
+- [x] **Responsive Breakpoints:** Improved UI density and layout switching for narrow or short terminal windows.
+- [x] **Collapsible History Blocks:** Added the ability to collapse entire message turns and tool outputs with the `C` key to manage screen real estate.
+- [x] **Command Re-run History:** Added a `Ctrl+R` overlay to select and re-execute (or edit) previous shell commands.
+- [x] **Live Indexing Status:** Integrated a non-blocking background indicator for codebase semantic indexing in the status bar.
 
 
 

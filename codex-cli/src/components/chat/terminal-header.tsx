@@ -4,7 +4,6 @@ import type { Theme } from "../../utils/theme.js";
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
 import { Box, Text } from "ink";
-import path from "node:path";
 import React from "react";
 
 export interface TerminalHeaderProps {

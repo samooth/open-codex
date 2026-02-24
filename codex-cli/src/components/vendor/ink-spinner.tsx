@@ -44,7 +44,7 @@ export default function Spinner({
 }: {
   type?: string;
   color?: string;
-}): JSX.Element {
+}): React.ReactElement {
   const frames = spinnerTypes[type || "dots"] || [];
   const interval = 80;
   const [frame, setFrame] = useState(0);

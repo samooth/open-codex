@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Text, Box } from "ink";
-import { diffChars } from "diff";
+import * as diff from "diff";
 import type { Theme } from "../../utils/theme";
 
 /**
@@ -32,7 +32,6 @@ export function SemanticDiffLine({
 export function SemanticDiffPair({
   removed,
   added,
-  theme,
 }: {
   removed: string;
   added: string;
@@ -42,14 +41,14 @@ export function SemanticDiffPair({
   const removedContent = removed.slice(1);
   const addedContent = added.slice(1);
 
-  const diff = useMemo(() => diffChars(removedContent, addedContent), [removedContent, addedContent]);
+  const diffResult = useMemo(() => (diff as any).diffChars(removedContent, addedContent), [removedContent, addedContent]);
 
   return (
     <Box flexDirection="column">
       {/* Removed line with highlights for deletions */}
       <Box>
         <Text color="redBright">-</Text>
-        {diff.map((part: { added?: boolean; removed?: boolean; value: string }, i: number) => {
+        {diffResult.map((part: any, i: number) => {
           if (part.added) return null;
           return (
             <Text
@@ -66,7 +65,7 @@ export function SemanticDiffPair({
       {/* Added line with highlights for additions */}
       <Box>
         <Text color="greenBright">+</Text>
-        {diff.map((part: { added?: boolean; removed?: boolean; value: string }, i: number) => {
+        {diffResult.map((part: any, i: number) => {
           if (part.removed) return null;
           return (
             <Text

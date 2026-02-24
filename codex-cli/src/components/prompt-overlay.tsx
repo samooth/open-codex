@@ -1,6 +1,6 @@
-import MultilineTextEditor, { type MultilineTextEditorHandle } from "./chat/multiline-editor.js";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import React, { useRef } from "react";
+import TextInput from "./vendor/ink-text-input.js";
 import type { Theme } from "../utils/theme.js";
 
 export default function PromptOverlay({
@@ -8,26 +8,18 @@ export default function PromptOverlay({
   onSave,
   onExit,
   theme,
-  onRefresh,
 }: {
   currentInstructions: string;
-  onSave: (newInstructions: string) => void;
+  onRefresh?: () => void;
+  onSave: (instructions: string) => void;
   onExit: () => void;
   theme: Theme;
-  onRefresh?: () => void;
 }) {
-  const editorRef = useRef<MultilineTextEditorHandle>(null);
+  const [instructions, setInstructions] = useState(currentInstructions);
 
-  useInput((input, key) => {
-    if (key.escape) {
-      onExit();
-    }
-    // Ctrl+S to save
-    if ((key.ctrl && input === "s") || input === "\x13") {
-        if (editorRef.current) {
-            onSave(editorRef.current.getText());
-        }
-    }
+  useInput((_input, key) => {
+    if (key.escape) onExit();
+    if (key.return) onSave(instructions.trim());
   });
 
   return (
@@ -40,24 +32,21 @@ export default function PromptOverlay({
       borderBottom={false}
       borderLeftColor={theme.highlight}
       width={100}
+      height={20}
       marginY={1}
     >
-      <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> PROMPT </Text>
+      <Box gap={1} marginBottom={1}>
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> PROMPT </Text>
+        </Box>
         <Text color={theme.highlight} bold>EDIT SYSTEM INSTRUCTIONS</Text>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        padding={1} 
-        borderColor={theme.divider}
-        marginLeft={1}
-      >
-        <MultilineTextEditor
-          ref={editorRef}
-          initialText={currentInstructions}
-          height={15}
-          onRefresh={onRefresh}
+      <Box flexDirection="column" flexGrow={1} paddingX={1}>
+        <TextInput
+          value={instructions}
+          onChange={setInstructions}
+          placeholder="Enter custom instructions..."
         />
       </Box>
 
@@ -70,11 +59,8 @@ export default function PromptOverlay({
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
-        marginTop={1}
       >
-        <Text dimColor italic>
-            enter NEWLINE │ ctrl+s SAVE │ esc CANCEL
-        </Text>
+        <Text dimColor italic>enter save │ esc close</Text>
       </Box>
     </Box>
   );

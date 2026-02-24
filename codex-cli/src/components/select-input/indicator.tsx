@@ -8,7 +8,7 @@ export type Props = {
   readonly theme: Theme;
 };
 
-function Indicator({ isSelected = false, theme }: Props): JSX.Element {
+function Indicator({ isSelected = false, theme }: Props): React.ReactElement {
   return (
     <Box marginRight={1}>
       {isSelected ? (

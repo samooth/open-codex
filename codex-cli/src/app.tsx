@@ -35,7 +35,7 @@ export default function App({
   imagePaths,
   approvalPolicy,
   fullStdout,
-}: Props): JSX.Element {
+}: Props): React.ReactElement {
   const app = useApp();
   const [accepted, setAccepted] = useState(() => false);
   const [cwd, inGitRepo] = useMemo(

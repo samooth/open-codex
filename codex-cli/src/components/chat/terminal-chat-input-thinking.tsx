@@ -107,11 +107,12 @@ export default function TerminalChatInputThinking({
       }, 1000);
       return () => clearInterval(timerInterval);
     }
+    return undefined;
   }, [active]);
 
   React.useEffect(() => {
     if (!active) {
-      return;
+      return undefined;
     }
 
     setRawMode?.(true);
@@ -220,7 +221,7 @@ export default function TerminalChatInputThinking({
         setScrollOffset((prev) => Math.max(0, prev - 1));
       }
     }
-  });
+  }, { isActive: active });
 
   return (
     <Box 

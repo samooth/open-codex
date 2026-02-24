@@ -1,4 +1,3 @@
-import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { Theme } from "../../utils/theme.js";
 import type { AppConfig } from "../../utils/config.js";
@@ -44,14 +43,13 @@ const slashCommands = [
   { name: "/help", description: "show help" },
 ];
 
-const typeHelpText = `ctrl+c to exit | "/clear" to reset context | "/help" for commands | ↑↓ history | ctrl+x edit | ctrl+j newline | enter to send`;
+const typeHelpText = `ctrl+c exit | "/help" help | ↑↓ history | ctrl+x edit | ctrl+j \n | enter send | ctrl+f focus shell`;
 
 export default function TerminalChatInput({
   isNew,
   loading,
   submitInput,
   confirmationPrompt,
-  submitConfirmation,
   setPrevItems,
   setItems,
   openOverlay,
@@ -64,16 +62,18 @@ export default function TerminalChatInput({
   openPromptOverlay,
   openPromptsOverlay,
   openRecipesOverlay,
-  openThemeOverlay,
+  openCommandPalette,
+  openCommandHistory,
   onPin,
   onUnpin,
   onUndo,
   onRefresh,
+  onShellFocus,
+  onCopy,
   interruptAgent,
   partialReasoning,
   activeBlockType,
   active,
-  allowAlwaysPatch,
   awaitingContinueConfirmation,
   activeToolName,
   activeToolArguments,
@@ -84,17 +84,12 @@ export default function TerminalChatInput({
   onPopQueuedInput,
   contextLeftPercent,
   config,
-  onCopy,
-  openCommandPalette,
+  isShellFocused,
 }: {
   isNew: boolean;
   loading: boolean;
   submitInput: (input: Array<ChatCompletionMessageParam>) => void;
   confirmationPrompt: React.ReactNode | null;
-  submitConfirmation: (
-    decision: ReviewDecision,
-    customDenyMessage?: string,
-  ) => void;
   setPrevItems: (prevItems: Array<ChatCompletionMessageParam>) => void;
   setItems: React.Dispatch<
     React.SetStateAction<Array<ChatCompletionMessageParam>>
@@ -110,17 +105,18 @@ export default function TerminalChatInput({
   openPromptsOverlay: () => void;
   openRecipesOverlay: () => void;
   openCommandPalette?: () => void;
+  openCommandHistory?: () => void;
   openThemeOverlay: () => void;
   onPin: (path: string) => void;
   onUnpin: (path: string) => void;
   onUndo: () => void;
   onRefresh?: () => void;
+  onShellFocus?: (isFocused: boolean) => void;
   onCopy?: () => void;
   interruptAgent: () => void;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   active: boolean;
-  allowAlwaysPatch?: boolean;
   awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
@@ -131,6 +127,7 @@ export default function TerminalChatInput({
   onPopQueuedInput?: () => string;
   contextLeftPercent: number;
   config: AppConfig;
+  isShellFocused?: boolean;
 }) {
   const app = useApp();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
@@ -342,6 +339,16 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (_key.ctrl && _input === "r" && openCommandHistory) {
+        openCommandHistory();
+        return;
+      }
+
+      if (_key.ctrl && _input === "f" && loading) {
+        onShellFocus?.(!isShellFocused);
+        return;
+      }
+
       if (input.trim() === "" && isNew) {
         if (_key.tab) {
           setSelectedSuggestion(
@@ -503,7 +510,7 @@ export default function TerminalChatInput({
 
       if (inputValue === "/theme") {
         setInput("");
-        openThemeOverlay();
+        openOverlay();
         return;
       }
 
@@ -598,7 +605,10 @@ export default function TerminalChatInput({
       openConfigOverlay,
       openPromptOverlay,
       openPromptsOverlay,
-      openThemeOverlay,
+      onUndo,
+      onPin,
+      onUnpin,
+      onRefresh,
     ],
   );
 
@@ -660,29 +670,36 @@ export default function TerminalChatInput({
             </Box>
           </Box>
         ) : (
-          <Box flexGrow={1}>
-            <MultilineTextEditor
-              ref={editorRef}
-              onChange={(txt: string) => setInput(txt)}
-              key={editorKey}
-              initialText={input}
-              height={3}
-              focus={active}
-              onKeyDown={onKeyDown}
-              editor={config.editorCommand}
-              onRefresh={onRefresh}
-              onSubmit={(txt) => {
-                if (customInputMode) {
-                  setCustomInputMode(false);
-                }
-                onSubmit(txt);
+          <Box flexGrow={1} flexDirection="row" gap={1}>
+            <Box flexGrow={1}>
+              <MultilineTextEditor
+                ref={editorRef}
+                onChange={(txt: string) => setInput(txt)}
+                key={editorKey}
+                initialText={input}
+                height={3}
+                focus={active}
+                onKeyDown={onKeyDown}
+                editor={config.editorCommand}
+                onRefresh={onRefresh}
+                onSubmit={(txt) => {
+                  if (customInputMode) {
+                    setCustomInputMode(false);
+                  }
+                  onSubmit(txt);
 
-                setEditorKey((k) => k + 1);
-                setInput("");
-                setHistoryIndex(null);
-                setDraftInput("");
-              }}
-            />
+                  setEditorKey((k) => k + 1);
+                  setInput("");
+                  setHistoryIndex(null);
+                  setDraftInput("");
+                }}
+              />
+            </Box>
+            {isShellFocused && (
+              <Box backgroundColor={theme.warning as any} paddingX={1} height={1}>
+                <Text bold color="black">SHELL FOCUS ACTIVE</Text>
+              </Box>
+            )}
           </Box>
         )}
       </Box>
@@ -725,9 +742,9 @@ export default function TerminalChatInput({
         <Box 
           flexDirection="column" 
           borderStyle="bold" 
-          borderRight={false}
-          borderTop={false}
-          borderBottom={false}
+          borderRight={false} 
+          borderTop={false} 
+          borderBottom={false} 
           borderLeftColor={theme.highlight}
           paddingLeft={2} 
           marginTop={1} 
@@ -753,14 +770,16 @@ export default function TerminalChatInput({
         <Box 
           flexDirection="column" 
           borderStyle="bold" 
-          borderRight={false}
-          borderTop={false}
-          borderBottom={false}
+          borderRight={false} 
+          borderTop={false} 
+          borderBottom={false} 
           borderLeftColor={theme.highlight}
           paddingLeft={2} 
           marginTop={1}
         >
-          <Text bold color={theme.highlight} marginBottom={1}>COMMANDS</Text>
+          <Box marginBottom={1}>
+            <Text bold color={theme.highlight}>COMMANDS</Text>
+          </Box>
           {filteredSlashCommands.map((cmd, i) => (
             <Box key={cmd.name} gap={2}>
               <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>
@@ -788,4 +807,3 @@ export default function TerminalChatInput({
     </Box>
   );
 }
-

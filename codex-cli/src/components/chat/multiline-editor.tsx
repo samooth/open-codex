@@ -275,7 +275,7 @@ const MultilineTextEditorInner = (
       // Delegate remaining keys to our pure TextBuffer
       const modified = buffer.current.handleInput(
         input,
-        key as Record<string, boolean>,
+        key as any as Record<string, boolean>,
         { height, width: effectiveWidth },
       );
       if (modified) {

@@ -1,5 +1,5 @@
 import fs from "fs";
-import { Box, Text } from "ink";
+import { Text } from "ink";
 import React, { useMemo } from "react";
 
 /**
@@ -16,8 +16,8 @@ export function TerminalImage({
   height?: number | "auto";
 }) {
   const isTTY = process.stdout.isTTY;
-  const term = process.env.TERM_PROGRAM || "";
-  const isKitty = process.env.TERM === "xterm-kitty";
+  const term = process.env["TERM_PROGRAM"] || "";
+  const isKitty = process.env["TERM"] === "xterm-kitty";
   const isITerm = term === "iTerm.app";
   const isWezTerm = term === "WezTerm";
 

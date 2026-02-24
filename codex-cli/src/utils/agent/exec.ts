@@ -46,6 +46,7 @@ export function exec(
   sandbox: SandboxType,
   abortSignal?: AbortSignal,
   onOutput?: (chunk: string) => void,
+  isFocused?: boolean,
 ): Promise<ExecResult> {
   // This is a temporary measure to understand what are the common base commands
   // until we start persisting and uploading rollouts
@@ -73,9 +74,10 @@ export function exec(
   }
 
   const opts: SpawnOptions = {
-    timeout: timeoutInMillis || DEFAULT_TIMEOUT_MS,
+    timeout: isFocused ? undefined : (timeoutInMillis || DEFAULT_TIMEOUT_MS),
     ...(needsShell ? { shell: true } : {}),
     ...(workdir ? { cwd: workdir } : {}),
+    ...(isFocused ? { stdio: "inherit" } : {}),
   };
   const writableRoots = [process.cwd(), os.tmpdir()];
   return execForSandbox(finalCmd, opts, writableRoots, abortSignal, onOutput);

@@ -6,18 +6,18 @@ import { recipes } from "../utils/recipes.js";
 import type { Theme } from "../utils/theme.js";
 
 const slashCommands = [
-  { label: "/MODEL - Switch LLM model", value: "/model", type: "command" },
-  { label: "/CLEAR - Reset conversation context", value: "/clear", type: "command" },
-  { label: "/HISTORY - View command history", value: "/history", type: "command" },
-  { label: "/RESTORE - Load a past session", value: "/history restore", type: "command" },
-  { label: "/MEMORY - Manage project knowledge", value: "/memory", type: "command" },
-  { label: "/APPROVAL - Change auto-approval mode", value: "/approval", type: "command" },
-  { label: "/CONFIG - TUI settings dashboard", value: "/config", type: "command" },
-  { label: "/PROMPT - Edit system instructions", value: "/prompt", type: "command" },
-  { label: "/LIBRARY - Select system prompt", value: "/prompts", type: "command" },
-  { label: "/THEME - Switch UI theme", value: "/theme", type: "command" },
-  { label: "/UNDO - Revert last turn", value: "/undo", type: "command" },
-  { label: "/INDEX - Semantic indexing", value: "/index", type: "command" },
+  { label: "/MODEL", description: "Switch LLM model", value: "/model", type: "command" },
+  { label: "/CLEAR", description: "Reset conversation context", value: "/clear", type: "command" },
+  { label: "/HISTORY", description: "View command history", value: "/history", type: "command" },
+  { label: "/RESTORE", description: "Load a past session", value: "/history restore", type: "command" },
+  { label: "/MEMORY", description: "Manage project knowledge", value: "/memory", type: "command" },
+  { label: "/APPROVAL", description: "Change auto-approval mode", value: "/approval", type: "command" },
+  { label: "/CONFIG", description: "TUI settings dashboard", value: "/config", type: "command" },
+  { label: "/PROMPT", description: "Edit system instructions", value: "/prompt", type: "command" },
+  { label: "/LIBRARY", description: "Select system prompt", value: "/prompts", type: "command" },
+  { label: "/THEME", description: "Switch UI theme", value: "/theme", type: "command" },
+  { label: "/UNDO", description: "Revert last turn", value: "/undo", type: "command" },
+  { label: "/INDEX", description: "Semantic indexing", value: "/index", type: "command" },
 ];
 
 type CommandItem = { label: string; value: string; type: string; description?: string };
@@ -52,7 +52,7 @@ export default function CommandPaletteOverlay({
     );
   }, [allItems, query]);
 
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (key.escape) onExit();
   });
 
@@ -69,7 +69,9 @@ export default function CommandPaletteOverlay({
       marginY={1}
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> COMMAND PALETTE </Text>
+        <Box backgroundColor={theme.highlight} paddingX={1}>
+          <Text bold color="black"> COMMAND PALETTE </Text>
+        </Box>
         <Text color={theme.highlight} bold>SEARCH ACTIONS & RECIPES</Text>
       </Box>
 
@@ -86,7 +88,7 @@ export default function CommandPaletteOverlay({
         {filteredItems.length > 0 ? (
           <SelectInput
             items={filteredItems}
-            onSelect={(item: CommandItem) => onSelect(item.value, item.type)}
+            onSelect={((item: CommandItem) => onSelect(item.value, item.type)) as any}
             theme={theme}
             isFocused={true}
           />

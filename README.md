@@ -112,9 +112,11 @@ development_ that understands and executes your repo.
 - **Automated Verification** — built-in diagnostics to detect project types and run health checks (lint, type-check, tests) 🩺
 - **Interactive Roadmap** — persistent task checklist in the UI to track multi-step goal progress 📋
 - **Syntax Highlighting** — full terminal color support for code diffs and file contents 🎨
-- **Context Management** — automated sliding window history truncation to prevent TPM/token limit errors 🧠
-- **Beautiful UI** — bot icons, model labels, and sleek left-accent bars for clarity ✨
+- **Context Management** — automated sliding window history truncation and **collapsible history blocks** to keep the UI clean 🧠
+- **Beautiful UI** — bot icons, model labels, **responsive layout breakpoints**, and sleek left-accent bars for clarity ✨
 - **Prompt Caching** — native support for Anthropic `cache_control` to significantly reduce costs and latency in long-running sessions 🚀
+- **Command Re-run** — quickly access and re-execute previous shell commands with a specialized history overlay 🐚
+- **Live Indexing** — non-blocking background status indicator for semantic codebase indexing 📂
 - **UI & Architecture Stability** — 100+ typecheck errors resolved, improved layout constraints, and robust ESM/CJS compatibility 🛠️
 - **Security & Dependency Auditing** — built-in tools for searching npm and Snyk vulnerability databases 🛡️
 - **Full auto-approval, while safe + secure** by running network-disabled and directory-sandboxed
@@ -153,6 +155,15 @@ If you're unsure about what the agent might do, you can use the `--dry-run` flag
 ```shell
 open-codex --dry-run "Refactor all components to TypeScript"
 ```
+
+### Reverting Changes (/undo)
+
+If the agent makes a mistake or you want to roll back the last set of file changes and conversation turns, you can use the `/undo` command at any time. This will:
+1. Restore any files modified or deleted in the last turn to their previous state.
+2. Remove the last user prompt and assistant response from the session history.
+3. Clean up any temporary files created during that turn.
+
+Simply type `/undo` in the chat or use the Command Palette (`Ctrl+P`).
 
 ### Platform sandboxing details
 
@@ -202,8 +213,11 @@ Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/confi
 ### Key keyboard shortcuts:
 - `Ctrl+E`: Open the current prompt in your system's `$EDITOR` (e.g., Vim, Nano) for easier multi-line editing.
 - `Ctrl+P`: Open the Command Palette to search all actions and recipes.
+- `Ctrl+R`: Open the Command History overlay to re-run or edit previous shell commands.
 - `Ctrl+Y`: Yank (copy) the last generated code block to the system clipboard.
+- `Ctrl+B`: Toggle detailed token usage breakdown in the status bar.
 - `Ctrl+J`: Insert a newline in the chat input.
+- `C`: Toggle collapse/expand on a selected message turn or tool output.
 - `Up Arrow`: Pull merged instructions from the queue for editing (if idle).
 - `@`: Trigger file path autocomplete.
 

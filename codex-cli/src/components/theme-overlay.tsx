@@ -1,8 +1,7 @@
-import { themes, getTheme } from "../utils/theme.js";
-import TypeaheadOverlay from "./typeahead-overlay.js";
-import { Text } from "ink";
 import React from "react";
+import { themes } from "../utils/theme.js";
 import type { Theme } from "../utils/theme.js";
+import TypeaheadOverlay from "./typeahead-overlay.js";
 
 type Props = {
   currentTheme: string;
@@ -11,32 +10,30 @@ type Props = {
   theme: Theme;
 };
 
+const options = Object.keys(themes).map(name => ({
+  label: name.toUpperCase(),
+  value: name,
+  description: (themes[name] as any)?.description || `Select the ${name} theme`
+}));
+
 export default function ThemeOverlay({
   currentTheme,
   onSelect,
   onExit,
-  theme: activeTheme,
-}: Props): JSX.Element {
-  const items = Object.keys(themes).map((t) => ({
-    label: themes[t]!.name,
-    value: t,
+  theme,
+}: Props): React.ReactElement {
+  const themeOptions = options.map(o => ({
+    ...o,
+    label: `${o.value === currentTheme ? "❯ " : "  "}${o.label}`
   }));
-
-  const theme = getTheme(currentTheme);
 
   return (
     <TypeaheadOverlay
-      title="Switch theme"
-      description={
-        <Text color={activeTheme.dim}>
-          CURRENT THEME: <Text color={activeTheme.success} bold>{theme.name}</Text>
-        </Text>
-      }
-      initialItems={items}
-      currentValue={currentTheme}
-      onSelect={onSelect}
+      title="SELECT THEME"
+      items={themeOptions}
+      onSelect={onSelect as any}
       onExit={onExit}
-      theme={activeTheme}
+      theme={theme}
     />
   );
 }

@@ -17,6 +17,7 @@ This is the "brain" of the agent. It controls:
     - `search_symbols`: Semantic-boosted search specifically targeting symbol definitions across the codebase.
     - `run_diagnostics`: Automated project-wide health checks (linting, type-checking, and tests) based on detected project type.
     - `update_tasks`: Updates a persistent UI roadmap to track progress on multi-step goals.
+    - `indexCodebase`: Background codebase indexing for semantic search. Includes a real-time status tracking callback for the UI.
     - `list_directory`: Non-recursive directory listing.
     - `list_files_recursive`: Parallel tree-view project exploration.
     - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
@@ -36,6 +37,8 @@ Controls the execution of shell commands:
 ### 3. `src/components/chat/terminal-chat-response-item.tsx`
 Handles the rendering of agent responses:
 - **Integrated UI**: Tool calls and responses are integrated into a single visual unit, showing semantic icons, labels, and argument summaries alongside the output.
+- **Collapsible Content**: Implements interactive collapsing of large tool outputs and assistant responses via the `C` key to improve readability.
+- **Interactive History Selection**: Integrated with `CommandHistoryOverlay.tsx` to allow users to select and re-run previous shell commands from the session.
 - **Syntax Highlighting**: Uses `cli-highlight` to provide language-aware highlighting for file contents, search results, and unified diffs within the terminal UI.
 - **Markdown Rendering**: Integrates `marked-terminal` with custom highlighting for a polished developer experience.
 

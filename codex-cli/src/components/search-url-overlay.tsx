@@ -1,6 +1,6 @@
-import MultilineTextEditor, { type MultilineTextEditorHandle } from "./chat/multiline-editor.js";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-import React, { useRef } from "react";
+import TextInput from "./vendor/ink-text-input.js";
 import type { Theme } from "../utils/theme.js";
 
 export default function SearchUrlOverlay({
@@ -9,26 +9,19 @@ export default function SearchUrlOverlay({
   onSave,
   onExit,
   theme,
-  onRefresh,
 }: {
   title: string;
   currentUrl: string;
-  onSave: (newUrl: string) => void;
+  onRefresh?: () => void;
+  onSave: (url: string) => void;
   onExit: () => void;
   theme: Theme;
-  onRefresh?: () => void;
 }) {
-  const editorRef = useRef<MultilineTextEditorHandle>(null);
+  const [url, setUrl] = useState(currentUrl);
 
-  useInput((input, key) => {
-    if (key.escape) {
-      onExit();
-    }
-    if (key.return && !key.shift && !key.ctrl) {
-        if (editorRef.current) {
-            onSave(editorRef.current.getText().trim());
-        }
-    }
+  useInput((_input, key) => {
+    if (key.escape) onExit();
+    if (key.return) onSave(url.trim());
   });
 
   return (
@@ -44,23 +37,26 @@ export default function SearchUrlOverlay({
       marginY={1}
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> SEARCH </Text>
-        <Text color={theme.highlight} bold>{title}</Text>
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> {title} </Text>
+        </Box>
+        <Text color={theme.highlight} bold>CONFIGURE SEARCH URL</Text>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        padding={1} 
-        borderColor={theme.divider}
-        marginLeft={1}
-      >
-        <MultilineTextEditor
-          ref={editorRef}
-          initialText={currentUrl}
-          height={1}
-          onSubmit={(text) => onSave(text.trim())}
-          onRefresh={onRefresh}
-        />
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+        <Box gap={1} marginBottom={1}>
+          <Text color={theme.highlight} bold>URL: </Text>
+          <TextInput
+            value={url}
+            onChange={setUrl}
+            placeholder="https://..."
+          />
+        </Box>
+        
+        <Text color={theme.dim}>
+          Enter the base URL for the search provider. 
+          For SearXNG, it should be the instance root.
+        </Text>
       </Box>
 
       <Box 
@@ -72,13 +68,13 @@ export default function SearchUrlOverlay({
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
-        marginTop={1}
       >
-        <Text dimColor italic>
-            enter SAVE │ esc CANCEL
-        </Text>
-        <Text dimColor size={0.8} marginTop={1}>
-            Use %s as a placeholder for the search query.
+        <Text dimColor italic>enter save │ esc close</Text>
+      </Box>
+
+      <Box paddingX={1} marginTop={1}>
+        <Text dimColor>
+          Tip: If left empty, the system will fall back to default search providers.
         </Text>
       </Box>
     </Box>

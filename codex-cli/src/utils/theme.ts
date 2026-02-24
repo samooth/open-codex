@@ -306,7 +306,7 @@ export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Th
  * Returns a theme object compatible with `cli-highlight`.
  * Uses the provided UI theme to ensure consistency and readability.
  */
-export function getSyntaxTheme(theme: Theme) {
+export function getSyntaxTheme(_theme: Theme) {
   return {
     keyword: chalk.magentaBright,
     built_in: chalk.cyanBright,

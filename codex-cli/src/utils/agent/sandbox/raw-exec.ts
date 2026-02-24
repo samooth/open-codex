@@ -2,9 +2,6 @@ import type { ExecResult } from "./interface";
 import type {
   ChildProcess,
   SpawnOptions,
-  SpawnOptionsWithStdioTuple,
-  StdioNull,
-  StdioPipe,
 } from "child_process";
 
 import { log, isLoggingEnabled } from "../log.js";
@@ -72,15 +69,14 @@ export function exec(
   // Even if you pass `{stdio: ["ignore", "pipe", "pipe"] }` to execFile(), the
   // hang still happens as the `stdio` is seemingly ignored. Using spawn()
   // works around this issue.
-  const fullOptions: SpawnOptionsWithStdioTuple<
-    StdioNull,
-    StdioPipe,
-    StdioPipe
-  > = {
+  const isInherit = options.stdio === "inherit" || (Array.isArray(options.stdio) && options.stdio[0] === "inherit");
+
+  const fullOptions: SpawnOptions = {
     ...options,
     // Inherit any caller‑supplied stdio flags but force stdin to "ignore" so
     // the child never attempts to read from us (see lengthy comment above).
-    stdio: ["ignore", "pipe", "pipe"],
+    // EXCEPT when we explicitly want to inherit (interactive focus mode).
+    stdio: isInherit ? options.stdio : ["ignore", "pipe", "pipe"],
     // Launch the child in its *own* process group so that we can later send a
     // single signal to the entire group – this reliably terminates not only
     // the immediate child but also any grandchildren it might have spawned

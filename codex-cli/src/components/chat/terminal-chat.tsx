@@ -43,9 +43,11 @@ import CommandPaletteOverlay from "../command-palette-overlay.js";
 import SearchUrlOverlay from "../search-url-overlay.js";
 import EditorOverlay from "../editor-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
+import CommandHistoryOverlay from "../command-history-overlay.js";
 import { recipes } from "../../utils/recipes.js";
 import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
+import isEqual from "fast-deep-equal";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { useInterval } from "use-interval";
@@ -83,6 +85,8 @@ export default function TerminalChat({
     initialRollout?.items || [],
   );
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [indexingStatus, setIndexingStatus] = useState<{ indexing: boolean; current?: number; total?: number; file?: string }>({ indexing: false });
+  const [shellFocused, setShellFocused] = useState(false);
   const [allFiles, setAllFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
@@ -93,7 +97,6 @@ export default function TerminalChat({
   const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
   const fileAccessCounts = React.useRef<Record<string, number>>({});
   const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
-  const [bottomLock, setBottomLock] = useState(true);
 
   useEffect(() => {
     // Fetch all files once on mount to avoid blocking UI during chat
@@ -126,7 +129,7 @@ export default function TerminalChat({
       renderedPartialData.content !== partialDataRef.current.content ||
       renderedPartialData.reasoning !== partialDataRef.current.reasoning ||
       renderedPartialData.activeToolName !== partialDataRef.current.activeToolName ||
-      renderedPartialData.activeToolArguments !== partialDataRef.current.activeToolArguments ||
+      !isEqual(renderedPartialData.activeToolArguments, partialDataRef.current.activeToolArguments) ||
       renderedPartialData.activeBlockType !== partialDataRef.current.activeBlockType
     ) {
       setRenderedPartialData({ ...partialDataRef.current });
@@ -162,7 +165,7 @@ export default function TerminalChat({
     useConfirmation();
 
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "editor"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "editor" | "commands"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -246,7 +249,7 @@ export default function TerminalChat({
 
   // Keep a single AgentLoop instance alive across renders;
   // recreate only when model/instructions/approvalPolicy/config change.
-  const agentRef = React.useRef<AgentLoop>();
+  const agentRef = React.useRef<AgentLoop | undefined>(undefined);
   const [, forceUpdate] = React.useReducer((c) => c + 1, 0); // trigger re‑render
 
   // ────────────────────────────────────────────────────────────────
@@ -284,6 +287,12 @@ export default function TerminalChat({
       },
       onTasksUpdate: (newTasks) => {
         setTasks(newTasks);
+      },
+      onIndexingStatus: (status) => {
+        setIndexingStatus(status);
+      },
+      onShellFocus: (isFocused) => {
+        setShellFocused(isFocused);
       },
       onFileAccess: (path) => {
         setLastFileAccess(path);
@@ -361,12 +370,14 @@ export default function TerminalChat({
             try {
               const content = JSON.parse(item.content as string);
               if (content.streaming) {
-                const existingIndex = prev.findLastIndex(
-                  (i) =>
-                    i.role === "tool" &&
-                    "tool_call_id" in i &&
-                    i.tool_call_id === item.tool_call_id,
-                );
+                let existingIndex = -1;
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  const itemAt = prev[i];
+                  if (itemAt?.role === "tool" && "tool_call_id" in itemAt && itemAt.tool_call_id === item.tool_call_id) {
+                    existingIndex = i;
+                    break;
+                  }
+                }
                 if (existingIndex !== -1) {
                   const updated = [...prev];
                   updated[existingIndex] = item;
@@ -388,12 +399,14 @@ export default function TerminalChat({
             try {
               const content = JSON.parse(item.content as string);
               if (content.streaming) {
-                const existingIndex = prev.findLastIndex(
-                  (i) =>
-                    i.role === "tool" &&
-                    "tool_call_id" in i &&
-                    i.tool_call_id === item.tool_call_id,
-                );
+                let existingIndex = -1;
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  const itemAt = prev[i];
+                  if (itemAt?.role === "tool" && "tool_call_id" in itemAt && itemAt.tool_call_id === item.tool_call_id) {
+                    existingIndex = i;
+                    break;
+                  }
+                }
                 if (existingIndex !== -1) {
                   const updated = [...prev];
                   updated[existingIndex] = item;
@@ -540,12 +553,6 @@ export default function TerminalChat({
     });
     batchesRef.current = stabilized;
 
-    // Performance: Windowing
-    // We only pass the last 30 batches to the live rendering tree.
-    if (stabilized.length > 30) {
-      return stabilized.slice(-30);
-    }
-
     return stabilized;
   }, [items]);
 
@@ -650,15 +657,6 @@ export default function TerminalChat({
           isNew={Boolean(items.length === 0)}
           setPrevItems={setPrevItems}
           confirmationPrompt={confirmationPrompt}
-          submitConfirmation={(
-            decision: ReviewDecision,
-            customDenyMessage?: string,
-          ) =>
-            submitConfirmation({
-              decision,
-              customDenyMessage,
-            })
-          }
           openOverlay={() => setOverlayMode("history")}
           openHistorySelectOverlay={() => setOverlayMode("history-select")}
           openModelOverlay={() => setOverlayMode("model")}
@@ -668,12 +666,14 @@ export default function TerminalChat({
                       openConfigOverlay={() => setOverlayMode("config")}
                                 openPromptOverlay={() => setOverlayMode("prompt")}
                                 openPromptsOverlay={() => setOverlayMode("prompts")}
-                                openRecipesOverlay={() => setOverlayMode("recipes")}
-                                openCommandPalette={() => setOverlayMode("palette")}
-                                openThemeOverlay={() => setOverlayMode("theme")}
-                                onUndo={handleUndo}
-                                onRefresh={handleRefresh}
-                                onPin={(path) => {            setConfig((prev) => ({
+                                          openRecipesOverlay={() => setOverlayMode("recipes")}
+                                          openCommandPalette={() => setOverlayMode("palette")}
+                                          openCommandHistory={() => setOverlayMode("commands")}
+                                          openThemeOverlay={() => setOverlayMode("theme")}
+                                          onUndo={handleUndo}
+                                          onRefresh={handleRefresh}
+                                          onShellFocus={setShellFocused}
+                                          onPin={(path) => {            setConfig((prev) => ({
               ...prev,
               pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
             }));
@@ -758,7 +758,6 @@ export default function TerminalChat({
             }
             return {};
           }}
-          allowAlwaysPatch={config.allowAlwaysPatch}
           awaitingContinueConfirmation={awaitingContinueConfirmation}
           theme={activeTheme}
           allFiles={allFiles}
@@ -767,21 +766,20 @@ export default function TerminalChat({
           onPopQueuedInput={popQueuedInput}
           contextLeftPercent={contextLeftPercent}
           config={config}
+          isShellFocused={shellFocused}
         />
       )}
 
       {agent && (
         <TerminalStatusBar
-          model={model}
-          provider={config.provider || "openai"}
           contextLeftPercent={contextLeftPercent}
           contextHistory={contextHistory}
           tokenBreakdown={calculateTokenBreakdown(items)}
           sessionId={agent.sessionId}
           approvalPolicy={approvalPolicy}
           theme={activeTheme}
-          queuedPromptsCount={promptQueue.length}
           queuedInputLength={queuedInputText.length}
+          indexingStatus={indexingStatus}
         />
       )}
         {overlayMode === "history" && (
@@ -1134,6 +1132,20 @@ export default function TerminalChat({
 
         {overlayMode === "memory" && (
           <MemoryOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
+        )}
+        {overlayMode === "commands" && (
+          <CommandHistoryOverlay
+            items={items}
+            onSelect={(cmd) => {
+              // We'll use a hack to set the input by passing it to TerminalChatInput via a ref or a shared state.
+              // For now, let's just use the promptQueue or similar mechanism, or just set overlay to none and hope the user knows.
+              // Actually, we should probably add a way to set the input value in TerminalChat.
+              setInitialPrompt(cmd); // This will populate the input on next render if we handle it in TerminalChatInput
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
         )}
     </Box>
   );

@@ -1,8 +1,7 @@
-import { Box, Text, useInput } from "ink";
 import React from "react";
-// @ts-expect-error select.js is JavaScript and has no types
-import { Select } from "./vendor/ink-select/select.js";
-import { recipes, type Recipe } from "../utils/recipes.js";
+import { Box, Text, useInput } from "ink";
+import SelectInput from "./select-input/select-input.js";
+import { recipes } from "../utils/recipes.js";
 import type { Theme } from "../utils/theme.js";
 
 export default function RecipesOverlay({
@@ -10,19 +9,25 @@ export default function RecipesOverlay({
   onExit,
   theme,
 }: {
-  onSelect: (recipe: Recipe) => void;
+  onSelect: (recipe: any) => void;
   onExit: () => void;
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) {
-      onExit();
-    }
+    if (key.escape) onExit();
   });
 
-  const options = recipes.map((r) => ({
-    label: `${r.name.toUpperCase().padEnd(20)} │ ${r.description}`,
+  const handleSelect = (item: any) => {
+    const recipe = recipes.find(r => r.name === item.value);
+    if (recipe) {
+      onSelect(recipe);
+    }
+  };
+
+  const options = recipes.map(r => ({
+    label: r.name.toUpperCase(),
     value: r.name,
+    description: r.description
   }));
 
   return (
@@ -34,23 +39,22 @@ export default function RecipesOverlay({
       borderTop={false}
       borderBottom={false}
       borderLeftColor={theme.highlight}
-      width={100}
+      width={80}
       marginY={1}
     >
-      <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> RECIPES </Text>
-        <Text color={theme.highlight} bold>SELECT PROMPT TEMPLATE</Text>
+      <Box gap={1} marginBottom={1}>
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> RECIPES </Text>
+        </Box>
+        <Text color={theme.highlight} bold>SELECT A PROMPT TEMPLATE</Text>
       </Box>
 
-      <Box paddingX={1} marginBottom={1}>
-        <Select
-          options={options}
-          onChange={(value: string) => {
-            const selected = recipes.find((r) => r.name === value);
-            if (selected) {
-              onSelect(selected);
-            }
-          }}
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+        <SelectInput
+          items={options}
+          onSelect={handleSelect}
+          theme={theme}
+          isFocused={true}
         />
       </Box>
 
@@ -64,9 +68,7 @@ export default function RecipesOverlay({
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>
-          ↑↓ navigate │ enter apply │ esc close
-        </Text>
+        <Text dimColor italic>↑↓ navigate │ enter run │ esc close</Text>
       </Box>
     </Box>
   );

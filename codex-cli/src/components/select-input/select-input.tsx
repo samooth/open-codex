@@ -80,7 +80,7 @@ function SelectInput<V>({
   onSelect,
   onHighlight,
   theme,
-}: Props<V>): JSX.Element {
+}: Props<V>): React.ReactElement {
   const hasLimit =
     typeof customLimit === "number" && items.length > customLimit;
   const limit = hasLimit ? Math.min(customLimit, items.length) : items.length;

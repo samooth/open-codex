@@ -1,86 +1,46 @@
-import SelectInput from "./select-input/select-input.js";
-import TextInput from "./vendor/ink-text-input.js";
+import React, { useState, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
-import React, { useState } from "react";
+import TextInput from "./vendor/ink-text-input.js";
+import SelectInput from "./select-input/select-input.js";
 import type { Theme } from "../utils/theme.js";
+import { useTerminalSizeContext } from "../contexts/terminal-size-context.js";
 
-export type TypeaheadItem = { label: string; value: string };
-
-type Props = {
+type Props<T> = {
   title: string;
-  description?: React.ReactNode;
-  initialItems: Array<TypeaheadItem>;
-  currentValue?: string;
-  limit?: number;
-  onSelect: (value: string) => void;
+  items: Array<{ label: string; value: T; description?: string }>;
+  onSelect: (value: T) => void;
   onExit: () => void;
   theme: Theme;
 };
 
-/**
- * Generic overlay that combines a TextInput with a filtered SelectInput.
- * It is intentionally dependency‑free so it can be re‑used by multiple
- * overlays (model picker, command picker, …).
- */
-export default function TypeaheadOverlay({
+export default function TypeaheadOverlay<T>({
   title,
-  description,
-  initialItems,
-  currentValue,
-  limit = 10,
+  items,
   onSelect,
   onExit,
   theme,
-}: Props): JSX.Element {
-  const [value, setValue] = useState("");
-  const [items, setItems] = useState<Array<TypeaheadItem>>(initialItems);
+}: Props<T>) {
+  const [query, setQuery] = useState("");
+  const { columns } = useTerminalSizeContext();
 
-  // Keep internal items list in sync when the caller provides new options
-  // (e.g. ModelOverlay fetches models asynchronously).
-  React.useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
+  const filteredItems = useMemo(() => {
+    const q = query.toLowerCase();
+    if (!q) return items;
+    return items.filter(item => 
+      item.label.toLowerCase().includes(q) || 
+      (item.description && item.description.toLowerCase().includes(q))
+    );
+  }, [items, query]);
 
-  /* ------------------------------------------------------------------ */
-  /* Exit on ESC                                                         */
-  /* ------------------------------------------------------------------ */
   useInput((_input, key) => {
     if (key.escape) {
       onExit();
     }
-  });
+  }, { isActive: true });
 
-  /* ------------------------------------------------------------------ */
-  /* Filtering & Ranking                                                 */
-  /* ------------------------------------------------------------------ */
-  const q = value.toLowerCase();
-  const filtered =
-    q.length === 0
-      ? items
-      : items.filter((i) => i.label.toLowerCase().includes(q));
-
-  const ranked = filtered.sort((a, b) => {
-    if (a.value === currentValue) {
-      return -1;
-    }
-    if (b.value === currentValue) {
-      return 1;
-    }
-
-    if (q.length === 0) {
-      return 0;
-    }
-
-    const ia = a.label.toLowerCase().indexOf(q);
-    const ib = b.label.toLowerCase().indexOf(q);
-    if (ia !== ib) {
-      return ia - ib;
-    }
-    return a.label.localeCompare(b.label);
-  });
-
-  const selectItems = ranked;
-  const initialIndex = selectItems.findIndex((i) => i.value === currentValue);
+  const handleSelect = (item: { value: T }) => {
+    onSelect(item.value);
+  };
 
   return (
     <Box
@@ -91,46 +51,35 @@ export default function TypeaheadOverlay({
       borderTop={false}
       borderBottom={false}
       borderLeftColor={theme.highlight}
-      width={80}
+      width={Math.min(columns - 4, 100)}
       marginY={1}
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> {title.toUpperCase()} </Text>
-        {description && <Box paddingLeft={1}>{description}</Box>}
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> {title.toUpperCase()} </Text>
+        </Box>
+        <Text color={theme.highlight} bold>SEARCH AND SELECT</Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>SEARCH: </Text>
+          <Text color={theme.highlight} bold>FIND: </Text>
           <TextInput
-            value={value}
-            onChange={setValue}
-            onSubmit={(submitted) => {
-              if (selectItems.length === 0) {
-                const target = submitted.trim();
-                if (target) {
-                  onSelect(target);
-                } else {
-                  onExit();
-                }
-              }
-            }}
+            value={query}
+            onChange={setQuery}
+            placeholder="Type to filter..."
           />
         </Box>
         
-        {selectItems.length > 0 && (
+        {filteredItems.length > 0 ? (
           <SelectInput
-            limit={limit}
-            items={selectItems}
-            initialIndex={initialIndex === -1 ? 0 : initialIndex}
-            isFocused={true}
+            items={filteredItems}
+            onSelect={handleSelect}
             theme={theme}
-            onSelect={(item: TypeaheadItem) => {
-              if (item.value) {
-                onSelect(item.value);
-              }
-            }}
+            isFocused={true}
           />
+        ) : (
+          <Text color={theme.warning} italic>No matches found.</Text>
         )}
       </Box>
 
@@ -144,7 +93,7 @@ export default function TypeaheadOverlay({
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>↑↓ navigate │ enter confirm │ esc close</Text>
+        <Text dimColor italic>↑↓ navigate │ enter execute │ esc close</Text>
       </Box>
     </Box>
   );

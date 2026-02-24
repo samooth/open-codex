@@ -1,4 +1,4 @@
-import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";

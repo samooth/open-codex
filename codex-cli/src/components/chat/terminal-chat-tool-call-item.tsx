@@ -1,6 +1,7 @@
 import { SemanticDiffLine, SemanticDiffPair } from "./semantic-diff.js";
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { parseApplyPatch } from "../../parse-apply-patch";
+import type { ApplyPatchCommand } from "../../approvals.js";
 import { shortenPath } from "../../utils/short-path";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import type { Theme } from "../../utils/theme";
@@ -19,7 +20,7 @@ export function TerminalChatToolCallCommand({
   theme: Theme;
   isActive?: boolean;
 }): React.ReactElement {
-  const { rows, columns } = useTerminalSize();
+  useTerminalSize();
   const isPatch =
     !!applyPatch ||
     commandForDisplay.includes("apply_patch") ||
@@ -43,7 +44,7 @@ export function TerminalChatToolCallCommand({
     return null;
   }, [applyPatch, commandForDisplay]);
 
-  useInput((input, key) => {
+  useInput((input, _key) => {
     if (!isActive) return;
 
     if (input === "e") {
@@ -52,9 +53,9 @@ export function TerminalChatToolCallCommand({
     }
     
     if (isPatch && ops && ops.length > 0) {
-      if (key.upArrow) {
+      if (_key.upArrow) {
         setSelectedOpIndex(prev => (prev - 1 + ops.length) % ops.length);
-      } else if (key.downArrow) {
+      } else if (_key.downArrow) {
         setSelectedOpIndex(prev => (prev + 1) % ops.length);
       } else if (input === "c") {
         setCollapsedOps(prev => {
@@ -70,12 +71,6 @@ export function TerminalChatToolCallCommand({
         const op = ops[selectedOpIndex];
         if (op && (op.type === "update" || op.type === "create")) {
           const path = op.path;
-          // For now, toggle the WHOLE file if it's not expanded to hunks,
-          // OR if we want to implement hunk-level toggling we need another cursor.
-          // Let's implement hunk toggling if the file has hunks.
-          // Actually, let's keep it simple: Space toggles the CURRENT selected file.
-          // If we want HUNKS, we need a 2D cursor.
-          // For MVP: Toggle all hunks of this file.
           setExcludedHunks(prev => {
             const next = { ...prev };
             const currentExcl = next[path] || [];
@@ -115,19 +110,21 @@ export function TerminalChatToolCallCommand({
           borderLeftColor={theme.accent}
         >
           <Box gap={1} marginBottom={1}>
-            <Text bold color={theme.accent} inverse paddingX={1}>
-              {isEditFile ? " EDIT FILE " : " APPLY PATCH "}
-            </Text>
-            <Text dimColor italic size={0.8}> (↑↓ navigate │ space toggle │ 'e' {isExpandedAll ? 'collapse' : 'expand'})</Text>
+            <Box backgroundColor={theme.accent as any} paddingX={1}>
+              <Text bold color="black">
+                {isEditFile ? " EDIT FILE " : " APPLY PATCH "}
+              </Text>
+            </Box>
+            <Text dimColor italic> (↑↓ navigate │ space toggle │ 'e' {isExpandedAll ? 'collapse' : 'expand'})</Text>
           </Box>
           
           {ops.length > 1 && (
             <Box marginBottom={1}>
-              <Text dimColor italic size={0.8}> [ ↑↓ navigate │ 'c' toggle file ]</Text>
+              <Text dimColor italic> [ ↑↓ navigate │ 'c' toggle file ]</Text>
             </Box>
           )}
 
-          {ops.map((op, i) => {
+          {ops.map((op: any, i) => {
             if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) return null;
 
             const isSelected = i === selectedOpIndex;
@@ -137,7 +134,7 @@ export function TerminalChatToolCallCommand({
 
             const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
               .split("\n")
-              .filter(l => l.trim().length > 0 || op.type === "create");
+              .filter((l: string) => l.trim().length > 0 || op.type === "create");
             
             const availableLines = isCollapsed ? 0 : Math.max(1, maxTotalLines - totalLinesRendered - 2); 
             const showTruncated = !isCollapsed && lines.length > availableLines;
@@ -270,10 +267,12 @@ export function TerminalChatToolCallCommand({
       borderLeftColor={theme.warning}
     >
       <Box gap={1} marginBottom={1}>
-        <Text bold color={theme.warning} inverse paddingX={1}>
-          SHELL COMMAND
-        </Text>
-        <Text dimColor italic size={0.8}> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
+        <Box backgroundColor={theme.warning as any} paddingX={1}>
+          <Text bold color="black">
+            SHELL COMMAND
+          </Text>
+        </Box>
+        <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
       </Box>
       <Box paddingLeft={2} flexDirection="column">
         <Text wrap="wrap">

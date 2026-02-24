@@ -2,38 +2,39 @@ import type { ApprovalPolicy } from "../../approvals.js";
 import type { Theme } from "../../utils/theme.js";
 import type { TokenBreakdown } from "../../utils/approximate-tokens-used.js";
 import { Sparkline } from "./sparkline.js";
+import { useTerminalSizeContext } from "../../contexts/terminal-size-context.js";
+import Spinner from "../vendor/ink-spinner.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
 type Props = {
-  model: string;
-  provider: string;
   contextLeftPercent: number;
   contextHistory: number[];
   tokenBreakdown: TokenBreakdown;
   sessionId: string;
   approvalPolicy: ApprovalPolicy;
   theme: Theme;
-  queuedPromptsCount: number;
   queuedInputLength: number;
+  indexingStatus?: { indexing: boolean; current?: number; total?: number; file?: string };
 };
 
 const TerminalStatusBar: React.FC<Props> = ({
-  model,
-  provider,
   contextLeftPercent,
   contextHistory,
   tokenBreakdown,
   sessionId,
   approvalPolicy,
   theme,
-  queuedPromptsCount,
   queuedInputLength,
+  indexingStatus,
 }) => {
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const { columns } = useTerminalSizeContext();
   const shortSessionId = sessionId.slice(0, 8);
   
   const usedPercent = 100 - contextLeftPercent;
+  const isNarrow = columns < 80;
+  const isUltraNarrow = columns < 60;
 
   useInput((_input, key) => {
     if (key.ctrl && _input === "b") {
@@ -69,15 +70,32 @@ const TerminalStatusBar: React.FC<Props> = ({
     >
       <Box flexDirection="row" justifyContent="space-between">
         <Box gap={1}>
-          <Text color={theme.accent} bold>ID:</Text>
-          <Text color={theme.statusBarSession}>{shortSessionId}</Text>
-          {separator}
-          <Text color={theme.accent} bold>MODE:</Text>
-          <Text color={getPolicyColor(approvalPolicy)}>{approvalPolicy.toUpperCase()}</Text>
-          {queuedInputLength > 0 && (
+          {!isUltraNarrow && (
+            <>
+              <Text color={theme.accent} bold>ID:</Text>
+              <Text color={theme.statusBarSession}>{shortSessionId}</Text>
+              {separator}
+            </>
+          )}
+          <Text color={theme.accent} bold>{isNarrow ? "M:" : "MODE:"}</Text>
+          <Text color={getPolicyColor(approvalPolicy)}>{isNarrow ? approvalPolicy.slice(0, 1).toUpperCase() : approvalPolicy.toUpperCase()}</Text>
+          
+          {indexingStatus?.indexing && (
             <>
               {separator}
-              <Text color="yellow" bold>QUEUED: {queuedInputLength} chars</Text>
+              <Spinner type="dots" color={theme.highlight} />
+              {!isNarrow && (
+                <Text color={theme.dim}>
+                  INDEXING{indexingStatus.current ? ` [${indexingStatus.current}/${indexingStatus.total}]` : ""}
+                </Text>
+              )}
+            </>
+          )}
+
+          {queuedInputLength > 0 && !isNarrow && (
+            <>
+              {separator}
+              <Text color="yellow" bold>QUEUED: {queuedInputLength}c</Text>
             </>
           )}
         </Box>
@@ -85,21 +103,27 @@ const TerminalStatusBar: React.FC<Props> = ({
         <Box gap={1}>
           {showBreakdown ? (
             <Box gap={1}>
-              <Text color={theme.assistant}>S:{tokenBreakdown.system}</Text>
-              <Text color={theme.user}>H:{tokenBreakdown.history}</Text>
-              <Text color={theme.highlight}>T:{tokenBreakdown.tools}</Text>
+              <Text color={theme.assistant}>{isNarrow ? "S" : "SYS"}:{tokenBreakdown.system}</Text>
+              <Text color={theme.user}>{isNarrow ? "H" : "HIST"}:{tokenBreakdown.history}</Text>
+              <Text color={theme.highlight}>{isNarrow ? "T" : "TOOL"}:{tokenBreakdown.tools}</Text>
+              {separator}
+              <Text color={theme.success} bold>{isNarrow ? "Σ" : "TOTAL"}:{tokenBreakdown.total}</Text>
             </Box>
           ) : (
             <Box gap={1}>
-              <Text color={theme.dim}>CONTEXT</Text>
-              <Sparkline data={contextHistory} color={getContextColor(usedPercent)} />
+              {!isNarrow && <Text color={theme.dim}>CONTEXT</Text>}
+              {!isUltraNarrow && <Sparkline data={contextHistory} color={getContextColor(usedPercent)} />}
               <Text color={getContextColor(usedPercent)}>
                 {Math.round(usedPercent)}%
               </Text>
             </Box>
           )}
-          {separator}
-          <Text color={theme.dim}>ctrl+h help</Text>
+          {!isNarrow && (
+            <>
+              {separator}
+              <Text color={theme.dim}>ctrl+b info</Text>
+            </>
+          )}
         </Box>
       </Box>
     </Box>

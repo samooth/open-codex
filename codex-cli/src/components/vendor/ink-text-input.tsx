@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Text, useInput } from "ink";
 import chalk, { type ForegroundColorName } from "chalk";
-import type { Except } from "type-fest";
 
 export type TextInputProps = {
   /**
@@ -401,7 +400,7 @@ function TextInput({
   return (
     <Text>
       {placeholder
-        ? value.length > 0
+        ? (originalValue || "").length > 0
           ? renderedValue
           : renderedPlaceholder
         : renderedValue}
@@ -413,7 +412,7 @@ export default TextInput;
 
 type UncontrolledProps = {
   readonly initialValue?: string;
-} & Except<TextInputProps, "value" | "onChange">;
+} & Omit<TextInputProps, "value" | "onChange">;
 
 export function UncontrolledTextInput({
   initialValue = "",

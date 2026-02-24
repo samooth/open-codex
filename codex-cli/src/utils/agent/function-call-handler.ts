@@ -1,4 +1,4 @@
-import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import { appendFileSync } from "fs";
 import { parseToolCallArguments } from "../parsers.js";
 import { handleExecCommand } from "./handle-exec-command.js";
@@ -16,6 +16,7 @@ export async function handleFunctionCall(
   toolCallHistory: Map<string, { count: number; lastError?: string }>,
   _onLoading: (loading: boolean) => void,
   onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void,
+  isFocused?: boolean,
 ): Promise<Array<ChatCompletionMessageParam>> {
   if (ctx.execAbortController?.signal.aborted) {
     return [];
@@ -158,6 +159,7 @@ export async function handleFunctionCall(
             }),
           });
         },
+        isFocused,
       );
       outputText = result.outputText;
       metadata = result.metadata;

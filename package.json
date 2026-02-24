@@ -1,11 +1,12 @@
 { 
   "name": "Open Codex",
-  "version": "0.3.22",
+  "version": "0.3.23",
   "description": "Tools for repo-wide maintenance.",
   "scripts": {
     "release": "cd codex-cli && npm run release",
     "format": "prettier --check *.json *.md .github/workflows/*.yml",
-    "format:fix": "prettier --write *.json *.md .github/workflows/*.yml"
+    "format:fix": "prettier --write *.json *.md .github/workflows/*.yml",
+    "typecheck": "tsc -p codex-cli/tsconfig.json --noEmit"
   },
   "devDependencies": {
     "prettier": "^3.5.3"

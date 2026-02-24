@@ -1,9 +1,7 @@
+import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import React, { useEffect, useState, useMemo } from "react";
-// @ts-expect-error select.js is JavaScript and has no types
-import { Select } from "./vendor/ink-select/select.js";
-import TextInput from "./vendor/ink-text-input.js";
-import { loadRollouts, loadRollout, renameSession } from "../utils/storage/save-rollout.js";
+import SelectInput from "./select-input/select-input.js";
+import { loadRollouts, loadRollout } from "../utils/storage/save-rollout.js";
 import type { Theme } from "../utils/theme.js";
 
 export default function HistorySelectOverlay({
@@ -11,110 +9,35 @@ export default function HistorySelectOverlay({
   onExit,
   theme,
 }: {
-  onSelect: (rollout: any) => void;
+  onSelect: (rollout: { session: any; items: any[] }) => void;
   onExit: () => void;
   theme: Theme;
 }) {
-  const [rollouts, setRollouts] = useState<any[]>([]);
+  const [rollouts, setRollouts] = useState<Array<{ path: string; session: any }>>([]);
   const [loading, setLoading] = useState(true);
-  const [restoring, setRestoring] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [isSearching, setIsFiltering] = useState(false);
-  
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
-    loadRollouts().then((loaded) => {
-      setRollouts(loaded);
+    loadRollouts().then(items => {
+      setRollouts(items);
       setLoading(false);
     });
   }, []);
 
-  useInput((input, key) => {
-    if (key.escape) {
-      if (renamingId) {
-        setRenamingId(null);
-      } else if (isSearching) {
-        setIsFiltering(false);
-      } else {
-        onExit();
-      }
-    }
-    if (input === "/" && !isSearching && !renamingId) {
-      setIsFiltering(true);
-    }
-    if (input === "r" && !isSearching && !renamingId && filteredRollouts.length > 0) {
-      const selected = filteredRollouts[selectedIndex];
-      if (selected) {
-        setRenamingId(selected.session.id);
-        setNewName(selected.session.summary || "");
-      }
-    }
-    if (key.upArrow && !isSearching && !renamingId) {
-      setSelectedIndex(prev => (prev - 1 + filteredRollouts.length) % filteredRollouts.length);
-    }
-    if (key.downArrow && !isSearching && !renamingId) {
-      setSelectedIndex(prev => (prev + 1) % filteredRollouts.length);
-    }
+  useInput((_input, key) => {
+    if (key.escape) onExit();
   });
 
-  const filteredRollouts = useMemo(() => {
-    if (!filter) return rollouts;
-    const f = filter.toLowerCase();
-    return rollouts.filter((r) => {
-      const summary = (r.session.summary || "").toLowerCase();
-      const date = new Date(r.session.timestamp).toLocaleString().toLowerCase();
-      const model = (r.session.model || "").toLowerCase();
-      return summary.includes(f) || date.includes(f) || model.includes(f);
-    });
-  }, [rollouts, filter]);
+  const handleSelect = async (item: any) => {
+    const data = await loadRollout(item.value);
+    if (data) {
+      onSelect(data);
+    }
+  };
 
-  if (loading || restoring) {
-    return (
-      <Box paddingLeft={1} borderStyle="bold" borderRight={false} borderTop={false} borderBottom={false} borderLeftColor={theme.highlight} marginY={1}>
-        <Text italic color={theme.dim}>
-          {restoring ? "RESTORING SESSION..." : "LOADING SESSION HISTORY..."}
-        </Text>
-      </Box>
-    );
-  }
-
-  if (rollouts.length === 0) {
-    return (
-      <Box
-        flexDirection="column"
-        paddingLeft={1}
-        borderStyle="bold"
-        borderRight={false}
-        borderTop={false}
-        borderBottom={false}
-        borderLeftColor={theme.error}
-        width={80}
-        marginY={1}
-      >
-        <Box marginBottom={1} gap={1}>
-          <Text bold color={theme.error} inverse paddingX={1}> EMPTY </Text>
-          <Text bold color={theme.error}>NO SAVED SESSIONS FOUND</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Press esc to exit</Text>
-        </Box>
-      </Box>
-    );
-  }
-
-  const options = filteredRollouts.map((r, i) => {
-    const date = new Date(r.session.timestamp).toLocaleString();
-    const summary = r.session.summary || "No prompt summary available";
-    const model = r.session.model ? `[${r.session.model}] ` : "";
-
-    return {
-      label: `${date} - ${model}${summary}`,
-      value: i.toString(),
-    };
-  });
+  const options = rollouts.map(r => ({
+    label: `${new Date(r.session.timestamp).toLocaleString()} - ${r.session.model} - ${r.session.summary || 'No summary'}`,
+    value: r.path
+  }));
 
   return (
     <Box
@@ -128,76 +51,47 @@ export default function HistorySelectOverlay({
       width={100}
       marginY={1}
     >
-      <Box marginBottom={1} justifyContent="space-between" gap={1} paddingX={1}>
-        <Box gap={1}>
-          <Text bold color={theme.highlight} inverse paddingX={1}> RESTORE </Text>
-          <Text bold color={theme.highlight}>PAST SESSIONS ({filteredRollouts.length})</Text>
+      {loading ? (
+        <Text italic color={theme.dim}>Loading sessions...</Text>
+      ) : rollouts.length === 0 ? (
+        <Box gap={1} marginBottom={1}>
+          <Box backgroundColor={theme.error as any} paddingX={1}>
+            <Text bold color="black"> EMPTY </Text>
+          </Box>
+          <Text color={theme.error} bold>NO SAVED SESSIONS FOUND</Text>
         </Box>
-        {isSearching ? (
-          <Box gap={1}>
-            <Text color={theme.highlight} bold>SEARCH: </Text>
-            <TextInput
-              value={filter}
-              onChange={setFilter}
-              onSubmit={() => setIsFiltering(false)}
+      ) : (
+        <>
+          <Box gap={1} marginBottom={1}>
+            <Box backgroundColor={theme.highlight as any} paddingX={1}>
+              <Text bold color="black"> RESTORE </Text>
+            </Box>
+            <Text color={theme.highlight} bold>SELECT A PAST SESSION</Text>
+          </Box>
+
+          <Box flexDirection="column" paddingX={1} marginBottom={1}>
+            <SelectInput
+              items={options}
+              onSelect={handleSelect}
+              theme={theme}
+              isFocused={true}
             />
           </Box>
-        ) : (
-          <Text dimColor>Press <Text bold color={theme.highlight}>/</Text> to filter</Text>
-        )}
-      </Box>
 
-      <Box paddingX={1} flexDirection="column" marginBottom={1}>
-        {renamingId ? (
-          <Box gap={1}>
-            <Text color={theme.warning} bold>NEW NAME: </Text>
-            <TextInput
-              value={newName}
-              onChange={setNewName}
-              onSubmit={async () => {
-                await renameSession(renamingId, newName);
-                const updated = await loadRollouts();
-                setRollouts(updated);
-                setRenamingId(null);
-              }}
-            />
+          <Box 
+            borderStyle="single" 
+            borderRight={false} 
+            borderTop={true} 
+            borderBottom={false} 
+            borderLeft={false}
+            borderTopColor={theme.divider}
+            paddingX={1}
+            paddingTop={1}
+          >
+            <Text dimColor italic>↑↓ navigate │ enter restore │ esc close</Text>
           </Box>
-        ) : options.length > 0 ? (
-          <Select
-            options={options}
-            focus={!isSearching}
-            onChange={async (value: string) => {
-              const meta = filteredRollouts[parseInt(value)];
-              if (meta) {
-                setRestoring(true);
-                const fullRollout = await loadRollout(meta.path);
-                if (fullRollout) {
-                  onSelect(fullRollout);
-                } else {
-                  setRestoring(false);
-                }
-              }
-            }}
-          />
-        ) : (
-          <Text color={theme.warning} italic>No sessions match your search.</Text>
-        )}
-      </Box>
-
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
-        borderLeft={false}
-        borderTopColor={theme.divider}
-        paddingX={1}
-        paddingTop={1}
-      >
-        <Text dimColor>
-          ↑↓ SELECT │ enter RESTORE │ r RENAME │ / FILTER │ esc CLOSE
-        </Text>
-      </Box>
+        </>
+      )}
     </Box>
   );
 }

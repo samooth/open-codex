@@ -27,6 +27,8 @@ export type AgentLoopParams = {
   onReset: () => void;
   onFileAccess?: (path: string) => void;
   onTasksUpdate?: (tasks: Task[]) => void;
+  onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
+  onShellFocus?: (isFocused: boolean) => void;
 
   /** Called when the command is not auto-approved to request explicit user review. */
   getCommandConfirmation: (
@@ -49,6 +51,7 @@ export interface AgentContext {
   onItem: (item: ChatCompletionMessageParam) => void;
   onFileAccess?: (path: string) => void;
   onTasksUpdate?: (tasks: Task[]) => void;
+  onShellFocus?: (isFocused: boolean) => void;
   oai: OpenAI;
   model: string;
   agent: any; // Add reference to AgentLoop

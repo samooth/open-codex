@@ -45,7 +45,7 @@ export default function ConfigOverlay({
   onEditEditorCommand,
   onExit,
   theme,
-}: Props): JSX.Element {
+}: Props): React.ReactElement {
   const items = [
     {
       label: `DRY RUN: ${dryRun ? "ENABLED" : "DISABLED"}`,
@@ -148,7 +148,9 @@ export default function ConfigOverlay({
       marginY={1}
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
-        <Text bold color={theme.highlight} inverse paddingX={1}> SETTINGS </Text>
+        <Box backgroundColor={theme.highlight as any} paddingX={1}>
+          <Text bold color="black"> SETTINGS </Text>
+        </Box>
         <Text color={theme.highlight} bold>CONFIGURATION DASHBOARD</Text>
       </Box>
 
@@ -156,7 +158,7 @@ export default function ConfigOverlay({
         <SelectInput
           items={items}
           onSelect={handleSelect}
-          onHighlight={handleHighlight}
+          onHighlight={handleHighlight as any}
           theme={theme}
           isFocused={true}
         />

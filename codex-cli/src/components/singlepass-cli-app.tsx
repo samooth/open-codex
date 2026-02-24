@@ -338,7 +338,7 @@ export function SinglePassApp({
   rootPath,
   onExit,
   theme,
-}: SinglePassAppProps): JSX.Element {
+}: SinglePassAppProps): React.ReactElement {
   const app = useApp();
   const [state, setState] = useState<
     | "init"

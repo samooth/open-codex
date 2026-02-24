@@ -33,11 +33,12 @@ if (!(EventEmitter.prototype as any).ref) {
   (EventEmitter.prototype as any).unref = () => {};
 }
 
-import type { TypeaheadItem } from "../src/components/typeahead-overlay.js";
 import TypeaheadOverlay from "../src/components/typeahead-overlay.js";
 
 import { renderTui } from "./ui-test-helpers.js";
 import { themes } from "../src/utils/theme.js";
+
+type TypeaheadItem = { label: string; value: string; description?: string };
 
 describe("TypeaheadOverlay – scrolling capability", () => {
   it("passes the full item list to <SelectInput> so users can scroll beyond the visible limit", async () => {
@@ -52,12 +53,11 @@ describe("TypeaheadOverlay – scrolling capability", () => {
     const { flush, cleanup } = renderTui(
       React.createElement(TypeaheadOverlay, {
         title: "Test",
-        initialItems: ITEMS,
-        limit: 5, // visible rows – should *not* limit the underlying list
+        items: ITEMS,
         onSelect: () => {},
         onExit: () => {},
         theme: themes["default"]!,
-      }),
+      } as any),
     );
 
     await flush(); // allow first render to complete

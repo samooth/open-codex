@@ -92,6 +92,7 @@ export async function handleExecCommand(
   ) => Promise<CommandConfirmation>,
   abortSignal?: AbortSignal,
   onOutput?: (chunk: string) => void,
+  isFocused?: boolean,
 ): Promise<HandleExecCommandResult> {
   let { cmd: command } = args;
 
@@ -119,6 +120,7 @@ export async function handleExecCommand(
       /* runInSandbox */ false,
       abortSignal,
       onOutput,
+      isFocused,
     ).then(convertSummaryToResult);
   }
 
@@ -175,6 +177,7 @@ export async function handleExecCommand(
     runInSandbox,
     abortSignal,
     onOutput,
+    isFocused,
   );
   // If the operation was aborted in the meantime, propagate the cancellation
   // upward by returning an empty (no‑op) result so that the agent loop will
@@ -218,6 +221,7 @@ export async function handleExecCommand(
         false,
         abortSignal,
         onOutput,
+        isFocused,
       );
       return convertSummaryToResult(summary);
     }
@@ -254,6 +258,7 @@ async function execCommand(
   runInSandbox: boolean,
   abortSignal?: AbortSignal,
   onOutput?: (chunk: string) => void,
+  isFocused?: boolean,
 ): Promise<ExecCommandSummary> {
   let { workdir } = execInput;
   if (!workdir) {
@@ -297,6 +302,7 @@ async function execCommand(
           await getSandbox(runInSandbox),
           abortSignal,
           onOutput,
+          isFocused,
         );
   const duration = Date.now() - start;
   const { stdout, stderr, exitCode } = execResult;

@@ -179,7 +179,9 @@ export function TerminalChatCommandReview({
         {mode === "select" ? (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Text bold color={theme.highlight} inverse paddingLeft={1} paddingRight={1}> PROMPT </Text>
+              <Box backgroundColor={theme.highlight as any} paddingX={1}>
+                <Text bold color="black"> PROMPT </Text>
+              </Box>
               <Text color={theme.highlight} bold>Allow command execution?</Text>
             </Box>
             <Box paddingLeft={2} paddingRight={2} flexDirection="column" gap={0}>
@@ -209,7 +211,9 @@ export function TerminalChatCommandReview({
         ) : (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Text bold color={theme.highlight} inverse paddingLeft={1} paddingRight={1}> FEEDBACK </Text>
+              <Box backgroundColor={theme.highlight as any} paddingX={1}>
+                <Text bold color="black"> FEEDBACK </Text>
+              </Box>
               <Text color={theme.highlight} bold>Give the model feedback (↵ to submit):</Text>
             </Box>
             <Box 

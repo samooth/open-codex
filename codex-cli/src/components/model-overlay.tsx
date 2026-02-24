@@ -1,133 +1,100 @@
+import React from "react";
+import { Box, Text, useInput } from "ink";
+import SelectInput from "./select-input/select-input.js";
+import type { Theme } from "../utils/theme.js";
 import type { AppConfig } from "../utils/config.js";
 
-import TypeaheadOverlay from "./typeahead-overlay.js";
-import {
-  getAvailableModels,
-  RECOMMENDED_MODELS,
-} from "../utils/model-utils.js";
-import { log, isLoggingEnabled } from "../utils/agent/log.js";
-import { Box, Text, useInput } from "ink";
-import React, { useEffect, useState } from "react";
-import type { Theme } from "../utils/theme.js";
+// Mapping models to their recommended uses
+const modelDescriptions: Record<string, string> = {
+  "o4-mini": "OpenAI - Fast, efficient, and great for common tasks.",
+  "o3": "OpenAI - High reasoning, best for complex logic and deep thinking.",
+  "claude-opus-4-6": "Anthropic - Balanced power and speed with high accuracy.",
+  "gemini-2.5-flash": "Google - Ultra-fast with a massive context window.",
+  "deepseek-chat": "DeepSeek - Versatile and optimized for developer efficiency.",
+};
 
-/**
- * Props for <ModelOverlay>.
- *
- * When `hasLastResponse` is true the user has already received at least one
- * assistant response in the current session which means switching models is no
- * longer supported – the overlay should therefore show an error and only allow
- * the user to close it.
- */
-type Props = {
+export default function ModelOverlay({
+  currentModel,
+  config,
+  hasLastResponse,
+  onSelect,
+  onExit,
+  theme,
+}: {
   currentModel: string;
   config: AppConfig;
   hasLastResponse: boolean;
   onSelect: (model: string) => void;
   onExit: () => void;
   theme: Theme;
-};
-
-export default function ModelOverlay({
-  currentModel,
-  hasLastResponse,
-  config,
-  onSelect,
-  onExit,
-  theme,
-}: Props): JSX.Element {
-  const [items, setItems] = useState<Array<{ label: string; value: string }>>(
-    [],
-  );
-
-  useEffect(() => {
-    (async () => {
-      if (isLoggingEnabled()) {
-        log(`[codex] ModelOverlay: fetching models for provider ${config.provider}`);
-      }
-      const models = await getAvailableModels(config);
-      if (isLoggingEnabled()) {
-        log(`[codex] ModelOverlay: received ${models.length} models`);
-      }
-
-      // Split the list into recommended and “other” models.
-      const recommended = RECOMMENDED_MODELS.filter((m) => models.includes(m));
-      const others = models.filter((m) => !recommended.includes(m));
-
-      const ordered = [...recommended, ...others.sort()];
-
-      const newItems = ordered.map((m) => ({
-        label: recommended.includes(m) ? `⭐ ${m}` : m,
-        value: m,
-      }));
-
-      if (newItems.length === 0) {
-        // Fallback: always include at least the current model
-        newItems.push({ label: `(current) ${currentModel}`, value: currentModel });
-      }
-
-      setItems(newItems);
-    })();
-  }, [config, currentModel]);
-
-  // Always register input handling so hooks are called consistently.
+}) {
   useInput((_input, key) => {
-    if (hasLastResponse && (key.escape || key.return)) {
-      onExit();
-    }
+    if (key.escape) onExit();
   });
 
-  if (hasLastResponse) {
-    return (
-      <Box
-        flexDirection="column"
-        paddingLeft={1}
-        borderStyle="bold"
-        borderRight={false}
-        borderTop={false}
-        borderBottom={false}
-        borderLeftColor={theme.error}
-        width={80}
-        marginY={1}
-      >
-        <Box paddingX={1} marginBottom={1} gap={1}>
-          <Text bold color={theme.error} inverse paddingX={1}> LOCKED </Text>
-          <Text bold color={theme.error}>UNABLE TO SWITCH MODEL</Text>
-        </Box>
-        <Box paddingX={1} marginBottom={1}>
-          <Text color={theme.dim}>
-            You can only pick a model before the assistant sends its first
-            response. To use a different model please start a new chat.
-          </Text>
-        </Box>
-        <Box 
-          borderStyle="single" 
-          borderRight={false} 
-          borderTop={true} 
-          borderBottom={false} 
-          borderLeft={false}
-          borderTopColor={theme.divider}
-          paddingX={1}
-          paddingTop={1}
-        >
-          <Text dimColor italic>press esc or enter to close</Text>
-        </Box>
-      </Box>
-    );
-  }
+  const providerModels = (config as any).providers?.[config.provider || "openai"]?.models || ["o4-mini", "o3"];
+  
+  const options = (providerModels as string[]).map((m: string) => ({
+    label: `${m === currentModel ? "❯ " : "  "}${m.toUpperCase()}`,
+    value: m,
+    description: modelDescriptions[m] || `${config.provider} model`
+  }));
+
+  const handleSelect = (item: any) => {
+    onSelect(item.value);
+  };
 
   return (
-    <TypeaheadOverlay
-      title="Switch model"
-      description={
-        <Text color={theme.dim}>
-          CURRENT MODEL: <Text color={theme.success} bold>{currentModel}</Text>
-        </Text>
-      }
-      initialItems={items}
-      currentValue={currentModel}
-      onSelect={onSelect}
-      onExit={onExit}
-      theme={theme}
-    />
+    <Box
+      flexDirection="column"
+      paddingLeft={1}
+      borderStyle="bold"
+      borderRight={false}
+      borderTop={false}
+      borderBottom={false}
+      borderLeftColor={theme.highlight}
+      width={80}
+      marginY={1}
+    >
+      {hasLastResponse ? (
+        <Box gap={1} marginBottom={1}>
+          <Box backgroundColor={theme.error as any} paddingX={1}>
+            <Text bold color="black"> LOCKED </Text>
+          </Box>
+          <Text color={theme.error} bold>FINISH CURRENT TURN TO SWITCH</Text>
+        </Box>
+      ) : (
+        <>
+          <Box gap={1} marginBottom={1}>
+            <Box backgroundColor={theme.highlight as any} paddingX={1}>
+              <Text bold color="black"> MODELS </Text>
+            </Box>
+            <Text color={theme.highlight} bold>SWITCH AI ENGINE</Text>
+          </Box>
+
+          <Box flexDirection="column" paddingX={1} marginBottom={1}>
+            <SelectInput
+              items={options}
+              onSelect={handleSelect}
+              theme={theme}
+              isFocused={true}
+            />
+          </Box>
+
+          <Box 
+            borderStyle="single" 
+            borderRight={false} 
+            borderTop={true} 
+            borderBottom={false} 
+            borderLeft={false}
+            borderTopColor={theme.divider}
+            paddingX={1}
+            paddingTop={1}
+          >
+            <Text dimColor italic>↑↓ navigate │ enter switch │ esc close</Text>
+          </Box>
+        </>
+      )}
+    </Box>
   );
 }

@@ -14,7 +14,7 @@ import type { CommandReviewDetails } from "../../utils/parsers";
 import { formatCommandForDisplay } from '../../format-command.js';
 import chalk, { type ForegroundColorName } from "chalk";
 import { Box, Text, useInput } from "ink";
-import { parse, setOptions } from "marked";
+import { parse } from "marked";
 import TerminalRenderer from "marked-terminal";
 import Spinner from "../vendor/ink-spinner.js";
 import { highlight as syntaxHighlight } from "cli-highlight";
@@ -27,8 +27,6 @@ import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.j
 import { fileURLToPath } from "node:url";
 
 import { TerminalImage } from "./terminal-image.js";
-import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
-import clipboard from "clipboardy";
 
 
 export function getCommandReviewDetails(
@@ -121,7 +119,7 @@ export const LiteMarkdown = React.memo(function LiteMarkdown({
               width="100%"
             >
               <Box justifyContent="space-between" marginBottom={0}>
-                <Text color={theme.accent} bold italic size={0.8}>{part.lang?.toUpperCase() || "CODE"}</Text>
+                <Text color={theme.accent} bold italic>{part.lang?.toUpperCase() || "CODE"}</Text>
               </Box>
               <Text>{part.content}</Text>
             </Box>
@@ -197,7 +195,7 @@ export function Markdown({
         async: false,
         gfm: true,
         breaks: true,
-        renderer 
+        renderer: renderer as any
       });
 
       if (typeof parsed !== "string" || !parsed) {
@@ -238,7 +236,7 @@ export function Markdown({
         async: false,
         gfm: true,
         breaks: true,
-        renderer 
+        renderer: renderer as any
       });
 
       if (typeof renderedMarkdown !== "string") {
@@ -286,7 +284,7 @@ export function Markdown({
 
   return (
     <Box flexDirection="column" width="100%">
-      {renderedParts.map((part, i) => {
+      {renderedParts.map((part: any, i) => {
         if (part.type === "code") {
           return (
             <Box
@@ -302,7 +300,7 @@ export function Markdown({
               width="100%"
             >
               <Box justifyContent="space-between" marginBottom={0}>
-                <Text color={theme.accent} bold italic size={0.8}>{part.lang?.toUpperCase() || "CODE"}</Text>
+                <Text color={theme.accent} bold italic>{part.lang?.toUpperCase() || "CODE"}</Text>
               </Box>
               <Text>{part.content}</Text>
             </Box>
@@ -413,7 +411,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
     return lines.length > 10;
   });
 
-  useInput((input, key) => {
+  useInput((input, _key) => {
     if (!isActive) return;
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
@@ -477,13 +475,13 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
     if (lines.length > 10) {
       const head = lines.slice(0, 10);
       const remaining = lines.length - 10;
-      displayedContent = [...head, chalk.gray(`... (${remaining} more lines, press 'c' to expand)`)].join("\n");
+      displayedContent = [...head, chalk.gray(`... (${remaining} more lines${isActive ? ", press 'c' to expand" : ""})`)].join("\n");
     }
     // Truncate very long outputs
     if (displayedContent.length > 9000) {
       displayedContent =
         displayedContent.slice(0, 9000) +
-        chalk.gray(`\n... (truncated, ${output.length - 9000} more characters, press 'c' to expand)`);
+        chalk.gray(`\n... (truncated, ${output.length - 9000} more characters${isActive ? ", press 'c' to expand" : ""})`);
     }
   }
 
@@ -594,7 +592,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
           {colorizedContent || chalk.italic.gray("(no output)")}
         </Text>
       </Box>
-      {!aborted && !isCollapsed && isLargeOutput && (
+      {!aborted && !isCollapsed && isLargeOutput && isActive && (
         <Box marginTop={0} paddingX={1}>
           <Text color={theme.dim} italic>(press 'c' to collapse)</Text>
         </Box>
@@ -683,8 +681,16 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   disableMarkdown?: boolean;
   isActive?: boolean;
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const contentParts: Array<string> = [];
   const imagePaths: Array<string> = [];
+
+  useInput((input, _key) => {
+    if (!isActive) return;
+    if (input === "c") {
+      setIsCollapsed(!isCollapsed);
+    }
+  }, { isActive });
 
   // Capture reasoning content if present (common in models like o1, o3-mini)
   if ((message as any).reasoning_content) {
@@ -769,13 +775,33 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const roleColor = message.role === "assistant" ? theme.assistant : theme.user;
   const isAssistant = message.role === "assistant";
 
+  if (isCollapsed) {
+    return (
+      <Box flexDirection="column" paddingLeft={2} marginY={1}>
+        <Box gap={1}>
+          <Box backgroundColor={roleColor as any} paddingX={1}>
+            <Text bold color="black">
+               {isAssistant ? " ASSISTANT " : " USER "}
+            </Text>
+          </Box>
+          <Text color={theme.dim} italic>(collapsed - press 'c' to expand)</Text>
+        </Box>
+        <Text color={theme.dim} italic>
+          {displayContent.slice(0, 100).replace(/\n/g, " ")}{displayContent.length > 100 ? "..." : ""}
+        </Text>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" paddingLeft={isAssistant ? 0 : 0}>
       {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
         <Box gap={1} marginBottom={1} marginTop={1}>
-          <Text bold color={roleColor} inverse paddingX={1}>
-             {isAssistant ? " ASSISTANT " : " USER "}
-          </Text>
+          <Box backgroundColor={roleColor as any} paddingX={1}>
+            <Text bold color="black">
+               {isAssistant ? " ASSISTANT " : " USER "}
+            </Text>
+          </Box>
           {isAssistant && model && (
             <Text color={theme.dim} italic>
               {model}
@@ -836,6 +862,11 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
       ))}
       {hasContent && (
         <Box flexDirection="column" paddingLeft={2}>
+          {isAssistant && isActive && !disableMarkdown && (
+            <Box marginBottom={0}>
+              <Text color={theme.dim} italic>(press 'c' to collapse)</Text>
+            </Box>
+          )}
           {isAssistant ? (
             disableMarkdown ? (
               <LiteMarkdown theme={theme}>{displayContent.trim()}</LiteMarkdown>
@@ -912,18 +943,27 @@ function TerminalChatResponseToolBatch({
   theme: Theme;
   isActive?: boolean;
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const items = group.items;
   const isLargeBatch = items.length > 3;
+
+  useInput((input, _key) => {
+    if (!isActive) return;
+    if (input === "c") {
+      setIsCollapsed(!isCollapsed);
+    }
+  }, { isActive });
 
   return (
     <Box flexDirection="column" gap={0} marginY={0}>
       <Box gap={1} marginBottom={0} marginLeft={2}>
         <Text color={theme.dim} bold italic>
-          batch: {items.length} ops
+          batch: {items.length} ops {isActive && `(press 'c' to ${isCollapsed ? "expand" : "collapse"})`}
         </Text>
       </Box>
-      <Box flexDirection="column" gap={0}>
-        {items.map((item, i) => {
+      {!isCollapsed && (
+        <Box flexDirection="column" gap={0}>
+          {items.map((item, i) => {
           // Heuristic: If it's a large batch, show a compact summary for early items
           if (isLargeBatch && i < items.length - 3) {
             const toolCallId = (item as any).tool_call_id;
@@ -960,6 +1000,7 @@ function TerminalChatResponseToolBatch({
           );
         })}
       </Box>
+      )}
     </Box>
   );
 }
