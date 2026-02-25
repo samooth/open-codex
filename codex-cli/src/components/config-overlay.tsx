@@ -12,6 +12,7 @@ type Props = {
   enableDeepLinter: boolean;
   enableSmartContext: boolean;
   searxngUrl?: string;
+  serpApiKey?: string;
   webSearchUrl?: string;
   editorCommand?: string;
   onToggleDryRun: () => void;
@@ -20,7 +21,7 @@ type Props = {
   onToggleDeepThinking: () => void;
   onToggleDeepLinter: () => void;
   onToggleSmartContext: () => void;
-  onEditSearchUrl: (type: "searxng" | "generic") => void;
+  onEditSearchUrl: (type: "searxng" | "generic" | "serp") => void;
   onEditEditorCommand: () => void;
   onExit: () => void;
   theme: Theme;
@@ -34,6 +35,7 @@ export default function ConfigOverlay({
   enableDeepLinter,
   enableSmartContext,
   searxngUrl,
+  serpApiKey,
   webSearchUrl,
   editorCommand,
   onToggleDryRun,
@@ -72,6 +74,11 @@ export default function ConfigOverlay({
       label: `SEARXNG INSTANCE: ${searxngUrl ? "CONFIGURED" : "NONE"}`,
       value: "searxngUrl",
       description: `JSON API: ${searxngUrl || "Not set (falls back to scraping)"}.`,
+    },
+    {
+      label: `SERP API KEY: ${serpApiKey ? "CONFIGURED" : "NONE"}`,
+      value: "serpApiKey",
+      description: `API Key for serper.dev / search providers.`,
     },
     {
       label: `GENERIC SEARCH: ${webSearchUrl ? "CUSTOM" : "DUCKDUCKGO"}`,
@@ -119,6 +126,8 @@ export default function ConfigOverlay({
       onToggleWebSearch();
     } else if (item.value === "searxngUrl") {
       onEditSearchUrl("searxng");
+    } else if (item.value === "serpApiKey") {
+      onEditSearchUrl("serp");
     } else if (item.value === "webSearchUrl") {
       onEditSearchUrl("generic");
     } else if (item.value === "smartContext") {

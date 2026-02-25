@@ -90,7 +90,7 @@ describe("Agent cancellation race", () => {
     const agent = new AgentLoop({
       model: "any",
       instructions: "",
-      config: { model: "any", instructions: "" },
+      config: { model: "any", instructions: "", provider: "openai" },
       approvalPolicy: { mode: "auto" } as any,
       onItem: (i) => items.push(i),
       onLoading: () => {},

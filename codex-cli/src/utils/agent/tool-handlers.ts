@@ -1270,6 +1270,79 @@ export async function handleWebSearch(
       }
     }
 
+    const effectiveSerperApiKey = (ctx.config.serpApiKey || process.env["SERPER_API_KEY"])?.trim();
+    const effectiveSerpapiApiKey = (process.env["SERPAPI_API_KEY"])?.trim();
+
+    if (process.env["DEBUG"]) {
+      log(`handleWebSearch: serper key present=${!!effectiveSerperApiKey}, serpapi key present=${!!effectiveSerpapiApiKey}`);
+    }
+
+    // 1. Try SerpApi.com if key is present
+    if (effectiveSerpapiApiKey) {
+      if (process.env["DEBUG"]) { log(`handleWebSearch: Attempting SerpApi.com search...`); }
+      try {
+        const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${effectiveSerpapiApiKey}`;
+        const response = await fetch(url);
+
+        if (response.ok) {
+          const json = (await response.json()) as {
+            organic_results?: Array<{ title: string; link?: string; snippet?: string }>;
+          };
+          if (json.organic_results && Array.isArray(json.organic_results)) {
+            const results = json.organic_results.slice(0, 10).map((r) => 
+              `Title: ${r.title}\nURL: ${r.link}\nContent: ${r.snippet || ""}`
+            ).join("\n\n---\n\n");
+            
+            return {
+              outputText: results || "No organic results found on SerpApi.",
+              metadata: { query, type: "web_search_serpapi", count: json.organic_results.length },
+            };
+          }
+        } else {
+          const errText = await response.text();
+          if (process.env["DEBUG"]) { log(`SerpApi.com search failed with status ${response.status}: ${errText}`); }
+        }
+      } catch (e) {
+        if (process.env["DEBUG"]) { log(`SerpApi.com search failed: ${String(e)}`); }
+      }
+    }
+
+    // 2. Try Serper.dev if key is present
+    if (effectiveSerperApiKey) {
+      if (process.env["DEBUG"]) { log(`handleWebSearch: Attempting Serper.dev search...`); }
+      try {
+        const response = await fetch("https://google.serper.dev/search", {
+          method: "POST",
+          headers: {
+            "X-API-KEY": effectiveSerperApiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ q: query }),
+        });
+
+        if (response.ok) {
+          const json = (await response.json()) as {
+            organic?: Array<{ title: string; link?: string; url?: string; snippet?: string }>;
+          };
+          if (json.organic && Array.isArray(json.organic)) {
+            const results = json.organic.slice(0, 10).map((r) => 
+              `Title: ${r.title}\nURL: ${r.link || r.url}\nContent: ${r.snippet || ""}`
+            ).join("\n\n---\n\n");
+            
+            return {
+              outputText: results || "No organic results found on Serper.",
+              metadata: { query, type: "web_search_serper", count: json.organic.length },
+            };
+          }
+        } else {
+          const errText = await response.text();
+          if (process.env["DEBUG"]) { log(`Serper.dev search failed with status ${response.status}: ${errText}`); }
+        }
+      } catch (e) {
+        if (process.env["DEBUG"]) { log(`Serper.dev search failed: ${String(e)}`); }
+      }
+    }
+
     // Use custom search URL if provided, otherwise default to DuckDuckGo
     let searchUrl = ctx.config.webSearchUrl;
     if (searchUrl) {
@@ -1281,6 +1354,10 @@ export async function handleWebSearch(
       }
     } else {
       searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    }
+
+    if (process.env["DEBUG"]) {
+      log(`handleWebSearch: falling back to DuckDuckGo/scraping (URL: ${searchUrl})`);
     }
 
     const execResult = await handleExecCommand(

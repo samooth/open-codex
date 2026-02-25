@@ -1,4 +1,5 @@
 import type { ApplyPatchCommand } from "../../approvals.js";
+import type { AppConfig } from "../../utils/config.js";
 import type { Theme } from "../../utils/theme.js";
 
 import { ReviewDecision } from "../../utils/agent/review";
@@ -26,6 +27,7 @@ export function TerminalChatCommandReview({
   theme,
   isActive = true,
   onRefresh,
+  config,
 }: {
   confirmationPrompt: React.ReactNode;
   onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
@@ -34,6 +36,7 @@ export function TerminalChatCommandReview({
   theme: Theme;
   isActive?: boolean;
   onRefresh?: () => void;
+  config: AppConfig;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
@@ -123,7 +126,7 @@ export function TerminalChatCommandReview({
       if (input === "y") {
         onReviewCommand(ReviewDecision.YES);
       } else if (input === "v" && applyPatch) {
-        const edited = await openExternalEditor(applyPatch.patch);
+        const edited = await openExternalEditor(applyPatch.patch, config);
         clearTerminal();
         onRefresh?.();
         if (edited && edited !== applyPatch.patch) {
@@ -194,7 +197,7 @@ export function TerminalChatCommandReview({
                   if (value === "edit") {
                     setMode("input");
                   } else if (value === "view-edit" && applyPatch) {
-                    const edited = await openExternalEditor(applyPatch.patch);
+                    const edited = await openExternalEditor(applyPatch.patch, config);
                     clearTerminal();
                     onRefresh?.();
                     if (edited && edited !== applyPatch.patch) {

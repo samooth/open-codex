@@ -109,6 +109,12 @@ function SelectInput<V>({
     previousItems.current = items;
   }, [items]);
 
+  useEffect(() => {
+    if (!isFocused) {
+      lastInputTime.current = 0;
+    }
+  }, [isFocused]);
+
   useInput(
     useCallback(
       (input, key) => {

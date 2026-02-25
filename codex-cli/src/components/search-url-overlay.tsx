@@ -7,12 +7,20 @@ import React, { useState } from "react";
 
 export default function SearchUrlOverlay({
   title,
+  subtitle = "CONFIGURE SEARCH URL",
+  label = "URL: ",
+  placeholder = "https://...",
+  description = "Enter the base URL for the search provider.",
   currentUrl,
   onSave,
   onExit,
   theme,
 }: {
   title: string;
+  subtitle?: string;
+  label?: string;
+  placeholder?: string;
+  description?: string;
   currentUrl: string;
   onRefresh?: () => void;
   onSave: (url: string) => void;
@@ -42,22 +50,21 @@ export default function SearchUrlOverlay({
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
           <Text bold color="black"> {title} </Text>
         </Box>
-        <Text color={theme.highlight} bold>CONFIGURE SEARCH URL</Text>
+        <Text color={theme.highlight} bold>{subtitle}</Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>URL: </Text>
+          <Text color={theme.highlight} bold>{label}</Text>
           <TextInput
             value={url}
             onChange={setUrl}
-            placeholder="https://..."
+            placeholder={placeholder}
           />
         </Box>
         
         <Text color={theme.dim}>
-          Enter the base URL for the search provider. 
-          For SearXNG, it should be the instance root.
+          {description}
         </Text>
       </Box>
 

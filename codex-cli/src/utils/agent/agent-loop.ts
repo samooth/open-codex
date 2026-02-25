@@ -567,27 +567,43 @@ export class AgentLoop {
 
             const missionStateInfo = formatStateForPrompt(this.stateSnapshot);
 
-            const mergedInstructions = [deepThinkingPrefix, basePrefix, this.instructions, missionStateInfo, relevantMemory, projectContext, pinnedFilesContent, dryRunInfo]
+            // 1. Stable Instructions (Identity, core protocol, user guidance)
+            // These change rarely and should be at the top for maximum caching.
+            const stableInstructions = [deepThinkingPrefix, basePrefix, this.instructions, dryRunInfo]
               .filter(Boolean)
               .join("\n");
+
+            // 2. Dynamic Context (Real-time data about the project and mission)
+            // These change frequently and are injected at the end of history for better model recency.
+            const dynamicContext = [projectContext, pinnedFilesContent, missionStateInfo, relevantMemory]
+              .filter(Boolean)
+              .join("\n");
+
             if (isLoggingEnabled()) {
               log(
-                `instructions (length ${mergedInstructions.length}): ${mergedInstructions}`,
+                `stableInstructions (length ${stableInstructions.length}): ${stableInstructions}`,
+              );
+              log(
+                `dynamicContext (length ${dynamicContext.length}): ${dynamicContext}`,
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
-              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 1}, Tools: ${tools.length}`);
+              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 2}, Tools: ${tools.length}`);
             }
 
             if (this.config.provider === "google" || this.config.provider === "gemini") {
               const { contents, systemInstruction } = mapOpenAiToGoogleMessages([
                 {
                   role: "system",
-                  content: mergedInstructions,
+                  content: stableInstructions,
                 },
                 ...currentPrevItems,
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
+                {
+                  role: "system",
+                  content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
+                }
               ]);
 
               const googleTools = mapOpenAiToGoogleTools(tools.filter((tool: any) => {
@@ -630,12 +646,16 @@ export class AgentLoop {
                   model: this.model,
                   messages: anthropicMessages,
                   system: (() => {
-                    const blocks = [
-                      { type: "text", text: mergedInstructions },
-                      ...(Array.isArray(system) ? system : system ? [{ type: "text", text: system }] : []),
+                    const blocks: Array<any> = [
+                      { type: "text", text: stableInstructions, cache_control: { type: "ephemeral" } },
+                      { type: "text", text: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}` },
                     ];
-                    if (blocks.length > 0) {
-                      (blocks[blocks.length - 1] as any).cache_control = { type: "ephemeral" };
+                    if (system) {
+                      if (Array.isArray(system)) {
+                        blocks.push(...system);
+                      } else {
+                        blocks.push({ type: "text", text: system });
+                      }
                     }
                     return blocks;
                   })(),
@@ -693,12 +713,16 @@ export class AgentLoop {
                 messages: [
                   {
                     role: "system",
-                    content: mergedInstructions,
+                    content: stableInstructions,
                   },
                   ...currentPrevItems,
                   ...(this.staged.filter(
                     Boolean,
                   ) as Array<ChatCompletionMessageParam>),
+                  {
+                    role: "system",
+                    content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
+                  },
                 ],
                 reasoning_effort: reasoning,
                 tools: tools.filter((tool: any) => {

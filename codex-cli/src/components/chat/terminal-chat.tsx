@@ -30,6 +30,7 @@ import { shortCwd } from "../../utils/short-path.js";
 import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
 import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
 import { getTheme } from "../../utils/theme.js";
+import { saveConfig } from "../../utils/config.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import CommandHistoryOverlay from "../command-history-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
@@ -99,6 +100,7 @@ export default function TerminalChat({
   const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
   const fileAccessCounts = React.useRef<Record<string, number>>({});
   const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
+  const [pendingPinAction, setPendingPinAction] = useState<'pin' | 'unpin' | null>(null);
 
   useEffect(() => {
     // Fetch all files once on mount to avoid blocking UI during chat
@@ -167,7 +169,7 @@ export default function TerminalChat({
     useConfirmation();
 
   const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "editor" | "commands"
+    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "serp-api-key" | "editor" | "commands"
   >("none");
 
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
@@ -178,6 +180,40 @@ export default function TerminalChat({
 
   const handleRefresh = () => {
     setRefreshKey((k) => k + 1);
+  };
+
+  const handlePin = (path: string) => {
+    if (config.pinnedFiles?.includes(path)) {
+      setItems((prev) => [
+        ...prev, { role: "assistant", content: `File is already pinned: ${path}` },
+      ]);
+      return;
+    }
+    setConfig((prev) => ({
+      ...prev,
+      pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
+    }));
+    setItems((prev) => [
+      ...prev, { role: "assistant", content: `Pinned file: ${path}` },
+    ]);
+    setPendingPinAction('pin');
+  };
+
+  const handleUnpin = (path: string) => {
+    if (!config.pinnedFiles?.includes(path)) {
+      setItems((prev) => [
+        ...prev, { role: "assistant", content: `File is not pinned: ${path}` },
+      ]);
+      return;
+    }
+    setConfig((prev) => ({
+      ...prev,
+      pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
+    }));
+    setItems((prev) => [
+      ...prev, { role: "assistant", content: `Unpinned file: ${path}` },
+    ]);
+    setPendingPinAction('unpin');
   };
 
   const handleUndo = async () => {
@@ -494,6 +530,23 @@ export default function TerminalChat({
     }
   }, [agent, loading, promptQueue]);
 
+  // Effect to continue agent's turn after a file is pinned or unpinned.
+  useEffect(() => {
+    const runPendingAction = async () => {
+      if (agent && pendingPinAction) {
+        const actionText = pendingPinAction === 'pin' ? 'pinned' : 'unpinned';
+        const inputItem = await createInputItem(
+          `A file has been ${actionText}. Continue processing the original request.`,
+          [],
+        );
+        // Immediately clear the action to prevent re-triggering
+        setPendingPinAction(null); 
+        agent.run([inputItem], items);
+      }
+    };
+    runPendingAction();
+  }, [agent, pendingPinAction, items]);
+
   // ---------------------------------------------------------------------
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
   // ---------------------------------------------------------------------
@@ -640,6 +693,7 @@ export default function TerminalChat({
           isActive={overlayMode === "none"}
           refreshKey={refreshKey}
           onRefresh={handleRefresh}
+          config={config}
         />
       ) : (
         <Box>
@@ -674,33 +728,10 @@ export default function TerminalChat({
                                           openCommandHistory={() => setOverlayMode("commands")}
                                           openThemeOverlay={() => setOverlayMode("theme")}
                                           onUndo={handleUndo}
+                                          onPin={handlePin}
+                                          onUnpin={handleUnpin}
                                           onRefresh={handleRefresh}
                                           onShellFocus={setShellFocused}
-                                          onPin={(path) => {            setConfig((prev) => ({
-              ...prev,
-              pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
-            }));
-            setItems((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: `Pinned file: ${path}`,
-              },
-            ]);
-          }}
-          onUnpin={(path) => {
-            setConfig((prev) => ({
-              ...prev,
-              pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
-            }));
-            setItems((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content: `Unpinned file: ${path}`,
-              },
-            ]);
-          }}
           onCopy={() => {
             if (lastCodeBlock) {
               clipboard.writeSync(lastCodeBlock);
@@ -891,6 +922,7 @@ export default function TerminalChat({
             enableDeepLinter={!!config.enableDeepLinter}
             enableSmartContext={!!config.enableSmartContext}
             searxngUrl={config.searxngUrl}
+            serpApiKey={config.serpApiKey}
             webSearchUrl={config.webSearchUrl}
             editorCommand={config.editorCommand}
             onToggleDryRun={() => {
@@ -909,7 +941,13 @@ export default function TerminalChat({
               setConfig((prev) => ({ ...prev, enableWebSearch: !prev.enableWebSearch }));
             }}
             onEditSearchUrl={(type) => {
-              setOverlayMode(type === "searxng" ? "search-url-searxng" : "search-url-generic");
+              if (type === "searxng") {
+                setOverlayMode("search-url-searxng");
+              } else if (type === "serp") {
+                setOverlayMode("serp-api-key");
+              } else {
+                setOverlayMode("search-url-generic");
+              }
             }}
             onEditEditorCommand={() => {
               setOverlayMode("editor");
@@ -933,7 +971,9 @@ export default function TerminalChat({
             currentCommand={config.editorCommand || ""}
             onRefresh={handleRefresh}
             onSave={(newCommand) => {
-              setConfig((prev) => ({ ...prev, editorCommand: newCommand || undefined }));
+              const newConfig = { ...config, editorCommand: newCommand || undefined };
+              setConfig(newConfig);
+              saveConfig(newConfig);
               setItems((prev) => [
                 ...prev,
                 {
@@ -960,6 +1000,33 @@ export default function TerminalChat({
                 {
                   role: "assistant",
                   content: `Updated SearXNG URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
+                },
+              ]);
+              setOverlayMode("none");
+            }}
+            onExit={() => setOverlayMode("none")}
+            theme={activeTheme}
+          />
+        )}
+
+        {overlayMode === "serp-api-key" && (
+          <SearchUrlOverlay
+            title="SET SERP API KEY"
+            subtitle="CONFIGURE SEARCH API"
+            label="API KEY: "
+            placeholder="Enter your API key..."
+            description="Enter the API key for serper.dev or compatible search provider."
+            currentUrl={config.serpApiKey || ""}
+            onRefresh={handleRefresh}
+            onSave={(newKey) => {
+              const newConfig = { ...config, serpApiKey: newKey || undefined };
+              setConfig(newConfig);
+              saveConfig(newConfig);
+              setItems((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `Updated SERP API key.`,
                 },
               ]);
               setOverlayMode("none");

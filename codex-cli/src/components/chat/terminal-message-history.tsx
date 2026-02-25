@@ -2,6 +2,7 @@ import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ApplyPatchCommand } from "../../approvals.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
+import type { AppConfig } from "../../utils/config.js";
 import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
@@ -38,6 +39,7 @@ type MessageHistoryProps = {
   isActive?: boolean;
   refreshKey?: number;
   onRefresh?: () => void;
+  config: AppConfig;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -57,6 +59,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   isActive = true,
   refreshKey = 0,
   onRefresh,
+  config,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -138,6 +141,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             theme={theme}
             isActive={isActive}
             onRefresh={onRefresh}
+            config={config}
           />
         </Box>
       )}

@@ -108,7 +108,7 @@ describe("Agent terminate (hard cancel)", () => {
     const agent = new AgentLoop({
       model: "any",
       instructions: "",
-      config: { model: "any", instructions: "" },
+      config: { model: "any", instructions: "", provider: "openai" },
       approvalPolicy: { mode: "auto" } as any,
       onItem: (item) => received.push(item),
       onLoading: () => {},
@@ -142,7 +142,7 @@ describe("Agent terminate (hard cancel)", () => {
     const agent = new AgentLoop({
       model: "any",
       instructions: "",
-      config: { model: "any", instructions: "" },
+      config: { model: "any", instructions: "", provider: "openai" },
       approvalPolicy: { mode: "auto" } as any,
       onItem: () => {},
       onLoading: () => {},

@@ -4,9 +4,9 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions.mjs";
 
-import { spawn } from "child_process";
+import { spawnSync } from "child_process";
 import { fileTypeFromBuffer } from "file-type";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -43,51 +43,46 @@ export async function processInputVariables(text: string): Promise<string> {
   return result;
 }
 
-export async function openExternalEditor(initialContent: string, config?: AppConfig): Promise<string> {
+export function openExternalEditor(initialContent: string, config?: AppConfig): string {
   const editor = config?.editorCommand || process.env["VISUAL"] || process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
   const tmpDir = os.tmpdir();
   const tmpFilePath = path.join(tmpDir, `codex-prompt-${Date.now()}.md`);
 
-  await fs.writeFile(tmpFilePath, initialContent, "utf8");
+  writeFileSync(tmpFilePath, initialContent, "utf8");
 
   const wasRaw = process.stdin.isRaw;
+  if (wasRaw) {
+    process.stdin.setRawMode(false);
+  }
+  process.stdin.pause();
 
-  return new Promise((resolve, reject) => {
-    if (wasRaw) {
-      process.stdin.setRawMode(false);
-    }
-
-    const child = spawn(editor, [tmpFilePath], {
-      stdio: "inherit",
-      shell: true,
-    });
-
-    child.on("exit", async (code) => {
-      if (wasRaw) {
-        process.stdin.setRawMode(true);
-      }
-
-      if (code === 0) {
-        try {
-          const content = await fs.readFile(tmpFilePath, "utf8");
-          await fs.unlink(tmpFilePath).catch(() => {});
-          resolve(content.trim());
-        } catch (err) {
-          reject(err);
-        }
-      } else {
-        await fs.unlink(tmpFilePath).catch(() => {});
-        resolve(initialContent); // Fallback to original content if editor failed
-      }
-    });
-
-    child.on("error", (err) => {
-      if (wasRaw) {
-        process.stdin.setRawMode(true);
-      }
-      reject(err);
-    });
+  const result = spawnSync(editor, [tmpFilePath], {
+    stdio: "inherit",
+    shell: true,
   });
+
+  process.stdin.resume();
+  if (wasRaw) {
+    process.stdin.setRawMode(true);
+  }
+
+  if (result.status === 0) {
+    try {
+      const content = readFileSync(tmpFilePath, "utf8");
+      unlinkSync(tmpFilePath);
+      return content.trim();
+    } catch (err) {
+      // On error, we'll fall through and return the original content
+    }
+  }
+  
+  // If editor failed or file read failed, clean up and return original content
+  try {
+    unlinkSync(tmpFilePath);
+  } catch (e) {
+    // Ignore errors on cleanup
+  }
+  return initialContent;
 }
 
 export async function createInputItem(

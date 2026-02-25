@@ -61,6 +61,15 @@ function stubProps(): any {
     active: true,
     theme: themes["default"],
     allFiles: [],
+    config: {
+      model: "o4-mini",
+      instructions: "",
+      editorCommand: undefined,
+      enableWebSearch: true,
+      enableDeepThinking: false,
+      enableDeepLinter: false,
+      enableSmartContext: true,
+    },
   };
 }
 

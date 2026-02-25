@@ -229,6 +229,7 @@ For more detailed information, please refer to the following documents:
 - **[Recipes](./RECIPES.md)**: A collection of common tasks and prompts.
 - **[Project Memory & Docs](#memoryprojectdocs)**: Managing persistent project context.
 - **[SearXNG Integration Guide](./SEARXNG_INTEGRATION.md)**: Setting up a custom search provider.
+- **[SERP API Integration Guide](./SERP_API_INTEGRATION.md)**: Using high-quality search APIs (Serper, SerpApi).
 - **[Contributing](./CLI_CONTRIBUTING.md)**: Workflow and guidelines for developers.
 - **[Internal Tools](./TOOLS.md)**: Details on the built-in tool architecture.
 - **[Roadmap](./ROADMAP.md)**: Planned features and project milestones.
@@ -303,7 +304,8 @@ Codex looks for config files in **`~/.codex/`** (either YAML or JSON format). Th
   "memory": {
     "enabled": true
   },
-  "searxngUrl": "https://your-searxng-instance.com" // Optional: URL for your SearXNG instance
+  "searxngUrl": "https://your-searxng-instance.com", // Optional: URL for your SearXNG instance
+  "serpApiKey": "your-serper-api-key" // Optional: API Key for serper.dev
 }
 ```
 

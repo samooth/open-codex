@@ -83,6 +83,7 @@ test("loads default config if files don't exist", () => {
     providers: undefined,
     theme: undefined,
     searxngUrl: undefined,
+    serpApiKey: undefined,
     webSearchUrl: undefined,
     editorCommand: undefined,
     enableSmartContext: true,
@@ -109,6 +110,7 @@ test("saves and loads config correctly", () => {
     providers: undefined,
     theme: undefined,
     searxngUrl: undefined,
+    serpApiKey: undefined,
     webSearchUrl: undefined,
     editorCommand: undefined,
     enableSmartContext: true,
@@ -193,4 +195,29 @@ test("loads and saves approvalMode correctly", () => {
     forceApiKeyForTest: "test-api-key",
   });
   expect(reloadedConfig.approvalMode).toBe(AutoApprovalMode.FULL_AUTO);
+});
+
+test("loads serpApiKey from environment variables", () => {
+  vi.stubEnv("SERPER_API_KEY", "env-serper-key");
+  const config = loadConfig(testConfigPath, testInstructionsPath, {
+    disableProjectDoc: true,
+    forceApiKeyForTest: "test-api-key",
+  });
+  expect(config.serpApiKey).toBe("env-serper-key");
+});
+
+test("saves and loads serpApiKey correctly", () => {
+  const testConfig = loadConfig(testConfigPath, testInstructionsPath, {
+    disableProjectDoc: true,
+    forceApiKeyForTest: "test-api-key",
+  });
+  testConfig.serpApiKey = "test-serp-key";
+  
+  saveConfig(testConfig, testConfigPath, testInstructionsPath);
+  
+  const loadedConfig = loadConfig(testConfigPath, testInstructionsPath, {
+    disableProjectDoc: true,
+    forceApiKeyForTest: "test-api-key",
+  });
+  expect(loadedConfig.serpApiKey).toBe("test-serp-key");
 });

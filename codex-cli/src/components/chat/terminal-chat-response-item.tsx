@@ -459,7 +459,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
     label = "WEB.FETCH";
     labelColor = theme.highlight;
     headerContent = url;
-  } else if (type === "web_search") {
+  } else if (type === "web_search" || type === "web_search_serper" || type === "web_search_searxng") {
     label = "WEB.SEARCH";
     labelColor = theme.highlight;
     headerContent = `query: ${query}`;

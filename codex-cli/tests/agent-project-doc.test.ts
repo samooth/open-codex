@@ -109,6 +109,7 @@ describe("AgentLoop", () => {
     const config = loadConfig(undefined, undefined, {
       cwd: projectDir,
       forceApiKeyForTest: "test-api-key",
+      provider: "openai",
     });
 
     // Sanity‑check that loadConfig picked up the project doc. This is *not* the

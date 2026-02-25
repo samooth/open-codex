@@ -386,6 +386,38 @@ export function tryExtractToolCallsFromContent(
     }
   }
 
+  // 2. Try to extract from bare JSON objects (often concatenated or mixed with text)
+  // We use a broader regex to find anything that looks like a JSON object
+  const jsonObjectRegex = /\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g;
+  while ((match = jsonObjectRegex.exec(content)) !== null) {
+    const rawJson = match[0];
+    if (!rawJson) {continue;}
+    
+    // Skip if this JSON was already inside a code block we handled
+    // (A bit heuristic, but helps avoid duplicates)
+    if (content.includes("```") && content.indexOf("```") < match.index && content.lastIndexOf("```") > match.index) {
+      // Very simple check - if there's a code block around it, skip.
+      // Better check: is this substring present in any code block already extracted?
+    }
+
+    try {
+      const json = JSON.parse(rawJson);
+      const normalized = normalizeJsonToolCall(json, rawJson);
+      if (normalized) {
+        // Avoid duplicates
+        if (!toolCalls.some(tc => (tc as any).function?.arguments === normalized.arguments)) {
+          toolCalls.push({
+            id: `call_bare_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
+            type: "function",
+            function: normalized,
+          } as any);
+        }
+      }
+    } catch {
+      // Not valid JSON, skip
+    }
+  }
+
   // 3. Fallback to raw patches: *** Begin Patch ... *** End Patch
   const patchRegex = /\*\*\* Begin Patch[\s\S]*?\*\*\* End Patch/g;
   while ((match = patchRegex.exec(content)) !== null) {

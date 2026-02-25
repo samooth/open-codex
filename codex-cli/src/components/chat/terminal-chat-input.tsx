@@ -141,6 +141,17 @@ export default function TerminalChatInput({
   const editorRef = React.useRef<MultilineTextEditorHandle | null>(null);
   const prevCursorRow = React.useRef<number | null>(null);
 
+  const wasActive = React.useRef(active);
+  useEffect(() => {
+    // When the component becomes active after being inactive, force a refresh
+    // to clear any potential UI artifacts from overlays.
+    if (active && !wasActive.current && onRefresh) {
+      clearTerminal();
+      onRefresh();
+    }
+    wasActive.current = active;
+  }, [active, onRefresh]);
+
   const [customInputMode, setCustomInputMode] = useState(false);
   const [pulse, setPulse] = useState(false);
 
@@ -181,9 +192,9 @@ export default function TerminalChatInput({
     }
 
     if (filteredFiles.length > 0) {
-      if (key.tab || key.downArrow || key.upArrow) {
+      if (key.tab || key.downArrow || key.upArrow || _inputStr === "j" || _inputStr === "k") {
         setSelectedFileIndex((s) => {
-          const delta = (key.upArrow || (key.tab && key.shift)) ? -1 : 1;
+          const delta = (key.upArrow || (key.tab && key.shift) || _inputStr === "k") ? -1 : 1;
           return (s + delta + filteredFiles.length) % filteredFiles.length;
         });
         return true;
@@ -200,10 +211,10 @@ export default function TerminalChatInput({
     }
 
     if (input.startsWith("/")) {
-      if (key.tab || key.downArrow || key.upArrow) {
+      if (key.tab || key.downArrow || key.upArrow || _inputStr === "j" || _inputStr === "k") {
         if (filteredSlashCommands.length > 0) {
           setSelectedSlashCommand((s) => {
-            const delta = (key.upArrow || (key.tab && key.shift)) ? -1 : 1;
+            const delta = (key.upArrow || (key.tab && key.shift) || _inputStr === "k") ? -1 : 1;
             return (s + delta + filteredSlashCommands.length) % filteredSlashCommands.length;
           });
           return true;
@@ -316,16 +327,64 @@ export default function TerminalChatInput({
             return;
           }
         }
+
+        const cursorRow = editorRef.current?.getRow?.() ?? 0;
+        const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
+        if (_input === "k") {
+          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
+            return;
+          }
+          
+          if (history.length > 0 && cursorRow === 0 && wasAtFirstRow) {
+            if (historyIndex == null) {
+              const currentDraft = editorRef.current?.getText?.() ?? input;
+              setDraftInput(currentDraft);
+            }
+
+            let newIndex: number;
+            if (historyIndex == null) {
+              newIndex = history.length - 1;
+            } else {
+              newIndex = Math.max(0, historyIndex - 1);
+            }
+            setHistoryIndex(newIndex);
+            setInput(history[newIndex] ?? "");
+            setEditorKey((k) => k + 1);
+            return;
+          }
+        }
+
+        if (_input === "j") {
+          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
+            return;
+          }
+
+          if (historyIndex != null && (editorRef.current?.isCursorAtLastRow() ?? true)) {
+            const newIndex = historyIndex + 1;
+            if (newIndex >= history.length) {
+              setHistoryIndex(null);
+              setInput(draftInput);
+              setEditorKey((k) => k + 1);
+            } else {
+              setHistoryIndex(newIndex);
+              setInput(history[newIndex] ?? "");
+              setEditorKey((k) => k + 1);
+            }
+            return;
+          }
+        }
       }
 
-      if (_key.ctrl && _input === "e") {
-        openExternalEditor(input, config).then((newContent) => {
-          if (newContent) {
-            clearTerminal();
-            setInput(newContent);
-            onRefresh?.();
-          }
-        });
+      if (_key.ctrl && _input === "x") {
+        const newContent = openExternalEditor(input, config);
+
+        // Always clear and refresh to restore terminal state
+        clearTerminal();
+        onRefresh?.();
+
+        if (newContent && newContent !== input) {
+          setInput(newContent);
+        }
         return;
       }
 
@@ -680,7 +739,7 @@ export default function TerminalChatInput({
                 height={3}
                 focus={active}
                 onKeyDown={onKeyDown}
-                editor={config.editorCommand}
+                editor={config?.editorCommand}
                 onRefresh={onRefresh}
                 onSubmit={(txt) => {
                   if (customInputMode) {

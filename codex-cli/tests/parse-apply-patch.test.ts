@@ -23,6 +23,7 @@ describe("parseApplyPatch", () => {
         type: "create",
         path: "created.txt",
         content: "hello\nworld",
+        hunks: [],
       },
       {
         type: "update",
@@ -30,6 +31,14 @@ describe("parseApplyPatch", () => {
         update: "@@\n-old\n+new",
         added: 1,
         deleted: 1,
+        hunks: [
+          {
+            header: "@@",
+            lines: ["-old", "+new"],
+            added: 1,
+            deleted: 1,
+          },
+        ],
       },
       {
         type: "delete",

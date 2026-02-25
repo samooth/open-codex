@@ -247,6 +247,7 @@ export const StoredConfigSchema = z.object({
   memory: MemoryConfigSchema.optional(),
   enableWebSearch: z.boolean().optional(),
   searxngUrl: z.string().optional(),
+  serpApiKey: z.string().optional(),
   webSearchUrl: z.string().optional(),
   editorCommand: z.string().optional(),
   enableSmartContext: z.boolean().optional(),
@@ -279,6 +280,7 @@ export type AppConfig = {
   skipSemanticMemory?: boolean;
   enableWebSearch?: boolean;
   searxngUrl?: string;
+  serpApiKey?: string;
   webSearchUrl?: string;
   editorCommand?: string;
   enableSmartContext?: boolean;
@@ -562,6 +564,9 @@ export const loadConfig = (
     skipSemanticMemory: false,
     enableWebSearch: storedConfig.enableWebSearch ?? true,
     searxngUrl: storedConfig.searxngUrl,
+    serpApiKey: (storedConfig.serpApiKey && storedConfig.serpApiKey.trim() !== "") 
+      ? storedConfig.serpApiKey 
+      : (process.env["SERPER_API_KEY"] || process.env["SERPAPI_API_KEY"]),
     webSearchUrl: storedConfig.webSearchUrl,
     editorCommand: storedConfig.editorCommand,
     enableSmartContext: storedConfig.enableSmartContext ?? true,
@@ -651,6 +656,7 @@ export const saveConfig = (
     approvalMode: config.approvalMode,
     enableWebSearch: config.enableWebSearch,
     searxngUrl: config.searxngUrl,
+    serpApiKey: config.serpApiKey,
     webSearchUrl: config.webSearchUrl,
     editorCommand: config.editorCommand,
     enableSmartContext: config.enableSmartContext,

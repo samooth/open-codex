@@ -24,7 +24,7 @@ This is the "brain" of the agent. It controls:
     - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
     - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
     - `summarize_memory`: Retrieve all stored facts for review and consolidation.
-    - `browse`: Unified web interface. Intelligently searches the web (using SearXNG if configured, falling back to DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
+    - `browse`: Unified web interface. Intelligently searches the web (using SearXNG or SERP APIs if configured, falling back to DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
     - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
