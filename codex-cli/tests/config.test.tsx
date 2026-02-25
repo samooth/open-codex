@@ -72,7 +72,7 @@ test("loads default config if files don't exist", () => {
     instructions: "",
     provider: "openai",
     apiKey: "test-api-key",
-    enableWebSearch: false,
+    enableWebSearch: true,
     enableDeepThinking: false,
     skipSemanticMemory: false,
     embeddingModel: undefined,
@@ -82,6 +82,11 @@ test("loads default config if files don't exist", () => {
     pinnedFiles: [],
     providers: undefined,
     theme: undefined,
+    searxngUrl: undefined,
+    webSearchUrl: undefined,
+    editorCommand: undefined,
+    enableSmartContext: true,
+    enableDeepLinter: false,
     contextSize: undefined,
   });
 });
@@ -103,6 +108,11 @@ test("saves and loads config correctly", () => {
     pinnedFiles: [],
     providers: undefined,
     theme: undefined,
+    searxngUrl: undefined,
+    webSearchUrl: undefined,
+    editorCommand: undefined,
+    enableSmartContext: true,
+    enableDeepLinter: false,
     contextSize: undefined,
   };
   saveConfig(testConfig, testConfigPath, testInstructionsPath);

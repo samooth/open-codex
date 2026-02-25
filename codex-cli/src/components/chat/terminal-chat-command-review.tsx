@@ -1,8 +1,10 @@
+import type { ApplyPatchCommand } from "../../approvals.js";
+import type { Theme } from "../../utils/theme.js";
+
 import { ReviewDecision } from "../../utils/agent/review";
 import { openExternalEditor } from "../../utils/input-utils.js";
 import { clearTerminal } from "../../utils/terminal.js";
-import type { ApplyPatchCommand } from "../../approvals.js";
-import type { Theme } from "../../utils/theme.js";
+
 // TODO: figure out why `cli-spinners` fails on Node v20.9.0
 // which is why we have to do this in the first place
 //
@@ -115,7 +117,7 @@ export function TerminalChatCommandReview({
   }, [showAlwaysApprove, applyPatch]);
 
   useInput(async (input, key) => {
-    if (!isActive) return;
+    if (!isActive) {return;}
 
     if (mode === "select") {
       if (input === "y") {

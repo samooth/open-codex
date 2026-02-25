@@ -1,7 +1,9 @@
-import React from "react";
-import { Box, Text, useInput } from "ink";
-import SelectInput from "./select-input/select-input.js";
 import type { Theme } from "../utils/theme.js";
+
+import SelectInput from "./select-input/select-input.js";
+import { Box, Text, useInput } from "ink";
+import React from "react";
+
 
 // Mock prompts since we don't have a real library yet
 const availablePrompts = [
@@ -20,7 +22,7 @@ export default function PromptSelectOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   const handleSelect = (item: any) => {

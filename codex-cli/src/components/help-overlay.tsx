@@ -1,6 +1,7 @@
-import React from "react";
-import { Box, Text, useInput } from "ink";
 import type { Theme } from "../utils/theme.js";
+
+import { Box, Text, useInput } from "ink";
+import React from "react";
 
 const shortcuts = [
   ["Ctrl+E", "Open prompt in external editor"],
@@ -33,7 +34,7 @@ export default function HelpOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   return (

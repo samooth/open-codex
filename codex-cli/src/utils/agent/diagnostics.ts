@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from "fs";
-import { handleExecCommand } from "./handle-exec-command.js";
 import type { AgentContext } from "./types.js";
+
+import { handleExecCommand } from "./handle-exec-command.js";
+import { existsSync, readFileSync } from "fs";
 
 export interface DiagnosticResult {
   success: boolean;
@@ -11,7 +12,7 @@ export interface DiagnosticResult {
 export async function runProjectDiagnostics(ctx: AgentContext): Promise<DiagnosticResult> {
   const root = process.cwd();
   let projectType = "unknown";
-  let commands: string[][] = [];
+  const commands: Array<Array<string>> = [];
 
   // 1. Detect Project Type and select commands
   if (existsSync(`${root}/package.json`)) {
@@ -21,12 +22,12 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
       const scripts = pkg.scripts || {};
       
       // Select best available commands
-      if (scripts.typecheck) commands.push(["npm", "run", "typecheck"]);
-      else if (scripts.build) commands.push(["npm", "run", "build"]);
+      if (scripts.typecheck) {commands.push(["npm", "run", "typecheck"]);}
+      else if (scripts.build) {commands.push(["npm", "run", "build"]);}
       
-      if (scripts.lint) commands.push(["npm", "run", "lint"]);
+      if (scripts.lint) {commands.push(["npm", "run", "lint"]);}
       
-      if (scripts.test) commands.push(["npm", "test"]);
+      if (scripts.test) {commands.push(["npm", "test"]);}
     } catch {
       commands.push(["npm", "test"]);
     }

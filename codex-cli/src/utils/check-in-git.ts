@@ -33,7 +33,7 @@ export function checkInGit(workdir: string): boolean {
 /**
  * Returns a list of ignored files in the repository.
  */
-export function getIgnoredFiles(workdir: string): string[] {
+export function getIgnoredFiles(workdir: string): Array<string> {
   try {
     const output = execSync("git clean -ndX", {
       cwd: workdir,

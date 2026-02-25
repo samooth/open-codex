@@ -1,6 +1,7 @@
+import type { Theme } from "../../utils/theme.js";
+
 import { Text } from "ink";
 import React, { useEffect, useState } from "react";
-import type { Theme } from "../../utils/theme.js";
 
 export default function ThinkingTimer({
   loading,
@@ -24,7 +25,7 @@ export default function ThinkingTimer({
     return () => clearInterval(interval);
   }, [loading]);
 
-  if (!loading) return null;
+  if (!loading) {return null;}
 
   return <Text color={theme.warning}>{`(${seconds}s)`}</Text>;
 }

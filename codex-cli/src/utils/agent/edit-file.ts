@@ -1,6 +1,6 @@
-import { readFileSync } from "fs";
-import * as Diff from "diff";
 import chalk from "chalk";
+import * as Diff from "diff";
+import { readFileSync } from "fs";
 
 export interface Edit {
   search: string;
@@ -14,7 +14,7 @@ export interface EditResult {
   error?: string;
 }
 
-export function applyEdits(filePath: string, edits: Edit[]): EditResult {
+export function applyEdits(filePath: string, edits: Array<Edit>): EditResult {
   let content: string;
   try {
     content = readFileSync(filePath, "utf-8");
@@ -84,7 +84,7 @@ export function formatStyledDiff(diff: string): string {
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line === undefined) continue;
+    if (line === undefined) {continue;}
 
     if (line.startsWith("+") && !line.startsWith("+++")) {
       output += chalk.green(line) + "\n";

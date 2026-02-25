@@ -1,7 +1,8 @@
+import type { Theme } from "../../utils/theme.js";
+
 import figures from "figures";
 import { Box, Text } from "ink";
 import React from "react";
-import type { Theme } from "../../utils/theme.js";
 
 export type Props = {
   readonly isSelected?: boolean;

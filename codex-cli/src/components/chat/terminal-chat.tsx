@@ -1,11 +1,13 @@
+import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
+import type { ReviewDecision } from "../../utils/agent/review.js";
+import type { Task } from "../../utils/agent/types.js";
 import type { AppConfig } from "../../utils/config.js";
 import type { ColorName } from "chalk";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import type { ReviewDecision } from "../../utils/agent/review.js";
-import type { Task } from "../../utils/agent/types.js";
 
+import TaskChecklist from "./task-checklist.js";
 import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
 import {
@@ -13,41 +15,39 @@ import {
   calculateTokenBreakdown,
 } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
-import TaskChecklist from "./task-checklist.js";
 import TerminalStatusBar from "./terminal-status-bar.js";
-import type { GroupedResponseItem } from "./use-message-grouping.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
+import { detectInteraction } from "../../utils/interactive-detection.js";
+import { listAllFiles } from "../../utils/list-all-files.js";
+import { recipes } from "../../utils/recipes.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
-import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
 import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
-import { listAllFiles } from "../../utils/list-all-files.js";
-import { detectInteraction } from "../../utils/interactive-detection.js";
+import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
+import { getTheme } from "../../utils/theme.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
-import fs from "fs";
+import CommandHistoryOverlay from "../command-history-overlay.js";
+import CommandPaletteOverlay from "../command-palette-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
+import EditorOverlay from "../editor-overlay.js";
 import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
+import HistorySelectOverlay from "../history-select-overlay.js";
+import MemoryOverlay from "../memory-overlay.js";
 import ModelOverlay from "../model-overlay.js";
 import PromptOverlay from "../prompt-overlay.js";
 import PromptSelectOverlay from "../prompt-select-overlay.js";
-import HistorySelectOverlay from "../history-select-overlay.js";
-import MemoryOverlay from "../memory-overlay.js";
 import RecipesOverlay from "../recipes-overlay.js";
-import CommandPaletteOverlay from "../command-palette-overlay.js";
 import SearchUrlOverlay from "../search-url-overlay.js";
-import EditorOverlay from "../editor-overlay.js";
 import ThemeOverlay from "../theme-overlay.js";
-import CommandHistoryOverlay from "../command-history-overlay.js";
-import { recipes } from "../../utils/recipes.js";
-import { getTheme } from "../../utils/theme.js";
 import clipboard from "clipboardy";
 import isEqual from "fast-deep-equal";
+import fs from "fs";
 import { Box, Text } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 import { useInterval } from "use-interval";
@@ -60,6 +60,7 @@ type Props = {
   rollout?: { items: Array<ChatCompletionMessageParam>; session: any };
   approvalPolicy: ApprovalPolicy;
   fullStdout: boolean;
+  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
 };
 
 const colorsByPolicy: Record<ApprovalPolicy, ColorName | undefined> = {
@@ -75,6 +76,7 @@ export default function TerminalChat({
   rollout: initialRollout,
   approvalPolicy: initialApprovalPolicy,
   fullStdout,
+  onShutdown,
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AppConfig>(initialConfig);
   const [model, setModel] = useState<string>(config.model);
@@ -84,10 +86,10 @@ export default function TerminalChat({
   const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
     initialRollout?.items || [],
   );
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Array<Task>>([]);
   const [indexingStatus, setIndexingStatus] = useState<{ indexing: boolean; current?: number; total?: number; file?: string }>({ indexing: false });
   const [shellFocused, setShellFocused] = useState(false);
-  const [allFiles, setAllFiles] = useState<string[]>([]);
+  const [allFiles, setAllFiles] = useState<Array<string>>([]);
   const [loading, setLoading] = useState<boolean>(false);
   // Allow switching approval modes at runtime via an overlay.
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
@@ -141,12 +143,12 @@ export default function TerminalChat({
   >([]);
 
   const queuedInputText = useMemo(() => {
-    if (promptQueue.length === 0) return "";
+    if (promptQueue.length === 0) {return "";}
     const firstTurn = promptQueue[0];
-    if (!firstTurn) return "";
+    if (!firstTurn) {return "";}
     return firstTurn.inputs
       .map(item => {
-        if (typeof item.content === "string") return item.content;
+        if (typeof item.content === "string") {return item.content;}
         if (Array.isArray(item.content)) {
           return item.content.map(c => ("text" in c ? c.text : "")).join("\n");
         }
@@ -179,12 +181,12 @@ export default function TerminalChat({
   };
 
   const handleUndo = async () => {
-    if (!agent) return;
+    if (!agent) {return;}
     setLoading(true);
     const result = await undoLastChange(
       agent.sessionId,
       (p, c) => fs.writeFileSync(p, c, "utf-8"),
-      (p) => { if (fs.existsSync(p)) fs.unlinkSync(p); }
+      (p) => { if (fs.existsSync(p)) {fs.unlinkSync(p);} }
     );
     
     if (result.success) {
@@ -466,6 +468,7 @@ export default function TerminalChat({
       if (isLoggingEnabled()) {
         log("terminating AgentLoop");
       }
+      onShutdown?.(model, items);
       agentRef.current?.terminate();
       agentRef.current = undefined;
       forceUpdate(); // re‑render after teardown too
@@ -564,12 +567,12 @@ export default function TerminalChat({
     [items, model, config.contextSize],
   );
 
-  const [contextHistory, setContextHistory] = useState<number[]>([]);
+  const [contextHistory, setContextHistory] = useState<Array<number>>([]);
 
   useEffect(() => {
     const used = 100 - contextLeftPercent;
     setContextHistory(prev => {
-      if (prev[prev.length - 1] === used) return prev;
+      if (prev[prev.length - 1] === used) {return prev;}
       return [...prev, used].slice(-20); // Keep last 20 points
     });
   }, [contextLeftPercent]);
@@ -774,7 +777,7 @@ export default function TerminalChat({
         <TerminalStatusBar
           contextLeftPercent={contextLeftPercent}
           contextHistory={contextHistory}
-          tokenBreakdown={calculateTokenBreakdown(items)}
+          tokenBreakdown={calculateTokenBreakdown(model, items)}
           sessionId={agent.sessionId}
           approvalPolicy={approvalPolicy}
           theme={activeTheme}
@@ -1095,7 +1098,7 @@ export default function TerminalChat({
                 // Trigger slash command logic by submitting it
                 // We'll let TerminalChatInput handle it or implement it here
                 // For simplicity, we just set the overlay mode based on the command
-                if (value === "/model") setOverlayMode("model");
+                if (value === "/model") {setOverlayMode("model");}
                 else if (value === "/clear") {
                    // Reuse clear logic
                    setSessionId("");
@@ -1104,14 +1107,14 @@ export default function TerminalChat({
                    setItems(prev => [...prev, { role: "assistant", content: "Context cleared" }]);
                    setOverlayMode("none");
                 }
-                else if (value === "/history") setOverlayMode("history");
-                else if (value === "/history restore") setOverlayMode("history-select");
-                else if (value === "/memory") setOverlayMode("memory");
-                else if (value === "/approval") setOverlayMode("approval");
-                else if (value === "/config") setOverlayMode("config");
-                else if (value === "/prompt") setOverlayMode("prompt");
-                else if (value === "/prompts") setOverlayMode("prompts");
-                else if (value === "/theme") setOverlayMode("theme");
+                else if (value === "/history") {setOverlayMode("history");}
+                else if (value === "/history restore") {setOverlayMode("history-select");}
+                else if (value === "/memory") {setOverlayMode("memory");}
+                else if (value === "/approval") {setOverlayMode("approval");}
+                else if (value === "/config") {setOverlayMode("config");}
+                else if (value === "/prompt") {setOverlayMode("prompt");}
+                else if (value === "/prompts") {setOverlayMode("prompts");}
+                else if (value === "/theme") {setOverlayMode("theme");}
                 else if (value === "/undo") { handleUndo(); setOverlayMode("none"); }
                 else if (value === "/index") {
                    agent?.run([{ role: "user", content: "Please index the codebase for semantic search." }], prevItems);

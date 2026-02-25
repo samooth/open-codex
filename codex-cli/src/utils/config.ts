@@ -268,7 +268,7 @@ export type AppConfig = {
   baseURL?: string;
   provider?: string;
   providers?: Record<string, ProviderConfig>;
-  pinnedFiles?: string[];
+  pinnedFiles?: Array<string>;
   model: string;
   instructions: string;
   approvalMode?: AutoApprovalMode;

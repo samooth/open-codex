@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
-import { join, resolve, dirname } from "path";
-import { homedir } from "os";
 import ignore from "ignore";
+import { homedir } from "os";
+import { join, resolve, dirname } from "path";
 
 /**
  * Searches for the Git root starting from the current directory.
@@ -95,7 +95,7 @@ export function isPathIgnored(filePath: string): boolean {
     ? filePath.slice(process.cwd().length + 1) 
     : filePath;
     
-  if (!relativePath) return false;
+  if (!relativePath) {return false;}
   
   // ignore library requires forward slashes
   const posixPath = relativePath.replace(/\\/g, "/");

@@ -1,6 +1,7 @@
 import type { ApprovalPolicy } from "../../approvals.js";
-import type { Theme } from "../../utils/theme.js";
 import type { TokenBreakdown } from "../../utils/approximate-tokens-used.js";
+import type { Theme } from "../../utils/theme.js";
+
 import { Sparkline } from "./sparkline.js";
 import { useTerminalSizeContext } from "../../contexts/terminal-size-context.js";
 import Spinner from "../vendor/ink-spinner.js";
@@ -9,7 +10,7 @@ import React, { useState } from "react";
 
 type Props = {
   contextLeftPercent: number;
-  contextHistory: number[];
+  contextHistory: Array<number>;
   tokenBreakdown: TokenBreakdown;
   sessionId: string;
   approvalPolicy: ApprovalPolicy;
@@ -51,8 +52,8 @@ const TerminalStatusBar: React.FC<Props> = ({
   };
 
   const getContextColor = (percent: number) => {
-    if (percent > 80) return theme.error;
-    if (percent > 60) return theme.warning;
+    if (percent > 80) {return theme.error;}
+    if (percent > 60) {return theme.warning;}
     return theme.success;
   };
 
@@ -106,11 +107,15 @@ const TerminalStatusBar: React.FC<Props> = ({
               <Text color={theme.assistant}>{isNarrow ? "S" : "SYS"}:{tokenBreakdown.system}</Text>
               <Text color={theme.user}>{isNarrow ? "H" : "HIST"}:{tokenBreakdown.history}</Text>
               <Text color={theme.highlight}>{isNarrow ? "T" : "TOOL"}:{tokenBreakdown.tools}</Text>
-              {separator}
+              <Text color={theme.dim}>/</Text>
               <Text color={theme.success} bold>{isNarrow ? "Σ" : "TOTAL"}:{tokenBreakdown.total}</Text>
+              {separator}
+              <Text color={theme.warning}>${tokenBreakdown.cost.toFixed(4)}</Text>
             </Box>
           ) : (
             <Box gap={1}>
+              <Text color={theme.warning}>${tokenBreakdown.cost.toFixed(4)}</Text>
+              {separator}
               {!isNarrow && <Text color={theme.dim}>CONTEXT</Text>}
               {!isUltraNarrow && <Sparkline data={contextHistory} color={getContextColor(usedPercent)} />}
               <Text color={getContextColor(usedPercent)}>

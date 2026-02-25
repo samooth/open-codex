@@ -17,6 +17,7 @@ import type {
   ExecOutputMetadata,
 } from "./agent/sandbox/interface.js";
 import type { ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
+
 import { formatCommandForDisplay } from "../format-command.js";
 import { parse } from "shell-quote";
 import { z } from "zod";
@@ -157,7 +158,7 @@ export function parseToolCall(
  * Robust JSON splitter that handles escaped characters and whitespace
  * Split concatenated JSON objects: {"a":1}{"b":2} -> ["{"a":1}", "{"b":2}"]
  */
-const splitConcatenatedJSON = (str: string): string[] => str.split(/(?<=})\s*(?={)/g);
+const splitConcatenatedJSON = (str: string): Array<string> => str.split(/(?<=})\s*(?={)/g);
 
 /**
  * Decodes common HTML entities that might appear due to double-encoding.
@@ -177,7 +178,7 @@ export function parseToolCallArguments(
   toolCallArguments: string,
 ): ParsedToolCallResult {
   // Clean the input: handle HTML encoding and mixed escaping
-  let cleaned = decodeHtmlEntities(toolCallArguments).trim();
+  const cleaned = decodeHtmlEntities(toolCallArguments).trim();
   
   // If the string contains literal newlines, JSON.parse will fail.
   // We need to ensure that newlines inside the patch/command strings are properly escaped.
@@ -336,9 +337,9 @@ export function tryExtractToolCallsFromContent(
   let match;
   while ((match = codeBlockRegex.exec(content)) !== null) {
     const rawBlock = match[1];
-    if (!rawBlock) continue;
+    if (!rawBlock) {continue;}
     const blockContent = rawBlock.trim();
-    if (!blockContent) continue;
+    if (!blockContent) {continue;}
 
     let json;
     try {

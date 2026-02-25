@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text, useInput } from "ink";
-import fs from "fs";
-import path from "path";
 import type { Theme } from "../utils/theme.js";
+
+import fs from "fs";
+import { Box, Text, useInput } from "ink";
+import path from "path";
+import React, { useState, useEffect } from "react";
+
 
 export default function MemoryOverlay({
   onExit,
@@ -23,7 +25,7 @@ export default function MemoryOverlay({
   }, [memoryPath]);
 
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   return (

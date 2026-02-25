@@ -1,6 +1,6 @@
 export type ApplyPatchHunk = {
   header: string;
-  lines: string[];
+  lines: Array<string>;
   added: number;
   deleted: number;
 };
@@ -9,7 +9,7 @@ export type ApplyPatchCreateFileOp = {
   type: "create";
   path: string;
   content: string;
-  hunks: ApplyPatchHunk[];
+  hunks: Array<ApplyPatchHunk>;
 };
 
 export type ApplyPatchDeleteFileOp = {
@@ -23,7 +23,7 @@ export type ApplyPatchUpdateFileOp = {
   update: string;
   added: number;
   deleted: number;
-  hunks: ApplyPatchHunk[];
+  hunks: Array<ApplyPatchHunk>;
 };
 
 export type ApplyPatchOp =

@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from "react";
-import { Box, Text, useInput } from "ink";
-import TextInput from "./vendor/ink-text-input.js";
-import SelectInput from "./select-input/select-input.js";
-import { recipes } from "../utils/recipes.js";
 import type { Theme } from "../utils/theme.js";
+
+import SelectInput from "./select-input/select-input.js";
+import TextInput from "./vendor/ink-text-input.js";
+import { recipes } from "../utils/recipes.js";
+import { Box, Text, useInput } from "ink";
+import React, { useState, useMemo } from "react";
+
 
 const slashCommands = [
   { label: "/MODEL", description: "Switch LLM model", value: "/model", type: "command" },
@@ -45,7 +47,7 @@ export default function CommandPaletteOverlay({
 
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase();
-    if (!q) return allItems;
+    if (!q) {return allItems;}
     return allItems.filter(item => 
       item.label.toLowerCase().includes(q) || 
       (item.description && item.description.toLowerCase().includes(q))
@@ -53,7 +55,7 @@ export default function CommandPaletteOverlay({
   }, [allItems, query]);
 
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   return (

@@ -1,7 +1,8 @@
-import React from "react";
-import { themes } from "../utils/theme.js";
 import type { Theme } from "../utils/theme.js";
+
 import TypeaheadOverlay from "./typeahead-overlay.js";
+import { themes } from "../utils/theme.js";
+import React from "react";
 
 type Props = {
   currentTheme: string;

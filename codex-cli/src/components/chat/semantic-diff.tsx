@@ -1,7 +1,9 @@
-import React, { useMemo } from "react";
-import { Text, Box } from "ink";
-import * as diff from "diff";
 import type { Theme } from "../../utils/theme";
+
+import * as diff from "diff";
+import { Text, Box } from "ink";
+import React, { useMemo } from "react";
+
 
 /**
  * Renders a single diff line with character-level highlighting.
@@ -49,7 +51,7 @@ export function SemanticDiffPair({
       <Box>
         <Text color="redBright">-</Text>
         {diffResult.map((part: any, i: number) => {
-          if (part.added) return null;
+          if (part.added) {return null;}
           return (
             <Text
               key={i}
@@ -66,7 +68,7 @@ export function SemanticDiffPair({
       <Box>
         <Text color="greenBright">+</Text>
         {diffResult.map((part: any, i: number) => {
-          if (part.removed) return null;
+          if (part.removed) {return null;}
           return (
             <Text
               key={i}

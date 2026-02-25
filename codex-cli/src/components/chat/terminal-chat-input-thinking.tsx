@@ -1,9 +1,10 @@
+import type { Theme } from "../../utils/theme.js";
+
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import Spinner from "../vendor/ink-spinner.js";
 import { Box, Text, useInput, useStdin } from "ink";
 import React, { useState } from "react";
 import { useInterval } from "use-interval";
-import type { Theme } from "../../utils/theme.js";
 
 const thinkingTexts = [
   "Thinking",

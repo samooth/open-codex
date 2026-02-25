@@ -1,15 +1,16 @@
+import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
-import chalk, { type ForegroundColorName } from "chalk";
 
-import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
-import { parseToolCallArguments } from "../../utils/parsers.js";
+
 import { formatCommandForDisplay } from "../../format-command.js";
 import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
-import type { Theme } from "../../utils/theme.js";
+import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
+import { parseToolCallArguments } from "../../utils/parsers.js";
+import chalk, { type ForegroundColorName } from "chalk";
 
 export interface CommandReviewDetails {
-  cmd: string[];
+  cmd: Array<string>;
   cmdReadableText: string;
 }
 
@@ -234,7 +235,7 @@ export function calculateContextPercentRemaining(
   model: string,
   forcedMaxTokens?: number,
 ): number {
-  const breakdown = approximateTokensUsed(items);
+  const breakdown = approximateTokensUsed(model, items);
   const used = breakdown.total;
   const max = forcedMaxTokens || maxTokensForModel(model);
   const remaining = Math.max(0, max - used);
@@ -245,9 +246,10 @@ export function calculateContextPercentRemaining(
  * Returns a detailed token usage breakdown.
  */
 export function calculateTokenBreakdown(
+  model: string,
   items: Array<ChatCompletionMessageParam>,
 ) {
-  return approximateTokensUsed(items);
+  return approximateTokensUsed(model, items);
 }
 
 /**

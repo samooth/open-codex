@@ -35,8 +35,8 @@ describe("Session Storage Logic", () => {
 
     // Mock reading the session file
     vi.mocked(fs.readFile).mockImplementation((p) => {
-      if (p === sessionFile) return Promise.resolve(JSON.stringify(mockSessionData));
-      if (p === SESSIONS_INDEX) return Promise.resolve(JSON.stringify(mockIndexData));
+      if (p === sessionFile) {return Promise.resolve(JSON.stringify(mockSessionData));}
+      if (p === SESSIONS_INDEX) {return Promise.resolve(JSON.stringify(mockIndexData));}
       return Promise.reject(new Error("File not found"));
     });
 

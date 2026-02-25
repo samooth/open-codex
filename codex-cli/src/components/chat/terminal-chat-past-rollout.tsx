@@ -1,10 +1,10 @@
 import type { TerminalChatSession } from "../../utils/session.js";
+import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
 import TerminalChatResponseItem from "./terminal-chat-response-item";
 import { Box, Text } from "ink";
 import React from "react";
-import type { Theme } from "../../utils/theme.js";
 
 export default function TerminalChatPastRollout({
   session,

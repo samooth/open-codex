@@ -1,10 +1,11 @@
+import type { ApplyPatchCommand } from "../../approvals.js";
+import type { Theme } from "../../utils/theme";
+
 import { SemanticDiffLine, SemanticDiffPair } from "./semantic-diff.js";
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
-import { parseApplyPatch } from "../../parse-apply-patch";
-import type { ApplyPatchCommand } from "../../approvals.js";
-import { shortenPath } from "../../utils/short-path";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
-import type { Theme } from "../../utils/theme";
+import { parseApplyPatch } from "../../parse-apply-patch";
+import { shortenPath } from "../../utils/short-path";
 import chalk from "chalk";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
@@ -31,21 +32,21 @@ export function TerminalChatToolCallCommand({
   const [isExpandedAll, setIsExpandedAll] = useState(false);
   
   // path -> hunkIndices
-  const [excludedHunks, setExcludedHunks] = useState<Record<string, number[]>>(
+  const [excludedHunks, setExcludedHunks] = useState<Record<string, Array<number>>>(
     applyPatch?.excludedHunks || {}
   );
 
   const ops = React.useMemo(() => {
-    if (applyPatch) return parseApplyPatch(applyPatch.patch);
+    if (applyPatch) {return parseApplyPatch(applyPatch.patch);}
     if (commandForDisplay.includes("*** Begin Patch")) {
       const match = commandForDisplay.match(/\*\*\* Begin Patch[\s\S]*\*\*\* End Patch/);
-      if (match) return parseApplyPatch(match[0]);
+      if (match) {return parseApplyPatch(match[0]);}
     }
     return null;
   }, [applyPatch, commandForDisplay]);
 
   useInput((input, _key) => {
-    if (!isActive) return;
+    if (!isActive) {return;}
 
     if (input === "e") {
       setIsExpandedAll(!isExpandedAll);
@@ -125,7 +126,7 @@ export function TerminalChatToolCallCommand({
           )}
 
           {ops.map((op: any, i) => {
-            if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) return null;
+            if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) {return null;}
 
             const isSelected = i === selectedOpIndex;
             const isCollapsed = collapsedOps.has(i) && !isSelected;
@@ -189,7 +190,7 @@ export function TerminalChatToolCallCommand({
                       <Text color={theme.error} italic>File will be deleted</Text>
                     )}
                     {(() => {
-                      const renderedLines: React.ReactNode[] = [];
+                      const renderedLines: Array<React.ReactNode> = [];
                       for (let j = 0; j < linesToDisplay.length; j++) {
                         const line = linesToDisplay[j]!;
                         const nextLine = linesToDisplay[j + 1];

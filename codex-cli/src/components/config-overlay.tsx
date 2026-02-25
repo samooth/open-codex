@@ -1,7 +1,8 @@
+import type { Theme } from "../utils/theme.js";
+
 import SelectInput from "./select-input/select-input.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
-import type { Theme } from "../utils/theme.js";
 
 type Props = {
   dryRun: boolean;

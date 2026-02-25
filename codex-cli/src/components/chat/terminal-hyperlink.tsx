@@ -1,5 +1,5 @@
-import React from "react";
 import { Text } from "ink";
+import React from "react";
 
 /**
  * Renders a terminal-native hyperlink using OSC 8 escape sequences.
@@ -36,7 +36,7 @@ export function TerminalHyperlink({
  * Creates a file:// URL for a path, absolute or relative.
  */
 export function getFileUrl(filePath: string): string {
-  if (filePath.startsWith("file://")) return filePath;
+  if (filePath.startsWith("file://")) {return filePath;}
   const absolutePath = filePath.startsWith("/")
     ? filePath
     : `${process.cwd()}/${filePath}`;

@@ -11,9 +11,9 @@ export function sanitizeAnthropicToolName(name: string): string {
 
 export function mapOpenAiToAnthropicMessages(
   messages: Array<ChatCompletionMessageParam>,
-): { messages: any[]; system: any[] | undefined } {
-  const anthropicMessages: any[] = [];
-  let systemBlocks: any[] = [];
+): { messages: Array<any>; system: Array<any> | undefined } {
+  const anthropicMessages: Array<any> = [];
+  const systemBlocks: Array<any> = [];
 
   // 1. First Pass: Build the initial message list and track tool usage
   const useIdToMessageIndex = new Map<string, number>();
@@ -25,7 +25,7 @@ export function mapOpenAiToAnthropicMessages(
     }
 
     let role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
-    let content: any[] = [];
+    const content: Array<any> = [];
 
     if (msg.role === "user") {
       if (typeof msg.content === "string") {
@@ -50,7 +50,7 @@ export function mapOpenAiToAnthropicMessages(
         content.push({ type: "text", text: msg.content });
       }
       if (msg.tool_calls) {
-        for (const tc of msg.tool_calls as any[]) {
+        for (const tc of msg.tool_calls as Array<any>) {
           const sanitizedName = sanitizeAnthropicToolName(tc.function.name);
           content.push({
             type: "tool_use",
@@ -105,7 +105,7 @@ export function mapOpenAiToAnthropicMessages(
   }
 
   // 2. Second Pass: Relocate results, fill holes, and purge empty messages
-  const finalMessages: any[] = [];
+  const finalMessages: Array<any> = [];
   
   for (let i = 0; i < anthropicMessages.length; i++) {
     const msg = anthropicMessages[i];
@@ -171,7 +171,7 @@ export function mapOpenAiToAnthropicMessages(
   return { messages: finalMessages, system: systemBlocks.length > 0 ? systemBlocks : undefined };
 }
 
-function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
+function findAndRemoveResult(messages: Array<any>, toolUseId: string): any | null {
   for (const msg of messages) {
     if (msg.role === "user") {
       const idx = msg.content.findIndex((p: any) => p.type === "tool_result" && p.tool_use_id === toolUseId);
@@ -183,7 +183,7 @@ function findAndRemoveResult(messages: any[], toolUseId: string): any | null {
   return null;
 }
 
-export function mapOpenAiToAnthropicTools(openAiTools: any[]): any[] {
+export function mapOpenAiToAnthropicTools(openAiTools: Array<any>): Array<any> {
   const tools = openAiTools.map((tool) => ({
     name: sanitizeAnthropicToolName(tool.function.name),
     description: tool.function.description,
@@ -216,9 +216,9 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
         function: { name: event.content_block.name, arguments: "" },
       }];
     } else if (event.type === "content_block_delta") {
-      if (event.delta.type === "text_delta") delta.content = event.delta.text;
-      else if (event.delta.type === "thinking_delta") delta.reasoning_content = event.delta.thinking;
-      else if (event.delta.type === "signature_delta") delta.thought_signature = event.delta.signature;
+      if (event.delta.type === "text_delta") {delta.content = event.delta.text;}
+      else if (event.delta.type === "thinking_delta") {delta.reasoning_content = event.delta.thinking;}
+      else if (event.delta.type === "signature_delta") {delta.thought_signature = event.delta.signature;}
       else if (event.delta.type === "input_json_delta") {
         const index = toolIndexMap.get(event.index);
         if (typeof index === "number") {

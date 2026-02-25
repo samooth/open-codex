@@ -9,10 +9,10 @@ import { isLoggingEnabled, log } from "./log.js";
 import { ReviewDecision } from "./review.js";
 import { FullAutoErrorMode } from "../auto-approval-mode.js";
 import { SandboxType } from "./sandbox/interface.js";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "./tool-constants.js";
 import { canAutoApprove } from "../../approvals.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { access } from "fs/promises";
-import { TOOL_APPLY_PATCH, TOOL_SHELL } from "./tool-constants.js";
 
 // ---------------------------------------------------------------------------
 // Session‑level cache of commands that the user has chosen to always approve.

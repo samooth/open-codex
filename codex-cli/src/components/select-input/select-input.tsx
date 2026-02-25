@@ -1,3 +1,5 @@
+import type { Theme } from "../../utils/theme.js";
+
 import Indicator, { type Props as IndicatorProps } from "./indicator.js";
 import ItemComponent, { type Props as ItemProps } from "./item.js";
 import isEqual from "fast-deep-equal";
@@ -10,7 +12,6 @@ import React, {
   useCallback,
 } from "react";
 import arrayToRotated from "to-rotated";
-import type { Theme } from "../../utils/theme.js";
 
 type Props<V> = {
   /**
@@ -111,7 +112,7 @@ function SelectInput<V>({
   useInput(
     useCallback(
       (input, key) => {
-        if (!isFocused) return;
+        if (!isFocused) {return;}
 
         const now = Date.now();
         if (now - lastInputTime.current < 50) {

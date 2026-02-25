@@ -1,5 +1,5 @@
-import React from "react";
 import { Text } from "ink";
+import React from "react";
 
 /**
  * Renders a simple sparkline using Unicode block characters.
@@ -9,11 +9,11 @@ export function Sparkline({
   width = 10,
   color = "green",
 }: {
-  data: number[];
+  data: Array<number>;
   width?: number;
   color?: string;
 }) {
-  if (data.length === 0) return <Text>{" ".repeat(width)}</Text>;
+  if (data.length === 0) {return <Text>{" ".repeat(width)}</Text>;}
 
   const blocks = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
   

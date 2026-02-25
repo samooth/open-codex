@@ -1,9 +1,10 @@
-import OpenAI from "openai";
+import type OpenAI from "openai";
+
+import { getIgnoreFilter } from "./ignore-utils.js";
+import { log } from "./log.js";
 import { GoogleGenAI } from "@google/genai";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
 import { join, dirname, relative } from "path";
-import { log } from "./log.js";
-import { getIgnoreFilter } from "./ignore-utils.js";
 
 function isBinaryFile(filePath: string): boolean {
   try {
@@ -11,7 +12,7 @@ function isBinaryFile(filePath: string): boolean {
     // Check first 1KB for null bytes which usually indicate binary
     const checkSize = Math.min(buffer.length, 1024);
     for (let i = 0; i < checkSize; i++) {
-      if (buffer[i] === 0) return true;
+      if (buffer[i] === 0) {return true;}
     }
     return false;
   } catch {
@@ -19,13 +20,13 @@ function isBinaryFile(filePath: string): boolean {
   }
 }
 
-type EmbeddingCache = Record<string, number[]>;
+type EmbeddingCache = Record<string, Array<number>>;
 
 interface VectorEntry {
   id: string;
   path: string;
   content: string;
-  embedding: number[];
+  embedding: Array<number>;
   mtime?: number;
 }
 
@@ -36,7 +37,7 @@ export class SemanticMemory {
   private indexPath: string;
   private oai: OpenAI;
   private genAI?: GoogleGenAI;
-  private entries: VectorEntry[] = [];
+  private entries: Array<VectorEntry> = [];
   private embeddingModel: string | undefined;
   private provider: string;
 
@@ -119,7 +120,7 @@ export class SemanticMemory {
     }
   }
 
-  private async getEmbedding(text: string): Promise<number[]> {
+  private async getEmbedding(text: string): Promise<Array<number>> {
 // ... existing getEmbedding ...
     if (this.cache[text]) {
       if (process.env["DEBUG"] === "1") {
@@ -141,7 +142,7 @@ export class SemanticMemory {
           contents: text
         });
         const embedding = result.embeddings?.[0]?.values || result.embedding?.values || (Array.isArray(result.embeddings) ? result.embeddings[0] : result.embeddings);
-        if (!embedding) throw new Error("No embedding values found in response");
+        if (!embedding) {throw new Error("No embedding values found in response");}
         this.cache[text] = embedding;
         this.saveCache();
         return embedding;
@@ -184,7 +185,7 @@ export class SemanticMemory {
     }
   }
 
-  private cosineSimilarity(a: number[], b: number[]): number {
+  private cosineSimilarity(a: Array<number>, b: Array<number>): number {
 // ... existing cosineSimilarity ...
     let dotProduct = 0;
     let mA = 0;
@@ -198,17 +199,17 @@ export class SemanticMemory {
     }
     mA = Math.sqrt(mA);
     mB = Math.sqrt(mB);
-    if (mA === 0 || mB === 0) return 0;
+    if (mA === 0 || mB === 0) {return 0;}
     return dotProduct / (mA * mB);
   }
 
-  async findRelevant(query: string, limit: number = 5): Promise<string[]> {
+  async findRelevant(query: string, limit: number = 5): Promise<Array<string>> {
 // ... existing findRelevant ...
-    if (!this.memoryExists()) return [];
+    if (!this.memoryExists()) {return [];}
 
     const content = readFileSync(this.memoryPath, "utf-8");
     const lines = content.split("\n").filter(l => l.trim().startsWith("- ["));
-    if (lines.length === 0) return [];
+    if (lines.length === 0) {return [];}
 
     try {
       const queryEmbedding = await this.getEmbedding(query);
@@ -242,7 +243,7 @@ export class SemanticMemory {
    */
   async indexCodebase(onProgress?: (current: number, total: number, file: string) => void): Promise<void> {
     const ig = getIgnoreFilter();
-    const files: string[] = [];
+    const files: Array<string> = [];
     const root = process.cwd();
 
     if (process.env["DEBUG"] === "1") {
@@ -251,14 +252,14 @@ export class SemanticMemory {
     }
 
     const traverse = (dir: string) => {
-      let entries: any[] = [];
+      let entries: Array<any> = [];
       try {
         entries = readdirSync(dir, { withFileTypes: true });
       } catch { return; }
 
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);
-        let relPath = relative(root, fullPath);
+        const relPath = relative(root, fullPath);
         
         // ignore library requires forward slashes and trailing slash for directories
         let posixPath = relPath.replace(/\\/g, "/");
@@ -324,15 +325,15 @@ export class SemanticMemory {
         }
 
         const content = readFileSync(file, "utf-8");
-        if (!content.trim()) continue;
+        if (!content.trim()) {continue;}
 
         const chunkSize = 1000;
         const overlap = 200;
-        const chunks: string[] = [];
+        const chunks: Array<string> = [];
         
         for (let j = 0; j < content.length; j += (chunkSize - overlap)) {
           chunks.push(content.slice(j, j + chunkSize));
-          if (chunks.length > 50) break; 
+          if (chunks.length > 50) {break;} 
         }
 
         for (let k = 0; k < chunks.length; k++) {
@@ -375,9 +376,9 @@ export class SemanticMemory {
     }
   }
 
-  async search(query: string, limit: number = 5): Promise<any[]> {
+  async search(query: string, limit: number = 5): Promise<Array<any>> {
 // ... existing search ...
-    if (this.entries.length === 0) return [];
+    if (this.entries.length === 0) {return [];}
     
     try {
       const queryEmbedding = await this.getEmbedding(query);
@@ -404,8 +405,8 @@ export class SemanticMemory {
       /**
        * Specifically searches for symbol definitions.
        */
-      async searchSymbols(query: string, limit: number = 5): Promise<any[]> {
-        if (this.entries.length === 0) return [];
+      async searchSymbols(query: string, limit: number = 5): Promise<Array<any>> {
+        if (this.entries.length === 0) {return [];}
         
         try {
           // We amplify the query to look for definitions

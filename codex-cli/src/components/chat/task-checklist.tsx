@@ -1,15 +1,16 @@
 import type { Task } from "../../utils/agent/types.js";
 import type { Theme } from "../../utils/theme.js";
+
 import { Box, Text } from "ink";
 import React from "react";
 
 type Props = {
-  tasks: Task[];
+  tasks: Array<Task>;
   theme: Theme;
 };
 
 const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0) {return null;}
 
   return (
     <Box 

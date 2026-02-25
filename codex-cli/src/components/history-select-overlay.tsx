@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text, useInput } from "ink";
+import type { Theme } from "../utils/theme.js";
+
 import SelectInput from "./select-input/select-input.js";
 import { loadRollouts, loadRollout } from "../utils/storage/save-rollout.js";
-import type { Theme } from "../utils/theme.js";
+import { Box, Text, useInput } from "ink";
+import React, { useState, useEffect } from "react";
+
 
 export default function HistorySelectOverlay({
   onSelect,
   onExit,
   theme,
 }: {
-  onSelect: (rollout: { session: any; items: any[] }) => void;
+  onSelect: (rollout: { session: any; items: Array<any> }) => void;
   onExit: () => void;
   theme: Theme;
 }) {
@@ -24,7 +26,7 @@ export default function HistorySelectOverlay({
   }, []);
 
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   const handleSelect = async (item: any) => {

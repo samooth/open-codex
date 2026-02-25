@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
-import { extname, join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { extname, join } from "node:path";
 
 export type ValidationResult = {
   isValid: boolean;

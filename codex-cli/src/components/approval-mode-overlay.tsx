@@ -1,7 +1,8 @@
-import React from "react";
 import type { ApprovalPolicy } from "../approvals.js";
 import type { Theme } from "../utils/theme.js";
+
 import TypeaheadOverlay from "./typeahead-overlay.js";
+import React from "react";
 
 type Props = {
   currentMode: ApprovalPolicy;

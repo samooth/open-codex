@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
-import { Box, Text, useInput } from "ink";
-import TextInput from "./vendor/ink-text-input.js";
-import SelectInput from "./select-input/select-input.js";
 import type { Theme } from "../utils/theme.js";
+
+import SelectInput from "./select-input/select-input.js";
+import TextInput from "./vendor/ink-text-input.js";
 import { useTerminalSizeContext } from "../contexts/terminal-size-context.js";
+import { Box, Text, useInput } from "ink";
+import React, { useState, useMemo } from "react";
 
 type Props<T> = {
   title: string;
@@ -25,7 +26,7 @@ export default function TypeaheadOverlay<T>({
 
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase();
-    if (!q) return items;
+    if (!q) {return items;}
     return items.filter(item => 
       item.label.toLowerCase().includes(q) || 
       (item.description && item.description.toLowerCase().includes(q))

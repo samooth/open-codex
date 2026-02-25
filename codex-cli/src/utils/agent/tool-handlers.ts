@@ -1,18 +1,17 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "fs";
-import { join, resolve, dirname } from "path";
-import { homedir } from "os";
-import { handleExecCommand } from "./handle-exec-command.js";
 import type { AgentContext } from "./types.js";
-import { getIgnoreFilter } from "./ignore-utils.js";
-import { validateFileSyntax } from "./validate-file.js";
-import { log } from "./log.js";
-import { applyEdits, formatStyledDiff } from "./edit-file.js";
-import { extractSymbols } from "./symbol-extractor.js";
-import { runProjectDiagnostics } from "./diagnostics.js";
-import { createCheckpoint } from "./checkpoint.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-import { unlinkSync, renameSync } from 'fs'
+import { createCheckpoint } from "./checkpoint.js";
+import { runProjectDiagnostics } from "./diagnostics.js";
+import { applyEdits, formatStyledDiff } from "./edit-file.js";
+import { handleExecCommand } from "./handle-exec-command.js";
+import { getIgnoreFilter } from "./ignore-utils.js";
+import { log } from "./log.js";
+import { extractSymbols } from "./symbol-extractor.js";
+import { validateFileSyntax } from "./validate-file.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync , unlinkSync, renameSync } from "fs";
+import { homedir } from "os";
+import { join, resolve, dirname } from "path";
 
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);
@@ -575,16 +574,16 @@ export async function handleListDirectory(
         const posixPath = relPath.replace(/\\/g, "/");
         
         // Always show node_modules folder itself if it exists
-        if (e.name === "node_modules") return true;
+        if (e.name === "node_modules") {return true;}
         
         // If we are looking inside node_modules, show everything (bypass ignore)
-        if (dirPath.includes("node_modules")) return true;
+        if (dirPath.includes("node_modules")) {return true;}
 
         return !ig.ignores(posixPath);
       })
       .sort((a, b) => {
-        if (a.isDirectory() && !b.isDirectory()) return -1;
-        if (!a.isDirectory() && b.isDirectory()) return 1;
+        if (a.isDirectory() && !b.isDirectory()) {return -1;}
+        if (!a.isDirectory() && b.isDirectory()) {return 1;}
         return a.name.localeCompare(b.name);
       });
 
@@ -663,7 +662,7 @@ export async function handleSearchCodebase(
     // Add .codexignore support to ripgrep
     const gitRoot = findGitRoot(process.cwd());
     const searchDirs = [process.cwd()];
-    if (gitRoot && gitRoot !== process.cwd()) searchDirs.push(gitRoot);
+    if (gitRoot && gitRoot !== process.cwd()) {searchDirs.push(gitRoot);}
     searchDirs.push(join(homedir(), ".codex"));
 
     for (const dir of searchDirs) {
@@ -686,13 +685,13 @@ export async function handleSearchCodebase(
     );
 
     // Hybrid Search: Run semantic search in parallel if available
-    let semanticResults: any[] = [];
+    let semanticResults: Array<any> = [];
     if (ctx.agent && ctx.agent.hasIndex() && !isFileListingMode && !searchPath) {
       // Only run semantic search for global searches (no specific path) for now to avoid noise
       try {
         semanticResults = await ctx.agent.searchCode(query || pattern, 5);
       } catch (e) {
-        if (process.env["DEBUG"]) log(`Semantic search failed during hybrid search: ${e}`);
+        if (process.env["DEBUG"]) {log(`Semantic search failed during hybrid search: ${e}`);}
       }
     }
 
@@ -718,7 +717,7 @@ export async function handleSearchCodebase(
     const seenFiles = new Set<string>();
 
     for (const line of lines) {
-      if (!line) continue;
+      if (!line) {continue;}
       try {
         const parsed = JSON.parse(line);
         if (parsed.type === "match") {
@@ -763,9 +762,9 @@ export async function handleSearchCodebase(
     // Let's just group by file for readability.
     
     // Group by file
-    const grouped: Record<string, any[]> = {};
+    const grouped: Record<string, Array<any>> = {};
     for (const r of results) {
-      if (!grouped[r.file]) grouped[r.file] = [];
+      if (!grouped[r.file]) {grouped[r.file] = [];}
       grouped[r.file]!.push(r);
     }
 
@@ -1120,7 +1119,7 @@ export async function handleListFilesRecursive(
       currentDepth: number,
       currentRelPath: string = "",
     ): Promise<string> => {
-      if (currentDepth > depth) return "";
+      if (currentDepth > depth) {return "";}
 
       let dirents: Array<import("fs").Dirent> = [];
       try {
@@ -1135,13 +1134,13 @@ export async function handleListFilesRecursive(
           const posixPath = relPath.replace(/\\/g, "/");
           
           // If the user explicitly requested a path inside/involving node_modules, show content
-          if (startPath.includes("node_modules")) return true;
+          if (startPath.includes("node_modules")) {return true;}
 
           return !ig.ignores(posixPath);
         })
         .sort((a, b) => {
-          if (a.isDirectory() && !b.isDirectory()) return -1;
-          if (!a.isDirectory() && b.isDirectory()) return 1;
+          if (a.isDirectory() && !b.isDirectory()) {return -1;}
+          if (!a.isDirectory() && b.isDirectory()) {return 1;}
           return a.name.localeCompare(b.name);
         });
 
@@ -1266,7 +1265,7 @@ export async function handleWebSearch(
             };
           }
         } catch (e) {
-          if (process.env["DEBUG"]) log(`SearXNG JSON parse failed: ${String(e)}`);
+          if (process.env["DEBUG"]) {log(`SearXNG JSON parse failed: ${String(e)}`);}
         }
       }
     }

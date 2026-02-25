@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { Box, Text, useInput } from "ink";
-import TextInput from "./vendor/ink-text-input.js";
 import type { Theme } from "../utils/theme.js";
+
+import TextInput from "./vendor/ink-text-input.js";
+import { Box, Text, useInput } from "ink";
+import React, { useState } from "react";
+
 
 export default function SearchUrlOverlay({
   title,
@@ -20,8 +22,8 @@ export default function SearchUrlOverlay({
   const [url, setUrl] = useState(currentUrl);
 
   useInput((_input, key) => {
-    if (key.escape) onExit();
-    if (key.return) onSave(url.trim());
+    if (key.escape) {onExit();}
+    if (key.return) {onSave(url.trim());}
   });
 
   return (

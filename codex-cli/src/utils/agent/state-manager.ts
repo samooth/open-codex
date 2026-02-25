@@ -1,21 +1,21 @@
 export type StateSnapshot = {
   overall_goal?: string;
-  active_constraints?: string[];
-  key_knowledge?: string[];
-  artifact_trail?: string[];
-  task_state?: string[];
+  active_constraints?: Array<string>;
+  key_knowledge?: Array<string>;
+  artifact_trail?: Array<string>;
+  task_state?: Array<string>;
 };
 
 /**
  * Parses XML-style tags from a content string to build or update a StateSnapshot.
  */
 export function parseStateSnapshot(content: string): StateSnapshot | null {
-  if (!content) return null;
+  if (!content) {return null;}
 
   const snapshot: StateSnapshot = {};
 
   const goalMatch = content.match(/<overall_goal>([\s\S]*?)<\/overall_goal>/i);
-  if (goalMatch) snapshot.overall_goal = goalMatch[1]!.trim();
+  if (goalMatch) {snapshot.overall_goal = goalMatch[1]!.trim();}
 
   const constraintsMatch = content.match(/<active_constraints>([\s\S]*?)<\/active_constraints>/i);
   if (constraintsMatch) {
@@ -56,7 +56,7 @@ export function parseStateSnapshot(content: string): StateSnapshot | null {
  * Formats a StateSnapshot back into a string for injection into the system prompt.
  */
 export function formatStateForPrompt(snapshot: StateSnapshot): string {
-  const parts: string[] = ["\n--- CURRENT MISSION STATE ---"];
+  const parts: Array<string> = ["\n--- CURRENT MISSION STATE ---"];
   
   if (snapshot.overall_goal) {
     parts.push(`Overall Goal: ${snapshot.overall_goal}`);

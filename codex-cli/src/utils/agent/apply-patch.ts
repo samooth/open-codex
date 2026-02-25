@@ -1,7 +1,6 @@
 // Based on reference implementation from
 // https://cookbook.openai.com/examples/gpt4-1_prompting_guide#reference-implementation-apply_patchpy
 
-import { dirname } from "path";
 import {
   ADD_FILE_PREFIX,
   DELETE_FILE_PREFIX,
@@ -12,6 +11,7 @@ import {
   HUNK_ADD_LINE_PREFIX,
   PATCH_PREFIX as _PATCH_PREFIX,
 } from "../../parse-apply-patch.js";
+import { dirname } from "path";
 
 // -----------------------------------------------------------------------------
 // Types & Models
@@ -332,7 +332,7 @@ function find_context_core(
   // Try trimEnd match (ignore trailing whitespace)
   for (let i = start; i < lines.length; i++) {
     const slice = lines.slice(i, i + context.length);
-    if (slice.length !== context.length) continue;
+    if (slice.length !== context.length) {continue;}
     
     let matches = true;
     for (let j = 0; j < context.length; j++) {
@@ -349,7 +349,7 @@ function find_context_core(
   // Try trim match (ignore all leading/trailing whitespace)
   for (let i = start; i < lines.length; i++) {
     const slice = lines.slice(i, i + context.length);
-    if (slice.length !== context.length) continue;
+    if (slice.length !== context.length) {continue;}
     
     let matches = true;
     for (let j = 0; j < context.length; j++) {
@@ -370,7 +370,7 @@ function find_context_core(
       const windowSlice = lines.slice(i, i + normalizedContext.length);
       const normalizedWindow = windowSlice.map(s => s.trim()).filter(Boolean);
       
-      if (normalizedWindow.length !== normalizedContext.length) continue;
+      if (normalizedWindow.length !== normalizedContext.length) {continue;}
       
       let matches = true;
       for (let j = 0; j < normalizedContext.length; j++) {
@@ -535,7 +535,7 @@ function normalizePatchText(text: string): string {
 
   // Convert standard unified diff format to our format (if needed)
   const lines = cleaned.split("\n");
-  const processedLines: string[] = [];
+  const processedLines: Array<string> = [];
   let currentFile: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {

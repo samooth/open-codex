@@ -8,7 +8,7 @@ function createInMemoryFS(initialFiles: Record<string, string>) {
   const dirs: Array<string> = [];
 
   const openFn = (p: string): string => {
-    if (files[p] !== undefined) return files[p];
+    if (files[p] !== undefined) {return files[p];}
     throw new Error(`File not found: ${p}`);
   };
 

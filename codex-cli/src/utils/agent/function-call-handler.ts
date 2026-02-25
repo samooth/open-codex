@@ -1,14 +1,15 @@
+import type { AgentContext } from "./types.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import { appendFileSync } from "fs";
+
 import { parseToolCallArguments } from "../parsers.js";
 import { handleExecCommand } from "./handle-exec-command.js";
-import * as handlers from "./tool-handlers.js";
-import { validateFileSyntax } from "./validate-file.js";
 import { log, isLoggingEnabled } from "./log.js";
-import type { AgentContext } from "./types.js";
-import { tools } from "./tool-definitions.js";
 import { prefix } from "./system-prompt.js";
 import { TOOL_APPLY_PATCH, TOOL_SHELL } from "./tool-constants.js";
+import { tools } from "./tool-definitions.js";
+import * as handlers from "./tool-handlers.js";
+import { validateFileSyntax } from "./validate-file.js";
+import { appendFileSync } from "fs";
 
 export async function handleFunctionCall(
   ctx: AgentContext,

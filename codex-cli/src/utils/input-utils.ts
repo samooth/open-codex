@@ -1,15 +1,15 @@
+import type { AppConfig } from "./config.js";
 import type {
   ChatCompletionContentPart,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions.mjs";
 
-import { fileTypeFromBuffer } from "file-type";
-import fs from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
 import { spawn } from "child_process";
+import { fileTypeFromBuffer } from "file-type";
+import { existsSync } from "fs";
+import fs from "fs/promises";
 import os from "os";
-import type { AppConfig } from "./config.js";
+import path from "path";
 
 export async function processInputVariables(text: string): Promise<string> {
   const regex = /\{\{(.+?)\}\}/g;
@@ -19,7 +19,7 @@ export async function processInputVariables(text: string): Promise<string> {
   for (const match of matches) {
     const fullMatch = match[0];
     const key = match[1]?.trim();
-    if (!key) continue;
+    if (!key) {continue;}
 
     // 1. Check environment variables
     if (process.env[key]) {

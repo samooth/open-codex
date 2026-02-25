@@ -1,6 +1,6 @@
 {
   "name": "@samooth/open-codex",
-  "version": "0.3.23",
+  "version": "0.3.24",
   "license": "Apache-2.0",
   "bin": {
     "open-codex": "dist/cli.js"
@@ -64,6 +64,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "boxen": "^8.0.1",
     "esbuild": "^0.25.2",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.19",
@@ -86,6 +87,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/samooth/open-codex"
+    "url": "git+https://github.com/samooth/open-codex.git"
   }
 }

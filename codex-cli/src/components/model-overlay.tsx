@@ -1,8 +1,10 @@
-import React from "react";
-import { Box, Text, useInput } from "ink";
-import SelectInput from "./select-input/select-input.js";
-import type { Theme } from "../utils/theme.js";
 import type { AppConfig } from "../utils/config.js";
+import type { Theme } from "../utils/theme.js";
+
+import SelectInput from "./select-input/select-input.js";
+import { Box, Text, useInput } from "ink";
+import React from "react";
+
 
 // Mapping models to their recommended uses
 const modelDescriptions: Record<string, string> = {
@@ -29,12 +31,12 @@ export default function ModelOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   const providerModels = (config as any).providers?.[config.provider || "openai"]?.models || ["o4-mini", "o3"];
   
-  const options = (providerModels as string[]).map((m: string) => ({
+  const options = (providerModels as Array<string>).map((m: string) => ({
     label: `${m === currentModel ? "❯ " : "  "}${m.toUpperCase()}`,
     value: m,
     description: modelDescriptions[m] || `${config.provider} model`

@@ -1,12 +1,12 @@
+import { getIgnoreFilter } from "./agent/ignore-utils.js";
 import { execSync } from "child_process";
 import { readdirSync } from "fs";
 import { join, relative } from "path";
-import { getIgnoreFilter } from "./agent/ignore-utils.js";
 
 /**
  * Lists all files in the repository, respecting .gitignore if possible.
  */
-export function listAllFiles(cwd: string = process.cwd()): string[] {
+export function listAllFiles(cwd: string = process.cwd()): Array<string> {
   // 1. Try git ls-files first (including untracked files that aren't ignored)
   try {
     const output = execSync("git ls-files --cached --others --exclude-standard", { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -15,7 +15,7 @@ export function listAllFiles(cwd: string = process.cwd()): string[] {
     // 2. Fallback to manual recursive listing
     try {
       const ig = getIgnoreFilter();
-      const files: string[] = [];
+      const files: Array<string> = [];
 
       function recurse(dir: string) {
         const entries = readdirSync(dir, { withFileTypes: true });
@@ -23,8 +23,8 @@ export function listAllFiles(cwd: string = process.cwd()): string[] {
           const fullPath = join(dir, entry.name);
           const relPath = relative(cwd, fullPath).replace(/\\/g, "/");
           
-          if (entry.name === ".git" || entry.name === "node_modules") continue;
-          if (ig.ignores(relPath)) continue;
+          if (entry.name === ".git" || entry.name === "node_modules") {continue;}
+          if (ig.ignores(relPath)) {continue;}
 
           if (entry.isDirectory()) {
             recurse(fullPath);

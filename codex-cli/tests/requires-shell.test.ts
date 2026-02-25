@@ -5,13 +5,13 @@ describe("requiresShell function (actual implementation)", () => {
   const isWindows = process.platform === "win32";
 
   it("should return true for single argument commands (on POSIX)", () => {
-    if (isWindows) return; // Windows always returns true
+    if (isWindows) {return;} // Windows always returns true
     expect(requiresShell(['ls'])).toBe(true);
     expect(requiresShell(['ls -la'])).toBe(true);
   });
 
   it("should return false for multi-argument commands without operators (on POSIX)", () => {
-    if (isWindows) return;
+    if (isWindows) {return;}
     expect(requiresShell(['ls', '-la'])).toBe(false);
     expect(requiresShell(['git', 'status'])).toBe(false);
   });

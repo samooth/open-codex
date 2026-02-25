@@ -2,13 +2,13 @@
 
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import { log, isLoggingEnabled } from "../agent/log.js";
 import { loadInstructions } from "../config";
 import { getSessionId, setSessionId, getCurrentModel } from "../session";
+import crypto from "crypto";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import crypto from "crypto";
-import { log, isLoggingEnabled } from "../agent/log.js";
 
 const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
 const SESSIONS_INDEX = path.join(os.homedir(), ".codex", "sessions.json");
@@ -97,12 +97,12 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
     const files = await fs.readdir(SESSIONS_ROOT);
     const jsonFiles = files.filter((f) => f.endsWith(".json"));
     
-    const rollouts: any[] = [];
+    const rollouts: Array<any> = [];
     for (const f of jsonFiles) {
       const filePath = path.join(SESSIONS_ROOT, f);
       try {
         const content = await fs.readFile(filePath, "utf-8");
-        if (content.length < 10) continue;
+        if (content.length < 10) {continue;}
         const data = JSON.parse(content);
         if (data.session) {
           rollouts.push({ path: filePath, session: data.session });
@@ -185,12 +185,12 @@ export async function undoLastChange(
   sessionId: string,
   writeFn: (p: string, c: string) => void,
   removeFn: (p: string) => void,
-): Promise<{ items: ChatCompletionMessageParam[]; success: boolean; message: string }> {
+): Promise<{ items: Array<ChatCompletionMessageParam>; success: boolean; message: string }> {
   const filePath = path.join(SESSIONS_ROOT, `session-${sessionId}.json`);
   try {
     const content = await fs.readFile(filePath, "utf-8");
     const data = JSON.parse(content);
-    const items = data.items as ChatCompletionMessageParam[];
+    const items = data.items as Array<ChatCompletionMessageParam>;
 
     if (items.length === 0) {
       return { items, success: false, message: "Nothing to undo." };

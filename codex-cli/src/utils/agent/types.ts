@@ -1,9 +1,9 @@
 import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
+import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-import OpenAI from "openai";
 
 export type CommandConfirmation = {
   review: ReviewDecision;
@@ -26,7 +26,7 @@ export type AgentLoopParams = {
   onLoading: (loading: boolean) => void;
   onReset: () => void;
   onFileAccess?: (path: string) => void;
-  onTasksUpdate?: (tasks: Task[]) => void;
+  onTasksUpdate?: (tasks: Array<Task>) => void;
   onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
   onShellFocus?: (isFocused: boolean) => void;
 
@@ -36,7 +36,7 @@ export type AgentLoopParams = {
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
 
-  getUserChoice?: (prompt: string, choices?: string[]) => Promise<string>;
+  getUserChoice?: (prompt: string, choices?: Array<string>) => Promise<string>;
 };
 
 export interface AgentContext {
@@ -47,10 +47,10 @@ export interface AgentContext {
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
-  getUserChoice?: (prompt: string, choices?: string[]) => Promise<string>;
+  getUserChoice?: (prompt: string, choices?: Array<string>) => Promise<string>;
   onItem: (item: ChatCompletionMessageParam) => void;
   onFileAccess?: (path: string) => void;
-  onTasksUpdate?: (tasks: Task[]) => void;
+  onTasksUpdate?: (tasks: Array<Task>) => void;
   onShellFocus?: (isFocused: boolean) => void;
   oai: OpenAI;
   model: string;

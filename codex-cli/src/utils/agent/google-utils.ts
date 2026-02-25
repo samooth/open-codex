@@ -1,10 +1,11 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+
 import { randomUUID } from "node:crypto";
 
 export function mapOpenAiToGoogleMessages(
   messages: Array<ChatCompletionMessageParam>,
-): { contents: any[]; systemInstruction: any } {
-  const contents: any[] = [];
+): { contents: Array<any>; systemInstruction: any } {
+  const contents: Array<any> = [];
   let systemInstruction: any = undefined;
 
   for (const msg of messages) {
@@ -14,7 +15,7 @@ export function mapOpenAiToGoogleMessages(
     }
 
     const role = msg.role === "assistant" ? "model" : "user";
-    const parts: any[] = [];
+    const parts: Array<any> = [];
 
     if (msg.role === "assistant") {
       const assistant = msg as any;
@@ -37,7 +38,7 @@ export function mapOpenAiToGoogleMessages(
       }
       
       if (msg.tool_calls) {
-        for (const tc of msg.tool_calls as any[]) {
+        for (const tc of msg.tool_calls as Array<any>) {
           let args = {};
           try {
             args = JSON.parse(tc.function.arguments);
@@ -114,8 +115,8 @@ export function mapOpenAiToGoogleMessages(
   return { contents, systemInstruction };
 }
 
-export function mapOpenAiToGoogleTools(openAiTools: any[], sanitizeFn: (name: string) => string): any[] {
-  const functionDeclarations: any[] = [];
+export function mapOpenAiToGoogleTools(openAiTools: Array<any>, sanitizeFn: (name: string) => string): Array<any> {
+  const functionDeclarations: Array<any> = [];
 
   for (const tool of openAiTools) {
     if (tool.type === "function") {

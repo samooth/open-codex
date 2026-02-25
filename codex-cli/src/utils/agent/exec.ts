@@ -83,7 +83,7 @@ export function exec(
   return execForSandbox(finalCmd, opts, writableRoots, abortSignal, onOutput);
 }
 
-export function execApplyPatch(patchText: string, excludedHunks?: Record<string, number[]>): ExecResult {
+export function execApplyPatch(patchText: string, excludedHunks?: Record<string, Array<number>>): ExecResult {
   // If we have exclusions, we need to rebuild the patch text without those hunks
   let finalPatchText = patchText;
   if (excludedHunks && Object.keys(excludedHunks).length > 0) {

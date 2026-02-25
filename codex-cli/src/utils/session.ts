@@ -13,12 +13,12 @@ function getVersion(): string {
       const pkgPath = join(currentDir, "package.json");
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-        if (pkg.version) return pkg.version;
+        if (pkg.version) {return pkg.version;}
       } catch {
         // continue walking up
       }
       const parent = dirname(currentDir);
-      if (parent === currentDir) break;
+      if (parent === currentDir) {break;}
       currentDir = parent;
     }
   } catch {

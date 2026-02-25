@@ -40,7 +40,7 @@ export type SafetyAssessment = {
 // TODO: This should also contain the paths that will be affected.
 export type ApplyPatchCommand = {
   patch: string;
-  excludedHunks?: Record<string, number[]>; // path -> hunk indices
+  excludedHunks?: Record<string, Array<number>>; // path -> hunk indices
 };
 
 export type ApprovalPolicy =

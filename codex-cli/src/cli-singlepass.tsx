@@ -28,10 +28,10 @@ export async function runSinglePass({
       {
         stdin: process.stdin.isTTY
           ? process.stdin
-          : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          :  
             (new Readable({
               read() {},
-            }) as any),
+            }) as NodeJS.ReadStream),
       },
     );
   });

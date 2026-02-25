@@ -11,12 +11,14 @@ import type { CommandConfirmation } from "./utils/agent/agent-loop";
 import type { AppConfig } from "./utils/config";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
 
+
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
 import { authorizeCommand } from "./utils/agent/handle-exec-command";
 import { initLogger, log, isLoggingEnabled } from "./utils/agent/log";
 import { ReviewDecision } from "./utils/agent/review";
+import { approximateTokensUsed } from "./utils/approximate-tokens-used";
 import { AutoApprovalMode } from "./utils/auto-approval-mode";
 import { checkForUpdates } from "./utils/check-updates";
 import {
@@ -473,6 +475,25 @@ const instance = render(
     imagePaths={imagePaths}
     approvalPolicy={approvalPolicy}
     fullStdout={fullStdout}
+    onShutdown={(model, items) => {
+      const stats = approximateTokensUsed(model, items);
+      if (stats) {
+        const { total, cost } = stats;
+        const costString = cost.toLocaleString(undefined, {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 4,
+        });
+        // eslint-disable-next-line no-console
+        console.log(`\n--- Session Stats ---`);
+        // eslint-disable-next-line no-console
+        console.log(`Tokens: ${total}`);
+        // eslint-disable-next-line no-console
+        console.log(`Cost:   ${costString}`);
+        // eslint-disable-next-line no-console
+        console.log(`---------------------`);
+      }
+    }}
   />,
   {
     patchConsole: process.env["DEBUG"] ? false : true,
@@ -480,7 +501,7 @@ const instance = render(
     // We only enable stdin if it's a real TTY.
     stdin: process.stdin.isTTY
       ? process.stdin
-      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      :  
         (new Readable({
           read() {},
         }) as any),

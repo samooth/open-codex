@@ -1,5 +1,6 @@
 // Error handling utilities for the agent loop
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
+
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 
 /**
@@ -185,10 +186,10 @@ export function createNetworkErrorSystemMessage(error: any, provider: string = "
  * Handles nested JSON and common error structures from various providers.
  */
 export function cleanErrorMessage(message: string): string {
-  if (!message) return "unknown error";
+  if (!message) {return "unknown error";}
   
   // If it doesn't look like JSON, return as is
-  if (!message.trim().startsWith("{")) return message;
+  if (!message.trim().startsWith("{")) {return message;}
 
   try {
     let current = JSON.parse(message);
@@ -196,7 +197,7 @@ export function cleanErrorMessage(message: string): string {
     // Iterate to find the most deeply nested "message" or "error" field
     // Limit iterations to prevent infinite loops if something is weird
     for (let i = 0; i < 5; i++) {
-      if (!current || typeof current !== "object") break;
+      if (!current || typeof current !== "object") {break;}
 
       // Handle common structures: { error: { message: "..." } } or { message: "..." }
       const next = current.error?.message || current.message || current.error;

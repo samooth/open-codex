@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
-import { Box, Text, useInput } from "ink";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { Theme } from "../utils/theme.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+
 import TerminalChatResponseItem from "./chat/terminal-chat-response-item.js";
+import { Box, Text, useInput } from "ink";
+import React, { useMemo } from "react";
 
 export default function HistoryOverlay({
   items,
@@ -14,7 +15,7 @@ export default function HistoryOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   const toolCallMap = useMemo(() => {

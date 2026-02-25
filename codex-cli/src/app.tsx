@@ -1,10 +1,10 @@
 import type { ApprovalPolicy } from "./approvals";
 import type { AppConfig } from "./utils/config";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
 
 import TerminalChat from "./components/chat/terminal-chat";
 import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout";
+import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
 import { checkInGit } from "./utils/check-in-git";
 import { type TerminalChatSession } from "./utils/session.js";
 import { onExit } from "./utils/terminal";
@@ -17,6 +17,7 @@ import React, { useMemo, useState } from "react";
 export type AppRollout = {
   session: TerminalChatSession;
   items: Array<ChatCompletionMessageParam>;
+  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
 };
 
 type Props = {
@@ -26,6 +27,7 @@ type Props = {
   rollout?: AppRollout;
   approvalPolicy: ApprovalPolicy;
   fullStdout: boolean;
+  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
 };
 
 export default function App({
@@ -35,6 +37,7 @@ export default function App({
   imagePaths,
   approvalPolicy,
   fullStdout,
+  onShutdown,
 }: Props): React.ReactElement {
   const app = useApp();
   const [accepted, setAccepted] = useState(() => false);
@@ -105,6 +108,7 @@ export default function App({
         imagePaths={imagePaths}
         approvalPolicy={approvalPolicy}
         fullStdout={fullStdout}
+        onShutdown={onShutdown}
       />
     </TerminalSizeProvider>
   );

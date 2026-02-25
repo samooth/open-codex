@@ -1,20 +1,20 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import type { Theme } from "../../utils/theme.js";
 import type { AppConfig } from "../../utils/config.js";
+import type { Theme } from "../../utils/theme.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import MultilineTextEditor, { type MultilineTextEditorHandle } from "./multiline-editor.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
-import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
 import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
+import { getIgnoredFiles } from "../../utils/check-in-git.js";
+import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "../vendor/ink-select/select";
-import MultilineTextEditor, { type MultilineTextEditorHandle } from "./multiline-editor.js";
 import { Box, Text, useApp, useInput } from "ink";
-import { useInterval } from "use-interval";
 import { fileURLToPath } from "node:url";
 import React, { useCallback, useState, useMemo, useEffect, Fragment } from "react";
-import { getIgnoredFiles } from "../../utils/check-in-git.js";
+import { useInterval } from "use-interval";
 
 const suggestions = [
   "explain this codebase to me",
@@ -117,11 +117,11 @@ export default function TerminalChatInput({
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   active: boolean;
-  awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: string[] } | null;
+  awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: Array<string> } | null;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   theme: Theme;
-  allFiles: string[];
+  allFiles: Array<string>;
   isStreamingResponse?: boolean;
   queuedInputText?: string;
   onPopQueuedInput?: () => string;
@@ -155,7 +155,7 @@ export default function TerminalChatInput({
   }, [input]);
 
   const filteredFiles = useMemo(() => {
-    if (!fileSearchMatch) return [];
+    if (!fileSearchMatch) {return [];}
     return filterFiles(allFiles, fileSearchMatch.query);
   }, [allFiles, fileSearchMatch]);
 

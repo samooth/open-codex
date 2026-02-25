@@ -1,8 +1,10 @@
-import React from "react";
-import { Box, Text, useInput } from "ink";
+import type { Theme } from "../utils/theme.js";
+
 import SelectInput from "./select-input/select-input.js";
 import { recipes } from "../utils/recipes.js";
-import type { Theme } from "../utils/theme.js";
+import { Box, Text, useInput } from "ink";
+import React from "react";
+
 
 export default function RecipesOverlay({
   onSelect,
@@ -14,7 +16,7 @@ export default function RecipesOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) onExit();
+    if (key.escape) {onExit();}
   });
 
   const handleSelect = (item: any) => {

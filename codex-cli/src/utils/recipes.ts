@@ -4,7 +4,7 @@ export type Recipe = {
   prompt: string;
 };
 
-export const recipes: Recipe[] = [
+export const recipes: Array<Recipe> = [
   {
     name: "Fullstack Developer",
     description: "Acts as a senior fullstack developer, proficient in frontend, backend, databases, and DevOps.",

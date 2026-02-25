@@ -1,10 +1,13 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import { getModelPricing } from "./model-pricing.js";
+
 export type TokenBreakdown = {
   total: number;
   system: number;
   history: number;
   tools: number;
+  cost: number;
 };
 
 /**
@@ -21,11 +24,16 @@ export type TokenBreakdown = {
  * and rounding up.
  */
 export function approximateTokensUsed(
-  items: Array<ChatCompletionMessageParam>,
+  model: string,
+  items: Array<ChatCompletionMessageParam>
 ): TokenBreakdown {
   let systemChars = 0;
-  let historyChars = 0;
+  let userInputChars = 0;
+  let assistantOutputChars = 0;
   let toolChars = 0;
+
+  // System messages and user messages count as "input" tokens.
+  // Assistant messages (responses and tool calls) count as "output" tokens.
 
   for (const item of items) {
     let itemChars = 0;
@@ -43,7 +51,7 @@ export function approximateTokensUsed(
       }
     }
     if ("tool_calls" in item && item.tool_calls) {
-      for (const toolCall of item.tool_calls as any[]) {
+      for (const toolCall of item.tool_calls as Array<any>) {
         itemChars += toolCall.function.name.length;
         itemChars += toolCall.function.arguments.length;
       }
@@ -51,18 +59,35 @@ export function approximateTokensUsed(
 
     if (item.role === "system") {
       systemChars += itemChars;
+    } else if (item.role === "user") {
+      userInputChars += itemChars;
+    } else if (item.role === "assistant") {
+      assistantOutputChars += itemChars;
     } else if (item.role === "tool") {
       toolChars += itemChars;
-    } else {
-      historyChars += itemChars;
     }
   }
 
-  const system = Math.ceil(systemChars / 4);
-  const history = Math.ceil(historyChars / 4);
-  const tools = Math.ceil(toolChars / 4);
-  const total = system + history + tools;
+  const systemTokens = Math.ceil(systemChars / 4);
+  const userInputTokens = Math.ceil(userInputChars / 4);
+  const assistantOutputTokens = Math.ceil(assistantOutputChars / 4);
+  const toolTokens = Math.ceil(toolChars / 4);
 
-  return { total, system, history, tools };
+  const inputTokens = systemTokens + userInputTokens + toolTokens;
+  const outputTokens = assistantOutputTokens;
+
+  const total = inputTokens + outputTokens;
+  const pricing = getModelPricing(model);
+  let cost = 0;
+  if (pricing) {
+    const inputCost = (inputTokens / 1_000_000) * pricing.input;
+    const outputCost = (outputTokens / 1_000_000) * pricing.output;
+    cost = inputCost + outputCost;
+  }
+
+  // For display, we still break it down a bit differently
+  const history = userInputTokens + assistantOutputTokens;
+
+  return { total, system: systemTokens, history, tools: toolTokens, cost };
 }
 

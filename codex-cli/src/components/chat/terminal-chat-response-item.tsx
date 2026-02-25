@@ -1,3 +1,6 @@
+import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type { CommandReviewDetails } from "../../utils/parsers";
+import type { Theme } from "../../utils/theme.js";
 import type { TerminalRendererOptions } from "marked-terminal";
 import type {
   ChatCompletionMessageParam,
@@ -5,28 +8,24 @@ import type {
 } from "openai/resources/chat/completions.mjs";
 import type { ResponseReasoningItem } from "openai/resources/responses/responses";
 
+import { TerminalImage } from "./terminal-image.js";
+import { formatCommandForDisplay } from '../../format-command.js';
 import { useTerminalSize } from "../../hooks/use-terminal-size";
+import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
 import {
   parseToolCallOutput,
   parseToolCallArguments
 } from "../../utils/parsers";
-import type { CommandReviewDetails } from "../../utils/parsers";
-import { formatCommandForDisplay } from '../../format-command.js';
+import { getSyntaxTheme } from "../../utils/theme.js";
+import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
+import { highlight as syntaxHighlight } from "cli-highlight";
 import { Box, Text, useInput } from "ink";
 import { parse } from "marked";
 import TerminalRenderer from "marked-terminal";
-import Spinner from "../vendor/ink-spinner.js";
-import { highlight as syntaxHighlight } from "cli-highlight";
+import { fileURLToPath } from "node:url";
 import React, { useMemo, useState } from "react";
 import { useInterval } from "use-interval";
-import type { GroupedResponseItem } from "./use-message-grouping.js";
-import type { Theme } from "../../utils/theme.js";
-import { getSyntaxTheme } from "../../utils/theme.js";
-import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
-import { fileURLToPath } from "node:url";
-
-import { TerminalImage } from "./terminal-image.js";
 
 
 export function getCommandReviewDetails(
@@ -406,13 +405,13 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
     metadata as any;
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (fullStdout) return false;
+    if (fullStdout) {return false;}
     const lines = output.trim().split("\n");
     return lines.length > 10;
   });
 
   useInput((input, _key) => {
-    if (!isActive) return;
+    if (!isActive) {return;}
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
     }
@@ -486,7 +485,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
   }
 
   const colorizedContent = useMemo(() => {
-    if (aborted) return chalk.italic.gray("Execution aborted by user.");
+    if (aborted) {return chalk.italic.gray("Execution aborted by user.");}
 
     let language: string | undefined;
     if (toolName === "search_codebase" || toolName === "semantic_search") {
@@ -500,7 +499,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
         const args = JSON.parse((toolCall as any)?.function?.arguments || "{}");
         const filePath = args.path || "";
         const extension = filePath.split(".").pop()?.toLowerCase();
-        if (extension) language = extension;
+        if (extension) {language = extension;}
       } catch { /* ignore */ }
     }
 
@@ -523,9 +522,9 @@ export const TerminalChatResponseToolCallOutput = React.memo(function TerminalCh
       return displayedContent
         .split("\n")
         .map((line) => {
-          if (line.startsWith("+") && !line.startsWith("+++")) return chalk[theme.success](line);
-          if (line.startsWith("-") && !line.startsWith("---")) return chalk[theme.error](line);
-          if (line.startsWith("@@")) return chalk.cyan(line);
+          if (line.startsWith("+") && !line.startsWith("+++")) {return chalk[theme.success](line);}
+          if (line.startsWith("-") && !line.startsWith("---")) {return chalk[theme.error](line);}
+          if (line.startsWith("@@")) {return chalk.cyan(line);}
           return line;
         })
         .join("\n");
@@ -686,7 +685,7 @@ export const TerminalChatResponseMessage = React.memo(function TerminalChatRespo
   const imagePaths: Array<string> = [];
 
   useInput((input, _key) => {
-    if (!isActive) return;
+    if (!isActive) {return;}
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
     }
@@ -948,7 +947,7 @@ function TerminalChatResponseToolBatch({
   const isLargeBatch = items.length > 3;
 
   useInput((input, _key) => {
-    if (!isActive) return;
+    if (!isActive) {return;}
     if (input === "c") {
       setIsCollapsed(!isCollapsed);
     }
@@ -1042,7 +1041,7 @@ function TerminalChatResponseItem({
     );
   }
 
-  if (!item) return <></>;
+  if (!item) {return <></>;}
 
   // Suppress role if:
   // 1. Explicitly disabled (showRole=false)

@@ -1,10 +1,10 @@
 import type { AppConfig } from "./config";
 
+import { log, isLoggingEnabled } from "./agent/log.js";
+import { GoogleGenAI } from "@google/genai";
 import { listModels } from "@huggingface/hub";
 import chalk from "chalk";
 import OpenAI from "openai";
-import { GoogleGenAI } from "@google/genai";
-import { log, isLoggingEnabled } from "./agent/log.js";
 
 const MODEL_LIST_TIMEOUT_MS = 2_000; // 2 seconds
 export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
@@ -47,7 +47,7 @@ async function fetchWithRetry(
 async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
   try {
     const genAI = new GoogleGenAI({ apiKey: config.apiKey || "" });
-    const modelList: any[] = [];
+    const modelList: Array<any> = [];
     
     // Exact code provided by user
     const result = await (genAI as any).models.list(); 

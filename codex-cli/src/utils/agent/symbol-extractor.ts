@@ -12,14 +12,14 @@ export function extractSymbols(filePath: string): string {
   const lines = content.split("\n");
   const ext = extname(filePath).toLowerCase();
   
-  const symbols: SymbolInfo[] = [];
+  const symbols: Array<SymbolInfo> = [];
 
   // Basic regex-based extraction for common languages
   const rules = getRulesForExtension(ext);
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (!line || line.startsWith("//") || line.startsWith("#") || line.startsWith("/*")) continue;
+    if (!line || line.startsWith("//") || line.startsWith("#") || line.startsWith("/*")) {continue;}
 
     for (const rule of rules) {
       const match = line.match(rule.regex);
@@ -48,7 +48,7 @@ interface Rule {
   type: string;
 }
 
-function getRulesForExtension(ext: string): Rule[] {
+function getRulesForExtension(ext: string): Array<Rule> {
   switch (ext) {
     case ".ts":
     case ".tsx":

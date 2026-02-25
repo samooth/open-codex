@@ -1,7 +1,9 @@
-import React, { useState } from "react";
-import { Box, Text, useInput } from "ink";
-import TextInput from "./vendor/ink-text-input.js";
 import type { Theme } from "../utils/theme.js";
+
+import TextInput from "./vendor/ink-text-input.js";
+import { Box, Text, useInput } from "ink";
+import React, { useState } from "react";
+
 
 export default function EditorOverlay({
   currentCommand,
@@ -18,8 +20,8 @@ export default function EditorOverlay({
   const [command, setCommand] = useState(currentCommand);
 
   useInput((_input, key) => {
-    if (key.escape) onExit();
-    if (key.return) onSave(command.trim());
+    if (key.escape) {onExit();}
+    if (key.return) {onSave(command.trim());}
   });
 
   return (

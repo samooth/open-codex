@@ -2,7 +2,7 @@ export type InteractionType = {
   type: "yes-no";
 } | {
   type: "choices";
-  choices: string[];
+  choices: Array<string>;
 };
 
 /**
@@ -10,7 +10,7 @@ export type InteractionType = {
  * or presenting multiple choices in [Option] format.
  */
 export function detectInteraction(content: string): InteractionType | null {
-  if (!content) return null;
+  if (!content) {return null;}
 
   const normalized = content.trim().toLowerCase();
   

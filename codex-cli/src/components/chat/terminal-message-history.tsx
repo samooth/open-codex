@@ -1,16 +1,16 @@
-import type { ApplyPatchCommand } from "../../approvals.js";
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type { ApplyPatchCommand } from "../../approvals.js";
+import type { ReviewDecision } from "../../utils/agent/review.js";
+import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
+import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";
 import ThinkingTimer from "./thinking-timer.js";
 import { Box, Static } from "ink";
 import React, { useMemo } from "react";
-import type { ReviewDecision } from "../../utils/agent/review.js";
-import type { Theme } from "../../utils/theme.js";
 
 // A batch entry can either be a standalone response item or a grouped set of
 // items (e.g. auto‑approved tool‑call batches) that should be rendered
