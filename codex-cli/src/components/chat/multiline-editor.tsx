@@ -87,7 +87,7 @@ const MultilineTextEditorInner = (
   const { stdin, setRawMode } = useStdin();
 
   useEffect(() => {
-    if (!stdin || !focus) return;
+    if (!stdin || !focus) {return;}
     const handleData = (data: Buffer | string) => {
       const s = data.toString();
       // If we see a raw ESC byte (0x1b), mark it. 
@@ -149,9 +149,40 @@ const MultilineTextEditorInner = (
   // Keyboard handling.
   // ---------------------------------------------------------------------------
 
+  const isPaste = (input: string, key: any): boolean => {
+    // When the user pastes text into the terminal, we usually receive it as a
+    // single long string. We can detect this by checking if the input length is
+    // greater than 1 (a single keypress is usually 1 char) and that no special
+    // modifier keys were held.
+    const modifier = key.meta || key.ctrl || key.alt || key.shift;
+    return input.length > 1 && !modifier;
+  };
+
+  const lastPasteTimestamp = useRef(0);
+
   useInput(
     (input, key) => {
       if (!focus) {
+        return;
+      }
+
+      // Allow consumer to handle it first
+      if (onKeyDown?.(input, key)) {
+        return;
+      }
+
+      // If ink has parsed this as a directional key, let TextBuffer handle it directly
+      // and skip all the complex newline/submit logic.
+      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow || key.home || key.end) {
+        const modified = buffer.current.handleInput(
+          input,
+          key as any as Record<string, boolean>,
+          { height, width: effectiveWidth },
+        );
+        if (modified) {
+          setVersion((v) => v + 1);
+          if (onChange) {onChange(buffer.current.getText());}
+        }
         return;
       }
 
@@ -174,7 +205,19 @@ const MultilineTextEditorInner = (
         (key as any).return = true;
       }
 
-      if (onKeyDown?.(input, key)) {
+      // --- PASTE HANDLING ---
+      // When pasting, treat any newlines that arrive shortly after as part of the paste
+      const now = Date.now();
+      const isRecentPaste = (now - lastPasteTimestamp.current) < 50; // 50ms cooldown
+
+      // Paste event
+      if (isPaste(input, key)) {
+        lastPasteTimestamp.current = now;
+        buffer.current.paste(input);
+        setVersion((v) => v + 1);
+        if (onChange) {
+          onChange(buffer.current.getText());
+        }
         return;
       }
 
@@ -205,12 +248,12 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
-            if (onChange) onChange(buffer.current.getText());
+            if (onChange) {onChange(buffer.current.getText());}
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
-            if (onChange) onChange(buffer.current.getText());
+            if (onChange) {onChange(buffer.current.getText());}
           }
           setVersion((v) => v + 1);
           return;
@@ -223,12 +266,12 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
-            if (onChange) onChange(buffer.current.getText());
+            if (onChange) {onChange(buffer.current.getText());}
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
-            if (onChange) onChange(buffer.current.getText());
+            if (onChange) {onChange(buffer.current.getText());}
           }
           setVersion((v) => v + 1);
           return;
@@ -244,15 +287,15 @@ const MultilineTextEditorInner = (
           return;
         }
 
-        // Newline triggers: Explicit Line Feed (\n) or Alt sequence.
+        // Newline triggers: Explicit Line Feed (\n), Alt sequence, or a recent paste event.
         // NOTE: We ignore Shift+Enter if it's a plain \r because many terminals 
         // incorrectly report Shift for a plain Enter. Use Ctrl+J or Alt+Enter for newlines.
-        const isNewlineRequest = isLineFeed || isAlt;
+        const isNewlineRequest = isLineFeed || isAlt || isRecentPaste;
 
         if (isNewlineRequest) {
           buffer.current.newline();
           setVersion((v) => v + 1);
-          if (onChange) onChange(buffer.current.getText());
+          if (onChange) {onChange(buffer.current.getText());}
           return;
         }
 
@@ -265,7 +308,7 @@ const MultilineTextEditorInner = (
         } else {
           buffer.current.newline();
           setVersion((v) => v + 1);
-          if (onChange) onChange(buffer.current.getText());
+          if (onChange) {onChange(buffer.current.getText());}
         }
         return;
       }
@@ -280,7 +323,7 @@ const MultilineTextEditorInner = (
       );
       if (modified) {
         setVersion((v) => v + 1);
-        if (onChange) onChange(buffer.current.getText());
+        if (onChange) {onChange(buffer.current.getText());}
       }
     },
     { isActive: focus },
