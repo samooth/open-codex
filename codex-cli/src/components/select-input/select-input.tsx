@@ -2,16 +2,8 @@ import type { Theme } from "../../utils/theme.js";
 
 import Indicator, { type Props as IndicatorProps } from "./indicator.js";
 import ItemComponent, { type Props as ItemProps } from "./item.js";
-import isEqual from "fast-deep-equal";
-import { Box, useInput } from "ink";
-import React, {
-  type FC,
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from "react";
-import arrayToRotated from "to-rotated";
+import { Box, Text, useInput } from "ink";
+import React, { type FC, useState, useEffect, useRef, useCallback } from "react";
 
 type Props<V> = {
   /**
@@ -33,11 +25,6 @@ type Props<V> = {
    * @default 0
    */
   readonly initialIndex?: number;
-
-  /**
-   * Number of items to display.
-   */
-  readonly limit?: number;
 
   /**
    * Custom component to override the default indicator component.
@@ -63,6 +50,11 @@ type Props<V> = {
    * Current UI theme.
    */
   readonly theme: Theme;
+
+  /**
+   * Number of items to display per page. If not provided, pagination is disabled.
+   */
+  readonly itemsPerPage?: number;
 };
 
 export type Item<V> = {
@@ -77,126 +69,93 @@ function SelectInput<V>({
   initialIndex = 0,
   indicatorComponent = Indicator,
   itemComponent = ItemComponent,
-  limit: customLimit,
   onSelect,
   onHighlight,
   theme,
+  itemsPerPage,
 }: Props<V>): React.ReactElement {
-  const hasLimit =
-    typeof customLimit === "number" && items.length > customLimit;
-  const limit = hasLimit ? Math.min(customLimit, items.length) : items.length;
-  const lastIndex = limit - 1;
-  const [rotateIndex, setRotateIndex] = useState(
-    initialIndex > lastIndex ? lastIndex - initialIndex : 0,
-  );
-  const [selectedIndex, setSelectedIndex] = useState(
-    initialIndex ? (initialIndex > lastIndex ? lastIndex : initialIndex) : 0,
-  );
-  const previousItems = useRef<Array<Item<V>>>(items);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const lastInputTime = useRef(0);
 
-  useEffect(() => {
-    if (
-      !isEqual(
-        previousItems.current.map((item) => item.value),
-        items.map((item) => item.value),
-      )
-    ) {
-      setRotateIndex(0);
-      setSelectedIndex(0);
-    }
+  const isPaginated = itemsPerPage && items.length > itemsPerPage;
+  const totalPages = isPaginated ? Math.ceil(items.length / itemsPerPage) : 1;
 
-    previousItems.current = items;
+  const pageStartIndex = isPaginated ? currentPage * itemsPerPage : 0;
+  const pageEndIndex = isPaginated ? pageStartIndex + itemsPerPage : items.length;
+  const paginatedItems = items.slice(pageStartIndex, pageEndIndex);
+
+  useEffect(() => {
+    // Reset to first page if items change
+    setCurrentPage(0);
+    setSelectedIndex(0);
   }, [items]);
 
   useEffect(() => {
-    if (!isFocused) {
-      lastInputTime.current = 0;
+    // When page changes, reset selection to the top of the new page
+    setSelectedIndex(0);
+    if (typeof onHighlight === "function") {
+      onHighlight(paginatedItems[0]!);
     }
-  }, [isFocused]);
+  }, [currentPage]);
 
   useInput(
     useCallback(
       (input, key) => {
         if (!isFocused) {return;}
-
+        
         const now = Date.now();
-        if (now - lastInputTime.current < 50) {
+        if (now - lastInputTime.current < 30) { // Slightly faster debounce
           return;
         }
         lastInputTime.current = now;
 
         if (input === "k" || key.upArrow) {
-          const lastIndex = (hasLimit ? limit : items.length) - 1;
-          const atFirstIndex = selectedIndex === 0;
-          const nextIndex = hasLimit ? selectedIndex : lastIndex;
-          const nextRotateIndex = atFirstIndex ? rotateIndex + 1 : rotateIndex;
-          const nextSelectedIndex = atFirstIndex
-            ? nextIndex
-            : selectedIndex - 1;
-
-          setRotateIndex(nextRotateIndex);
-          setSelectedIndex(nextSelectedIndex);
-
-          const slicedItems = hasLimit
-            ? arrayToRotated(items, nextRotateIndex).slice(0, limit)
-            : items;
-
+          const newIndex = selectedIndex === 0 ? paginatedItems.length - 1 : selectedIndex - 1;
+          setSelectedIndex(newIndex);
           if (typeof onHighlight === "function") {
-            onHighlight(slicedItems[nextSelectedIndex]!);
+            onHighlight(paginatedItems[newIndex]!);
           }
         }
 
         if (input === "j" || key.downArrow) {
-          const atLastIndex =
-            selectedIndex === (hasLimit ? limit : items.length) - 1;
-          const nextIndex = hasLimit ? selectedIndex : 0;
-          const nextRotateIndex = atLastIndex ? rotateIndex - 1 : rotateIndex;
-          const nextSelectedIndex = atLastIndex ? nextIndex : selectedIndex + 1;
-
-          setRotateIndex(nextRotateIndex);
-          setSelectedIndex(nextSelectedIndex);
-
-          const slicedItems = hasLimit
-            ? arrayToRotated(items, nextRotateIndex).slice(0, limit)
-            : items;
-
+          const newIndex = selectedIndex === paginatedItems.length - 1 ? 0 : selectedIndex + 1;
+          setSelectedIndex(newIndex);
           if (typeof onHighlight === "function") {
-            onHighlight(slicedItems[nextSelectedIndex]!);
+            onHighlight(paginatedItems[newIndex]!);
           }
         }
 
-        if (key.return) {
-          const slicedItems = hasLimit
-            ? arrayToRotated(items, rotateIndex).slice(0, limit)
-            : items;
+        if (isPaginated && key.leftArrow) {
+          setCurrentPage(prev => (prev === 0 ? totalPages - 1 : prev - 1));
+        }
 
+        if (isPaginated && key.rightArrow) {
+          setCurrentPage(prev => (prev === totalPages - 1 ? 0 : prev + 1));
+        }
+
+        if (key.return) {
           if (typeof onSelect === "function") {
-            onSelect(slicedItems[selectedIndex]!);
+            onSelect(paginatedItems[selectedIndex]!);
           }
         }
       },
       [
-        hasLimit,
-        limit,
-        rotateIndex,
+        isFocused,
+        isPaginated,
+        totalPages,
         selectedIndex,
-        items,
+        paginatedItems,
         onSelect,
         onHighlight,
-        isFocused,
       ],
     ),
     { isActive: isFocused },
   );
 
-  const slicedItems = hasLimit
-    ? arrayToRotated(items, rotateIndex).slice(0, limit)
-    : items;
-
   return (
     <Box flexDirection="column">
-      {slicedItems.map((item, index) => {
+      {paginatedItems.map((item, index) => {
         const isSelected = index === selectedIndex;
 
         return (
@@ -206,8 +165,15 @@ function SelectInput<V>({
           </Box>
         );
       })}
+
+      {isPaginated && (
+        <Box marginTop={1} justifyContent="center">
+          <Text dimColor>
+            ‹ Page {currentPage + 1} of {totalPages} ›
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }
-
 export default SelectInput;

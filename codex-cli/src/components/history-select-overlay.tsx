@@ -77,6 +77,7 @@ export default function HistorySelectOverlay({
               onSelect={handleSelect}
               theme={theme}
               isFocused={true}
+              itemsPerPage={10}
             />
           </Box>
 
@@ -90,7 +91,7 @@ export default function HistorySelectOverlay({
             paddingX={1}
             paddingTop={1}
           >
-            <Text dimColor italic>↑↓ navigate │ enter restore │ esc close</Text>
+            <Text dimColor italic>↑↓ navigate │ ←→ page │ enter restore │ esc close</Text>
           </Box>
         </>
       )}
