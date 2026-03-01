@@ -1,8 +1,7 @@
- <state_snapshot>
-      <overall_goal>
-          Refine the Analytics system, implement a robust Vertex AI REST bridge, and refactor the massive app-router-core.js into specialized sub-services.
-      </overall_goal>
-
+<state_snapshot>
+<overall_goal>
+Refine the Analytics system, implement a robust Vertex AI REST bridge, and refactor the massive app-router-core.js into specialized sub-services.
+</overall_goal>
 
       <active_constraints>
            - Staff Privacy: Never track Admin or Agent activity.
@@ -41,5 +40,5 @@
            6. [DONE] Finalize Appearance section extraction.
            7. [TODO] Implement Dark Mode support for Analytics charts and map.
       </task_state>
-  </state_snapshot>
 
+</state_snapshot>

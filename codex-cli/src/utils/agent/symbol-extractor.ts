@@ -11,15 +11,22 @@ export function extractSymbols(filePath: string): string {
   const content = readFileSync(filePath, "utf-8");
   const lines = content.split("\n");
   const ext = extname(filePath).toLowerCase();
-  
+
   const symbols: Array<SymbolInfo> = [];
 
   // Basic regex-based extraction for common languages
   const rules = getRulesForExtension(ext);
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (!line || line.startsWith("//") || line.startsWith("#") || line.startsWith("/*")) {continue;}
+    if (
+      !line ||
+      line.startsWith("//") ||
+      line.startsWith("#") ||
+      line.startsWith("/*")
+    ) {
+      continue;
+    }
 
     for (const rule of rules) {
       const match = line.match(rule.regex);
@@ -27,7 +34,7 @@ export function extractSymbols(filePath: string): string {
         symbols.push({
           name: match[1],
           type: rule.type,
-          line: i + 1
+          line: i + 1,
         });
         break;
       }
@@ -39,7 +46,7 @@ export function extractSymbols(filePath: string): string {
   }
 
   return symbols
-    .map(s => `[L${s.line}] ${s.type.padEnd(10)} ${s.name}`)
+    .map((s) => `[L${s.line}] ${s.type.padEnd(10)} ${s.name}`)
     .join("\n");
 }
 
@@ -56,8 +63,14 @@ function getRulesForExtension(ext: string): Array<Rule> {
     case ".jsx":
       return [
         { regex: /^(?:export\s+)?class\s+([a-zA-Z0-9_]+)/, type: "class" },
-        { regex: /^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z0-9_]+)/, type: "function" },
-        { regex: /^(?:export\s+)?interface\s+([a-zA-Z0-9_]+)/, type: "interface" },
+        {
+          regex: /^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z0-9_]+)/,
+          type: "function",
+        },
+        {
+          regex: /^(?:export\s+)?interface\s+([a-zA-Z0-9_]+)/,
+          type: "interface",
+        },
         { regex: /^(?:export\s+)?type\s+([a-zA-Z0-9_]+)/, type: "type" },
         { regex: /^(?:export\s+)?const\s+([a-zA-Z0-9_]+)\s*=/, type: "const" },
       ];

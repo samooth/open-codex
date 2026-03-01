@@ -1,12 +1,12 @@
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 /**
  * @fileoverview
  * This file contains the pricing information for various language models.
  * Prices are typically specified per million tokens for input and output.
- * 
+ *
  * To add a new model, add an entry to the `MODEL_PRICING` object.
  *
  * --- User Overrides ---
@@ -18,33 +18,33 @@ import * as path from 'node:path';
  */
 
 export interface ModelPricing {
-  input: number;  // Cost per 1 million input tokens in USD
+  input: number; // Cost per 1 million input tokens in USD
   output: number; // Cost per 1 million output tokens in USD
 }
 
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   // --- OpenAI ---
   "gpt-4-turbo": {
-    input: 10.00,
-    output: 30.00,
+    input: 10.0,
+    output: 30.0,
   },
   "gpt-4": {
-    input: 30.00,
-    output: 60.00,
+    input: 30.0,
+    output: 60.0,
   },
   "gpt-3.5-turbo": {
-    input: 0.50,
-    output: 1.50,
+    input: 0.5,
+    output: 1.5,
   },
 
   // --- Anthropic ---
   "claude-3-opus-20240229": {
-    input: 15.00,
-    output: 75.00,
+    input: 15.0,
+    output: 75.0,
   },
   "claude-3-sonnet-20240229": {
-    input: 3.00,
-    output: 15.00,
+    input: 3.0,
+    output: 15.0,
   },
 
   // --- Groq ---
@@ -70,18 +70,26 @@ function getMergedPricing(): Record<string, ModelPricing> {
     return mergedPricing;
   }
 
-  const userConfigPath = path.join(os.homedir(), '.config', 'codex', 'pricing.json');
+  const userConfigPath = path.join(
+    os.homedir(),
+    ".config",
+    "codex",
+    "pricing.json",
+  );
   let userPricing: Record<string, ModelPricing> = {};
 
   try {
     if (fs.existsSync(userConfigPath)) {
-      const userConfigFile = fs.readFileSync(userConfigPath, 'utf-8');
+      const userConfigFile = fs.readFileSync(userConfigPath, "utf-8");
       userPricing = JSON.parse(userConfigFile) as Record<string, ModelPricing>;
     }
   } catch (error) {
     // If the user's config is malformed or unreadable, we'll log an error
     // but continue with the default pricing.
-    console.error(`[Codex] Error loading user pricing config from ${userConfigPath}:`, error);
+    console.error(
+      `[Codex] Error loading user pricing config from ${userConfigPath}:`,
+      error,
+    );
   }
 
   mergedPricing = { ...MODEL_PRICING, ...userPricing };
@@ -103,7 +111,9 @@ export function resetCachedPricing() {
  */
 export function getModelPricing(modelName: string): ModelPricing | null {
   const allPricing = getMergedPricing();
-  const sortedKeys = Object.keys(allPricing).sort((a, b) => b.length - a.length);
+  const sortedKeys = Object.keys(allPricing).sort(
+    (a, b) => b.length - a.length,
+  );
 
   for (const key of sortedKeys) {
     if (modelName.includes(key)) {

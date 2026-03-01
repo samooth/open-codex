@@ -27,38 +27,41 @@ import { z } from "zod";
  * We are intentionally permissive to handle common model hallucinations
  * while still providing structure.
  */
-const ToolCallArgsSchema = z
-  .object({
-    // Shell / apply_patch
-    command: z.union([z.string(), z.array(z.string())]).optional(),
-    cmd: z.union([z.string(), z.array(z.string())]).optional(),
-    patch: z.string().optional(),
-    // Shared
-    workdir: z.string().optional(),
-    timeout: z.number().optional(),
-    path: z.string().optional(),
-    // read_file_lines
-    start_line: z.number().optional(),
-    end_line: z.number().optional(),
-    start: z.number().optional(),
-    end: z.number().optional(),
-    line_start: z.number().optional(),
-    line_end: z.number().optional(),
-    // search_codebase / query_memory
-    pattern: z.string().optional(),
-    query: z.string().optional(),
-    include: z.string().optional(),
-    // persistent_memory
-    fact: z.string().optional(),
-    category: z.string().optional(),
-    // list_files_recursive
-    depth: z.number().optional(),
-  });
+const ToolCallArgsSchema = z.object({
+  // Shell / apply_patch
+  command: z.union([z.string(), z.array(z.string())]).optional(),
+  cmd: z.union([z.string(), z.array(z.string())]).optional(),
+  patch: z.string().optional(),
+  // Shared
+  workdir: z.string().optional(),
+  timeout: z.number().optional(),
+  path: z.string().optional(),
+  // read_file_lines
+  start_line: z.number().optional(),
+  end_line: z.number().optional(),
+  start: z.number().optional(),
+  end: z.number().optional(),
+  line_start: z.number().optional(),
+  line_end: z.number().optional(),
+  // search_codebase / query_memory
+  pattern: z.string().optional(),
+  query: z.string().optional(),
+  include: z.string().optional(),
+  // persistent_memory
+  fact: z.string().optional(),
+  category: z.string().optional(),
+  // list_files_recursive
+  depth: z.number().optional(),
+});
 
 // Fixed: Single, clear type definition without duplicates
-export type ParsedToolCallResult = 
+export type ParsedToolCallResult =
   | { success: true; args: ExecInput; data?: unknown; multiCall?: false }
-  | { success: true; multiCall: true; results: Array<{ args?: ExecInput; data?: unknown }> }
+  | {
+      success: true;
+      multiCall: true;
+      results: Array<{ args?: ExecInput; data?: unknown }>;
+    }
   | { success: false; error: string };
 
 export function parseToolCallOutput(toolCallOutput: string): {
@@ -158,7 +161,8 @@ export function parseToolCall(
  * Robust JSON splitter that handles escaped characters and whitespace
  * Split concatenated JSON objects: {"a":1}{"b":2} -> ["{"a":1}", "{"b":2}"]
  */
-const splitConcatenatedJSON = (str: string): Array<string> => str.split(/(?<=})\s*(?={)/g);
+const splitConcatenatedJSON = (str: string): Array<string> =>
+  str.split(/(?<=})\s*(?={)/g);
 
 /**
  * Decodes common HTML entities that might appear due to double-encoding.
@@ -179,43 +183,50 @@ export function parseToolCallArguments(
 ): ParsedToolCallResult {
   // Clean the input: handle HTML encoding and mixed escaping
   const cleaned = decodeHtmlEntities(toolCallArguments).trim();
-  
+
   // If the string contains literal newlines, JSON.parse will fail.
   // We need to ensure that newlines inside the patch/command strings are properly escaped.
   // This is tricky because we don't want to double-escape existing \n.
   // However, LLMs often send raw blocks.
-  
+
   const trimmed = cleaned;
-  
 
   if (!trimmed) {
     return {
       success: false,
-      error: 'Empty tool call arguments',
+      error: "Empty tool call arguments",
     };
   }
 
   // Try parsing as single JSON first (fast path)
   try {
     const json = JSON.parse(trimmed);
-    return validateAndBuildResult(json);
+    const validated = validateAndBuildResult(json);
+    if (validated.success) {
+      return validated;
+    }
   } catch {
-    // If it failed, it might be due to unescaped newlines in a "patch" or "content" field.
-    // We try a desperate attempt to escape them if we detect it looks like a JSON object.
+    // ignore and continue to more robust parsing
+  }
+
+  // Handle unescaped newlines if it looks like a single object
+  if (!trimmed.includes("}{")) {
     if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-       try {
-         // Escape literal newlines that are NOT preceded by a backslash
-         const escaped = trimmed.replace(/(?<!\\)\n/g, "\\n");
-         const json = JSON.parse(escaped);
-         return validateAndBuildResult(json);
-       } catch {
-         // ignore and continue to concatenated logic
-       }
+      try {
+        // Escape literal newlines that are NOT preceded by a backslash
+        const escaped = trimmed
+          .replace(/(?<!\\\\)\\n/g, "\\\\n")
+          .replace(/(?<!\\)\\n/g, "\\n");
+        const json = JSON.parse(escaped);
+        return validateAndBuildResult(json);
+      } catch (e) {
+        // ignore and fall through to concatenated logic
+      }
     }
   }
 
   // Handle concatenated JSON objects (parallel execution)
-  const jsonStrings = trimmed.split(/(?<=})\s*(?={)/g);
+  const jsonStrings = splitConcatenatedJSON(trimmed);
 
   if (jsonStrings.length === 0) {
     return {
@@ -225,16 +236,10 @@ export function parseToolCallArguments(
   }
 
   if (jsonStrings.length === 1) {
-    // Single object that failed initial parse (malformed)
-    try {
-      const json = JSON.parse(jsonStrings[0]!);
-      return validateAndBuildResult(json);
-    } catch (err) {
-      return {
-        success: false,
-        error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
-      };
-    }
+    return {
+      success: false,
+      error: `Failed to parse arguments as JSON: ${toolCallArguments}`,
+    };
   }
 
   // Multiple tool calls - parse each one
@@ -282,8 +287,8 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   if (!result.success) {
     // @ts-ignore
     const errorMsg = result.error.errors
-      .map((e: any) => `${e.path.join('.')}: ${e.message}`)
-      .join('; ');
+      .map((e: any) => `${e.path.join(".")}: ${e.message}`)
+      .join("; ");
     return {
       success: false,
       error: `Invalid tool arguments: ${errorMsg}`,
@@ -294,14 +299,14 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
   const commandArray = toStringArray(data.cmd) ?? toStringArray(data.command);
 
   // If we have a command or patch, wrap it into the ExecInput format
-  if (commandArray || typeof data.patch === 'string') {
+  if (commandArray || typeof data.patch === "string") {
     const finalCmd =
-      commandArray ?? (data.patch ? ['apply_patch', data.patch] : undefined);
+      commandArray ?? (data.patch ? ["apply_patch", data.patch] : undefined);
 
     if (!finalCmd) {
       return {
         success: false,
-        error: 'Failed to construct command array for ExecInput',
+        error: "Failed to construct command array for ExecInput",
       };
     }
 
@@ -337,9 +342,13 @@ export function tryExtractToolCallsFromContent(
   let match;
   while ((match = codeBlockRegex.exec(content)) !== null) {
     const rawBlock = match[1];
-    if (!rawBlock) {continue;}
+    if (!rawBlock) {
+      continue;
+    }
     const blockContent = rawBlock.trim();
-    if (!blockContent) {continue;}
+    if (!blockContent) {
+      continue;
+    }
 
     let json;
     try {
@@ -391,11 +400,17 @@ export function tryExtractToolCallsFromContent(
   const jsonObjectRegex = /\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g;
   while ((match = jsonObjectRegex.exec(content)) !== null) {
     const rawJson = match[0];
-    if (!rawJson) {continue;}
-    
+    if (!rawJson) {
+      continue;
+    }
+
     // Skip if this JSON was already inside a code block we handled
     // (A bit heuristic, but helps avoid duplicates)
-    if (content.includes("```") && content.indexOf("```") < match.index && content.lastIndexOf("```") > match.index) {
+    if (
+      content.includes("```") &&
+      content.indexOf("```") < match.index &&
+      content.lastIndexOf("```") > match.index
+    ) {
       // Very simple check - if there's a code block around it, skip.
       // Better check: is this substring present in any code block already extracted?
     }
@@ -405,7 +420,11 @@ export function tryExtractToolCallsFromContent(
       const normalized = normalizeJsonToolCall(json, rawJson);
       if (normalized) {
         // Avoid duplicates
-        if (!toolCalls.some(tc => (tc as any).function?.arguments === normalized.arguments)) {
+        if (
+          !toolCalls.some(
+            (tc) => (tc as any).function?.arguments === normalized.arguments,
+          )
+        ) {
           toolCalls.push({
             id: `call_bare_${Math.random().toString(36).slice(2, 11)}_${toolCalls.length}`,
             type: "function",
@@ -423,7 +442,11 @@ export function tryExtractToolCallsFromContent(
   while ((match = patchRegex.exec(content)) !== null) {
     const patchText = match[0];
     // Avoid duplicates if this was already captured by JSON or Code Block logic
-    if (toolCalls.some((tc) => (tc as any).function?.arguments?.includes(patchText))) {
+    if (
+      toolCalls.some((tc) =>
+        (tc as any).function?.arguments?.includes(patchText),
+      )
+    ) {
       continue;
     }
 
@@ -444,7 +467,7 @@ export function tryExtractToolCallsFromContent(
   return toolCalls;
 }
 
-/** 
+/**
  * Splits tool calls that have multiple concatenated JSON objects in their arguments.
  * Fixed: Properly handles const arrays and tool name inheritance
  */
@@ -487,9 +510,12 @@ export function flattenToolCalls(
 
         if (normalized) {
           // If the extracted call has a generic 'shell' name but parent has specific name, inherit it
-          const toolName = (normalized.name === "shell" && (tc as any).function.name && (tc as any).function.name !== "shell") 
-            ? (tc as any).function.name 
-            : normalized.name;
+          const toolName =
+            normalized.name === "shell" &&
+            (tc as any).function.name &&
+            (tc as any).function.name !== "shell"
+              ? (tc as any).function.name
+              : normalized.name;
 
           result.push({
             id: `call_flatten_${Math.random().toString(36).slice(2, 11)}_${result.length}`,
@@ -498,7 +524,9 @@ export function flattenToolCalls(
               name: toolName,
               arguments: normalized.arguments,
             },
-            ...((tc as any).thought_signature ? { thought_signature: (tc as any).thought_signature } : {}),
+            ...((tc as any).thought_signature
+              ? { thought_signature: (tc as any).thought_signature }
+              : {}),
           } as any);
         }
       } catch {
@@ -524,7 +552,7 @@ function normalizeJsonToolCall(
 
   // Case 1: OpenAI tool call format: {"name": "...", "arguments": {...}}
   if (typeof json.name === "string" && json.arguments !== undefined) {
-    const argsStr = 
+    const argsStr =
       typeof json.arguments === "string"
         ? json.arguments
         : JSON.stringify(json.arguments);
@@ -542,7 +570,8 @@ function normalizeJsonToolCall(
       json.name === "write_file" ||
       json.name === "delete_file" ||
       json.name === "list_directory" ||
-      (json.name.startsWith("repo_browser.") && json.name !== "repo_browser.exec")
+      (json.name.startsWith("repo_browser.") &&
+        json.name !== "repo_browser.exec")
     ) {
       return {
         name: json.name,
@@ -562,7 +591,12 @@ function normalizeJsonToolCall(
         };
       }
       return {
-        name: (json.name === "apply_patch" || json.name === "repo_browser.exec" || json.name === "shell") ? "shell" : json.name,
+        name:
+          json.name === "apply_patch" ||
+          json.name === "repo_browser.exec" ||
+          json.name === "shell"
+            ? "shell"
+            : json.name,
         arguments: JSON.stringify({
           cmd: parsedArgs.cmd,
           workdir: parsedArgs.workdir,
@@ -572,7 +606,16 @@ function normalizeJsonToolCall(
     }
   }
   // Case 2: Direct command or arguments without name
-  else if (json.cmd || json.command || json.patch || json.path || json.pattern || json.query || json.fact || json.depth) {
+  else if (
+    json.cmd ||
+    json.command ||
+    json.patch ||
+    json.path ||
+    json.pattern ||
+    json.query ||
+    json.fact ||
+    json.depth
+  ) {
     const result = parseToolCallArguments(rawStr);
     if (result.success && !result.multiCall) {
       // Infer tool name

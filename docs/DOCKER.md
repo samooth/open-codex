@@ -4,8 +4,8 @@ This document outlines how to use OpenCodex with Docker, covering both building 
 
 ## Prerequisites
 
-*   [Docker](https://docs.docker.com/get-docker/) installed and running on your system.
-*   An API key for your chosen AI provider (e.g., OpenAI, Google Gemini).
+- [Docker](https://docs.docker.com/get-docker/) installed and running on your system.
+- An API key for your chosen AI provider (e.g., OpenAI, Google Gemini).
 
 ## 1. Running OpenCodex with a Pre-built Image
 
@@ -47,12 +47,12 @@ docker run --rm -it \
 
 **Explanation of the command:**
 
-*   `--rm`: Automatically removes the container and its file system when the container exits.
-*   `-it`: Runs the container in interactive mode and allocates a pseudo-TTY, allowing you to interact with the CLI.
-*   `-v "$(pwd):/app"`: Mounts your current host working directory (where your project files are) to the `/app` directory inside the container. This allows OpenCodex to read and write to your project files.
-*   `--env-file openai.env`: Passes environment variables defined in the `openai.env` file to the container.
-*   `opencodex`: The name of the Docker image you built.
-*   `"Your OpenCodex prompt here"`: Your prompt for OpenCodex, along with any other CLI flags (e.g., `--model gpt-4o-mini`).
+- `--rm`: Automatically removes the container and its file system when the container exits.
+- `-it`: Runs the container in interactive mode and allocates a pseudo-TTY, allowing you to interact with the CLI.
+- `-v "$(pwd):/app"`: Mounts your current host working directory (where your project files are) to the `/app` directory inside the container. This allows OpenCodex to read and write to your project files.
+- `--env-file openai.env`: Passes environment variables defined in the `openai.env` file to the container.
+- `opencodex`: The name of the Docker image you built.
+- `"Your OpenCodex prompt here"`: Your prompt for OpenCodex, along with any other CLI flags (e.g., `--model gpt-4o-mini`).
 
 **Alternative: Passing API Key Directly**
 
@@ -113,6 +113,6 @@ ENTRYPOINT ["node", "dist/cli.js"]
 
 ## Important Considerations
 
-*   **Permissions:** Ensure the Docker container has the necessary permissions to read and write files in your mounted project directory.
-*   **Network Access:** Verify that your Docker container has network access to reach the AI model's API endpoints.
-*   **Resource Limits:** For very large codebases or complex AI tasks, you might need to allocate more CPU or memory to your Docker container.
+- **Permissions:** Ensure the Docker container has the necessary permissions to read and write files in your mounted project directory.
+- **Network Access:** Verify that your Docker container has network access to reach the AI model's API endpoints.
+- **Resource Limits:** For very large codebases or complex AI tasks, you might need to allocate more CPU or memory to your Docker container.

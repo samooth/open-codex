@@ -5,37 +5,43 @@ This document explains in detail how OpenCodex defines, registers, and executes 
 ## Core Tooling Files
 
 ### 1. `src/utils/agent/agent-loop.ts`
+
 This is the "brain" of the agent. It controls:
+
 - **Registration**: The `run()` method contains the `tools` array passed to the OpenAI API. This defines the JSON schema for every tool the model is aware of.
 - **Routing & Parallelism**: The `handleFunctionCall()` method initiates all model-requested tool calls in **parallel** using `Promise.all()`, significantly reducing latency for multi-file operations. It also handles parameter normalization (e.g., mapping `command` to `cmd`).
 - **Loop Protection & Logging**: Tracks the history of tool calls in the current session. If the exact same tool call (name and arguments) fails more than twice, the system intercepts the third attempt and returns a "Loop detected" error. All failed tool calls are logged to `opencodex.error.log` with provider and model metadata.
 - **Normalization**: This file handles tool aliasing (e.g., mapping `repo_browser.read_file` to the internal `read_file` handler) and strips model-specific suffixes like `<|channel|>`.
 - **High-Level Handlers**: Implements specialized tools directly using high-performance asynchronous I/O:
-    - `read_file`, `write_file`, `delete_file`: Basic FS operations.
-    - `edit_file`: Surgical Search & Replace modifications. Uses exact string matching to prevent context-drift errors.
-    - `read_symbols`: Lightweight symbol extraction (classes, functions, etc.) to explore large files without context overflow.
-    - `search_symbols`: Semantic-boosted search specifically targeting symbol definitions across the codebase.
-    - `run_diagnostics`: Automated project-wide health checks (linting, type-checking, and tests) based on detected project type.
-    - `update_tasks`: Updates a persistent UI roadmap to track progress on multi-step goals.
-    - `indexCodebase`: Background codebase indexing for semantic search. Includes a real-time status tracking callback for the UI.
-    - `list_directory`: Non-recursive directory listing.
-    - `list_files_recursive`: Parallel tree-view project exploration.
-    - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
-    - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
-    - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
-    - `summarize_memory`: Retrieve all stored facts for review and consolidation.
-    - `browse`: Unified web interface. Intelligently searches the web (using SearXNG or SERP APIs if configured, falling back to DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
-    - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
+  - `read_file`, `write_file`, `delete_file`: Basic FS operations.
+  - `edit_file`: Surgical Search & Replace modifications. Uses exact string matching to prevent context-drift errors.
+  - `read_symbols`: Lightweight symbol extraction (classes, functions, etc.) to explore large files without context overflow.
+  - `search_symbols`: Semantic-boosted search specifically targeting symbol definitions across the codebase.
+  - `run_diagnostics`: Automated project-wide health checks (linting, type-checking, and tests) based on detected project type.
+  - `update_tasks`: Updates a persistent UI roadmap to track progress on multi-step goals.
+  - `indexCodebase`: Background codebase indexing for semantic search. Includes a real-time status tracking callback for the UI.
+  - `list_directory`: Non-recursive directory listing.
+  - `list_files_recursive`: Parallel tree-view project exploration.
+  - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
+  - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
+  - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
+  - `summarize_memory`: Retrieve all stored facts for review and consolidation.
+  - `browse`: Unified web interface. Intelligently searches the web (using SearXNG or SERP APIs if configured, falling back to DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
+  - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
 
 ### 2. `src/utils/agent/handle-exec-command.ts`
+
 Controls the execution of shell commands:
+
 - **Authorization**: Manages the session-level "Always Allow" list. It exports `authorizeCommand()` which is used by the `--allow` CLI flag and the new `--allow-always-patch` flag which permits authorizing all future file modifications in a session.
 - **Sandbox Decisions**: Determines if a command should run in a restricted environment based on the current policy.
 - **Dry Run**: If `dryRun` is enabled in config, it intercepts commands and returns a preview message instead of executing. The system prompt is also dynamically updated to inform the model when this mode is active. This can be toggled in-session via `/config`.
 - **Key Derivation**: The `deriveCommandKey()` function extracts the base command (e.g., `pytest` from `bash -lc "pytest ..."`) to ensure that authorizing a command works across different shell invocations.
 
 ### 3. `src/components/chat/terminal-chat-response-item.tsx`
+
 Handles the rendering of agent responses:
+
 - **Integrated UI**: Tool calls and responses are integrated into a single visual unit, showing semantic icons, labels, and argument summaries alongside the output.
 - **Collapsible Content**: Implements interactive collapsing of large tool outputs and assistant responses via the `C` key to improve readability.
 - **Interactive History Selection**: Integrated with `CommandHistoryOverlay.tsx` to allow users to select and re-run previous shell commands from the session.
@@ -43,19 +49,25 @@ Handles the rendering of agent responses:
 - **Markdown Rendering**: Integrates `marked-terminal` with custom highlighting for a polished developer experience.
 
 ### 4. `src/approvals.ts`
+
 The safety engine of the CLI:
+
 - **Policies**: Defines the three main levels of autonomy: `suggest` (prompt for everything), `auto-edit` (surgical edits allowed), and `full-auto` (sandbox everything).
 - **Safety Assessment**: `canAutoApprove()` determines if a specific command string is "known safe" (like `ls` or `pwd`) or if it requires user intervention.
 - **Patch Validation**: Contains logic to check if an `apply_patch` operation is constrained to writable paths.
 
 ### 4. `src/utils/parsers.ts`
+
 Controls how the agent interprets model output:
+
 - **JSON Extraction**: Contains the logic to find tool calls inside Markdown code blocks or raw text if the model fails to use the native API.
 - **Schema Validation**: Uses `zod` to validate tool arguments with `ToolCallArgsSchema`.
 - **Heuristic Inference**: If a model provides arguments but forgets the tool name, this file infers the tool based on the properties provided (e.g., if it sees `pattern`, it assumes `search_codebase`).
 
 ### 5. `src/utils/agent/apply-patch.ts` & `src/parse-apply-patch.ts`
+
 Control the "surgical edit" capability:
+
 - **Custom Format**: Implements the `*** Begin Patch` / `*** Update File` format.
 - **Leniency**: Controls how strictly the agent requires `+` prefixes or hunk headers. It is lenient with missing files during "Update File" (treating them as empty) to support common model behaviors.
 
@@ -75,20 +87,20 @@ To introduce a new capability to OpenCodex, follow these steps:
 
 OpenCodex includes a normalization layer to support models trained on other agentic frameworks (like GPTOSS). The following mappings are controlled in `agent-loop.ts`:
 
-| Model Request | Internal Tool |
-| :--- | :--- |
-| `repo_browser.exec` | `shell` |
-| `repo_browser.read_file` | `read_file` |
-| `repo_browser.write_file` | `write_file` |
-| `repo_browser.list_files` | `list_files_recursive` |
-| `repo_browser.search` | `search_codebase` |
-| `repo_browser.print_tree` | `list_files_recursive` |
-| `repo_browser.read_file_lines` | `read_file_lines` |
-| `repo_browser.list_directory` | `list_directory` |
-| `repo_browser.web_search` | `browse` |
-| `repo_browser.fetch_url` | `browse` |
-| `repo_browser.browse` | `browse` |
-| `google_search` | `browse` |
+| Model Request                  | Internal Tool          |
+| :----------------------------- | :--------------------- |
+| `repo_browser.exec`            | `shell`                |
+| `repo_browser.read_file`       | `read_file`            |
+| `repo_browser.write_file`      | `write_file`           |
+| `repo_browser.list_files`      | `list_files_recursive` |
+| `repo_browser.search`          | `search_codebase`      |
+| `repo_browser.print_tree`      | `list_files_recursive` |
+| `repo_browser.read_file_lines` | `read_file_lines`      |
+| `repo_browser.list_directory`  | `list_directory`       |
+| `repo_browser.web_search`      | `browse`               |
+| `repo_browser.fetch_url`       | `browse`               |
+| `repo_browser.browse`          | `browse`               |
+| `google_search`                | `browse`               |
 
 ## User Control via Files
 

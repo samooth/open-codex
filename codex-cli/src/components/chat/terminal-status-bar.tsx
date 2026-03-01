@@ -16,7 +16,12 @@ type Props = {
   approvalPolicy: ApprovalPolicy;
   theme: Theme;
   queuedInputLength: number;
-  indexingStatus?: { indexing: boolean; current?: number; total?: number; file?: string };
+  indexingStatus?: {
+    indexing: boolean;
+    current?: number;
+    total?: number;
+    file?: string;
+  };
 };
 
 const TerminalStatusBar: React.FC<Props> = ({
@@ -32,7 +37,7 @@ const TerminalStatusBar: React.FC<Props> = ({
   const [showBreakdown, setShowBreakdown] = useState(false);
   const { columns } = useTerminalSizeContext();
   const shortSessionId = sessionId.slice(0, 8);
-  
+
   const usedPercent = 100 - contextLeftPercent;
   const isNarrow = columns < 80;
   const isUltraNarrow = columns < 60;
@@ -45,49 +50,67 @@ const TerminalStatusBar: React.FC<Props> = ({
 
   const getPolicyColor = (policy: ApprovalPolicy) => {
     switch (policy) {
-      case "full-auto": return theme.success;
-      case "auto-edit": return theme.warning;
-      default: return theme.user;
+      case "full-auto":
+        return theme.success;
+      case "auto-edit":
+        return theme.warning;
+      default:
+        return theme.user;
     }
   };
 
   const getContextColor = (percent: number) => {
-    if (percent > 80) {return theme.error;}
-    if (percent > 60) {return theme.warning;}
+    if (percent > 80) {
+      return theme.error;
+    }
+    if (percent > 60) {
+      return theme.warning;
+    }
     return theme.success;
   };
 
   const separator = <Text color={theme.divider}> │ </Text>;
 
   return (
-    <Box 
-      flexDirection="column" 
-      paddingX={1} 
-      borderStyle="single" 
-      borderBottom={false} 
-      borderLeft={false} 
-      borderRight={false} 
+    <Box
+      flexDirection="column"
+      paddingX={1}
+      borderStyle="single"
+      borderBottom={false}
+      borderLeft={false}
+      borderRight={false}
       borderTopColor={theme.divider}
     >
       <Box flexDirection="row" justifyContent="space-between">
         <Box gap={1}>
           {!isUltraNarrow && (
             <>
-              <Text color={theme.accent} bold>ID:</Text>
+              <Text color={theme.accent} bold>
+                ID:
+              </Text>
               <Text color={theme.statusBarSession}>{shortSessionId}</Text>
               {separator}
             </>
           )}
-          <Text color={theme.accent} bold>{isNarrow ? "M:" : "MODE:"}</Text>
-          <Text color={getPolicyColor(approvalPolicy)}>{isNarrow ? approvalPolicy.slice(0, 1).toUpperCase() : approvalPolicy.toUpperCase()}</Text>
-          
+          <Text color={theme.accent} bold>
+            {isNarrow ? "M:" : "MODE:"}
+          </Text>
+          <Text color={getPolicyColor(approvalPolicy)}>
+            {isNarrow
+              ? approvalPolicy.slice(0, 1).toUpperCase()
+              : approvalPolicy.toUpperCase()}
+          </Text>
+
           {indexingStatus?.indexing && (
             <>
               {separator}
               <Spinner type="dots" color={theme.highlight} />
               {!isNarrow && (
                 <Text color={theme.dim}>
-                  INDEXING{indexingStatus.current ? ` [${indexingStatus.current}/${indexingStatus.total}]` : ""}
+                  INDEXING
+                  {indexingStatus.current
+                    ? ` [${indexingStatus.current}/${indexingStatus.total}]`
+                    : ""}
                 </Text>
               )}
             </>
@@ -96,7 +119,9 @@ const TerminalStatusBar: React.FC<Props> = ({
           {queuedInputLength > 0 && !isNarrow && (
             <>
               {separator}
-              <Text color="yellow" bold>QUEUED: {queuedInputLength}c</Text>
+              <Text color="yellow" bold>
+                QUEUED: {queuedInputLength}c
+              </Text>
             </>
           )}
         </Box>
@@ -104,20 +129,37 @@ const TerminalStatusBar: React.FC<Props> = ({
         <Box gap={1}>
           {showBreakdown ? (
             <Box gap={1}>
-              <Text color={theme.assistant}>{isNarrow ? "S" : "SYS"}:{tokenBreakdown.system}</Text>
-              <Text color={theme.user}>{isNarrow ? "H" : "HIST"}:{tokenBreakdown.history}</Text>
-              <Text color={theme.highlight}>{isNarrow ? "T" : "TOOL"}:{tokenBreakdown.tools}</Text>
+              <Text color={theme.assistant}>
+                {isNarrow ? "S" : "SYS"}:{tokenBreakdown.system}
+              </Text>
+              <Text color={theme.user}>
+                {isNarrow ? "H" : "HIST"}:{tokenBreakdown.history}
+              </Text>
+              <Text color={theme.highlight}>
+                {isNarrow ? "T" : "TOOL"}:{tokenBreakdown.tools}
+              </Text>
               <Text color={theme.dim}>/</Text>
-              <Text color={theme.success} bold>{isNarrow ? "Σ" : "TOTAL"}:{tokenBreakdown.total}</Text>
+              <Text color={theme.success} bold>
+                {isNarrow ? "Σ" : "TOTAL"}:{tokenBreakdown.total}
+              </Text>
               {separator}
-              <Text color={theme.warning}>${tokenBreakdown.cost.toFixed(4)}</Text>
+              <Text color={theme.warning}>
+                ${tokenBreakdown.cost.toFixed(4)}
+              </Text>
             </Box>
           ) : (
             <Box gap={1}>
-              <Text color={theme.warning}>${tokenBreakdown.cost.toFixed(4)}</Text>
+              <Text color={theme.warning}>
+                ${tokenBreakdown.cost.toFixed(4)}
+              </Text>
               {separator}
               {!isNarrow && <Text color={theme.dim}>CONTEXT</Text>}
-              {!isUltraNarrow && <Sparkline data={contextHistory} color={getContextColor(usedPercent)} />}
+              {!isUltraNarrow && (
+                <Sparkline
+                  data={contextHistory}
+                  color={getContextColor(usedPercent)}
+                />
+              )}
               <Text color={getContextColor(usedPercent)}>
                 {Math.round(usedPercent)}%
               </Text>

@@ -11,10 +11,10 @@ type Props = {
   theme: Theme;
 };
 
-const options = Object.keys(themes).map(name => ({
+const options = Object.keys(themes).map((name) => ({
   label: name.toUpperCase(),
   value: name,
-  description: (themes[name] as any)?.description || `Select the ${name} theme`
+  description: (themes[name] as any)?.description || `Select the ${name} theme`,
 }));
 
 export default function ThemeOverlay({
@@ -23,9 +23,9 @@ export default function ThemeOverlay({
   onExit,
   theme,
 }: Props): React.ReactElement {
-  const themeOptions = options.map(o => ({
+  const themeOptions = options.map((o) => ({
     ...o,
-    label: `${o.value === currentTheme ? "❯ " : "  "}${o.label}`
+    label: `${o.value === currentTheme ? "❯ " : "  "}${o.label}`,
   }));
 
   return (

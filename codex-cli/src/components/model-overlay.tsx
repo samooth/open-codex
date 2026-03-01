@@ -1,10 +1,9 @@
-import type { AppConfig } from "../utils/config.js";
 import type { Theme } from "../utils/theme.js";
 
 import SelectInput from "./select-input/select-input.js";
+import { useAppContext } from "../contexts/app-context.js";
 import { Box, Text, useInput } from "ink";
 import React from "react";
-
 
 // Mapping models to their recommended uses
 const modelDescriptions: Record<string, string> = {
@@ -12,34 +11,39 @@ const modelDescriptions: Record<string, string> = {
   "o3": "OpenAI - High reasoning, best for complex logic and deep thinking.",
   "claude-opus-4-6": "Anthropic - Balanced power and speed with high accuracy.",
   "gemini-2.5-flash": "Google - Ultra-fast with a massive context window.",
-  "deepseek-chat": "DeepSeek - Versatile and optimized for developer efficiency.",
+  "deepseek-chat":
+    "DeepSeek - Versatile and optimized for developer efficiency.",
 };
 
 export default function ModelOverlay({
   currentModel,
-  config,
   hasLastResponse,
   onSelect,
   onExit,
   theme,
 }: {
   currentModel: string;
-  config: AppConfig;
   hasLastResponse: boolean;
   onSelect: (model: string) => void;
   onExit: () => void;
   theme: Theme;
 }) {
+  const { config } = useAppContext();
+
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
-  const providerModels = (config as any).providers?.[config.provider || "openai"]?.models || ["o4-mini", "o3"];
-  
+  const providerModels = (config as any).providers?.[
+    config.provider || "openai"
+  ]?.models || ["o4-mini", "o3"];
+
   const options = (providerModels as Array<string>).map((m: string) => ({
     label: `${m === currentModel ? "❯ " : "  "}${m.toUpperCase()}`,
     value: m,
-    description: modelDescriptions[m] || `${config.provider} model`
+    description: modelDescriptions[m] || `${config.provider} model`,
   }));
 
   const handleSelect = (item: any) => {
@@ -61,17 +65,27 @@ export default function ModelOverlay({
       {hasLastResponse ? (
         <Box gap={1} marginBottom={1}>
           <Box backgroundColor={theme.error as any} paddingX={1}>
-            <Text bold color="black"> LOCKED </Text>
+            <Text bold color="black">
+              {" "}
+              LOCKED{" "}
+            </Text>
           </Box>
-          <Text color={theme.error} bold>FINISH CURRENT TURN TO SWITCH</Text>
+          <Text color={theme.error} bold>
+            FINISH CURRENT TURN TO SWITCH
+          </Text>
         </Box>
       ) : (
         <>
           <Box gap={1} marginBottom={1}>
             <Box backgroundColor={theme.highlight as any} paddingX={1}>
-              <Text bold color="black"> MODELS </Text>
+              <Text bold color="black">
+                {" "}
+                MODELS{" "}
+              </Text>
             </Box>
-            <Text color={theme.highlight} bold>SWITCH AI ENGINE</Text>
+            <Text color={theme.highlight} bold>
+              SWITCH AI ENGINE
+            </Text>
           </Box>
 
           <Box flexDirection="column" paddingX={1} marginBottom={1}>
@@ -83,17 +97,19 @@ export default function ModelOverlay({
             />
           </Box>
 
-          <Box 
-            borderStyle="single" 
-            borderRight={false} 
-            borderTop={true} 
-            borderBottom={false} 
+          <Box
+            borderStyle="single"
+            borderRight={false}
+            borderTop={true}
+            borderBottom={false}
             borderLeft={false}
             borderTopColor={theme.divider}
             paddingX={1}
             paddingTop={1}
           >
-            <Text dimColor italic>↑↓ navigate │ enter switch │ esc close</Text>
+            <Text dimColor italic>
+              ↑↓ navigate │ enter switch │ esc close
+            </Text>
           </Box>
         </>
       )}

@@ -3,7 +3,14 @@ import type OpenAI from "openai";
 import { getIgnoreFilter } from "./ignore-utils.js";
 import { log } from "./log.js";
 import { GoogleGenAI } from "@google/genai";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+} from "fs";
 import { join, dirname, relative } from "path";
 
 function isBinaryFile(filePath: string): boolean {
@@ -12,7 +19,9 @@ function isBinaryFile(filePath: string): boolean {
     // Check first 1KB for null bytes which usually indicate binary
     const checkSize = Math.min(buffer.length, 1024);
     for (let i = 0; i < checkSize; i++) {
-      if (buffer[i] === 0) {return true;}
+      if (buffer[i] === 0) {
+        return true;
+      }
     }
     return false;
   } catch {
@@ -41,7 +50,12 @@ export class SemanticMemory {
   private embeddingModel: string | undefined;
   private provider: string;
 
-  constructor(oai: OpenAI, provider: string = "openai", embeddingModel?: string, apiKey?: string) {
+  constructor(
+    oai: OpenAI,
+    provider: string = "openai",
+    embeddingModel?: string,
+    apiKey?: string,
+  ) {
     this.oai = oai;
     this.provider = provider;
     this.embeddingModel = embeddingModel;
@@ -56,12 +70,14 @@ export class SemanticMemory {
   }
 
   private loadCache() {
-// ... existing loadCache ...
+    // ... existing loadCache ...
     if (existsSync(this.cachePath)) {
       try {
         this.cache = JSON.parse(readFileSync(this.cachePath, "utf-8"));
         if (process.env["DEBUG"] === "1") {
-          log(`Loaded embedding cache: ${Object.keys(this.cache).length} entries`);
+          log(
+            `Loaded embedding cache: ${Object.keys(this.cache).length} entries`,
+          );
         }
       } catch {
         this.cache = {};
@@ -70,7 +86,7 @@ export class SemanticMemory {
   }
 
   private loadIndex() {
-// ... existing loadIndex ...
+    // ... existing loadIndex ...
     if (existsSync(this.indexPath)) {
       try {
         this.entries = JSON.parse(readFileSync(this.indexPath, "utf-8"));
@@ -92,7 +108,7 @@ export class SemanticMemory {
   }
 
   private saveCache() {
-// ... existing saveCache ...
+    // ... existing saveCache ...
     try {
       const dir = dirname(this.cachePath);
       if (!existsSync(dir)) {
@@ -105,14 +121,16 @@ export class SemanticMemory {
   }
 
   private saveIndex() {
-// ... existing saveIndex ...
+    // ... existing saveIndex ...
     try {
       const dir = dirname(this.indexPath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }
       if (process.env["DEBUG"] === "1") {
-        log(`Saving code index to ${this.indexPath} (${this.entries.length} entries)`);
+        log(
+          `Saving code index to ${this.indexPath} (${this.entries.length} entries)`,
+        );
       }
       writeFileSync(this.indexPath, JSON.stringify(this.entries), "utf-8");
     } catch (err) {
@@ -121,7 +139,7 @@ export class SemanticMemory {
   }
 
   private async getEmbedding(text: string): Promise<Array<number>> {
-// ... existing getEmbedding ...
+    // ... existing getEmbedding ...
     if (this.cache[text]) {
       if (process.env["DEBUG"] === "1") {
         log(`    Embedding cache hit`);
@@ -132,17 +150,26 @@ export class SemanticMemory {
     if (this.genAI) {
       const model = this.embeddingModel || "text-embedding-004";
       if (process.env["DEBUG"] === "1") {
-        log(`    Fetching Google embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+        log(
+          `    Fetching Google embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`,
+        );
         log(`    Model: ${model}`);
       }
-      
+
       try {
         const result = await (this.genAI as any).models.embedContent({
           model,
-          contents: text
+          contents: text,
         });
-        const embedding = result.embeddings?.[0]?.values || result.embedding?.values || (Array.isArray(result.embeddings) ? result.embeddings[0] : result.embeddings);
-        if (!embedding) {throw new Error("No embedding values found in response");}
+        const embedding =
+          result.embeddings?.[0]?.values ||
+          result.embedding?.values ||
+          (Array.isArray(result.embeddings)
+            ? result.embeddings[0]
+            : result.embeddings);
+        if (!embedding) {
+          throw new Error("No embedding values found in response");
+        }
         this.cache[text] = embedding;
         this.saveCache();
         return embedding;
@@ -154,11 +181,18 @@ export class SemanticMemory {
       }
     }
 
-    const isOllama = this.provider === "ollama" || this.oai.baseURL?.includes("localhost") || this.oai.baseURL?.includes("ollama");
-    const model = this.embeddingModel || (isOllama ? "nomic-embed-text" : "text-embedding-3-small");
+    const isOllama =
+      this.provider === "ollama" ||
+      this.oai.baseURL?.includes("localhost") ||
+      this.oai.baseURL?.includes("ollama");
+    const model =
+      this.embeddingModel ||
+      (isOllama ? "nomic-embed-text" : "text-embedding-3-small");
 
     if (process.env["DEBUG"] === "1") {
-      log(`    Fetching ${isOllama ? "Ollama" : "OpenAI"} embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`);
+      log(
+        `    Fetching ${isOllama ? "Ollama" : "OpenAI"} embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`,
+      );
       log(`[HTTP] Request: POST ${this.oai.baseURL}/embeddings`);
       log(`[HTTP] Model: ${model}, Input length: ${text.length}`);
     }
@@ -179,14 +213,16 @@ export class SemanticMemory {
       return embedding;
     } catch (err: any) {
       if (isOllama && err.status === 404) {
-        throw new Error(`Embedding model "${model}" not found on Ollama server. Please run "ollama pull ${model}" or configure a different "embeddingModel" in config.json.`);
+        throw new Error(
+          `Embedding model "${model}" not found on Ollama server. Please run "ollama pull ${model}" or configure a different "embeddingModel" in config.json.`,
+        );
       }
       throw err;
     }
   }
 
   private cosineSimilarity(a: Array<number>, b: Array<number>): number {
-// ... existing cosineSimilarity ...
+    // ... existing cosineSimilarity ...
     let dotProduct = 0;
     let mA = 0;
     let mB = 0;
@@ -199,37 +235,48 @@ export class SemanticMemory {
     }
     mA = Math.sqrt(mA);
     mB = Math.sqrt(mB);
-    if (mA === 0 || mB === 0) {return 0;}
+    if (mA === 0 || mB === 0) {
+      return 0;
+    }
     return dotProduct / (mA * mB);
   }
 
   async findRelevant(query: string, limit: number = 5): Promise<Array<string>> {
-// ... existing findRelevant ...
-    if (!this.memoryExists()) {return [];}
+    // ... existing findRelevant ...
+    if (!this.memoryExists()) {
+      return [];
+    }
 
     const content = readFileSync(this.memoryPath, "utf-8");
-    const lines = content.split("\n").filter(l => l.trim().startsWith("- ["));
-    if (lines.length === 0) {return [];}
+    const lines = content.split("\n").filter((l) => l.trim().startsWith("- ["));
+    if (lines.length === 0) {
+      return [];
+    }
 
     try {
       const queryEmbedding = await this.getEmbedding(query);
-      
-      const scored = await Promise.all(lines.map(async (line) => {
-        try {
-          const embedding = await this.getEmbedding(line);
-          return { line, score: this.cosineSimilarity(queryEmbedding, embedding) };
-        } catch {
-          return { line, score: 0 };
-        }
-      }));
+
+      const scored = await Promise.all(
+        lines.map(async (line) => {
+          try {
+            const embedding = await this.getEmbedding(line);
+            return {
+              line,
+              score: this.cosineSimilarity(queryEmbedding, embedding),
+            };
+          } catch {
+            return { line, score: 0 };
+          }
+        }),
+      );
 
       const topResults = scored
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
-      
+
       const relevant = topResults
-        .filter(s => s.score > 0.1)
-        .map(s => s.line);
+        .filter((s) => s.score > 0.1)
+        .map((s) => s.line);
 
       return relevant.length > 0 ? relevant : lines.slice(-limit);
     } catch (err) {
@@ -241,7 +288,9 @@ export class SemanticMemory {
   /**
    * Indexes the codebase for semantic search.
    */
-  async indexCodebase(onProgress?: (current: number, total: number, file: string) => void): Promise<void> {
+  async indexCodebase(
+    onProgress?: (current: number, total: number, file: string) => void,
+  ): Promise<void> {
     const ig = getIgnoreFilter();
     const files: Array<string> = [];
     const root = process.cwd();
@@ -255,18 +304,20 @@ export class SemanticMemory {
       let entries: Array<any> = [];
       try {
         entries = readdirSync(dir, { withFileTypes: true });
-      } catch { return; }
+      } catch {
+        return;
+      }
 
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);
         const relPath = relative(root, fullPath);
-        
+
         // ignore library requires forward slashes and trailing slash for directories
         let posixPath = relPath.replace(/\\/g, "/");
         if (entry.isDirectory()) {
           posixPath += "/";
         }
-        
+
         if (ig.ignores(posixPath)) {
           if (process.env["DEBUG"] === "1") {
             log(`    Ignoring: ${posixPath}`);
@@ -277,7 +328,11 @@ export class SemanticMemory {
         if (entry.isDirectory()) {
           traverse(fullPath);
         } else if (entry.isFile()) {
-          if (/\.(ts|tsx|js|jsx|py|md|txt|go|rs|c|cpp|h|java|sh|yaml|json)$/i.test(entry.name)) {
+          if (
+            /\.(ts|tsx|js|jsx|py|md|txt|go|rs|c|cpp|h|java|sh|yaml|json)$/i.test(
+              entry.name,
+            )
+          ) {
             if (!isBinaryFile(fullPath)) {
               if (process.env["DEBUG"] === "1") {
                 log(`    Found: ${posixPath}`);
@@ -290,7 +345,7 @@ export class SemanticMemory {
     };
 
     traverse(root);
-    
+
     if (process.env["DEBUG"] === "1") {
       log(`Traversal complete. Found ${files.length} files to index.`);
     }
@@ -299,7 +354,7 @@ export class SemanticMemory {
     this.entries = [];
     const total = files.length;
     let lastError: string | undefined;
-    
+
     for (let i = 0; i < files.length; i++) {
       // ... same progress reporting ...
       const file = files[i]!;
@@ -315,8 +370,11 @@ export class SemanticMemory {
         const mtime = stats.mtimeMs;
 
         // Check if we can reuse existing entries for this file
-        const matchingOldEntries = oldEntries.filter(e => e.path === relPath);
-        if (matchingOldEntries.length > 0 && matchingOldEntries[0]?.mtime === mtime) {
+        const matchingOldEntries = oldEntries.filter((e) => e.path === relPath);
+        if (
+          matchingOldEntries.length > 0 &&
+          matchingOldEntries[0]?.mtime === mtime
+        ) {
           if (process.env["DEBUG"] === "1") {
             log(`  Skipping unchanged file: ${relPath}`);
           }
@@ -325,34 +383,40 @@ export class SemanticMemory {
         }
 
         const content = readFileSync(file, "utf-8");
-        if (!content.trim()) {continue;}
+        if (!content.trim()) {
+          continue;
+        }
 
         const chunkSize = 1000;
         const overlap = 200;
         const chunks: Array<string> = [];
-        
-        for (let j = 0; j < content.length; j += (chunkSize - overlap)) {
+
+        for (let j = 0; j < content.length; j += chunkSize - overlap) {
           chunks.push(content.slice(j, j + chunkSize));
-          if (chunks.length > 50) {break;} 
+          if (chunks.length > 50) {
+            break;
+          }
         }
 
         for (let k = 0; k < chunks.length; k++) {
           const chunk = chunks[k]!;
           const textToEmbed = `File: ${relPath}\n\n${chunk}`;
-          
+
           if (process.env["DEBUG"] === "1") {
-            log(`  Embedding chunk ${k + 1}/${chunks.length} (${chunk.length} chars)`);
+            log(
+              `  Embedding chunk ${k + 1}/${chunks.length} (${chunk.length} chars)`,
+            );
           }
 
           try {
             const embedding = await this.getEmbedding(textToEmbed);
-            
+
             this.entries.push({
               id: `${relPath}#${k}`,
               path: relPath,
               content: chunk,
               embedding: embedding,
-              mtime: mtime
+              mtime: mtime,
             });
           } catch (chunkErr) {
             lastError = String(chunkErr);
@@ -377,74 +441,80 @@ export class SemanticMemory {
   }
 
   async search(query: string, limit: number = 5): Promise<Array<any>> {
-// ... existing search ...
-    if (this.entries.length === 0) {return [];}
-    
+    // ... existing search ...
+    if (this.entries.length === 0) {
+      return [];
+    }
+
     try {
       const queryEmbedding = await this.getEmbedding(query);
-      
-      const scored = this.entries.map(entry => ({
+
+      const scored = this.entries.map((entry) => ({
         ...entry,
-        score: this.cosineSimilarity(queryEmbedding, entry.embedding)
+        score: this.cosineSimilarity(queryEmbedding, entry.embedding),
       }));
 
       return scored
         .sort((a, b) => b.score - a.score)
         .slice(0, limit)
-        .map(s => ({
+        .map((s) => ({
           path: s.path,
           content: s.content,
-          id: s.id
+          id: s.id,
         }));
-        } catch (err) {
-          log(`Code search failed: ${String(err)}`);
-          return [];
-        }
-      }
-    
-      /**
-       * Specifically searches for symbol definitions.
-       */
-      async searchSymbols(query: string, limit: number = 5): Promise<Array<any>> {
-        if (this.entries.length === 0) {return [];}
-        
-        try {
-          // We amplify the query to look for definitions
-          const augmentedQuery = `Definition of ${query} class interface function method`;
-          const queryEmbedding = await this.getEmbedding(augmentedQuery);
-          
-          const scored = this.entries.map(entry => {
-            let score = this.cosineSimilarity(queryEmbedding, entry.embedding);
-            
-            // Boost score if the content looks like a definition of the query
-            const lines = entry.content.split("\n");
-            const queryRegex = new RegExp(`\\b(class|interface|function|def|fn|struct|type|const)\\s+${query}\\b`, 'i');
-            
-            for (const line of lines) {
-              if (queryRegex.test(line)) {
-                score += 0.5; // Significant boost
-                break;
-              }
-            }
-            
-            return {
-              ...entry,
-              score
-            };
-          });
-    
-          return scored
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit)
-            .map(s => ({
-              path: s.path,
-              content: s.content,
-              id: s.id
-            }));
-        } catch (err) {
-          log(`Symbol search failed: ${String(err)}`);
-          return [];
-        }
-      }
+    } catch (err) {
+      log(`Code search failed: ${String(err)}`);
+      return [];
     }
-    
+  }
+
+  /**
+   * Specifically searches for symbol definitions.
+   */
+  async searchSymbols(query: string, limit: number = 5): Promise<Array<any>> {
+    if (this.entries.length === 0) {
+      return [];
+    }
+
+    try {
+      // We amplify the query to look for definitions
+      const augmentedQuery = `Definition of ${query} class interface function method`;
+      const queryEmbedding = await this.getEmbedding(augmentedQuery);
+
+      const scored = this.entries.map((entry) => {
+        let score = this.cosineSimilarity(queryEmbedding, entry.embedding);
+
+        // Boost score if the content looks like a definition of the query
+        const lines = entry.content.split("\n");
+        const queryRegex = new RegExp(
+          `\\b(class|interface|function|def|fn|struct|type|const)\\s+${query}\\b`,
+          "i",
+        );
+
+        for (const line of lines) {
+          if (queryRegex.test(line)) {
+            score += 0.5; // Significant boost
+            break;
+          }
+        }
+
+        return {
+          ...entry,
+          score,
+        };
+      });
+
+      return scored
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map((s) => ({
+          path: s.path,
+          content: s.content,
+          id: s.id,
+        }));
+    } catch (err) {
+      log(`Symbol search failed: ${String(err)}`);
+      return [];
+    }
+  }
+}

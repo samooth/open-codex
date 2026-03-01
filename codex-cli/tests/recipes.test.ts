@@ -21,7 +21,7 @@ describe("Recipe Definitions", () => {
   });
 
   it("has unique names for recipes", () => {
-    const names = recipes.map(r => r.name);
+    const names = recipes.map((r) => r.name);
     const uniqueNames = new Set(names);
     expect(uniqueNames.size).toBe(names.length);
   });

@@ -27,9 +27,9 @@ module.exports = {
     "import/order": [
       "error",
       {
-        groups: ["type"],
+        "groups": ["type"],
         "newlines-between": "always",
-        alphabetize: {
+        "alphabetize": {
           order: "asc",
           caseInsensitive: false,
         },
@@ -63,9 +63,9 @@ module.exports = {
       },
     ],
 
-    curly: "error",
+    "curly": "error",
 
-    eqeqeq: ["error", "always", { null: "never" }],
+    "eqeqeq": ["error", "always", { null: "never" }],
     "react-refresh/only-export-components": [
       "error",
       { allowConstantExport: true },

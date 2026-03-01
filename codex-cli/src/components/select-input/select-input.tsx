@@ -3,7 +3,13 @@ import type { Theme } from "../../utils/theme.js";
 import Indicator, { type Props as IndicatorProps } from "./indicator.js";
 import ItemComponent, { type Props as ItemProps } from "./item.js";
 import { Box, Text, useInput } from "ink";
-import React, { type FC, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  type FC,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 
 type Props<V> = {
   /**
@@ -82,7 +88,9 @@ function SelectInput<V>({
   const totalPages = isPaginated ? Math.ceil(items.length / itemsPerPage) : 1;
 
   const pageStartIndex = isPaginated ? currentPage * itemsPerPage : 0;
-  const pageEndIndex = isPaginated ? pageStartIndex + itemsPerPage : items.length;
+  const pageEndIndex = isPaginated
+    ? pageStartIndex + itemsPerPage
+    : items.length;
   const paginatedItems = items.slice(pageStartIndex, pageEndIndex);
 
   useEffect(() => {
@@ -102,16 +110,20 @@ function SelectInput<V>({
   useInput(
     useCallback(
       (input, key) => {
-        if (!isFocused) {return;}
-        
+        if (!isFocused) {
+          return;
+        }
+
         const now = Date.now();
-        if (now - lastInputTime.current < 30) { // Slightly faster debounce
+        if (now - lastInputTime.current < 30) {
+          // Slightly faster debounce
           return;
         }
         lastInputTime.current = now;
 
         if (input === "k" || key.upArrow) {
-          const newIndex = selectedIndex === 0 ? paginatedItems.length - 1 : selectedIndex - 1;
+          const newIndex =
+            selectedIndex === 0 ? paginatedItems.length - 1 : selectedIndex - 1;
           setSelectedIndex(newIndex);
           if (typeof onHighlight === "function") {
             onHighlight(paginatedItems[newIndex]!);
@@ -119,7 +131,8 @@ function SelectInput<V>({
         }
 
         if (input === "j" || key.downArrow) {
-          const newIndex = selectedIndex === paginatedItems.length - 1 ? 0 : selectedIndex + 1;
+          const newIndex =
+            selectedIndex === paginatedItems.length - 1 ? 0 : selectedIndex + 1;
           setSelectedIndex(newIndex);
           if (typeof onHighlight === "function") {
             onHighlight(paginatedItems[newIndex]!);
@@ -127,11 +140,11 @@ function SelectInput<V>({
         }
 
         if (isPaginated && key.leftArrow) {
-          setCurrentPage(prev => (prev === 0 ? totalPages - 1 : prev - 1));
+          setCurrentPage((prev) => (prev === 0 ? totalPages - 1 : prev - 1));
         }
 
         if (isPaginated && key.rightArrow) {
-          setCurrentPage(prev => (prev === totalPages - 1 ? 0 : prev + 1));
+          setCurrentPage((prev) => (prev === totalPages - 1 ? 0 : prev + 1));
         }
 
         if (key.return) {

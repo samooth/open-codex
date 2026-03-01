@@ -36,7 +36,9 @@ export function TerminalHyperlink({
  * Creates a file:// URL for a path, absolute or relative.
  */
 export function getFileUrl(filePath: string): string {
-  if (filePath.startsWith("file://")) {return filePath;}
+  if (filePath.startsWith("file://")) {
+    return filePath;
+  }
   const absolutePath = filePath.startsWith("/")
     ? filePath
     : `${process.cwd()}/${filePath}`;

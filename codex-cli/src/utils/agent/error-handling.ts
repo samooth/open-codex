@@ -15,7 +15,7 @@ export function isErrorTimeout(error: any): boolean {
  */
 export function isErrorConnectionError(error: any): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ApiConnErrCtor = (OpenAI as any).APIConnectionError as 
+  const ApiConnErrCtor = (OpenAI as any).APIConnectionError as
     | (new (...args: any) => Error)
     | undefined;
   return ApiConnErrCtor ? error instanceof ApiConnErrCtor : false;
@@ -43,7 +43,7 @@ export function isErrorServerError(error: any): boolean {
  */
 export function isErrorRateLimit(error: any): boolean {
   const status = getErrorStatusCode(error);
-  const isRateLimit = 
+  const isRateLimit =
     status === 429 ||
     (error as any).code === "rate_limit_exceeded" ||
     (error as any).type === "rate_limit_exceeded" ||
@@ -56,7 +56,7 @@ export function isErrorRateLimit(error: any): boolean {
  */
 export function isErrorClientError(error: any): boolean {
   const status = getErrorStatusCode(error);
-  const isClientError = 
+  const isClientError =
     (typeof status === "number" &&
       status >= 400 &&
       status < 500 &&
@@ -72,13 +72,16 @@ export function isErrorClientError(error: any): boolean {
 export function isErrorTooManyTokens(error: any): boolean {
   const errCtx = error as any;
   const rawMsg = errCtx.message || "";
-  
+
   // Anthropic TPM limit check
-  if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
+  if (
+    rawMsg.includes("would exceed") &&
+    (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))
+  ) {
     return true;
   }
 
-  const isTooManyTokensError = 
+  const isTooManyTokensError =
     (errCtx.param === "max_tokens" ||
       (typeof rawMsg === "string" &&
         /max_tokens is too large/i.test(rawMsg))) &&
@@ -97,10 +100,12 @@ export function isErrorInsufficientQuota(error: any): boolean {
  * Determines if an error is a premature close error
  */
 export function isErrorPrematureClose(error: any): boolean {
-  return error instanceof Error && 
+  return (
+    error instanceof Error &&
     // eslint-disable-next-line
     ((error as any).code === "ERR_STREAM_PREMATURE_CLOSE" ||
-      error.message?.includes("Premature close"));
+      error.message?.includes("Premature close"))
+  );
 }
 
 /**
@@ -110,13 +115,13 @@ export function isErrorNetworkOrServer(error: any): boolean {
   if (!error || typeof error !== "object") {
     return false;
   }
-  
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const e: any = error;
 
   // Direct instance check for connection errors thrown by the OpenAI SDK.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ApiConnErrCtor = (OpenAI as any).APIConnectionError as 
+  const ApiConnErrCtor = (OpenAI as any).APIConnectionError as
     | (new (...args: any) => Error)
     | undefined;
   if (ApiConnErrCtor && e instanceof ApiConnErrCtor) {
@@ -155,8 +160,8 @@ export function isErrorNetworkOrServer(error: any): boolean {
   // variations without enumerating every errno.
   if (
     typeof e.message === "string" &&
-    (/network|socket|stream|fetch failed/i.test(e.message) || 
-     e.message.includes("UND_ERR_"))
+    (/network|socket|stream|fetch failed/i.test(e.message) ||
+      e.message.includes("UND_ERR_"))
   ) {
     return true;
   }
@@ -167,7 +172,10 @@ export function isErrorNetworkOrServer(error: any): boolean {
 /**
  * Creates a system message for network errors
  */
-export function createNetworkErrorSystemMessage(error: any, provider: string = "AI"): ChatCompletionMessageParam {
+export function createNetworkErrorSystemMessage(
+  error: any,
+  provider: string = "AI",
+): ChatCompletionMessageParam {
   const e: any = error;
   const details = e.code || e.message || "Unknown error";
   return {
@@ -186,22 +194,28 @@ export function createNetworkErrorSystemMessage(error: any, provider: string = "
  * Handles nested JSON and common error structures from various providers.
  */
 export function cleanErrorMessage(message: string): string {
-  if (!message) {return "unknown error";}
-  
+  if (!message) {
+    return "unknown error";
+  }
+
   // If it doesn't look like JSON, return as is
-  if (!message.trim().startsWith("{")) {return message;}
+  if (!message.trim().startsWith("{")) {
+    return message;
+  }
 
   try {
     let current = JSON.parse(message);
-    
+
     // Iterate to find the most deeply nested "message" or "error" field
     // Limit iterations to prevent infinite loops if something is weird
     for (let i = 0; i < 5; i++) {
-      if (!current || typeof current !== "object") {break;}
+      if (!current || typeof current !== "object") {
+        break;
+      }
 
       // Handle common structures: { error: { message: "..." } } or { message: "..." }
       const next = current.error?.message || current.message || current.error;
-      
+
       if (next && typeof next === "string") {
         // If the string itself is JSON, try to parse it one more level
         if (next.trim().startsWith("{")) {
@@ -210,20 +224,20 @@ export function cleanErrorMessage(message: string): string {
         }
         return next;
       }
-      
+
       if (next && typeof next === "object") {
         current = next;
         continue;
       }
-      
+
       break;
     }
-    
+
     // If we still have an object, stringify it concisely
     if (current && typeof current === "object") {
       return JSON.stringify(current);
     }
-    
+
     return String(current);
   } catch {
     // If parsing fails at any point, return the original string
@@ -234,9 +248,11 @@ export function cleanErrorMessage(message: string): string {
 /**
  * Creates a system message for rate limit errors
  */
-export function createRateLimitErrorSystemMessage(error?: any): ChatCompletionMessageParam {
+export function createRateLimitErrorSystemMessage(
+  error?: any,
+): ChatCompletionMessageParam {
   let message = "⚠️  Rate limit reached. Please try again later.";
-  
+
   if (error) {
     const rawMsg = (error as any).message || "";
     const cleanMsg = cleanErrorMessage(rawMsg);
@@ -276,7 +292,10 @@ export function createTokenLimitErrorSystemMessage(): ChatCompletionMessageParam
 /**
  * Creates a system message for invalid request errors
  */
-export function createInvalidRequestErrorSystemMessage(error: any, provider: string = "AI"): ChatCompletionMessageParam {
+export function createInvalidRequestErrorSystemMessage(
+  error: any,
+  provider: string = "AI",
+): ChatCompletionMessageParam {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const e: any = error;
 

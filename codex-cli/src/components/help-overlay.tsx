@@ -34,7 +34,9 @@ export default function HelpOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   return (
@@ -52,43 +54,58 @@ export default function HelpOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> HELP </Text>
+          <Text bold color="black">
+            {" "}
+            HELP{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>KEYBOARD SHORTCUTS & COMMANDS</Text>
+        <Text color={theme.highlight} bold>
+          KEYBOARD SHORTCUTS & COMMANDS
+        </Text>
       </Box>
 
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" width={40} paddingX={1}>
-          <Text bold underline color={theme.accent}>SHORTCUTS</Text>
+          <Text bold underline color={theme.accent}>
+            SHORTCUTS
+          </Text>
           {shortcuts.map(([key, desc]) => (
             <Box key={key} gap={1}>
-              <Text color={theme.highlight} bold>{key?.padEnd(8)}</Text>
+              <Text color={theme.highlight} bold>
+                {key?.padEnd(8)}
+              </Text>
               <Text color={theme.dim}>{desc}</Text>
             </Box>
           ))}
         </Box>
         <Box flexDirection="column" width={40} paddingX={1}>
-          <Text bold underline color={theme.accent}>COMMANDS</Text>
+          <Text bold underline color={theme.accent}>
+            COMMANDS
+          </Text>
           {commands.map(([cmd, desc]) => (
             <Box key={cmd} gap={1}>
-              <Text color={theme.highlight} bold>{cmd?.padEnd(8)}</Text>
+              <Text color={theme.highlight} bold>
+                {cmd?.padEnd(8)}
+              </Text>
               <Text color={theme.dim}>{desc}</Text>
             </Box>
           ))}
         </Box>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>esc close help</Text>
+        <Text dimColor italic>
+          esc close help
+        </Text>
       </Box>
     </Box>
   );

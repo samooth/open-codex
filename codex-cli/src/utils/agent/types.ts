@@ -4,7 +4,6 @@ import type { AppConfig } from "../config.js";
 import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-
 export type CommandConfirmation = {
   review: ReviewDecision;
   applyPatch?: ApplyPatchCommand | undefined;
@@ -22,12 +21,22 @@ export type AgentLoopParams = {
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
   onItem: (item: ChatCompletionMessageParam) => void;
-  onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
+  onPartialUpdate?: (
+    content: string,
+    reasoning?: string,
+    activeToolName?: string,
+    activeToolArguments?: Record<string, any>,
+  ) => void;
   onLoading: (loading: boolean) => void;
   onReset: () => void;
   onFileAccess?: (path: string) => void;
   onTasksUpdate?: (tasks: Array<Task>) => void;
-  onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
+  onIndexingStatus?: (status: {
+    indexing: boolean;
+    current?: number;
+    total?: number;
+    file?: string;
+  }) => void;
   onShellFocus?: (isFocused: boolean) => void;
 
   /** Called when the command is not auto-approved to request explicit user review. */
@@ -56,4 +65,3 @@ export interface AgentContext {
   model: string;
   agent: any; // Add reference to AgentLoop
 }
-

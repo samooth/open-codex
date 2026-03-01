@@ -11,7 +11,6 @@ import type { CommandConfirmation } from "./utils/agent/agent-loop";
 import type { AppConfig } from "./utils/config";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
 
-
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
@@ -21,10 +20,7 @@ import { ReviewDecision } from "./utils/agent/review";
 import { approximateTokensUsed } from "./utils/approximate-tokens-used";
 import { AutoApprovalMode } from "./utils/auto-approval-mode";
 import { checkForUpdates } from "./utils/check-updates";
-import {
-  loadConfig,
-  INSTRUCTIONS_FILEPATH,
-} from "./utils/config";
+import { loadConfig, INSTRUCTIONS_FILEPATH } from "./utils/config";
 import { createInputItem } from "./utils/input-utils";
 import {
   parseToolCallOutput,
@@ -32,7 +28,11 @@ import {
 } from "./utils/parsers";
 import { recipes } from "./utils/recipes";
 import { CLI_VERSION, setSessionId } from "./utils/session";
-import { loadRollouts, loadRollout, flushRollout } from "./utils/storage/save-rollout";
+import {
+  loadRollouts,
+  loadRollout,
+  flushRollout,
+} from "./utils/storage/save-rollout";
 import { onExit, setInkRenderer } from "./utils/terminal";
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -51,10 +51,12 @@ process.on("unhandledRejection", (reason) => {
     log(`[codex] Unhandled Rejection: ${reason}`);
   }
   // eslint-disable-next-line no-console
-  console.error("\n⚠️  An unexpected error occurred. Please check the logs for details.");
+  console.error(
+    "\n⚠️  An unexpected error occurred. Please check the logs for details.",
+  );
 });
 
-// Increase MaxListeners limit on process.stdout to prevent warnings when many 
+// Increase MaxListeners limit on process.stdout to prevent warnings when many
 // components use the useTerminalSize hook (e.g. during history restore).
 process.stdout.setMaxListeners(100);
 
@@ -270,12 +272,12 @@ if (cli.flags.config) {
 const fullContextMode = Boolean(cli.flags.fullContext);
 const provider = cli.flags.provider;
 
-  let config = loadConfig(undefined, undefined, {
-    cwd: process.cwd(),
-    skipMemory: true,
-    isFullContext: fullContextMode,
-    provider: provider,
-  });
+let config = loadConfig(undefined, undefined, {
+  cwd: process.cwd(),
+  skipMemory: true,
+  isFullContext: fullContextMode,
+  provider: provider,
+});
 
 const model = cli.flags.model;
 const imagePaths = cli.flags.image as Array<string> | undefined;
@@ -291,10 +293,19 @@ config = {
   provider: provider ?? config.provider,
   dryRun: Boolean(cli.flags.dryRun),
   allowAlwaysPatch: Boolean(cli.flags.allowAlwaysPatch),
-  enableDeepThinking: cli.flags.think !== undefined ? Boolean(cli.flags.think) : config.enableDeepThinking,
+  enableDeepThinking:
+    cli.flags.think !== undefined
+      ? Boolean(cli.flags.think)
+      : config.enableDeepThinking,
   contextSize: cli.flags.contextSize ?? config.contextSize,
 };
 
+/**
+ * Reads data from stdin, resolving the promise when the stream ends.
+ *
+ * @returns A promise that resolves to the content read from stdin, or an empty
+ *          string if stdin is a TTY.
+ */
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) {
     return "";
@@ -303,11 +314,11 @@ async function readStdin(): Promise<string> {
   return new Promise((resolve) => {
     let data = "";
     process.stdin.setEncoding("utf8");
-    
+
     const onData = (chunk: string) => {
       data += chunk;
     };
-    
+
     const onEnd = () => {
       process.stdin.removeListener("data", onData);
       resolve(data.trim());
@@ -315,7 +326,7 @@ async function readStdin(): Promise<string> {
 
     process.stdin.on("data", onData);
     process.stdin.on("end", onEnd);
-    
+
     // Safety timeout for non-closed pipes
     setTimeout(onEnd, 1000);
   });
@@ -340,7 +351,11 @@ if (
 
 if (cli.flags.recipe) {
   const recipeName = cli.flags.recipe.toLowerCase();
-  const recipe = recipes.find(r => r.name.toLowerCase() === recipeName || r.name.toLowerCase().includes(recipeName));
+  const recipe = recipes.find(
+    (r) =>
+      r.name.toLowerCase() === recipeName ||
+      r.name.toLowerCase().includes(recipeName),
+  );
   if (recipe) {
     prompt = `Recipe: ${recipe.name}\n${recipe.prompt}\n\nUser Input: ${prompt}`;
   } else {
@@ -348,7 +363,7 @@ if (cli.flags.recipe) {
     console.error(`\n❌ Recipe "${cli.flags.recipe}" not found.`);
     // eslint-disable-next-line no-console
     console.log("\nAvailable recipes:");
-    recipes.forEach(r => console.log(`  - ${r.name}: ${r.description}`));
+    recipes.forEach((r) => console.log(`  - ${r.name}: ${r.description}`));
     process.exit(1);
   }
 }
@@ -428,8 +443,8 @@ if (quietMode) {
     cli.flags.fullAuto || cli.flags.approvalMode === "full-auto"
       ? AutoApprovalMode.FULL_AUTO
       : cli.flags.autoEdit || cli.flags.approvalMode === "auto-edit"
-      ? AutoApprovalMode.AUTO_EDIT
-      : config.approvalMode || AutoApprovalMode.SUGGEST;
+        ? AutoApprovalMode.AUTO_EDIT
+        : config.approvalMode || AutoApprovalMode.SUGGEST;
 
   await runQuietMode({
     prompt: prompt as string,
@@ -460,8 +475,8 @@ const approvalPolicy: ApprovalPolicy =
   cli.flags.fullAuto || cli.flags.approvalMode === "full-auto"
     ? AutoApprovalMode.FULL_AUTO
     : cli.flags.autoEdit || cli.flags.approvalMode === "auto-edit"
-    ? AutoApprovalMode.AUTO_EDIT
-    : config.approvalMode || AutoApprovalMode.SUGGEST;
+      ? AutoApprovalMode.AUTO_EDIT
+      : config.approvalMode || AutoApprovalMode.SUGGEST;
 
 if (process.stdin.isTTY) {
   process.stdout.write("Loading OpenCodex...                    \r");
@@ -480,8 +495,8 @@ const instance = render(
       if (stats) {
         const { total, cost } = stats;
         const costString = cost.toLocaleString(undefined, {
-          style: 'currency',
-          currency: 'USD',
+          style: "currency",
+          currency: "USD",
           minimumFractionDigits: 4,
         });
         // eslint-disable-next-line no-console
@@ -501,8 +516,7 @@ const instance = render(
     // We only enable stdin if it's a real TTY.
     stdin: process.stdin.isTTY
       ? process.stdin
-      :  
-        (new Readable({
+      : (new Readable({
           read() {},
         }) as any),
   },
@@ -521,24 +535,24 @@ function formatChatCompletionMessageParamForQuietMode(
     typeof item.content === "string"
       ? item.content
       : Array.isArray(item.content)
-      ? item.content
-          .map((c) => {
-            if (c.type === "text") {
-              return c.text;
-            }
-            if (c.type === "image_url") {
-              return "<Image>";
-            }
-            if (c.type === "file") {
-              return "File";
-            }
-            if (c.type === "refusal") {
-              return c.refusal;
-            }
-            return "?";
-          })
-          .join(" ")
-      : "";
+        ? item.content
+            .map((c) => {
+              if (c.type === "text") {
+                return c.text;
+              }
+              if (c.type === "image_url") {
+                return "<Image>";
+              }
+              if (c.type === "file") {
+                return "File";
+              }
+              if (c.type === "refusal") {
+                return c.refusal;
+              }
+              return "?";
+            })
+            .join(" ")
+        : "";
 
   if (content) {
     if (item.role === "tool" && !("tool_calls" in item)) {
@@ -560,16 +574,16 @@ function formatChatCompletionMessageParamForQuietMode(
         item.role === "assistant"
           ? "Assistant"
           : item.role === "user"
-          ? "User"
-          : item.role;
-      
+            ? "User"
+            : item.role;
+
       let displayContent = content;
       if (item.role === "user" && content.length > 200) {
         const lines = content.split("\n");
         const firstLine = lines[0]?.trim() || "";
         displayContent = `${firstLine.slice(0, 100)}${firstLine.length > 100 ? "..." : ""} (${lines.length} lines, ${content.length} chars)`;
       }
-      
+
       parts.push(`[${roleLabel}] ${displayContent}`);
     }
   }
@@ -579,7 +593,9 @@ function formatChatCompletionMessageParamForQuietMode(
       if (details) {
         parts.push(`$ Running ${details.cmdReadableText}...`);
       } else {
-        parts.push(`$ Running ${(toolCall as any).function?.name || "unknown"}...`);
+        parts.push(
+          `$ Running ${(toolCall as any).function?.name || "unknown"}...`,
+        );
       }
     }
   }

@@ -19,7 +19,9 @@ export async function processInputVariables(text: string): Promise<string> {
   for (const match of matches) {
     const fullMatch = match[0];
     const key = match[1]?.trim();
-    if (!key) {continue;}
+    if (!key) {
+      continue;
+    }
 
     // 1. Check environment variables
     if (process.env[key]) {
@@ -43,8 +45,15 @@ export async function processInputVariables(text: string): Promise<string> {
   return result;
 }
 
-export function openExternalEditor(initialContent: string, config?: AppConfig): string {
-  const editor = config?.editorCommand || process.env["VISUAL"] || process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
+export function openExternalEditor(
+  initialContent: string,
+  config?: AppConfig,
+): string {
+  const editor =
+    config?.editorCommand ||
+    process.env["VISUAL"] ||
+    process.env["EDITOR"] ||
+    (process.platform === "win32" ? "notepad" : "vi");
   const tmpDir = os.tmpdir();
   const tmpFilePath = path.join(tmpDir, `codex-prompt-${Date.now()}.md`);
 
@@ -75,7 +84,7 @@ export function openExternalEditor(initialContent: string, config?: AppConfig): 
       // On error, we'll fall through and return the original content
     }
   }
-  
+
   // If editor failed or file read failed, clean up and return original content
   try {
     unlinkSync(tmpFilePath);
@@ -90,7 +99,9 @@ export async function createInputItem(
   images: Array<string>,
 ): Promise<ChatCompletionMessageParam> {
   const processedText = await processInputVariables(text);
-  const content: Array<ChatCompletionContentPart> = [{ type: "text", text: processedText }];
+  const content: Array<ChatCompletionContentPart> = [
+    { type: "text", text: processedText },
+  ];
 
   for (const filePath of images) {
     try {

@@ -11,12 +11,12 @@ test("handleExecCommand returns dry run message when dryRun is enabled", async (
     apiKey: "dummy-key",
   };
   const args = { cmd: ["ls", "-la"] };
-  
+
   const result = await handleExecCommand(
     args as any,
     config as any,
     AutoApprovalMode.FULL_AUTO,
-    async () => ({ review: ReviewDecision.YES })
+    async () => ({ review: ReviewDecision.YES }),
   );
 
   expect(result.outputText).toContain("[Dry Run] Would execute: ls -la");
@@ -28,7 +28,7 @@ test("handleWriteFile returns dry run message when dryRun is enabled", async () 
     dryRun: true,
     apiKey: "dummy-key",
   };
-  
+
   const ctx: AgentContext = {
     config: config as any,
     approvalPolicy: AutoApprovalMode.FULL_AUTO,
@@ -37,11 +37,16 @@ test("handleWriteFile returns dry run message when dryRun is enabled", async () 
     onItem: vi.fn(),
   } as any;
 
-  const result = await handleWriteFile(ctx, JSON.stringify({
-    path: "test.txt",
-    content: "hello world"
-  }));
+  const result = await handleWriteFile(
+    ctx,
+    JSON.stringify({
+      path: "test.txt",
+      content: "hello world",
+    }),
+  );
 
-  expect(result.outputText).toContain("[Dry Run] Would write 11 characters to test.txt");
+  expect(result.outputText).toContain(
+    "[Dry Run] Would write 11 characters to test.txt",
+  );
   expect((result.metadata as any).dry_run).toBe(true);
 });

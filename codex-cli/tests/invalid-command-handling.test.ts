@@ -26,7 +26,7 @@ vi.mock("../src/approvals.js", () => {
   return {
     __esModule: true,
     canAutoApprove: () =>
-      ({ type: "auto-approve", runInSandbox: false } as any),
+      ({ type: "auto-approve", runInSandbox: false }) as any,
     isSafeCommand: () => null,
   };
 });
@@ -48,10 +48,16 @@ import { handleExecCommand } from "../src/utils/agent/handle-exec-command.js";
 
 describe("handleExecCommand – invalid executable", () => {
   it("returns non‑zero exit code for 'git show' as a single argv element", async () => {
-    const execInput = { cmd: ["git", "show", "definitely-not-a-commit-hash"] } as any;
-    const config = { model: "any", instructions: "", provider: "openai" } as any;
+    const execInput = {
+      cmd: ["git", "show", "definitely-not-a-commit-hash"],
+    } as any;
+    const config = {
+      model: "any",
+      instructions: "",
+      provider: "openai",
+    } as any;
     const policy = { mode: "auto" } as any;
-    const getConfirmation = async () => ({ review: "yes" } as any);
+    const getConfirmation = async () => ({ review: "yes" }) as any;
 
     const { metadata } = await handleExecCommand(
       execInput,

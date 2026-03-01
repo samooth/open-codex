@@ -191,9 +191,9 @@ export default function TerminalChatInputThinking({
   const displayReasoning = partialReasoning || thinkingText;
 
   const [scrollOffset, setScrollOffset] = useState(0);
-  const maxDisplayLines = (activeToolName || activeBlockType === "plan") ? 3 : 1; // Minimal lines here as full reasoning is in history
+  const maxDisplayLines = activeToolName || activeBlockType === "plan" ? 3 : 1; // Minimal lines here as full reasoning is in history
 
-  const rawLines = (displayReasoning || "").split('\n');
+  const rawLines = (displayReasoning || "").split("\n");
   const totalLines = rawLines.length;
   let displayedLines = rawLines;
   let showScrollIndicatorTop = false;
@@ -203,61 +203,70 @@ export default function TerminalChatInputThinking({
 
   if (totalLines > maxDisplayLines) {
     actualStartIndex = Math.max(0, totalLines - maxDisplayLines - scrollOffset);
-    displayedLines = rawLines.slice(actualStartIndex, actualStartIndex + maxDisplayLines);
+    displayedLines = rawLines.slice(
+      actualStartIndex,
+      actualStartIndex + maxDisplayLines,
+    );
 
     if (actualStartIndex > 0) {
       showScrollIndicatorTop = true;
     }
-    if ((actualStartIndex + maxDisplayLines) < totalLines) {
+    if (actualStartIndex + maxDisplayLines < totalLines) {
       showScrollIndicatorBottom = true;
     }
   }
 
   // Handle scrolling with arrow keys
-  useInput((_input, key) => {
-    if (active && partialReasoning) {
-      if (key.upArrow) {
-        setScrollOffset((prev) => Math.min(totalLines - maxDisplayLines, prev + 1));
-      } else if (key.downArrow) {
-        setScrollOffset((prev) => Math.max(0, prev - 1));
+  useInput(
+    (_input, key) => {
+      if (active && partialReasoning) {
+        if (key.upArrow) {
+          setScrollOffset((prev) =>
+            Math.min(totalLines - maxDisplayLines, prev + 1),
+          );
+        } else if (key.downArrow) {
+          setScrollOffset((prev) => Math.max(0, prev - 1));
+        }
       }
-    }
-  }, { isActive: active });
+    },
+    { isActive: active },
+  );
 
   return (
-    <Box 
-      flexDirection="row" 
-      gap={2}
-      paddingY={1}
-      height={3}
-    >
+    <Box flexDirection="row" gap={2} paddingY={1} height={3}>
       <Spinner type="dots" color={theme.thought} />
       <Box flexDirection="column">
         <Box gap={1}>
           <Text color={theme.thought} bold italic>
-            {activeToolName ? `EXERTING: ${activeToolName.toUpperCase()}` : activeBlockType === "plan" ? "PLANNING" : "THINKING"}
+            {activeToolName
+              ? `EXERTING: ${activeToolName.toUpperCase()}`
+              : activeBlockType === "plan"
+                ? "PLANNING"
+                : "THINKING"}
           </Text>
           {activeToolArguments && activeToolName && (
-             <Text dimColor italic>({Object.entries(activeToolArguments).map(([k,v]) => `${k}:${JSON.stringify(v)}`).join(", ").slice(0, 40)}${Object.keys(activeToolArguments).length > 0 ? "..." : ""})</Text>
+            <Text dimColor italic>
+              (
+              {Object.entries(activeToolArguments)
+                .map(([k, v]) => `${k}:${JSON.stringify(v)}`)
+                .join(", ") || "no arguments"})
+            </Text>
           )}
           <Text dimColor>[ {elapsedSeconds}s ]</Text>
         </Box>
-        
-        {!isStreamingResponse && displayedLines.length > 0 && (
+
+        {displayedLines.length > 0 && (
           <Box flexDirection="column" marginTop={0}>
             <Text italic color={theme.dim}>
-              {showScrollIndicatorTop ? '▲ ' : ''}
-              {displayedLines.join('\n')}
-              {showScrollIndicatorBottom ? ' ▼' : ''}
+              {showScrollIndicatorTop ? "▲ " : ""}
+              {displayedLines.join("\n")}
+              {showScrollIndicatorBottom ? " ▼" : ""}
               {dots}
             </Text>
           </Box>
         )}
-        
-        {isStreamingResponse && !activeToolName && (
-          <Text color={theme.success} italic>generating response...</Text>
-        )}
-        
+
+
         {awaitingConfirm && (
           <Text color={theme.warning} bold>
             PRESS ESC AGAIN TO INTERRUPT

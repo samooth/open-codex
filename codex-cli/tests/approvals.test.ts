@@ -35,7 +35,10 @@ describe("Approval Logic", () => {
     const writableRoots = ["/safe/path"];
 
     // Helper to simulate the CLI behavior where bash -lc is used
-    function assess(cmdString: string, policy: "suggest" | "auto-edit" | "full-auto" = "suggest") {
+    function assess(
+      cmdString: string,
+      policy: "suggest" | "auto-edit" | "full-auto" = "suggest",
+    ) {
       const command = ["bash", "-lc", cmdString];
       return canAutoApprove(command, policy, writableRoots);
     }

@@ -5,7 +5,6 @@ import { recipes } from "../utils/recipes.js";
 import { Box, Text, useInput } from "ink";
 import React from "react";
 
-
 export default function RecipesOverlay({
   onSelect,
   onExit,
@@ -16,20 +15,22 @@ export default function RecipesOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   const handleSelect = (item: any) => {
-    const recipe = recipes.find(r => r.name === item.value);
+    const recipe = recipes.find((r) => r.name === item.value);
     if (recipe) {
       onSelect(recipe);
     }
   };
 
-  const options = recipes.map(r => ({
+  const options = recipes.map((r) => ({
     label: r.name.toUpperCase(),
     value: r.name,
-    description: r.description
+    description: r.description,
   }));
 
   return (
@@ -46,9 +47,14 @@ export default function RecipesOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> RECIPES </Text>
+          <Text bold color="black">
+            {" "}
+            RECIPES{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>SELECT A PROMPT TEMPLATE</Text>
+        <Text color={theme.highlight} bold>
+          SELECT A PROMPT TEMPLATE
+        </Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
@@ -60,17 +66,19 @@ export default function RecipesOverlay({
         />
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>↑↓ navigate │ enter run │ esc close</Text>
+        <Text dimColor italic>
+          ↑↓ navigate │ enter run │ esc close
+        </Text>
       </Box>
     </Box>
   );

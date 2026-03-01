@@ -32,14 +32,15 @@ async function saveRolloutToHomeSessions(
   const model = getCurrentModel();
 
   // Extract a summary from the first user prompt
-  const firstUserMsg = items.find(i => i.role === "user");
+  const firstUserMsg = items.find((i) => i.role === "user");
   let summary = "";
   if (firstUserMsg) {
-    const content = typeof firstUserMsg.content === "string" 
-      ? firstUserMsg.content 
-      : Array.isArray(firstUserMsg.content) 
-        ? firstUserMsg.content.find(c => c.type === "text")?.text || ""
-        : "";
+    const content =
+      typeof firstUserMsg.content === "string"
+        ? firstUserMsg.content
+        : Array.isArray(firstUserMsg.content)
+          ? firstUserMsg.content.find((c) => c.type === "text")?.text || ""
+          : "";
     summary = content.slice(0, 100);
   }
 
@@ -62,7 +63,13 @@ async function saveRolloutToHomeSessions(
       ),
       "utf8",
     );
-    await updateSessionsIndex({ timestamp, id: sessionId, model, summary, instructions });
+    await updateSessionsIndex({
+      timestamp,
+      id: sessionId,
+      model,
+      summary,
+      instructions,
+    });
   } catch (error) {
     console.error(`Failed to save rollout to ${filePath}: `, error);
   }
@@ -71,14 +78,18 @@ async function saveRolloutToHomeSessions(
 let debounceTimer: NodeJS.Timeout | null = null;
 let pendingItems: Array<ChatCompletionMessageParam> | null = null;
 
-export async function loadRollouts(): Promise<Array<{ path: string; session: any }>> {
+export async function loadRollouts(): Promise<
+  Array<{ path: string; session: any }>
+> {
   try {
     if (!(await fs.stat(SESSIONS_ROOT).catch(() => null))) {
       return [];
     }
 
     // Fast path: load from index if it exists
-    const indexContent = await fs.readFile(SESSIONS_INDEX, "utf-8").catch(() => null);
+    const indexContent = await fs
+      .readFile(SESSIONS_INDEX, "utf-8")
+      .catch(() => null);
     if (indexContent) {
       const index = JSON.parse(indexContent);
       return index
@@ -96,13 +107,15 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
     // Slow path: build index from scratch
     const files = await fs.readdir(SESSIONS_ROOT);
     const jsonFiles = files.filter((f) => f.endsWith(".json"));
-    
+
     const rollouts: Array<any> = [];
     for (const f of jsonFiles) {
       const filePath = path.join(SESSIONS_ROOT, f);
       try {
         const content = await fs.readFile(filePath, "utf-8");
-        if (content.length < 10) {continue;}
+        if (content.length < 10) {
+          continue;
+        }
         const data = JSON.parse(content);
         if (data.session) {
           rollouts.push({ path: filePath, session: data.session });
@@ -115,14 +128,17 @@ export async function loadRollouts(): Promise<Array<{ path: string; session: any
     }
 
     // Save the newly built index for next time
-    await fs.writeFile(SESSIONS_INDEX, JSON.stringify(rollouts.map(r => r.session)), "utf-8");
+    await fs.writeFile(
+      SESSIONS_INDEX,
+      JSON.stringify(rollouts.map((r) => r.session)),
+      "utf-8",
+    );
 
-    return rollouts
-      .sort((a: any, b: any) => {
-        const tA = new Date(a.session?.timestamp || 0).getTime();
-        const tB = new Date(b.session?.timestamp || 0).getTime();
-        return tB - tA;
-      });
+    return rollouts.sort((a: any, b: any) => {
+      const tA = new Date(a.session?.timestamp || 0).getTime();
+      const tB = new Date(b.session?.timestamp || 0).getTime();
+      return tB - tA;
+    });
   } catch (err) {
     if (isLoggingEnabled()) {
       log(`Error in loadRollouts: ${err}`);
@@ -146,7 +162,7 @@ async function updateSessionsIndex(newSession: any) {
     const existing = index[existingIndex];
     index[existingIndex] = {
       ...existing,
-      ...newSession
+      ...newSession,
     };
   } else {
     // Add new session
@@ -161,7 +177,10 @@ async function updateSessionsIndex(newSession: any) {
   await fs.writeFile(SESSIONS_INDEX, JSON.stringify(index, null, 2), "utf-8");
 }
 
-export async function renameSession(id: string, newSummary: string): Promise<void> {
+export async function renameSession(
+  id: string,
+  newSummary: string,
+): Promise<void> {
   const filePath = path.join(SESSIONS_ROOT, `session-${id}.json`);
   try {
     const content = await fs.readFile(filePath, "utf-8");
@@ -169,7 +188,7 @@ export async function renameSession(id: string, newSummary: string): Promise<voi
     if (data.session) {
       data.session.summary = newSummary;
       await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
-      
+
       // Update index as well
       await updateSessionsIndex(data.session);
     }
@@ -185,7 +204,11 @@ export async function undoLastChange(
   sessionId: string,
   writeFn: (p: string, c: string) => void,
   removeFn: (p: string) => void,
-): Promise<{ items: Array<ChatCompletionMessageParam>; success: boolean; message: string }> {
+): Promise<{
+  items: Array<ChatCompletionMessageParam>;
+  success: boolean;
+  message: string;
+}> {
   const filePath = path.join(SESSIONS_ROOT, `session-${sessionId}.json`);
   try {
     const content = await fs.readFile(filePath, "utf-8");
@@ -206,7 +229,11 @@ export async function undoLastChange(
     }
 
     if (lastUserIndex === -1) {
-      return { items, success: false, message: "No user interaction found to undo." };
+      return {
+        items,
+        success: false,
+        message: "No user interaction found to undo.",
+      };
     }
 
     // Collect all backups from tool outputs in this turn
@@ -220,7 +247,9 @@ export async function undoLastChange(
           if (parsed.metadata?.backups) {
             Object.assign(backups, parsed.metadata.backups);
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -248,7 +277,9 @@ export async function undoLastChange(
   }
 }
 
-export async function loadRollout(filePath: string): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {
+export async function loadRollout(
+  filePath: string,
+): Promise<{ session: any; items: Array<ChatCompletionMessageParam> } | null> {
   try {
     const content = await fs.readFile(filePath, "utf-8");
     return JSON.parse(content);

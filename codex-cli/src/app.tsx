@@ -2,10 +2,18 @@ import type { ApprovalPolicy } from "./approvals";
 import type { AppConfig } from "./utils/config";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+export type MessageStatus = 'running' | 'success' | 'failure';
+
+export type ExtendedChatCompletionMessageParam =
+  ChatCompletionMessageParam & {
+    status?: MessageStatus;
+  };
+
 import TerminalChat from "./components/chat/terminal-chat";
 import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout";
 import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
-import { checkInGit } from "./utils/check-in-git";
+import { AppProvider } from "./contexts/app-context.js";
+import { checkInGit } from "./utils/check-in-git.js";
 import { type TerminalChatSession } from "./utils/session.js";
 import { onExit } from "./utils/terminal";
 import { getTheme } from "./utils/theme";
@@ -16,8 +24,11 @@ import React, { useMemo, useState } from "react";
 
 export type AppRollout = {
   session: TerminalChatSession;
-  items: Array<ChatCompletionMessageParam>;
-  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
+  items: Array<ExtendedChatCompletionMessageParam>;
+  onShutdown?: (
+    model: string,
+    items: Array<ExtendedChatCompletionMessageParam>,
+  ) => void;
 };
 
 type Props = {
@@ -27,7 +38,10 @@ type Props = {
   rollout?: AppRollout;
   approvalPolicy: ApprovalPolicy;
   fullStdout: boolean;
-  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
+  onShutdown?: (
+    model: string,
+    items: Array<ExtendedChatCompletionMessageParam>,
+  ) => void;
 };
 
 export default function App({
@@ -101,15 +115,16 @@ export default function App({
   }
 
   return (
-    <TerminalSizeProvider>
-      <TerminalChat
-        config={config}
-        prompt={prompt}
-        imagePaths={imagePaths}
-        approvalPolicy={approvalPolicy}
-        fullStdout={fullStdout}
-        onShutdown={onShutdown}
-      />
-    </TerminalSizeProvider>
+    <AppProvider initialConfig={config}>
+      <TerminalSizeProvider>
+        <TerminalChat
+          prompt={prompt}
+          imagePaths={imagePaths}
+          approvalPolicy={approvalPolicy}
+          fullStdout={fullStdout}
+          onShutdown={onShutdown}
+        />
+      </TerminalSizeProvider>
+    </AppProvider>
   );
 }

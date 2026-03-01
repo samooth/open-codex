@@ -9,5 +9,6 @@
   - Prompt Templates Library: Create a resource library labeled by 'recipes' (Test Generators, Documentation Writers, etc.) to guide new users.
 
 ### Future Possible Enhancements
+
 - **UI/UX Design Refinement**: Work on a streamlined interface with more intuitive layouts and visual feedback signals.
 - **Theme Customization**: Offer default professional themes for users to immediately enhance their UI experience.

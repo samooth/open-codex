@@ -32,7 +32,7 @@ export const INSTRUCTIONS_FILEPATH = join(CONFIG_DIR, "instructions.md");
 
 export const OPENAI_TIMEOUT_MS =
   parseInt(process.env["OPENAI_TIMEOUT_MS"] || "0", 10) || undefined;
-  
+
 export function getDefaultProvider(): string {
   if (process.env["OPENAI_API_KEY"]) {
     return "openai";
@@ -61,9 +61,12 @@ export function getDefaultProvider(): string {
   return "openai";
 }
 
-function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string, ProviderConfig>): string {
+function getAPIKeyForProviderOrExit(
+  provider: string,
+  providers?: Record<string, ProviderConfig>,
+): string {
   let configKey = providers?.[provider]?.apiKey;
-  
+
   if (!configKey && (provider === "google" || provider === "gemini")) {
     configKey = providers?.["google"]?.apiKey || providers?.["gemini"]?.apiKey;
   }
@@ -105,8 +108,8 @@ function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string,
     case "ollama":
       if (process.env["OLLAMA_API_KEY"]) {
         return process.env["OLLAMA_API_KEY"];
-      }else{
-        return "ollama"
+      } else {
+        return "ollama";
       }
     case "xai":
       if (process.env["XAI_API_KEY"]) {
@@ -121,7 +124,7 @@ function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string,
       }
       reportMissingAPIKeyForProvider(provider);
       process.exit(1);
-      break;      
+      break;
     case "deepseek":
       if (process.env["DS_API_KEY"]) {
         return process.env["DS_API_KEY"];
@@ -135,7 +138,10 @@ function getAPIKeyForProviderOrExit(provider: string, providers?: Record<string,
   }
 }
 
-function baseURLForProvider(provider: string, providers?: Record<string, ProviderConfig>): string {
+function baseURLForProvider(
+  provider: string,
+  providers?: Record<string, ProviderConfig>,
+): string {
   const configURL = providers?.[provider]?.baseURL;
   if (configURL) {
     return configURL;
@@ -210,8 +216,8 @@ function defaultModelsForProvider(provider: string): {
     case "hf":
       return {
         agentic: "moonshotai/Kimi-K2.5",
-        fullContext: "moonshotai/Kimi-K2.5"
-      }      
+        fullContext: "moonshotai/Kimi-K2.5",
+      };
     default:
       return {
         agentic: "",
@@ -253,6 +259,7 @@ export const StoredConfigSchema = z.object({
   enableSmartContext: z.boolean().optional(),
   enableDeepLinter: z.boolean().optional(),
   enableDeepThinking: z.boolean().optional(),
+  refreshSystemPrompt: z.boolean().optional(),
   embeddingModel: z.string().optional(),
   contextSize: z.number().optional(),
   theme: z.union([z.string(), ThemeSchema]).optional(),
@@ -286,6 +293,7 @@ export type AppConfig = {
   enableSmartContext?: boolean;
   enableDeepLinter?: boolean;
   enableDeepThinking?: boolean;
+  refreshSystemPrompt?: boolean;
   embeddingModel?: string;
   contextSize?: number;
   theme?: string | z.infer<typeof ThemeSchema>;
@@ -416,7 +424,7 @@ export const loadInstructions = (
     projectDocPath = options.projectDocPath
       ? resolvePath(cwd, options.projectDocPath)
       : discoverProjectDocPath(cwd);
-    
+
     if (projectDocPath) {
       if (isLoggingEnabled()) {
         log(
@@ -475,7 +483,9 @@ export const loadConfig = (
   }
 
   if (isLoggingEnabled()) {
-    log(`[codex] Loading config from: ${actualConfigPath} (exists: ${existsSync(actualConfigPath)})`);
+    log(
+      `[codex] Loading config from: ${actualConfigPath} (exists: ${existsSync(actualConfigPath)})`,
+    );
   }
 
   let storedConfig: StoredConfig = {};
@@ -497,7 +507,9 @@ export const loadConfig = (
       if (result.success) {
         storedConfig = result.data;
         if (isLoggingEnabled()) {
-          log(`[codex] Config parsed successfully: ${JSON.stringify(storedConfig)}`);
+          log(
+            `[codex] Config parsed successfully: ${JSON.stringify(storedConfig)}`,
+          );
         }
       } else {
         if (isLoggingEnabled()) {
@@ -531,7 +543,8 @@ export const loadConfig = (
       ? storedConfig.baseURL.trim()
       : undefined;
 
-  const effectiveProvider = options.provider ?? storedProvider ?? getDefaultProvider();
+  const effectiveProvider =
+    options.provider ?? storedProvider ?? getDefaultProvider();
 
   const derivedModels = defaultModelsForProvider(effectiveProvider);
 
@@ -543,12 +556,15 @@ export const loadConfig = (
 
   const derivedBaseURL =
     baseURLForProvider(effectiveProvider, storedConfig.providers as any) ||
-    (effectiveProvider === (storedProvider ?? getDefaultProvider()) ? storedBaseURL : undefined) ||
+    (effectiveProvider === (storedProvider ?? getDefaultProvider())
+      ? storedBaseURL
+      : undefined) ||
     baseURLForProvider(effectiveProvider);
 
   const derivedProvider = effectiveProvider;
   const apiKeyForProvider =
-    options.forceApiKeyForTest ?? getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers as any);
+    options.forceApiKeyForTest ??
+    getAPIKeyForProviderOrExit(derivedProvider, storedConfig.providers as any);
 
   const config: AppConfig = {
     model: derivedModel,
@@ -564,14 +580,19 @@ export const loadConfig = (
     skipSemanticMemory: false,
     enableWebSearch: storedConfig.enableWebSearch ?? true,
     searxngUrl: storedConfig.searxngUrl,
-    serpApiKey: (storedConfig.serpApiKey && storedConfig.serpApiKey.trim() !== "") 
-      ? storedConfig.serpApiKey 
-      : (process.env["SERPER_API_KEY"] || process.env["SERPAPI_API_KEY"]),
+    serpApiKey:
+      storedConfig.serpApiKey && storedConfig.serpApiKey.trim() !== ""
+        ? storedConfig.serpApiKey
+        : process.env["SERPER_API_KEY"] ||
+          process.env["SERPAPI_API_KEY"] ||
+          process.env["SERP_API_KEY"] ||
+          undefined,
     webSearchUrl: storedConfig.webSearchUrl,
     editorCommand: storedConfig.editorCommand,
     enableSmartContext: storedConfig.enableSmartContext ?? true,
     enableDeepLinter: storedConfig.enableDeepLinter ?? false,
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
+    refreshSystemPrompt: storedConfig.refreshSystemPrompt ?? true,
     embeddingModel: storedConfig.embeddingModel,
     contextSize: storedConfig.contextSize,
     theme: storedConfig.theme,
@@ -662,6 +683,7 @@ export const saveConfig = (
     enableSmartContext: config.enableSmartContext,
     enableDeepLinter: config.enableDeepLinter,
     enableDeepThinking: config.enableDeepThinking,
+    refreshSystemPrompt: config.refreshSystemPrompt,
     embeddingModel: config.embeddingModel,
     contextSize: config.contextSize,
     theme: config.theme,

@@ -57,7 +57,10 @@ function deriveCommandKey(cmd: Array<string>): string {
     return "";
   }
 
-  if (first === TOOL_APPLY_PATCH || (first === TOOL_SHELL && second === TOOL_APPLY_PATCH)) {
+  if (
+    first === TOOL_APPLY_PATCH ||
+    (first === TOOL_SHELL && second === TOOL_APPLY_PATCH)
+  ) {
     return TOOL_APPLY_PATCH;
   }
 

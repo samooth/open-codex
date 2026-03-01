@@ -26,14 +26,16 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "checkpoint",
-      description: "Creates a named git checkpoint (using tags) of the current state of the repository. Use this before starting complex or risky refactorings to ensure you can revert easily if needed.",
+      description:
+        "Creates a named git checkpoint (using tags) of the current state of the repository. Use this before starting complex or risky refactorings to ensure you can revert easily if needed.",
       strict: false,
       parameters: {
         type: "object",
         properties: {
           name: {
             type: "string",
-            description: "A descriptive name for the checkpoint (e.g., 'before-auth-refactor').",
+            description:
+              "A descriptive name for the checkpoint (e.g., 'before-auth-refactor').",
           },
         },
         required: ["name"],
@@ -45,7 +47,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "update_tasks",
-      description: "Updates the persistent task checklist displayed in the UI. Use this to track progress on complex multi-step goals. Each task has a label and a status ('todo', 'in-progress', 'done').",
+      description:
+        "Updates the persistent task checklist displayed in the UI. Use this to track progress on complex multi-step goals. Each task has a label and a status ('todo', 'in-progress', 'done').",
       strict: false,
       parameters: {
         type: "object",
@@ -55,12 +58,19 @@ export const tools: Array<ChatCompletionTool> = [
             items: {
               type: "object",
               properties: {
-                label: { type: "string", description: "Description of the task." },
-                status: { type: "string", enum: ["todo", "in-progress", "done"], description: "Current status of the task." }
+                label: {
+                  type: "string",
+                  description: "Description of the task.",
+                },
+                status: {
+                  type: "string",
+                  enum: ["todo", "in-progress", "done"],
+                  description: "Current status of the task.",
+                },
               },
-              required: ["label", "status"]
-            }
-          }
+              required: ["label", "status"],
+            },
+          },
         },
         required: ["tasks"],
         additionalProperties: false,
@@ -71,7 +81,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "run_diagnostics",
-      description: "Automatically detects the project type and runs standard health checks (linting, type-checking, and tests). Use this to verify your changes haven't broken the project.",
+      description:
+        "Automatically detects the project type and runs standard health checks (linting, type-checking, and tests). Use this to verify your changes haven't broken the project.",
       strict: false,
       parameters: {
         type: "object",
@@ -84,7 +95,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "search_symbols",
-      description: "Searches the codebase for specific symbol definitions (classes, functions, etc.) using semantic search and pattern matching. Use this to find where a specific component is defined.",
+      description:
+        "Searches the codebase for specific symbol definitions (classes, functions, etc.) using semantic search and pattern matching. Use this to find where a specific component is defined.",
       strict: false,
       parameters: {
         type: "object",
@@ -107,7 +119,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "read_symbols",
-      description: "Extracts high-level symbols (classes, functions, interfaces, etc.) from a file. Use this to quickly understand the structure of large files without reading their full content.",
+      description:
+        "Extracts high-level symbols (classes, functions, interfaces, etc.) from a file. Use this to quickly understand the structure of large files without reading their full content.",
       strict: false,
       parameters: {
         type: "object",
@@ -126,7 +139,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "edit_file",
-      description: "Edits a file using Search & Replace blocks. Multiple blocks can be provided. Each search block must match exactly, including indentation and whitespace.",
+      description:
+        "Edits a file using Search & Replace blocks. Multiple blocks can be provided. Each search block must match exactly, including indentation and whitespace.",
       strict: false,
       parameters: {
         type: "object",
@@ -142,7 +156,8 @@ export const tools: Array<ChatCompletionTool> = [
               properties: {
                 search: {
                   type: "string",
-                  description: "The exact snippet of code to find. Must match exactly including indentation.",
+                  description:
+                    "The exact snippet of code to find. Must match exactly including indentation.",
                 },
                 replace: {
                   type: "string",
@@ -182,7 +197,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "repo_browser.exec",
-      description: "Alias for shell command execution. Use `bash -c` to chain commands.",
+      description:
+        "Alias for shell command execution. Use `bash -c` to chain commands.",
       strict: false,
       parameters: {
         type: "object",
@@ -477,11 +493,13 @@ export const tools: Array<ChatCompletionTool> = [
           },
           path: {
             type: "string",
-            description: "Optional subdirectory to search within (default: root).",
+            description:
+              "Optional subdirectory to search within (default: root).",
           },
           include: {
             type: "string",
-            description: "Optional glob pattern for files to include (e.g., '*.ts').",
+            description:
+              "Optional glob pattern for files to include (e.g., '*.ts').",
           },
         },
         required: ["pattern"],
@@ -501,7 +519,8 @@ export const tools: Array<ChatCompletionTool> = [
         properties: {
           fact: {
             type: "string",
-            description: "The fact to remember (e.g., 'The frontend runs on port 3000').",
+            description:
+              "The fact to remember (e.g., 'The frontend runs on port 3000').",
           },
           category: {
             type: "string",
@@ -518,7 +537,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "query_memory",
-      description: "Searches the project memory for specific facts using a search query.",
+      description:
+        "Searches the project memory for specific facts using a search query.",
       strict: false,
       parameters: {
         type: "object",
@@ -537,14 +557,16 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "forget_memory",
-      description: "Removes facts from the project memory that match a specific search pattern or text.",
+      description:
+        "Removes facts from the project memory that match a specific search pattern or text.",
       strict: false,
       parameters: {
         type: "object",
         properties: {
           pattern: {
             type: "string",
-            description: "The text or regex pattern to identify facts to be removed.",
+            description:
+              "The text or regex pattern to identify facts to be removed.",
           },
         },
         required: ["pattern"],
@@ -556,7 +578,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "maintain_memory",
-      description: "Performs automated maintenance on the project memory. It identifies and merges duplicates, resolves contradictions, and removes outdated information using the LLM.",
+      description:
+        "Performs automated maintenance on the project memory. It identifies and merges duplicates, resolves contradictions, and removes outdated information using the LLM.",
       strict: false,
       parameters: {
         type: "object",
@@ -581,11 +604,13 @@ export const tools: Array<ChatCompletionTool> = [
           },
           start_line: {
             type: "number",
-            description: "The 1-based starting line number (aliases: start, line_start).",
+            description:
+              "The 1-based starting line number (aliases: start, line_start).",
           },
           end_line: {
             type: "number",
-            description: "The 1-based ending line number inclusive (aliases: end, line_end).",
+            description:
+              "The 1-based ending line number inclusive (aliases: end, line_end).",
           },
         },
         required: ["path", "start_line", "end_line"],
@@ -716,7 +741,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "browse",
-      description: "The primary tool for web interaction and retrieving real-time information (weather, news, stock prices, documentation, etc.). If 'url' is provided, it fetches the page text. If 'query' is provided, it performs a web search. If both are provided, it searches within that specific site.",
+      description:
+        "The primary tool for web interaction and retrieving real-time information (weather, news, stock prices, documentation, etc.). If 'url' is provided, it fetches the page text. If 'query' is provided, it performs a web search. If both are provided, it searches within that specific site.",
       strict: false,
       parameters: {
         type: "object",
@@ -731,7 +757,8 @@ export const tools: Array<ChatCompletionTool> = [
           },
           timeout: {
             type: "number",
-            description: "Maximum time to wait in milliseconds (default: 30000).",
+            description:
+              "Maximum time to wait in milliseconds (default: 30000).",
           },
         },
         required: [],
@@ -750,7 +777,8 @@ export const tools: Array<ChatCompletionTool> = [
         properties: {
           path: {
             type: "string",
-            description: "The directory to list (default: current working directory).",
+            description:
+              "The directory to list (default: current working directory).",
           },
         },
         required: [],
@@ -762,7 +790,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "semantic_search",
-      description: "Searches the codebase using natural language (semantic search). Requires the codebase to be indexed.",
+      description:
+        "Searches the codebase using natural language (semantic search). Requires the codebase to be indexed.",
       strict: false,
       parameters: {
         type: "object",
@@ -785,7 +814,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "index_codebase",
-      description: "Indexes the current codebase to enable semantic search. This is required before using semantic_search.",
+      description:
+        "Indexes the current codebase to enable semantic search. This is required before using semantic_search.",
       strict: false,
       parameters: {
         type: "object",
@@ -798,7 +828,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "npm_search",
-      description: "Searches the npm registry for packages or gets detailed information about a specific package. Use this to find the latest version or dependencies of a package.",
+      description:
+        "Searches the npm registry for packages or gets detailed information about a specific package. Use this to find the latest version or dependencies of a package.",
       strict: false,
       parameters: {
         type: "object",
@@ -809,7 +840,8 @@ export const tools: Array<ChatCompletionTool> = [
           },
           detailed: {
             type: "boolean",
-            description: "If true, retrieves detailed information (version, dependencies) for a specific package instead of searching.",
+            description:
+              "If true, retrieves detailed information (version, dependencies) for a specific package instead of searching.",
           },
         },
         required: ["query"],
@@ -821,14 +853,16 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "snyk_search",
-      description: "Searches the Snyk Vulnerability Database for known security issues in a specific package or library. Returns a list of vulnerabilities with descriptions and severity levels.",
+      description:
+        "Searches the Snyk Vulnerability Database for known security issues in a specific package or library. Returns a list of vulnerabilities with descriptions and severity levels.",
       strict: false,
       parameters: {
         type: "object",
         properties: {
           package: {
             type: "string",
-            description: "The name of the package or library to search for (e.g., 'express', 'lodash').",
+            description:
+              "The name of the package or library to search for (e.g., 'express', 'lodash').",
           },
         },
         required: ["package"],
@@ -840,7 +874,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "ask_confirmation",
-      description: "Explicitly asks the user for a Yes/No/Custom confirmation. Use this when you need a clear binary decision before proceeding with a major action.",
+      description:
+        "Explicitly asks the user for a Yes/No/Custom confirmation. Use this when you need a clear binary decision before proceeding with a major action.",
       strict: false,
       parameters: {
         type: "object",
@@ -859,7 +894,8 @@ export const tools: Array<ChatCompletionTool> = [
     type: "function",
     function: {
       name: "ask_multiple_choice",
-      description: "Explicitly presents the user with a list of options to choose from. Use this when there are several discrete ways to proceed and you want the user to pick one.",
+      description:
+        "Explicitly presents the user with a list of options to choose from. Use this when there are several discrete ways to proceed and you want the user to pick one.",
       strict: false,
       parameters: {
         type: "object",
@@ -871,7 +907,8 @@ export const tools: Array<ChatCompletionTool> = [
           choices: {
             type: "array",
             items: { type: "string" },
-            description: "A list of strings representing the available options.",
+            description:
+              "A list of strings representing the available options.",
           },
         },
         required: ["prompt", "choices"],

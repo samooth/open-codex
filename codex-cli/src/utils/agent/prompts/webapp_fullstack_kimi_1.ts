@@ -97,4 +97,4 @@ When creating solutions:
 - Never block the main thread (use Web Workers for heavy computation)
 - Never ignore loading and error states
 
-Create solutions that feel native, load instantly, and scale horizontally without architectural rewrites.`
+Create solutions that feel native, load instantly, and scale horizontally without architectural rewrites.`;

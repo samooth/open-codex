@@ -1,8 +1,5 @@
 import type { ExecResult } from "./interface";
-import type {
-  ChildProcess,
-  SpawnOptions,
-} from "child_process";
+import type { ChildProcess, SpawnOptions } from "child_process";
 
 import { log, isLoggingEnabled } from "../log.js";
 import { adaptCommandForPlatform } from "../platform-commands.js";
@@ -69,7 +66,9 @@ export function exec(
   // Even if you pass `{stdio: ["ignore", "pipe", "pipe"] }` to execFile(), the
   // hang still happens as the `stdio` is seemingly ignored. Using spawn()
   // works around this issue.
-  const isInherit = options.stdio === "inherit" || (Array.isArray(options.stdio) && options.stdio[0] === "inherit");
+  const isInherit =
+    options.stdio === "inherit" ||
+    (Array.isArray(options.stdio) && options.stdio[0] === "inherit");
 
   const fullOptions: SpawnOptions = {
     ...options,

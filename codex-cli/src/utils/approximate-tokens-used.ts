@@ -25,7 +25,7 @@ export type TokenBreakdown = {
  */
 export function approximateTokensUsed(
   model: string,
-  items: Array<ChatCompletionMessageParam>
+  items: Array<ChatCompletionMessageParam>,
 ): TokenBreakdown {
   let systemChars = 0;
   let userInputChars = 0;
@@ -90,4 +90,3 @@ export function approximateTokensUsed(
 
   return { total, system: systemTokens, history, tools: toolTokens, cost };
 }
-

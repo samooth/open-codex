@@ -9,7 +9,9 @@ export interface DiagnosticResult {
   output: string;
 }
 
-export async function runProjectDiagnostics(ctx: AgentContext): Promise<DiagnosticResult> {
+export async function runProjectDiagnostics(
+  ctx: AgentContext,
+): Promise<DiagnosticResult> {
   const root = process.cwd();
   let projectType = "unknown";
   const commands: Array<Array<string>> = [];
@@ -20,14 +22,21 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
     try {
       const pkg = JSON.parse(readFileSync(`${root}/package.json`, "utf-8"));
       const scripts = pkg.scripts || {};
-      
+
       // Select best available commands
-      if (scripts.typecheck) {commands.push(["npm", "run", "typecheck"]);}
-      else if (scripts.build) {commands.push(["npm", "run", "build"]);}
-      
-      if (scripts.lint) {commands.push(["npm", "run", "lint"]);}
-      
-      if (scripts.test) {commands.push(["npm", "test"]);}
+      if (scripts.typecheck) {
+        commands.push(["npm", "run", "typecheck"]);
+      } else if (scripts.build) {
+        commands.push(["npm", "run", "build"]);
+      }
+
+      if (scripts.lint) {
+        commands.push(["npm", "run", "lint"]);
+      }
+
+      if (scripts.test) {
+        commands.push(["npm", "test"]);
+      }
     } catch {
       commands.push(["npm", "test"]);
     }
@@ -39,7 +48,10 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
     projectType = "Go";
     commands.push(["go", "build", "./..."]);
     commands.push(["go", "test", "./..."]);
-  } else if (existsSync(`${root}/requirements.txt`) || existsSync(`${root}/pyproject.toml`)) {
+  } else if (
+    existsSync(`${root}/requirements.txt`) ||
+    existsSync(`${root}/pyproject.toml`)
+  ) {
     projectType = "Python";
     commands.push(["pytest"]); // Defaulting to pytest
   }
@@ -48,7 +60,7 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
     return {
       success: false,
       projectType,
-      output: "No standard diagnostic commands detected for this project type."
+      output: "No standard diagnostic commands detected for this project type.",
     };
   }
 
@@ -63,11 +75,15 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
-      ctx.execAbortController?.signal
+      ctx.execAbortController?.signal,
     );
 
     if (result.outputText === "aborted") {
-      return { success: false, projectType, output: "Diagnostics aborted by user." };
+      return {
+        success: false,
+        projectType,
+        output: "Diagnostics aborted by user.",
+      };
     }
 
     combinedOutput += result.outputText + "\n";
@@ -84,6 +100,6 @@ export async function runProjectDiagnostics(ctx: AgentContext): Promise<Diagnost
   return {
     success: allPassed,
     projectType,
-    output: combinedOutput.trim()
+    output: combinedOutput.trim(),
   };
 }

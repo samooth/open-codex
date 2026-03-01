@@ -34,13 +34,13 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   const separator = <Text color={theme.divider}> │ </Text>;
 
   return (
-    <Box 
-      width={terminalCols} 
-      paddingX={1} 
-      borderStyle="single" 
-      borderTop={false} 
-      borderLeft={false} 
-      borderRight={false} 
+    <Box
+      width={terminalCols}
+      paddingX={1}
+      borderStyle="single"
+      borderTop={false}
+      borderLeft={false}
+      borderRight={false}
       borderBottomColor={theme.divider}
       marginBottom={1}
       flexDirection="column"
@@ -51,7 +51,10 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
           <Text {...valueStyle}>v{version}</Text>
           {separator}
           <Text {...labelStyle}>📁 </Text>
-          <TerminalHyperlink url={getFileUrl(process.cwd())} color={valueStyle.color}>
+          <TerminalHyperlink
+            url={getFileUrl(process.cwd())}
+            color={valueStyle.color}
+          >
             <Text {...valueStyle}>{PWD}</Text>
           </TerminalHyperlink>
         </Box>
@@ -60,14 +63,21 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
           <Text {...valueStyle}>{model}</Text>
           {separator}
           <Text {...labelStyle}>🛡️ </Text>
-          <Text color={colorsByPolicy[approvalPolicy] || theme.success} bold>{approvalPolicy}</Text>
+          <Text color={colorsByPolicy[approvalPolicy] || theme.success} bold>
+            {approvalPolicy}
+          </Text>
         </Box>
       </Box>
       {breadcrumb && (
         <Box marginTop={0}>
           <Text color={theme.dim}>❯ </Text>
-          <TerminalHyperlink url={getFileUrl(breadcrumb)} color={theme.highlight}>
-            <Text color={theme.highlight} italic>{breadcrumb}</Text>
+          <TerminalHyperlink
+            url={getFileUrl(breadcrumb)}
+            color={theme.highlight}
+          >
+            <Text color={theme.highlight} italic>
+              {breadcrumb}
+            </Text>
           </TerminalHyperlink>
         </Box>
       )}

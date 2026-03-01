@@ -28,8 +28,7 @@ export async function runSinglePass({
       {
         stdin: process.stdin.isTTY
           ? process.stdin
-          :  
-            (new Readable({
+          : (new Readable({
               read() {},
             }) as NodeJS.ReadStream),
       },

@@ -4,11 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "target": "esnext",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2023"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
     "types": ["node"],
     "baseUrl": "./",
     "resolveJsonModule": true, // ESM doesn't yet support JSON modules.

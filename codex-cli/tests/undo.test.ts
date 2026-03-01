@@ -27,25 +27,27 @@ describe("Undo Logic", () => {
       session: { id: sessionId },
       items: [
         { role: "user", content: "initial prompt" }, // index 0
-        { role: "assistant", content: "ok" },        // index 1
-        { role: "user", content: "change file" },    // index 2 (UNDO TARGET)
-        { 
-          role: "assistant", 
-          tool_calls: [{ id: "call1", function: { name: "write_file", arguments: "{}" } }]
+        { role: "assistant", content: "ok" }, // index 1
+        { role: "user", content: "change file" }, // index 2 (UNDO TARGET)
+        {
+          role: "assistant",
+          tool_calls: [
+            { id: "call1", function: { name: "write_file", arguments: "{}" } },
+          ],
         },
-        { 
-          role: "tool", 
-          content: JSON.stringify({ 
-            output: "done", 
-            metadata: { 
-              backups: { 
+        {
+          role: "tool",
+          content: JSON.stringify({
+            output: "done",
+            metadata: {
+              backups: {
                 "file.txt": "original content",
-                "new_file.txt": null // was created, so null means remove it
-              } 
-            } 
-          }) 
-        }
-      ]
+                "new_file.txt": null, // was created, so null means remove it
+              },
+            },
+          }),
+        },
+      ],
     };
 
     vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockData));
@@ -69,7 +71,7 @@ describe("Undo Logic", () => {
     expect(fs.writeFile).toHaveBeenCalledWith(
       sessionFile,
       expect.stringContaining('"items":'), // Simplified check
-      "utf-8"
+      "utf-8",
     );
   });
 
@@ -77,9 +79,7 @@ describe("Undo Logic", () => {
     const sessionId = "empty-session";
     const mockData = {
       session: { id: sessionId },
-      items: [
-        { role: "system", content: "you are a bot" }
-      ]
+      items: [{ role: "system", content: "you are a bot" }],
     };
 
     vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockData));

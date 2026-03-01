@@ -20,15 +20,11 @@ vi.mock("../src/approvals.js", () => ({
 }));
 
 // More robust type helper with longer waits
-async function type(
-  stdin: any,
-  text: string,
-  flush: () => Promise<void>,
-) {
+async function type(stdin: any, text: string, flush: () => Promise<void>) {
   for (const char of text) {
     stdin.write(char);
     // Wait for character to be processed
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 20));
     await flush();
   }
 }
@@ -87,12 +83,12 @@ describe("Multiline Input Growth", () => {
 
     // Add a newline (Ctrl+J / \n)
     stdin.write("\n");
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await flush();
-    
+
     // Type second line
     await type(stdin, "line2", flush);
-    
+
     const frame = lastFrameStripped();
     expect(frame).toContain("line1");
     expect(frame).toContain("line2");
@@ -110,22 +106,22 @@ describe("Multiline Input Growth", () => {
     // Type 2 lines
     await type(stdin, "a", flush);
     stdin.write("\n");
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await flush();
     await type(stdin, "b", flush);
-    
+
     expect(lastFrameStripped()).toContain("a");
     expect(lastFrameStripped()).toContain("b");
 
     // Backspace 'b'
     stdin.write("\u007f");
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await flush();
     // Backspace the newline
     stdin.write("\u007f");
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await flush();
-    
+
     const frame = lastFrameStripped();
     expect(frame).toContain("a");
     expect(frame).not.toContain("b");

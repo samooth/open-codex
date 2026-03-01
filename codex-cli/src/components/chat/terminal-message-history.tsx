@@ -2,9 +2,8 @@ import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
 import type { ApplyPatchCommand } from "../../approvals.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
-import type { AppConfig } from "../../utils/config.js";
 import type { Theme } from "../../utils/theme.js";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import type { ExtendedChatCompletionMessageParam } from "../../app";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
@@ -16,30 +15,34 @@ import React, { useMemo } from "react";
 // A batch entry can either be a standalone response item or a grouped set of
 // items (e.g. auto‑approved tool‑call batches) that should be rendered
 // together.
+// REFRESH
 type BatchEntry = {
-  item?: ChatCompletionMessageParam;
+  item?: ExtendedChatCompletionMessageParam;
   group?: GroupedResponseItem;
 };
 type MessageHistoryProps = {
   batch: Array<BatchEntry>;
   groupCounts: Record<string, number>;
-  items: Array<ChatCompletionMessageParam>;
+  items: Array<ExtendedChatCompletionMessageParam>;
   userMsgCount: number;
   model: string;
   confirmationPrompt: React.ReactNode;
-  submitConfirmation: (decision: ReviewDecision, customDenyMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
+  submitConfirmation: (
+    decision: ReviewDecision,
+    customDenyMessage?: string,
+    updatedApplyPatch?: ApplyPatchCommand,
+  ) => void;
   allowAlwaysPatch?: boolean;
   applyPatch?: ApplyPatchCommand;
   loading: boolean;
   headerProps: TerminalHeaderProps;
   fullStdout: boolean;
   theme: Theme;
-  streamingMessage?: ChatCompletionMessageParam;
+  streamingMessage?: ExtendedChatCompletionMessageParam;
   lastFileAccess?: string;
   isActive?: boolean;
   refreshKey?: number;
   onRefresh?: () => void;
-  config: AppConfig;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -59,7 +62,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   isActive = true,
   refreshKey = 0,
   onRefresh,
-  config,
 }) => {
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
@@ -68,6 +70,9 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         for (const tc of item.tool_calls) {
           map.set(tc.id, tc);
         }
+      } else if (item.role === "tool" && "tool_call_id" in item) {
+        // For tool messages that are direct responses, not part of an assistant's tool_calls array
+        map.set(item.tool_call_id!, item);
       }
     }
     return [batch, process.env["DEBUG"], map];
@@ -75,20 +80,33 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
-      <Static key={`${theme.name}-${refreshKey}`} items={["header", ...messages]}>
+      <Static
+        key={`${theme.name}-${refreshKey}`}
+        items={["header", ...messages]}
+      >
         {(entry, index) => {
           if (entry === "header") {
-            return <TerminalHeader key="header" {...headerProps} theme={theme} breadcrumb={lastFileAccess} />;
+            return (
+              <TerminalHeader
+                key="header"
+                {...headerProps}
+                theme={theme}
+                breadcrumb={lastFileAccess}
+              />
+            );
           }
           const { item, group } = entry as BatchEntry;
           const role = item?.role || (group?.items[0] as any)?.role;
 
           // Find the role of the previous message to determine if we should show the header
           let previousRole: string | undefined;
-          if (index > 1) { // messages start at index 1 because index 0 is "header"
+          if (index > 1) {
+            // messages start at index 1 because index 0 is "header"
             const prevEntry = messages[index - 2];
             if (prevEntry) {
-              previousRole = prevEntry.item?.role || (prevEntry.group?.items[0] as any)?.role;
+              previousRole =
+                prevEntry.item?.role ||
+                (prevEntry.group?.items[0] as any)?.role;
             }
           }
 
@@ -107,13 +125,14 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
                 theme={theme}
                 model={model}
                 previousRole={previousRole}
+                status={item?.status}
               />
             </Box>
           );
         }}
       </Static>
       {streamingMessage && (
-        <StreamingAssistantResponse 
+        <StreamingAssistantResponse
           message={streamingMessage}
           loading={loading}
           theme={theme}
@@ -124,7 +143,9 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           previousRole={(() => {
             const lastEntry = messages[messages.length - 1];
             if (lastEntry) {
-              return lastEntry.item?.role || (lastEntry.group?.items[0] as any)?.role;
+              return (
+                lastEntry.item?.role || (lastEntry.group?.items[0] as any)?.role
+              );
             }
             return undefined;
           })()}
@@ -141,7 +162,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             theme={theme}
             isActive={isActive}
             onRefresh={onRefresh}
-            config={config}
           />
         </Box>
       )}
@@ -154,46 +174,45 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   );
 };
 
-const StreamingAssistantResponse = React.memo(({ 
-  message, 
-  loading, 
-  theme, 
-  fullStdout, 
-  toolCallMap,
-  model,
-  showRole = false,
-  previousRole,
-  isActive = false
-}: { 
-  message: ChatCompletionMessageParam; 
-  loading: boolean; 
-  theme: Theme; 
-  fullStdout: boolean; 
-  toolCallMap: Map<string, any>;
-  model: string;
-  showRole?: boolean;
-  previousRole?: string;
-  isActive?: boolean;
-}) => {
-  return (
-    <Box
-      flexDirection="column"
-      marginTop={1}
-    >
-      <TerminalChatResponseItem
-        item={message}
-        fullStdout={fullStdout}
-        toolCallMap={toolCallMap}
-        loading={loading}
-        theme={theme}
-        model={model}
-        showRole={showRole}
-        previousRole={previousRole}
-        isStreaming={true}
-        isActive={isActive}
-      />
-    </Box>
-  );
-});
+const StreamingAssistantResponse = React.memo(
+  ({
+    message,
+    loading,
+    theme,
+    fullStdout,
+    toolCallMap,
+    model,
+    showRole = false,
+    previousRole,
+    isActive = false,
+  }: {
+    message: ExtendedChatCompletionMessageParam;
+    loading: boolean;
+    theme: Theme;
+    fullStdout: boolean;
+    toolCallMap: Map<string, any>;
+    model: string;
+    showRole?: boolean;
+    previousRole?: string;
+    isActive?: boolean;
+  }) => {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <TerminalChatResponseItem
+          item={message}
+          fullStdout={fullStdout}
+          toolCallMap={toolCallMap}
+          loading={loading}
+          theme={theme}
+          model={model}
+          showRole={showRole}
+          previousRole={previousRole}
+          isStreaming={true}
+          isActive={isActive}
+        />
+      </Box>
+    );
+  },
+);
 
 export default React.memo(MessageHistory);

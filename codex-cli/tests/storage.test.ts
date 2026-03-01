@@ -29,14 +29,16 @@ describe("Session Storage Logic", () => {
       items: [],
     };
 
-    const mockIndexData = [
-      { id: sessionId, summary: oldSummary }
-    ];
+    const mockIndexData = [{ id: sessionId, summary: oldSummary }];
 
     // Mock reading the session file
     vi.mocked(fs.readFile).mockImplementation((p) => {
-      if (p === sessionFile) {return Promise.resolve(JSON.stringify(mockSessionData));}
-      if (p === SESSIONS_INDEX) {return Promise.resolve(JSON.stringify(mockIndexData));}
+      if (p === sessionFile) {
+        return Promise.resolve(JSON.stringify(mockSessionData));
+      }
+      if (p === SESSIONS_INDEX) {
+        return Promise.resolve(JSON.stringify(mockIndexData));
+      }
       return Promise.reject(new Error("File not found"));
     });
 
@@ -46,18 +48,20 @@ describe("Session Storage Logic", () => {
     expect(fs.writeFile).toHaveBeenCalledWith(
       sessionFile,
       expect.stringContaining(newSummary),
-      "utf-8"
+      "utf-8",
     );
 
     // Verify index was updated
     expect(fs.writeFile).toHaveBeenCalledWith(
       SESSIONS_INDEX,
       expect.stringContaining(newSummary),
-      "utf-8"
+      "utf-8",
     );
-    
+
     // Check that it contains the new summary in the JSON
-    const indexWriteCall = vi.mocked(fs.writeFile).mock.calls.find(call => call[0] === SESSIONS_INDEX);
+    const indexWriteCall = vi
+      .mocked(fs.writeFile)
+      .mock.calls.find((call) => call[0] === SESSIONS_INDEX);
     const writtenIndex = JSON.parse(indexWriteCall![1] as string);
     expect(writtenIndex[0].summary).toBe(newSummary);
   });

@@ -8,7 +8,9 @@ function createInMemoryFS(initialFiles: Record<string, string>) {
   const dirs: Array<string> = [];
 
   const openFn = (p: string): string => {
-    if (files[p] !== undefined) {return files[p];}
+    if (files[p] !== undefined) {
+      return files[p];
+    }
     throw new Error(`File not found: ${p}`);
   };
 
@@ -47,10 +49,18 @@ describe("Robust Patching Logic", () => {
 *** End Patch`;
 
     const fs = createInMemoryFS({ "multi.txt": original });
-    const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn, fs.mkdirFn);
+    const result = process_patch(
+      patch,
+      fs.openFn,
+      fs.writeFn,
+      fs.removeFn,
+      fs.mkdirFn,
+    );
 
     expect(result.success).toBe(true);
-    expect(fs.files["multi.txt"]).toBe("line1 modified\nline2\nline3\nline4\nline5 modified\nline6");
+    expect(fs.files["multi.txt"]).toBe(
+      "line1 modified\nline2\nline3\nline4\nline5 modified\nline6",
+    );
   });
 
   it("handles fuzzy matching with whitespace differences (preserves patch indentation)", () => {
@@ -66,18 +76,26 @@ describe("Robust Patching Logic", () => {
 *** End Patch`;
 
     const fs = createInMemoryFS({ "fuzzy.ts": original });
-    const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn, fs.mkdirFn);
+    const result = process_patch(
+      patch,
+      fs.openFn,
+      fs.writeFn,
+      fs.removeFn,
+      fs.mkdirFn,
+    );
 
     expect(result.success).toBe(true);
     expect(result.message).toContain("fuzz");
     // Current behavior: preserves the indentation provided in the patch for inserted lines
-    expect(fs.files["fuzzy.ts"]).toBe("function test() {\n    return false;\n}");
+    expect(fs.files["fuzzy.ts"]).toBe(
+      "function test() {\n    return false;\n}",
+    );
   });
 
   it("performs atomic rollback when one file in a batch fails", () => {
     const fs = createInMemoryFS({
       "good.txt": "original good",
-      "bad.txt": "original bad"
+      "bad.txt": "original bad",
     });
 
     // We'll force a failure on "bad.txt" by making the context mismatch
@@ -92,12 +110,18 @@ describe("Robust Patching Logic", () => {
 +modified bad
 *** End Patch`;
 
-    const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn, fs.mkdirFn);
+    const result = process_patch(
+      patch,
+      fs.openFn,
+      fs.writeFn,
+      fs.removeFn,
+      fs.mkdirFn,
+    );
 
     expect(result.success).toBe(false);
     // It fails during parsing phase due to context mismatch
     expect(result.message).toContain("Patch parse error");
-    
+
     // good.txt should NOT have been modified because the whole patch is processed before application
     // (or rolled back if application failed midway)
     expect(fs.files["good.txt"]).toBe("original good");
@@ -111,7 +135,13 @@ describe("Robust Patching Logic", () => {
 +content
 *** End Patch`;
 
-    const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn, fs.mkdirFn);
+    const result = process_patch(
+      patch,
+      fs.openFn,
+      fs.writeFn,
+      fs.removeFn,
+      fs.mkdirFn,
+    );
 
     expect(result.success).toBe(true);
     expect(fs.dirs).toContain("new/deep/dir");
@@ -121,9 +151,15 @@ describe("Robust Patching Logic", () => {
   it("handles mixed line endings (original CRLF, patch LF)", () => {
     const original = "line1\r\nline2\r\nline3";
     const patch = `*** Begin Patch\n*** Update File: line-endings.txt\n@@\n line1\n-line2\n+line2 updated\n line3\n*** End Patch`;
-    
+
     const fs = createInMemoryFS({ "line-endings.txt": original });
-    const result = process_patch(patch, fs.openFn, fs.writeFn, fs.removeFn, fs.mkdirFn);
+    const result = process_patch(
+      patch,
+      fs.openFn,
+      fs.writeFn,
+      fs.removeFn,
+      fs.mkdirFn,
+    );
 
     expect(result.success).toBe(true);
     // Current behavior: preserves original line endings for unchanged lines, uses patch endings for changed lines

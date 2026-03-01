@@ -9,7 +9,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
  */
 export function checkLoopDetection(
   toolCallKey: string,
-  toolCallHistory: Map<string, { count: number; lastError?: string }>
+  toolCallHistory: Map<string, { count: number; lastError?: string }>,
 ): boolean {
   const history = toolCallHistory.get(toolCallKey) || { count: 0 };
   return history.count >= 2;
@@ -25,7 +25,7 @@ export function checkLoopDetection(
 export function createLoopErrorResponse(
   toolCallKey: string,
   toolCallHistory: Map<string, { count: number; lastError?: string }>,
-  callId: string
+  callId: string,
 ): ChatCompletionMessageParam {
   const history = toolCallHistory.get(toolCallKey) || { count: 0 };
   return {
@@ -47,13 +47,16 @@ export function createLoopErrorResponse(
 export function updateToolCallHistory(
   toolCallKey: string,
   toolCallHistory: Map<string, { count: number; lastError?: string }>,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
 ): void {
   if (metadata["exit_code"] !== 0) {
     const history = toolCallHistory.get(toolCallKey) || { count: 0 };
     toolCallHistory.set(toolCallKey, {
       count: history.count + 1,
-      lastError: (metadata["exit_code"] === 1) ? String(metadata["output"] || "").slice(0, 200) : undefined,
+      lastError:
+        metadata["exit_code"] === 1
+          ? String(metadata["output"] || "").slice(0, 200)
+          : undefined,
     });
   } else {
     // If it succeeded, we can clear it from history or at least reset count

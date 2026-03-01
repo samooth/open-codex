@@ -31,7 +31,8 @@ describe("Agent Power Tools", () => {
 
   describe("read_symbols (extractSymbols)", () => {
     it("extracts classes and functions from TypeScript", () => {
-      const code = "export class User { constructor() {} }\nfunction login(u: User) {}\ninterface Session {}";
+      const code =
+        "export class User { constructor() {} }\nfunction login(u: User) {}\ninterface Session {}";
       vi.mocked(fs.readFileSync).mockReturnValue(code);
 
       const result = extractSymbols("user.ts");
@@ -42,14 +43,18 @@ describe("Agent Power Tools", () => {
 
   describe("run_diagnostics", () => {
     it("detects Node.js project and runs scripts", async () => {
-      vi.mocked(fs.existsSync).mockImplementation((path: any) => path.endsWith("package.json"));
-      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({
-        scripts: { typecheck: "tsc", test: "mocha" }
-      }));
+      vi.mocked(fs.existsSync).mockImplementation((path: any) =>
+        path.endsWith("package.json"),
+      );
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        JSON.stringify({
+          scripts: { typecheck: "tsc", test: "mocha" },
+        }),
+      );
 
       vi.mocked(execHandlers.handleExecCommand).mockResolvedValue({
         outputText: "passed",
-        metadata: { exit_code: 0 }
+        metadata: { exit_code: 0 },
       });
 
       const ctx: any = { config: {}, approvalPolicy: "suggest" };
@@ -57,13 +62,13 @@ describe("Agent Power Tools", () => {
 
       expect(result.success).toBe(true);
       expect(result.projectType).toBe("Node.js/TypeScript");
-      
+
       expect(execHandlers.handleExecCommand).toHaveBeenCalledWith(
         expect.objectContaining({ cmd: ["npm", "run", "typecheck"] }),
         ctx.config,
         ctx.approvalPolicy,
         ctx.getCommandConfirmation,
-        undefined
+        undefined,
       );
     });
   });
@@ -72,7 +77,7 @@ describe("Agent Power Tools", () => {
     it("successfully creates a git tag checkpoint", async () => {
       vi.mocked(execHandlers.handleExecCommand).mockResolvedValue({
         outputText: "",
-        metadata: { exit_code: 0 }
+        metadata: { exit_code: 0 },
       });
 
       const ctx: any = { config: {}, approvalPolicy: "suggest" };
@@ -80,13 +85,15 @@ describe("Agent Power Tools", () => {
 
       expect(result.success).toBe(true);
       expect(result.name).toContain("codex/checkpoint-");
-      
+
       expect(execHandlers.handleExecCommand).toHaveBeenCalledWith(
-        expect.objectContaining({ cmd: expect.arrayContaining(["git", "tag"]) }),
+        expect.objectContaining({
+          cmd: expect.arrayContaining(["git", "tag"]),
+        }),
         ctx.config,
         ctx.approvalPolicy,
         ctx.getCommandConfirmation,
-        undefined
+        undefined,
       );
     });
   });
@@ -97,9 +104,9 @@ describe("Agent Power Tools", () => {
       const ctx: any = { onTasksUpdate };
       const tasks = [
         { label: "Step 1", status: "done" },
-        { label: "Step 2", status: "in-progress" }
+        { label: "Step 2", status: "in-progress" },
       ];
-      
+
       const result = await handleUpdateTasks(ctx, JSON.stringify({ tasks }));
 
       expect(result.metadata["exit_code"]).toBe(0);
@@ -109,15 +116,13 @@ describe("Agent Power Tools", () => {
     it("sanitizes malformed task labels", async () => {
       const onTasksUpdate = vi.fn();
       const ctx: any = { onTasksUpdate };
-      const tasks = [
-        { label: { complex: "object" }, status: "done" }
-      ];
-      
+      const tasks = [{ label: { complex: "object" }, status: "done" }];
+
       const result = await handleUpdateTasks(ctx, JSON.stringify({ tasks }));
 
       expect(result.metadata["exit_code"]).toBe(0);
       expect(onTasksUpdate).toHaveBeenCalledWith([
-        { label: '{"complex":"object"}', status: "done" }
+        { label: '{"complex":"object"}', status: "done" },
       ]);
     });
 

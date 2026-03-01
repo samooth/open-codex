@@ -5,7 +5,6 @@ import { loadRollouts, loadRollout } from "../utils/storage/save-rollout.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState, useEffect } from "react";
 
-
 export default function HistorySelectOverlay({
   onSelect,
   onExit,
@@ -15,18 +14,22 @@ export default function HistorySelectOverlay({
   onExit: () => void;
   theme: Theme;
 }) {
-  const [rollouts, setRollouts] = useState<Array<{ path: string; session: any }>>([]);
+  const [rollouts, setRollouts] = useState<
+    Array<{ path: string; session: any }>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadRollouts().then(items => {
+    loadRollouts().then((items) => {
       setRollouts(items);
       setLoading(false);
     });
   }, []);
 
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   const handleSelect = async (item: any) => {
@@ -36,9 +39,9 @@ export default function HistorySelectOverlay({
     }
   };
 
-  const options = rollouts.map(r => ({
-    label: `${new Date(r.session.timestamp).toLocaleString()} - ${r.session.model} - ${r.session.summary || 'No summary'}`,
-    value: r.path
+  const options = rollouts.map((r) => ({
+    label: `${new Date(r.session.timestamp).toLocaleString()} - ${r.session.model} - ${r.session.summary || "No summary"}`,
+    value: r.path,
   }));
 
   return (
@@ -54,21 +57,33 @@ export default function HistorySelectOverlay({
       marginY={1}
     >
       {loading ? (
-        <Text italic color={theme.dim}>Loading sessions...</Text>
+        <Text italic color={theme.dim}>
+          Loading sessions...
+        </Text>
       ) : rollouts.length === 0 ? (
         <Box gap={1} marginBottom={1}>
           <Box backgroundColor={theme.error as any} paddingX={1}>
-            <Text bold color="black"> EMPTY </Text>
+            <Text bold color="black">
+              {" "}
+              EMPTY{" "}
+            </Text>
           </Box>
-          <Text color={theme.error} bold>NO SAVED SESSIONS FOUND</Text>
+          <Text color={theme.error} bold>
+            NO SAVED SESSIONS FOUND
+          </Text>
         </Box>
       ) : (
         <>
           <Box gap={1} marginBottom={1}>
             <Box backgroundColor={theme.highlight as any} paddingX={1}>
-              <Text bold color="black"> RESTORE </Text>
+              <Text bold color="black">
+                {" "}
+                RESTORE{" "}
+              </Text>
             </Box>
-            <Text color={theme.highlight} bold>SELECT A PAST SESSION</Text>
+            <Text color={theme.highlight} bold>
+              SELECT A PAST SESSION
+            </Text>
           </Box>
 
           <Box flexDirection="column" paddingX={1} marginBottom={1}>
@@ -81,17 +96,19 @@ export default function HistorySelectOverlay({
             />
           </Box>
 
-          <Box 
-            borderStyle="single" 
-            borderRight={false} 
-            borderTop={true} 
-            borderBottom={false} 
+          <Box
+            borderStyle="single"
+            borderRight={false}
+            borderTop={true}
+            borderBottom={false}
             borderLeft={false}
             borderTopColor={theme.divider}
             paddingX={1}
             paddingTop={1}
           >
-            <Text dimColor italic>↑↓ navigate │ ←→ page │ enter restore │ esc close</Text>
+            <Text dimColor italic>
+              ↑↓ navigate │ ←→ page │ enter restore │ esc close
+            </Text>
           </Box>
         </>
       )}

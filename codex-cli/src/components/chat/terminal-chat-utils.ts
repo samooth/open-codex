@@ -1,10 +1,15 @@
 import type { Theme } from "../../utils/theme.js";
-import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
+import type {
+  ChatCompletionMessageParam,
+  ChatCompletionMessageToolCall,
+} from "openai/resources/chat/completions.mjs";
 import type { ResponseItem } from "openai/resources/responses/responses.mjs";
 
-
 import { formatCommandForDisplay } from "../../format-command.js";
-import { TOOL_APPLY_PATCH, TOOL_SHELL } from "../../utils/agent/tool-constants.js";
+import {
+  TOOL_APPLY_PATCH,
+  TOOL_SHELL,
+} from "../../utils/agent/tool-constants.js";
 import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
 import { parseToolCallArguments } from "../../utils/parsers.js";
 import chalk, { type ForegroundColorName } from "chalk";
@@ -136,58 +141,57 @@ export function getSyntaxHighlightTheme(theme: Theme) {
   const deletionColor = chalk[theme.deletion] || chalk.magenta;
 
   return {
-    keyword: assistantColor,
-    built_in: chalk.cyan,
-    type: highlightColor,
-    literal: chalk.magentaBright,
-    number: deletionColor,
-    regexp: chalk.magentaBright,
-    string: successColor,
-    subst: chalk.white,
-    symbol: warningColor,
-    class: chalk.yellowBright,
-    function: userColor,
-    title: userColor,
-    params: chalk.white,
-    comment: dimColor,
-    doctag: dimColor,
-    meta: dimColor,
-    'meta-keyword': dimColor,
-    'meta-string': dimColor,
-    section: chalk.bold,
-    tag: dimColor,
-    name: userColor,
-    'builtin-name': chalk.cyan,
-    attr: highlightColor,
-    attribute: highlightColor,
-    variable: chalk.white,
-    'template-variable': chalk.white,
-    'template-tag': dimColor,
-    bullet: deletionColor,
-    code: chalk.white,
-    emphasis: chalk.italic,
-    strong: chalk.bold,
-    formula: dimColor,
-    link: chalk.underline,
-    quote: dimColor,
-    'selector-tag': userColor,
-    'selector-id': warningColor,
-    'selector-class': chalk.yellowBright,
-    'selector-attr': highlightColor,
-    'selector-pseudo': chalk.cyan,
-    addition: successColor,
-    deletion: deletionColor,
-    property: highlightColor,
-    operator: chalk.white,
-    punctuation: chalk.white,
-    'attr-name': highlightColor,
-    'attr-value': successColor,
-    'class-name': chalk.yellowBright,
-    constant: deletionColor,
-    boolean: deletionColor,
+    "keyword": assistantColor,
+    "built_in": chalk.cyan,
+    "type": highlightColor,
+    "literal": chalk.magentaBright,
+    "number": deletionColor,
+    "regexp": chalk.magentaBright,
+    "string": successColor,
+    "subst": chalk.white,
+    "symbol": warningColor,
+    "class": chalk.yellowBright,
+    "function": userColor,
+    "title": userColor,
+    "params": chalk.white,
+    "comment": dimColor,
+    "doctag": dimColor,
+    "meta": dimColor,
+    "meta-keyword": dimColor,
+    "meta-string": dimColor,
+    "section": chalk.bold,
+    "tag": dimColor,
+    "name": userColor,
+    "builtin-name": chalk.cyan,
+    "attr": highlightColor,
+    "attribute": highlightColor,
+    "variable": chalk.white,
+    "template-variable": chalk.white,
+    "template-tag": dimColor,
+    "bullet": deletionColor,
+    "code": chalk.white,
+    "emphasis": chalk.italic,
+    "strong": chalk.bold,
+    "formula": dimColor,
+    "link": chalk.underline,
+    "quote": dimColor,
+    "selector-tag": userColor,
+    "selector-id": warningColor,
+    "selector-class": chalk.yellowBright,
+    "selector-attr": highlightColor,
+    "selector-pseudo": chalk.cyan,
+    "addition": successColor,
+    "deletion": deletionColor,
+    "property": highlightColor,
+    "operator": chalk.white,
+    "punctuation": chalk.white,
+    "attr-name": highlightColor,
+    "attr-value": successColor,
+    "class-name": chalk.yellowBright,
+    "constant": deletionColor,
+    "boolean": deletionColor,
   };
 }
-
 
 /**
  * Type‑guard that narrows a {@link ResponseItem} to one that represents a

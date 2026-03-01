@@ -4,7 +4,6 @@ import TextInput from "./vendor/ink-text-input.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
-
 export default function SearchUrlOverlay({
   title,
   subtitle = "CONFIGURE SEARCH URL",
@@ -30,8 +29,12 @@ export default function SearchUrlOverlay({
   const [url, setUrl] = useState(currentUrl);
 
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
-    if (key.return) {onSave(url.trim());}
+    if (key.escape) {
+      onExit();
+    }
+    if (key.return) {
+      onSave(url.trim());
+    }
   });
 
   return (
@@ -48,42 +51,46 @@ export default function SearchUrlOverlay({
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> {title} </Text>
+          <Text bold color="black">
+            {" "}
+            {title}{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>{subtitle}</Text>
+        <Text color={theme.highlight} bold>
+          {subtitle}
+        </Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>{label}</Text>
-          <TextInput
-            value={url}
-            onChange={setUrl}
-            placeholder={placeholder}
-          />
+          <Text color={theme.highlight} bold>
+            {label}
+          </Text>
+          <TextInput value={url} onChange={setUrl} placeholder={placeholder} />
         </Box>
-        
-        <Text color={theme.dim}>
-          {description}
-        </Text>
+
+        <Text color={theme.dim}>{description}</Text>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>enter save │ esc close</Text>
+        <Text dimColor italic>
+          enter save │ esc close
+        </Text>
       </Box>
 
       <Box paddingX={1} marginTop={1}>
         <Text dimColor>
-          Tip: If left empty, the system will fall back to default search providers.
+          Tip: If left empty, the system will fall back to default search
+          providers.
         </Text>
       </Box>
     </Box>

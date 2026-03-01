@@ -3,6 +3,7 @@
 This directory contains the core documentation for the OpenCodex project.
 
 ## Project Overviews
+
 - [README.md](../README.md): Main project entry point and quickstart.
 - [CLI_README.md](./CLI_README.md): Detailed documentation for the OpenCodex CLI.
 - [ROADMAP.md](./ROADMAP.md): High-level project goals and milestones.
@@ -10,6 +11,7 @@ This directory contains the core documentation for the OpenCodex project.
 - [UI_ROADMAP.md](./UI_ROADMAP.md): Roadmap for terminal UI improvements and visual polish.
 
 ## Features & Integration
+
 - [SEARXNG_INTEGRATION.md](./SEARXNG_INTEGRATION.md): Guide for setting up SearXNG as a search provider.
 - [SERP_API_INTEGRATION.md](./SERP_API_INTEGRATION.md): Guide for using high-quality search APIs (Serper, SerpApi).
 - [TOOLS.md](./TOOLS.md): Deep dive into the OpenCodex tool architecture and handlers.
@@ -18,6 +20,7 @@ This directory contains the core documentation for the OpenCodex project.
 - [SUBLIME.md](./SUBLIME.md): Integration guide for the Sublime Text editor.
 
 ## Development & Maintenance
+
 - [PROJECT_CONTRIBUTING.md](./PROJECT_CONTRIBUTING.md): Guidelines for contributing to the main repository.
 - [CLI_CONTRIBUTING.md](./CLI_CONTRIBUTING.md): Specific workflow for CLI development.
 - [IMPROVE.md](./IMPROVE.md): Historical log of completed and potential improvements.
@@ -27,6 +30,7 @@ This directory contains the core documentation for the OpenCodex project.
 - [DOCKER.md](./DOCKER.md): Guide for running OpenCodex in a sandboxed Docker environment.
 
 ## Protocols & Internals
+
 - [STRUCTURED_STATE.md](./STRUCTURED_STATE.md): Explanation of the agent's state management protocol.
 - [GEMINI_CLI_FORMAT.md](./GEMINI_CLI_FORMAT.md): Details on the formatting and communication protocol.
 - [apuntes.md](./apuntes.md): Miscellaneous development notes and findings.

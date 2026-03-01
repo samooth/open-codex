@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parseStateSnapshot, formatStateForPrompt } from "../src/utils/agent/state-manager.js";
+import {
+  parseStateSnapshot,
+  formatStateForPrompt,
+} from "../src/utils/agent/state-manager.js";
 
 describe("Structured State Management", () => {
   describe("parseStateSnapshot", () => {
@@ -32,13 +35,19 @@ I'll begin by analyzing the auth flow.
       const snapshot = parseStateSnapshot(content);
       expect(snapshot).not.toBeNull();
       expect(snapshot?.overall_goal).toBe("Implement OAuth2 provider");
-      expect(snapshot?.active_constraints).toEqual(["No external libraries for crypto", "Use async/await"]);
-      expect(snapshot?.key_knowledge).toEqual(["The server uses port 3000", "Secret keys are in .env"]);
+      expect(snapshot?.active_constraints).toEqual([
+        "No external libraries for crypto",
+        "Use async/await",
+      ]);
+      expect(snapshot?.key_knowledge).toEqual([
+        "The server uses port 3000",
+        "Secret keys are in .env",
+      ]);
       expect(snapshot?.artifact_trail).toEqual(["src/auth.ts", "src/index.ts"]);
       expect(snapshot?.task_state).toEqual([
         "- [DONE] Setup routes",
         "- [IN_PROGRESS] Implement token logic",
-        "- [TODO] Add tests"
+        "- [TODO] Add tests",
       ]);
     });
 
@@ -58,7 +67,7 @@ I'll begin by analyzing the auth flow.
       const snapshot = {
         overall_goal: "Goal",
         active_constraints: ["C1"],
-        task_state: ["[DONE] T1"]
+        task_state: ["[DONE] T1"],
       };
       const formatted = formatStateForPrompt(snapshot);
       expect(formatted).toContain("Overall Goal: Goal");

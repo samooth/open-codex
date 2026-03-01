@@ -13,11 +13,7 @@ import {
   flattenToolCalls,
   tryExtractToolCallsFromContent,
 } from "../parsers.js";
-import {
-  setCurrentModel,
-  setSessionId,
-  getSessionId,
-} from "../session.js";
+import { setCurrentModel, setSessionId, getSessionId } from "../session.js";
 import { tools } from "./tool-definitions.js";
 import { readFileSync, existsSync } from "fs";
 import { randomUUID } from "node:crypto";
@@ -25,8 +21,17 @@ import { randomUUID } from "node:crypto";
 import OpenAI, { APIConnectionTimeoutError } from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { prefix } from "./system-prompt.js";
-import { type StateSnapshot, parseStateSnapshot, formatStateForPrompt } from "./state-manager.js";
-import type { AgentContext, AgentLoopParams, CommandConfirmation, Task } from "./types.js";
+import {
+  type StateSnapshot,
+  parseStateSnapshot,
+  formatStateForPrompt,
+} from "./state-manager.js";
+import type {
+  AgentContext,
+  AgentLoopParams,
+  CommandConfirmation,
+  Task,
+} from "./types.js";
 export type { AgentContext, AgentLoopParams, CommandConfirmation, Task };
 import { SemanticMemory } from "./semantic-memory.js";
 import {
@@ -41,15 +46,15 @@ import {
   anthropicToOpenAiStream,
 } from "./anthropic-utils.js";
 import { handleFunctionCall } from "./function-call-handler.js";
-import { 
-  createInvalidRequestErrorSystemMessage, 
-  createRateLimitErrorSystemMessage, 
+import {
+  createInvalidRequestErrorSystemMessage,
+  createRateLimitErrorSystemMessage,
   createTokenLimitErrorSystemMessage,
   createNetworkErrorSystemMessage,
   isErrorClientError,
   isErrorNetworkOrServer,
   isErrorRateLimit,
-  isErrorTooManyTokens
+  isErrorTooManyTokens,
 } from "./error-handling.js";
 
 // Wait time before retrying after rate limit errors (ms).
@@ -72,11 +77,21 @@ export class AgentLoop {
   private oai: any;
 
   private onItem: (item: ChatCompletionMessageParam) => void;
-  private onPartialUpdate?: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => void;
+  private onPartialUpdate?: (
+    content: string,
+    reasoning?: string,
+    activeToolName?: string,
+    activeToolArguments?: Record<string, any>,
+  ) => void;
   private onLoading: (loading: boolean) => void;
   private onFileAccess?: (path: string) => void;
   private onTasksUpdate?: (tasks: Task[]) => void;
-  private onIndexingStatus?: (status: { indexing: boolean; current?: number; total?: number; file?: string }) => void;
+  private onIndexingStatus?: (status: {
+    indexing: boolean;
+    current?: number;
+    total?: number;
+    file?: string;
+  }) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -193,7 +208,9 @@ export class AgentLoop {
     }
   }
 
-  public async indexCodebase(onProgress?: (current: number, total: number, file: string) => void): Promise<void> {
+  public async indexCodebase(
+    onProgress?: (current: number, total: number, file: string) => void,
+  ): Promise<void> {
     this.onIndexingStatus?.({ indexing: true });
     try {
       await this.semanticMemory.indexCodebase((current, total, file) => {
@@ -242,13 +259,16 @@ export class AgentLoop {
 
   /**
    * Automatically truncate history if it exceeds the maximum context size.
-   * We keep the most recent messages, while always ensuring tool results 
+   * We keep the most recent messages, while always ensuring tool results
    * are preserved if their corresponding calls are still in history.
    */
   private truncateHistory(
     input: Array<ChatCompletionMessageParam>,
-    prevItems: Array<ChatCompletionMessageParam>
-  ): { input: Array<ChatCompletionMessageParam>, prevItems: Array<ChatCompletionMessageParam> } {
+    prevItems: Array<ChatCompletionMessageParam>,
+  ): {
+    input: Array<ChatCompletionMessageParam>;
+    prevItems: Array<ChatCompletionMessageParam>;
+  } {
     const isAnthropic = this.config.provider === "anthropic";
     // More aggressive limit for Anthropic due to 30k TPM limits
     const maxMessages = this.config.contextSize || (isAnthropic ? 20 : 40);
@@ -261,16 +281,31 @@ export class AgentLoop {
     if (newPrevItems.length > 10) {
       for (let i = 0; i < newPrevItems.length - 10; i++) {
         const item = newPrevItems[i];
-        if (item && item.role === "tool" && typeof item.content === "string" && item.content.length > 1000) {
+        if (
+          item &&
+          item.role === "tool" &&
+          typeof item.content === "string" &&
+          item.content.length > 1000
+        ) {
           try {
             const parsed = JSON.parse(item.content);
-            if (parsed.output && typeof parsed.output === "string" && parsed.output.length > 500) {
-              parsed.output = parsed.output.slice(0, 500) + "\n... (truncated old result to save tokens)";
+            if (
+              parsed.output &&
+              typeof parsed.output === "string" &&
+              parsed.output.length > 500
+            ) {
+              parsed.output =
+                parsed.output.slice(0, 500) +
+                "\n... (truncated old result to save tokens)";
               newPrevItems[i] = { ...item, content: JSON.stringify(parsed) };
             }
           } catch {
             // Not JSON or differently structured, just truncate the string
-            newPrevItems[i] = { ...item, content: item.content.slice(0, 1000) + "\n... (truncated old result)" };
+            newPrevItems[i] = {
+              ...item,
+              content:
+                item.content.slice(0, 1000) + "\n... (truncated old result)",
+            };
           }
         }
       }
@@ -279,14 +314,16 @@ export class AgentLoop {
     // 2. Message Count Truncation
     if (totalMessages > maxMessages) {
       if (isLoggingEnabled()) {
-        log(`Truncating history: ${totalMessages} messages exceeds limit of ${maxMessages}`);
+        log(
+          `Truncating history: ${totalMessages} messages exceeds limit of ${maxMessages}`,
+        );
       }
 
       const overflow = totalMessages - maxMessages;
       const truncateCount = Math.min(overflow, newPrevItems.length);
       newPrevItems = newPrevItems.slice(truncateCount);
 
-      // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result 
+      // Anthropic Specific: Ensure the first message in the history is NOT a 'tool' result
       // because it would be missing its preceding 'assistant' tool_use.
       while (newPrevItems.length > 0 && newPrevItems[0]?.role === "tool") {
         newPrevItems.shift();
@@ -357,7 +394,10 @@ export class AgentLoop {
     const timeoutMs = OPENAI_TIMEOUT_MS;
     const apiKey = this.config.apiKey;
     const baseURL = this.config.baseURL;
-    if (this.config.provider === "google" || this.config.provider === "gemini") {
+    if (
+      this.config.provider === "google" ||
+      this.config.provider === "gemini"
+    ) {
       this.oai = new GoogleGenAI({
         apiKey: apiKey || "",
       });
@@ -383,30 +423,35 @@ export class AgentLoop {
       });
     }
 
-
-
-    this.semanticMemory = new SemanticMemory(this.oai, this.config.provider, this.config.embeddingModel, this.config.apiKey);
+    this.semanticMemory = new SemanticMemory(
+      this.oai,
+      this.config.provider,
+      this.config.embeddingModel,
+      this.config.apiKey,
+    );
 
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
 
     this.hardAbort = new AbortController();
 
-        this.hardAbort.signal.addEventListener(
+    this.hardAbort.signal.addEventListener(
+      "abort",
 
-          "abort",
+      () => this.execAbortController?.abort(),
 
-          () => this.execAbortController?.abort(),
+      { once: true },
+    );
+  }
 
-          { once: true },
+  public updateConfig(newConfig: AppConfig) {
+    this.config = newConfig;
+    if (newConfig.instructions !== undefined) {
+      this.instructions = newConfig.instructions;
+    }
+  }
 
-        );
-
-      }
-
-    
-
-      public async run(
+  public async run(
     input: Array<ChatCompletionMessageParam>,
     prevItems: Array<ChatCompletionMessageParam> = [],
   ): Promise<void> {
@@ -459,7 +504,9 @@ export class AgentLoop {
               output: "aborted",
               metadata: { exit_code: 1, duration_seconds: 0 },
             }),
-            ...(this.lastThoughtSignature ? { thought_signature: this.lastThoughtSignature } as any : {}),
+            ...(this.lastThoughtSignature
+              ? ({ thought_signature: this.lastThoughtSignature } as any)
+              : {}),
           });
         }
         // Once converted the pending list can be cleared.
@@ -469,8 +516,17 @@ export class AgentLoop {
 
       // Automatically manage context window size to prevent TPM/Token limits
       const truncated = this.truncateHistory(input, prevItems);
-      const currentInput = truncated.input;
-      const currentPrevItems = truncated.prevItems;
+
+      const shouldRefresh = this.config.refreshSystemPrompt ?? true;
+
+      // If we ARE refreshing, we filter out old system messages to avoid duplication.
+      // If we ARE NOT refreshing, we keep the history as is (letting the first system message stay).
+      const currentInput = shouldRefresh
+        ? truncated.input.filter((m) => m.role !== "system")
+        : truncated.input;
+      const currentPrevItems = shouldRefresh
+        ? truncated.prevItems.filter((m) => m.role !== "system")
+        : truncated.prevItems;
 
       let turnInput = [...abortOutputs, ...currentInput];
 
@@ -511,7 +567,9 @@ export class AgentLoop {
             // If the instructions already contain the core identity string from the prefix,
             // we assume the user has fine-tuned the entire prompt and we should not
             // prepend the default prefix again.
-            const basePrefix = this.instructions?.includes("You are operating as and within OpenCodex")
+            const basePrefix = this.instructions?.includes(
+              "You are operating as and within OpenCodex",
+            )
               ? ""
               : prefix;
 
@@ -519,14 +577,22 @@ export class AgentLoop {
             let relevantMemory = "";
             const userMessages = currentInput.filter((i) => i.role === "user");
             const latestUserInput = userMessages[userMessages.length - 1];
-            const queryText = typeof latestUserInput?.content === "string" 
-              ? latestUserInput.content 
-              : Array.isArray(latestUserInput?.content) 
-                ? (latestUserInput.content as any).map((c: any) => "text" in c ? c.text : "").join(" ") 
-                : "";
+            const queryText =
+              typeof latestUserInput?.content === "string"
+                ? latestUserInput.content
+                : Array.isArray(latestUserInput?.content)
+                  ? (latestUserInput.content as any)
+                      .map((c: any) => ("text" in c ? c.text : ""))
+                      .join(" ")
+                  : "";
 
-            if (queryText && !this.config.skipSemanticMemory && this.semanticMemory.memoryExists()) {
-              const snippets = await this.semanticMemory.findRelevant(queryText);
+            if (
+              queryText &&
+              !this.config.skipSemanticMemory &&
+              this.semanticMemory.memoryExists()
+            ) {
+              const snippets =
+                await this.semanticMemory.findRelevant(queryText);
               if (snippets.length > 0) {
                 relevantMemory = `\n\n--- Relevant Project Memory ---\n${snippets.join("\n")}`;
               }
@@ -537,7 +603,10 @@ export class AgentLoop {
             try {
               if (existsSync("package.json")) {
                 const pkg = JSON.parse(readFileSync("package.json", "utf-8"));
-                const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+                const deps = {
+                  ...(pkg.dependencies || {}),
+                  ...(pkg.devDependencies || {}),
+                };
                 projectContext += `\n\n--- Project Dependencies ---\n${JSON.stringify(deps, null, 2)}`;
               }
             } catch (e) {
@@ -561,21 +630,31 @@ export class AgentLoop {
               pinnedFilesContent = `\n\n--- Pinned Files ---\n${pinnedFileSnippets.join("\n\n")}`;
             }
 
-            const deepThinkingPrefix = this.config.enableDeepThinking 
-              ? "Enable deep thinking subroutine.\n\n" 
+            const deepThinkingPrefix = this.config.enableDeepThinking
+              ? "Enable deep thinking subroutine.\n\n"
               : "";
 
             const missionStateInfo = formatStateForPrompt(this.stateSnapshot);
 
             // 1. Stable Instructions (Identity, core protocol, user guidance)
             // These change rarely and should be at the top for maximum caching.
-            const stableInstructions = [deepThinkingPrefix, basePrefix, this.instructions, dryRunInfo]
+            const stableInstructions = [
+              deepThinkingPrefix,
+              basePrefix,
+              this.instructions,
+              dryRunInfo,
+            ]
               .filter(Boolean)
               .join("\n");
 
             // 2. Dynamic Context (Real-time data about the project and mission)
             // These change frequently and are injected at the end of history for better model recency.
-            const dynamicContext = [projectContext, pinnedFilesContent, missionStateInfo, relevantMemory]
+            const dynamicContext = [
+              projectContext,
+              pinnedFilesContent,
+              missionStateInfo,
+              relevantMemory,
+            ]
               .filter(Boolean)
               .join("\n");
 
@@ -587,31 +666,46 @@ export class AgentLoop {
                 `dynamicContext (length ${dynamicContext.length}): ${dynamicContext}`,
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
-              log(`[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 2}, Tools: ${tools.length}`);
+              log(
+                `[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 2}, Tools: ${tools.length}`,
+              );
             }
 
-            if (this.config.provider === "google" || this.config.provider === "gemini") {
-              const { contents, systemInstruction } = mapOpenAiToGoogleMessages([
-                {
-                  role: "system",
-                  content: stableInstructions,
-                },
+            if (
+              this.config.provider === "google" ||
+              this.config.provider === "gemini"
+            ) {
+              const hasExistingSystem = currentPrevItems.some(
+                (m) => m.role === "system",
+              );
+              const includeStable = shouldRefresh || !hasExistingSystem;
+
+              const messagesToMap = [
+                ...(includeStable
+                  ? [{ role: "system" as const, content: stableInstructions }]
+                  : []),
                 ...currentPrevItems,
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
                 {
-                  role: "system",
+                  role: "system" as const,
                   content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
-                }
-              ]);
+                },
+              ];
 
-              const googleTools = mapOpenAiToGoogleTools(tools.filter((tool: any) => {
-                if (tool.function.name === "browse") {
-                  return !!this.config.enableWebSearch;
-                }
-                return true;
-              }), sanitizeGoogleToolName);
+              const { contents, systemInstruction } =
+                mapOpenAiToGoogleMessages(messagesToMap);
+
+              const googleTools = mapOpenAiToGoogleTools(
+                tools.filter((tool: any) => {
+                  if (tool.function.name === "browse") {
+                    return !!this.config.enableWebSearch;
+                  }
+                  return true;
+                }),
+                sanitizeGoogleToolName,
+              );
 
               const googleStream = await this.oai.models.generateContentStream({
                 model: this.model,
@@ -619,56 +713,73 @@ export class AgentLoop {
                 config: {
                   systemInstruction,
                   tools: googleTools,
-                }
+                },
               });
               stream = googleToOpenAiStream(googleStream) as any;
             } else if (this.config.provider === "anthropic") {
-              const { messages: anthropicMessages, system } = mapOpenAiToAnthropicMessages([
-                ...currentPrevItems,
-                ...(this.staged.filter(Boolean) as Array<ChatCompletionMessageParam>),
-              ]);
+              const { messages: anthropicMessages, system } =
+                mapOpenAiToAnthropicMessages([
+                  ...currentPrevItems,
+                  ...(this.staged.filter(
+                    Boolean,
+                  ) as Array<ChatCompletionMessageParam>),
+                ]);
 
-              const anthropicTools = mapOpenAiToAnthropicTools(tools.filter((tool: any) => {
-                if (tool.function.name === "browse") {
-                  return !!this.config.enableWebSearch;
-                }
-                return true;
-              }));
-
-              const response = await fetch(`${this.config.baseURL}/v1/messages`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "x-api-key": this.config.apiKey || "",
-                  "anthropic-version": "2023-06-01",
-                },
-                body: JSON.stringify({
-                  model: this.model,
-                  messages: anthropicMessages,
-                  system: (() => {
-                    const blocks: Array<any> = [
-                      { type: "text", text: stableInstructions, cache_control: { type: "ephemeral" } },
-                      { type: "text", text: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}` },
-                    ];
-                    if (system) {
-                      if (Array.isArray(system)) {
-                        blocks.push(...system);
-                      } else {
-                        blocks.push({ type: "text", text: system });
-                      }
-                    }
-                    return blocks;
-                  })(),
-                  tools: anthropicTools,
-                  stream: true,
-                  max_tokens: 8192,
+              const anthropicTools = mapOpenAiToAnthropicTools(
+                tools.filter((tool: any) => {
+                  if (tool.function.name === "browse") {
+                    return !!this.config.enableWebSearch;
+                  }
+                  return true;
                 }),
-                signal: this.execAbortController?.signal,
-              });
+              );
+
+              const response = await fetch(
+                `${this.config.baseURL}/v1/messages`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": this.config.apiKey || "",
+                    "anthropic-version": "2023-06-01",
+                  },
+                  body: JSON.stringify({
+                    model: this.model,
+                    messages: anthropicMessages,
+                    system: (() => {
+                      const blocks: Array<any> = [
+                        {
+                          type: "text",
+                          text: stableInstructions,
+                          cache_control: { type: "ephemeral" },
+                        },
+                        {
+                          type: "text",
+                          text: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
+                        },
+                      ];
+                      if (system) {
+                        if (Array.isArray(system)) {
+                          blocks.push(...system);
+                        } else {
+                          blocks.push({ type: "text", text: system });
+                        }
+                      }
+                      return blocks;
+                    })(),
+                    tools: anthropicTools,
+                    stream: true,
+                    max_tokens: 8192,
+                  }),
+                  signal: this.execAbortController?.signal,
+                },
+              );
 
               if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                const err = new Error(`Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`);
+                const err = new Error(
+                  `Anthropic API error: ${response.status} ${JSON.stringify(errorData)}`,
+                );
                 (err as any).status = response.status;
                 const retryAfter = response.headers.get("retry-after");
                 if (retryAfter) {
@@ -679,7 +790,7 @@ export class AgentLoop {
 
               const reader = response.body?.getReader();
               const decoder = new TextDecoder();
-              
+
               const anthropicAsyncIterable = {
                 async *[Symbol.asyncIterator]() {
                   let buffer = "";
@@ -701,29 +812,35 @@ export class AgentLoop {
                       }
                     }
                   }
-                }
+                },
               };
 
               stream = anthropicToOpenAiStream(anthropicAsyncIterable) as any;
             } else {
+              const hasExistingSystem = currentPrevItems.some(
+                (m) => m.role === "system",
+              );
+              const includeStable = shouldRefresh || !hasExistingSystem;
+
+              const finalMessages = [
+                ...(includeStable
+                  ? [{ role: "system" as const, content: stableInstructions }]
+                  : []),
+                ...currentPrevItems,
+                ...(this.staged.filter(
+                  Boolean,
+                ) as Array<ChatCompletionMessageParam>),
+                {
+                  role: "system",
+                  content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
+                },
+              ];
+
               // eslint-disable-next-line no-await-in-loop
               stream = await this.oai.chat.completions.create({
                 model: this.model,
                 stream: true,
-                messages: [
-                  {
-                    role: "system",
-                    content: stableInstructions,
-                  },
-                  ...currentPrevItems,
-                  ...(this.staged.filter(
-                    Boolean,
-                  ) as Array<ChatCompletionMessageParam>),
-                  {
-                    role: "system",
-                    content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
-                  },
-                ],
+                messages: finalMessages,
                 reasoning_effort: reasoning,
                 tools: tools.filter((tool: any) => {
                   if (tool.function.name === "browse") {
@@ -757,11 +874,15 @@ export class AgentLoop {
             const isServerError = typeof status === "number" && status >= 500;
             const isNetworkError = isErrorNetworkOrServer(error);
             if (
-              (isTimeout || isServerError || isConnectionError || isNetworkError) &&
+              (isTimeout ||
+                isServerError ||
+                isConnectionError ||
+                isNetworkError) &&
               attempt < MAX_RETRIES
             ) {
               const provider = this.config.provider || "AI";
-              const details = (error as any).code || (error as any).message || "Unknown";
+              const details =
+                (error as any).code || (error as any).message || "Unknown";
               log(
                 `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}, details: ${details}), retrying...`,
               );
@@ -769,7 +890,10 @@ export class AgentLoop {
             }
 
             if (isErrorTooManyTokens(error)) {
-              this.stageItem(createTokenLimitErrorSystemMessage(), thisGeneration);
+              this.stageItem(
+                createTokenLimitErrorSystemMessage(),
+                thisGeneration,
+              );
               this.onLoading(false);
               return;
             }
@@ -779,8 +903,15 @@ export class AgentLoop {
                 // If the error message explicitly says "would exceed", it's a context length/TPM issue
                 // that no amount of retrying will fix unless we reduce the prompt.
                 const rawMsg = (error as any).message || "";
-                if (rawMsg.includes("would exceed") && (rawMsg.includes("tokens per minute") || rawMsg.includes("rate limit"))) {
-                  this.stageItem(createTokenLimitErrorSystemMessage(), thisGeneration);
+                if (
+                  rawMsg.includes("would exceed") &&
+                  (rawMsg.includes("tokens per minute") ||
+                    rawMsg.includes("rate limit"))
+                ) {
+                  this.stageItem(
+                    createTokenLimitErrorSystemMessage(),
+                    thisGeneration,
+                  );
                   this.onLoading(false);
                   return;
                 }
@@ -790,7 +921,8 @@ export class AgentLoop {
                 let delayMs = RATE_LIMIT_RETRY_WAIT_MS * 2 ** (attempt - 1);
 
                 if ((error as any).retryAfter) {
-                  const suggested = parseFloat((error as any).retryAfter) * 1000;
+                  const suggested =
+                    parseFloat((error as any).retryAfter) * 1000;
                   if (!Number.isNaN(suggested)) {
                     delayMs = suggested;
                   }
@@ -818,7 +950,10 @@ export class AgentLoop {
                 // why the request failed and can decide how to proceed (e.g. wait and retry later
                 // or switch to a different model / account).
 
-                this.stageItem(createRateLimitErrorSystemMessage(error), thisGeneration);
+                this.stageItem(
+                  createRateLimitErrorSystemMessage(error),
+                  thisGeneration,
+                );
 
                 this.onLoading(false);
                 return;
@@ -826,7 +961,13 @@ export class AgentLoop {
             }
 
             if (isErrorClientError(error)) {
-              this.stageItem(createInvalidRequestErrorSystemMessage(error, this.config.provider), thisGeneration);
+              this.stageItem(
+                createInvalidRequestErrorSystemMessage(
+                  error,
+                  this.config.provider,
+                ),
+                thisGeneration,
+              );
               this.onLoading(false);
               return;
             }
@@ -877,16 +1018,23 @@ export class AgentLoop {
 
             if (thisGeneration === this.generation && !this.canceled) {
               // Extract Structured State Snapshot if present
-              const content = typeof msg.content === "string" ? msg.content : "";
+              const content =
+                typeof msg.content === "string" ? msg.content : "";
               const newSnapshot = parseStateSnapshot(content);
               if (newSnapshot) {
                 this.stateSnapshot = { ...this.stateSnapshot, ...newSnapshot };
-                
+
                 // If the snapshot contains task_state, sync it with the UI TaskChecklist
                 if (newSnapshot.task_state && this.onTasksUpdate) {
-                  const tasks: Task[] = newSnapshot.task_state.map(line => {
-                    const status = line.includes("[DONE]") ? "done" : line.includes("[IN_PROGRESS]") ? "in-progress" : "todo";
-                    const label = line.replace(/\[(DONE|IN_PROGRESS|TODO)\]/, "").trim();
+                  const tasks: Task[] = newSnapshot.task_state.map((line) => {
+                    const status = line.includes("[DONE]")
+                      ? "done"
+                      : line.includes("[IN_PROGRESS]")
+                        ? "in-progress"
+                        : "todo";
+                    const label = line
+                      .replace(/\[(DONE|IN_PROGRESS|TODO)\]/, "")
+                      .trim();
                     return { label, status };
                   });
                   this.onTasksUpdate(tasks);
@@ -946,13 +1094,16 @@ export class AgentLoop {
           for await (const chunk of stream) {
             chunkCount++;
             if (isLoggingEnabled()) {
-              log(`AgentLoop.run(): completion chunk ${chunk.id} (count: ${chunkCount})`);
+              log(
+                `AgentLoop.run(): completion chunk ${chunk.id} (count: ${chunkCount})`,
+              );
             }
             const delta = chunk?.choices?.[0]?.delta;
             const content = delta?.content;
             const reasoning = (delta as any)?.reasoning_content;
             const tool_calls = delta?.tool_calls;
-            const thought_signature = (chunk?.choices?.[0] as any)?.thought_signature;
+            const thought_signature = (chunk?.choices?.[0] as any)
+              ?.thought_signature;
 
             if (thought_signature) {
               this.lastThoughtSignature = thought_signature;
@@ -993,17 +1144,18 @@ export class AgentLoop {
                 message.content = (message.content ?? "") + content;
               }
               if (reasoning) {
-                (message as any).reasoning_content = ((message as any).reasoning_content ?? "") + reasoning;
+                (message as any).reasoning_content =
+                  ((message as any).reasoning_content ?? "") + reasoning;
               }
               if (thought_signature) {
                 (message as any).thought_signature = thought_signature;
               }
-              
+
               if (tool_calls) {
                 if (!message.tool_calls) {
                   message.tool_calls = [];
                 }
-                
+
                 for (const tool_call of tool_calls) {
                   const index = tool_call.index ?? 0;
                   if (!message.tool_calls[index]) {
@@ -1011,27 +1163,32 @@ export class AgentLoop {
                   } else {
                     const tc = message.tool_calls[index] as any;
                     if (tool_call.function?.name) {
-                      tc.function.name = (tc.function.name || "") + tool_call.function.name;
+                      tc.function.name =
+                        (tc.function.name || "") + tool_call.function.name;
                     }
                     if (tool_call.function?.arguments) {
-                      tc.function.arguments = (tc.function.arguments || "") + tool_call.function.arguments;
+                      tc.function.arguments =
+                        (tc.function.arguments || "") +
+                        tool_call.function.arguments;
                     }
                   }
-                  
+
                   if (thought_signature) {
-                    (message.tool_calls[index] as any).thought_signature = thought_signature;
+                    (message.tool_calls[index] as any).thought_signature =
+                      thought_signature;
                   }
-                  
+
                   if (tool_call.id) {
                     this.pendingAborts.add(tool_call.id);
                   }
-                  
+
                   // Update active tool info for UI (last tool call in chunk)
                   if (tool_call.function?.name) {
                     this.currentActiveToolName = tool_call.function.name;
                   }
                   if (tool_call.function?.arguments) {
-                    this.currentActiveToolRawArguments = tool_call.function.arguments;
+                    this.currentActiveToolRawArguments =
+                      tool_call.function.arguments;
                   }
                 }
               }
@@ -1046,34 +1203,40 @@ export class AgentLoop {
             log("AgentLoop.run(): stream ended with ZERO chunks");
             this.onItem({
               role: "assistant",
-              content: "⚠️ The model returned an empty response. This can happen due to safety filters or provider issues. Please try again or switch models.",
+              content:
+                "⚠️ The model returned an empty response. This can happen due to safety filters or provider issues. Please try again or switch models.",
             });
           }
 
           // Finalize message after the entire stream is consumed
           if (message && !messageProcessed) {
             if (isLoggingEnabled()) {
-              log(`AgentLoop.run(): stream ended (reason: ${lastFinishReason}), triggering message finalization`);
+              log(
+                `AgentLoop.run(): stream ended (reason: ${lastFinishReason}), triggering message finalization`,
+              );
             }
-            
+
             // Clear partial data and give UI a moment to settle before potential confirmation boxes
             this.onPartialUpdate?.("", "", undefined, undefined);
-            
+
             if (lastFinishReason === "length") {
               // If we stopped because of token limit, automatically queue a "Please continue"
               // but we still need to finalize the current partial message so it shows in history.
               await finalizeMessage(message);
               turnInput.push({
                 role: "user",
-                content: "Please finish your previous response from exactly where you left off.",
+                content:
+                  "Please finish your previous response from exactly where you left off.",
               });
               continue; // Continue the while(turnInput.length > 0) loop
             }
 
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             await finalizeMessage(message);
           } else if (!message && chunkCount > 0) {
-            log("AgentLoop.run(): stream had chunks but no message was constructed");
+            log(
+              "AgentLoop.run(): stream had chunks but no message was constructed",
+            );
           }
         } catch (err: unknown) {
           // Gracefully handle an abort triggered via `cancel()` so that the
@@ -1231,7 +1394,9 @@ export class AgentLoop {
 
       if (isErrorClientError(err)) {
         try {
-          this.stageItem(createInvalidRequestErrorSystemMessage(err, this.config.provider));
+          this.stageItem(
+            createInvalidRequestErrorSystemMessage(err, this.config.provider),
+          );
         } catch {
           /* best-effort */
         }
@@ -1241,7 +1406,9 @@ export class AgentLoop {
 
       if (isErrorNetworkOrServer(err)) {
         try {
-          this.stageItem(createNetworkErrorSystemMessage(err, this.config.provider));
+          this.stageItem(
+            createNetworkErrorSystemMessage(err, this.config.provider),
+          );
         } catch {
           /* best‑effort */
         }

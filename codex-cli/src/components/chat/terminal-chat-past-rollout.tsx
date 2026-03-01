@@ -45,7 +45,8 @@ export default function TerminalChatPastRollout({
           </Text>
         </Text>
         <Text dimColor>
-          <Text color={theme.highlight}>↳</Text> model: <Text bold>{model}</Text>
+          <Text color={theme.highlight}>↳</Text> model:{" "}
+          <Text bold>{model}</Text>
         </Text>
       </Box>
       <Box flexDirection="column" gap={1}>

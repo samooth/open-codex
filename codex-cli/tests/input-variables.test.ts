@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import { existsSync } from "fs";
 
 vi.mock("fs", async () => {
-  const actual = await vi.importActual("fs") as any;
+  const actual = (await vi.importActual("fs")) as any;
   return {
     ...actual,
     existsSync: vi.fn(),
@@ -28,10 +28,10 @@ describe("processInputVariables", () => {
   it("should inject file contents", async () => {
     (existsSync as any).mockReturnValue(true);
     (fs.readFile as any).mockResolvedValue("file-content");
-    
+
     const input = "Read {{test.txt}}";
     const output = await processInputVariables(input);
-    
+
     expect(output).toContain("--- Content from test.txt ---");
     expect(output).toContain("file-content");
   });

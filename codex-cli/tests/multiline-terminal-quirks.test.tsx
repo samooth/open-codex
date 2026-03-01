@@ -29,7 +29,7 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
     // Simulate the quirk: \r with shift: true
     stdin.emit("data", "\r");
     await flush();
-    
+
     expect(onSubmit).toHaveBeenCalledWith("test content");
 
     cleanup();
@@ -53,7 +53,7 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
     await flush();
     stdin.emit("data", "\r");
     await flush();
-    
+
     await type(stdin, "Line2", flush);
 
     expect(onSubmit).not.toHaveBeenCalled();

@@ -1,8 +1,8 @@
 import type { ApplyPatchCommand } from "../../approvals.js";
-import type { AppConfig } from "../../utils/config.js";
 import type { Theme } from "../../utils/theme.js";
 
 import { ReviewDecision } from "../../utils/agent/review";
+import { useAppContext } from "../../contexts/app-context.js";
 import { openExternalEditor } from "../../utils/input-utils.js";
 import { clearTerminal } from "../../utils/terminal.js";
 
@@ -27,19 +27,22 @@ export function TerminalChatCommandReview({
   theme,
   isActive = true,
   onRefresh,
-  config,
 }: {
   confirmationPrompt: React.ReactNode;
-  onReviewCommand: (decision: ReviewDecision, customMessage?: string, updatedApplyPatch?: ApplyPatchCommand) => void;
+  onReviewCommand: (
+    decision: ReviewDecision,
+    customMessage?: string,
+    updatedApplyPatch?: ApplyPatchCommand,
+  ) => void;
   allowAlwaysPatch?: boolean;
   applyPatch?: ApplyPatchCommand;
   theme: Theme;
   isActive?: boolean;
   onRefresh?: () => void;
-  config: AppConfig;
 }): React.ReactElement {
   const [mode, setMode] = React.useState<"select" | "input">("select");
   const [msg, setMsg] = React.useState<string>("");
+  const { config } = useAppContext();
 
   // -------------------------------------------------------------------------
   // Determine whether the "always approve" option should be displayed.  We
@@ -119,56 +122,64 @@ export function TerminalChatCommandReview({
     return opts;
   }, [showAlwaysApprove, applyPatch]);
 
-  useInput(async (input, key) => {
-    if (!isActive) {return;}
+  useInput(
+    async (input, key) => {
+      if (!isActive) {
+        return;
+      }
 
-    if (mode === "select") {
-      if (input === "y") {
-        onReviewCommand(ReviewDecision.YES);
-      } else if (input === "v" && applyPatch) {
-        const edited = await openExternalEditor(applyPatch.patch, config);
-        clearTerminal();
-        onRefresh?.();
-        if (edited && edited !== applyPatch.patch) {
-          onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
-        } else {
-          // If no changes, just proceed or stay in menu? 
-          // Let's proceed with original if they just viewed it.
+      if (mode === "select") {
+        if (input === "y") {
           onReviewCommand(ReviewDecision.YES);
+        } else if (input === "v" && applyPatch) {
+          const edited = await openExternalEditor(applyPatch.patch, config);
+          clearTerminal();
+          onRefresh?.();
+          if (edited && edited !== applyPatch.patch) {
+            onReviewCommand(ReviewDecision.YES, undefined, {
+              ...applyPatch,
+              patch: edited,
+            });
+          } else {
+            // If no changes, just proceed or stay in menu?
+            // Let's proceed with original if they just viewed it.
+            onReviewCommand(ReviewDecision.YES);
+          }
+        } else if (input === "e") {
+          setMode("input");
+        } else if (input === "n") {
+          onReviewCommand(
+            ReviewDecision.NO_CONTINUE,
+            "Don't do that, keep going though",
+          );
+        } else if (input === "a" && showAlwaysApprove) {
+          onReviewCommand(ReviewDecision.ALWAYS);
+        } else if (key.escape) {
+          onReviewCommand(ReviewDecision.NO_EXIT);
         }
-      } else if (input === "e") {
-        setMode("input");
-      } else if (input === "n") {
-        onReviewCommand(
-          ReviewDecision.NO_CONTINUE,
-          "Don't do that, keep going though",
-        );
-      } else if (input === "a" && showAlwaysApprove) {
-        onReviewCommand(ReviewDecision.ALWAYS);
-      } else if (key.escape) {
-        onReviewCommand(ReviewDecision.NO_EXIT);
+      } else {
+        // text entry mode
+        if (key.return) {
+          // if user hit enter on empty msg, fall back to DEFAULT_DENY_MESSAGE
+          const custom = msg.trim() === "" ? DEFAULT_DENY_MESSAGE : msg;
+          onReviewCommand(ReviewDecision.NO_CONTINUE, custom);
+        } else if (key.escape) {
+          // treat escape as denial with default message as well
+          onReviewCommand(
+            ReviewDecision.NO_CONTINUE,
+            msg.trim() === "" ? DEFAULT_DENY_MESSAGE : msg,
+          );
+        }
       }
-    } else {
-      // text entry mode
-      if (key.return) {
-        // if user hit enter on empty msg, fall back to DEFAULT_DENY_MESSAGE
-        const custom = msg.trim() === "" ? DEFAULT_DENY_MESSAGE : msg;
-        onReviewCommand(ReviewDecision.NO_CONTINUE, custom);
-      } else if (key.escape) {
-        // treat escape as denial with default message as well
-        onReviewCommand(
-          ReviewDecision.NO_CONTINUE,
-          msg.trim() === "" ? DEFAULT_DENY_MESSAGE : msg,
-        );
-      }
-    }
-  }, { isActive });
+    },
+    { isActive },
+  );
 
   return (
-    <Box 
-      flexDirection="column" 
-      gap={0} 
-      borderStyle="bold" 
+    <Box
+      flexDirection="column"
+      gap={0}
+      borderStyle="bold"
       borderRight={false}
       borderTop={false}
       borderBottom={false}
@@ -177,31 +188,51 @@ export function TerminalChatCommandReview({
       marginTop={1}
       marginBottom={1}
     >
-      {React.isValidElement(confirmationPrompt) 
-        ? React.cloneElement(confirmationPrompt as React.ReactElement<any>, { isActive }) 
+      {React.isValidElement(confirmationPrompt)
+        ? React.cloneElement(confirmationPrompt as React.ReactElement<any>, {
+            isActive,
+          })
         : confirmationPrompt}
       <Box flexDirection="column" gap={0} marginTop={1}>
         {mode === "select" ? (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
               <Box backgroundColor={theme.highlight as any} paddingX={1}>
-                <Text bold color="black"> PROMPT </Text>
+                <Text bold color="black">
+                  {" "}
+                  PROMPT{" "}
+                </Text>
               </Box>
-              <Text color={theme.highlight} bold>Allow command execution?</Text>
+              <Text color={theme.highlight} bold>
+                Allow command execution?
+              </Text>
             </Box>
-            <Box paddingLeft={2} paddingRight={2} flexDirection="column" gap={0}>
+            <Box
+              paddingLeft={2}
+              paddingRight={2}
+              flexDirection="column"
+              gap={0}
+            >
               <Select
                 theme={theme}
                 isDisabled={!isActive}
-                onChange={async (value: ReviewDecision | "edit" | "view-edit") => {
+                onChange={async (
+                  value: ReviewDecision | "edit" | "view-edit",
+                ) => {
                   if (value === "edit") {
                     setMode("input");
                   } else if (value === "view-edit" && applyPatch) {
-                    const edited = await openExternalEditor(applyPatch.patch, config);
+                    const edited = await openExternalEditor(
+                      applyPatch.patch,
+                      config,
+                    );
                     clearTerminal();
                     onRefresh?.();
                     if (edited && edited !== applyPatch.patch) {
-                      onReviewCommand(ReviewDecision.YES, undefined, { ...applyPatch, patch: edited });
+                      onReviewCommand(ReviewDecision.YES, undefined, {
+                        ...applyPatch,
+                        patch: edited,
+                      });
                     } else {
                       onReviewCommand(ReviewDecision.YES);
                     }
@@ -217,12 +248,17 @@ export function TerminalChatCommandReview({
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
               <Box backgroundColor={theme.highlight as any} paddingX={1}>
-                <Text bold color="black"> FEEDBACK </Text>
+                <Text bold color="black">
+                  {" "}
+                  FEEDBACK{" "}
+                </Text>
               </Box>
-              <Text color={theme.highlight} bold>Give the model feedback (↵ to submit):</Text>
+              <Text color={theme.highlight} bold>
+                Give the model feedback (↵ to submit):
+              </Text>
             </Box>
-            <Box 
-              borderStyle="bold" 
+            <Box
+              borderStyle="bold"
               borderRight={false}
               borderTop={false}
               borderBottom={false}
@@ -240,7 +276,12 @@ export function TerminalChatCommandReview({
             </Box>
 
             {msg.trim() === "" && (
-              <Box paddingLeft={3} paddingRight={3} marginTop={1} marginBottom={1}>
+              <Box
+                paddingLeft={3}
+                paddingRight={3}
+                marginTop={1}
+                marginBottom={1}
+              >
                 <Text dimColor italic>
                   Default: "{DEFAULT_DENY_MESSAGE}"
                 </Text>

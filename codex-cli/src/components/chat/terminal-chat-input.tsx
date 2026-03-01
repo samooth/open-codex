@@ -1,19 +1,30 @@
-import type { AppConfig } from "../../utils/config.js";
 import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-import MultilineTextEditor, { type MultilineTextEditorHandle } from "./multiline-editor.js";
+import MultilineTextEditor, {
+  type MultilineTextEditorHandle,
+} from "./multiline-editor.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
 import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
+import { useAppContext } from "../../contexts/app-context.js";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
-import { createInputItem, openExternalEditor } from "../../utils/input-utils.js";
+import {
+  createInputItem,
+  openExternalEditor,
+} from "../../utils/input-utils.js";
 import { setSessionId } from "../../utils/session.js";
 import { clearTerminal, onExit } from "../../utils/terminal.js";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "../vendor/ink-select/select";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
-import React, { useCallback, useState, useMemo, useEffect, Fragment } from "react";
+import React, {
+  useCallback,
+  useState,
+  useMemo,
+  useEffect,
+  Fragment,
+} from "react";
 import { useInterval } from "use-interval";
 
 const suggestions = [
@@ -83,7 +94,6 @@ export default function TerminalChatInput({
   queuedInputText,
   onPopQueuedInput,
   contextLeftPercent,
-  config,
   isShellFocused,
 }: {
   isNew: boolean;
@@ -117,7 +127,10 @@ export default function TerminalChatInput({
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   active: boolean;
-  awaitingContinueConfirmation?: { type: "yes-no" } | { type: "choices"; choices: Array<string> } | null;
+  awaitingContinueConfirmation?:
+    | { type: "yes-no" }
+    | { type: "choices"; choices: Array<string> }
+    | null;
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   theme: Theme;
@@ -126,10 +139,10 @@ export default function TerminalChatInput({
   queuedInputText?: string;
   onPopQueuedInput?: () => string;
   contextLeftPercent: number;
-  config: AppConfig;
   isShellFocused?: boolean;
 }) {
   const app = useApp();
+  const { config } = useAppContext();
   const [selectedSuggestion, setSelectedSuggestion] = useState<number>(0);
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<number>(0);
   const [input, setInput] = useState("");
@@ -155,9 +168,12 @@ export default function TerminalChatInput({
   const [customInputMode, setCustomInputMode] = useState(false);
   const [pulse, setPulse] = useState(false);
 
-  useInterval(() => {
-    setPulse(p => !p);
-  }, active && !loading ? 800 : null);
+  useInterval(
+    () => {
+      setPulse((p) => !p);
+    },
+    active && !loading ? 800 : null,
+  );
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
@@ -166,7 +182,9 @@ export default function TerminalChatInput({
   }, [input]);
 
   const filteredFiles = useMemo(() => {
-    if (!fileSearchMatch) {return [];}
+    if (!fileSearchMatch) {
+      return [];
+    }
     return filterFiles(allFiles, fileSearchMatch.query);
   }, [allFiles, fileSearchMatch]);
 
@@ -185,16 +203,28 @@ export default function TerminalChatInput({
   }, [filteredSlashCommands.length]);
 
   const onKeyDown = (_inputStr: string, key: any) => {
-    if (_inputStr === "" && key.upArrow && queuedInputText && onPopQueuedInput) {
+    if (
+      _inputStr === "" &&
+      key.upArrow &&
+      queuedInputText &&
+      onPopQueuedInput
+    ) {
       const poppedText = onPopQueuedInput();
       setInput(poppedText);
       return true;
     }
 
     if (filteredFiles.length > 0) {
-      if (key.tab || key.downArrow || key.upArrow || _inputStr === "j" || _inputStr === "k") {
+      if (
+        key.tab ||
+        key.downArrow ||
+        key.upArrow ||
+        _inputStr === "j" ||
+        _inputStr === "k"
+      ) {
         setSelectedFileIndex((s) => {
-          const delta = (key.upArrow || (key.tab && key.shift) || _inputStr === "k") ? -1 : 1;
+          const delta =
+            key.upArrow || (key.tab && key.shift) || _inputStr === "k" ? -1 : 1;
           return (s + delta + filteredFiles.length) % filteredFiles.length;
         });
         return true;
@@ -203,7 +233,9 @@ export default function TerminalChatInput({
         const file = filteredFiles[selectedFileIndex];
         if (file && fileSearchMatch) {
           const before = input.slice(0, fileSearchMatch.startIndex);
-          const after = input.slice(fileSearchMatch.startIndex + 1 + fileSearchMatch.query.length);
+          const after = input.slice(
+            fileSearchMatch.startIndex + 1 + fileSearchMatch.query.length,
+          );
           setInput(before + "@" + file + after);
           return true;
         }
@@ -211,11 +243,23 @@ export default function TerminalChatInput({
     }
 
     if (input.startsWith("/")) {
-      if (key.tab || key.downArrow || key.upArrow || _inputStr === "j" || _inputStr === "k") {
+      if (
+        key.tab ||
+        key.downArrow ||
+        key.upArrow ||
+        _inputStr === "j" ||
+        _inputStr === "k"
+      ) {
         if (filteredSlashCommands.length > 0) {
           setSelectedSlashCommand((s) => {
-            const delta = (key.upArrow || (key.tab && key.shift) || _inputStr === "k") ? -1 : 1;
-            return (s + delta + filteredSlashCommands.length) % filteredSlashCommands.length;
+            const delta =
+              key.upArrow || (key.tab && key.shift) || _inputStr === "k"
+                ? -1
+                : 1;
+            return (
+              (s + delta + filteredSlashCommands.length) %
+              filteredSlashCommands.length
+            );
           });
           return true;
         }
@@ -239,7 +283,12 @@ export default function TerminalChatInput({
         return;
       }
 
-      if (awaitingContinueConfirmation && active && !loading && !customInputMode) {
+      if (
+        awaitingContinueConfirmation &&
+        active &&
+        !loading &&
+        !customInputMode
+      ) {
         if (_key.escape) {
           setCustomInputMode(true);
           return;
@@ -288,7 +337,7 @@ export default function TerminalChatInput({
           const cursorRow = editorRef.current?.getRow?.() ?? 0;
           const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
 
-          if (history.length > 0 && cursorRow === 0 && wasAtFirstRow) {
+          if (history.length > 0 && wasAtFirstRow) {
             if (historyIndex == null) {
               const currentDraft = editorRef.current?.getText?.() ?? input;
               setDraftInput(currentDraft);
@@ -312,8 +361,11 @@ export default function TerminalChatInput({
             // Handled in onKeyDown
             return;
           }
-          
-          if (historyIndex != null && (editorRef.current?.isCursorAtLastRow() ?? true)) {
+
+          if (
+            historyIndex != null &&
+            (editorRef.current?.isCursorAtLastRow() ?? true)
+          ) {
             const newIndex = historyIndex + 1;
             if (newIndex >= history.length) {
               setHistoryIndex(null);
@@ -334,8 +386,8 @@ export default function TerminalChatInput({
           if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
             return;
           }
-          
-          if (history.length > 0 && cursorRow === 0 && wasAtFirstRow) {
+
+          if (history.length > 0 && wasAtFirstRow) {
             if (historyIndex == null) {
               const currentDraft = editorRef.current?.getText?.() ?? input;
               setDraftInput(currentDraft);
@@ -359,7 +411,10 @@ export default function TerminalChatInput({
             return;
           }
 
-          if (historyIndex != null && (editorRef.current?.isCursorAtLastRow() ?? true)) {
+          if (
+            historyIndex != null &&
+            (editorRef.current?.isCursorAtLastRow() ?? true)
+          ) {
             const newIndex = historyIndex + 1;
             if (newIndex >= history.length) {
               setHistoryIndex(null);
@@ -481,7 +536,9 @@ export default function TerminalChatInput({
         submitInput([
           {
             role: "user",
-            content: [{ type: "text", text: "Please perform memory maintenance." }],
+            content: [
+              { type: "text", text: "Please perform memory maintenance." },
+            ],
           },
         ]);
         return;
@@ -529,9 +586,10 @@ export default function TerminalChatInput({
           ...prev,
           {
             role: "assistant",
-            content: ignored.length > 0 
-              ? `Ignored files:\n${ignored.map(f => `- ${f}`).join("\n")}`
-              : "No ignored files found.",
+            content:
+              ignored.length > 0
+                ? `Ignored files:\n${ignored.map((f) => `- ${f}`).join("\n")}`
+                : "No ignored files found.",
           },
         ]);
         setInput("");
@@ -543,7 +601,12 @@ export default function TerminalChatInput({
         submitInput([
           {
             role: "user",
-            content: [{ type: "text", text: "Please index the codebase for semantic search." }],
+            content: [
+              {
+                type: "text",
+                text: "Please index the codebase for semantic search.",
+              },
+            ],
           },
         ]);
         return;
@@ -607,7 +670,7 @@ export default function TerminalChatInput({
       let text = inputValue;
 
       // Clean up the '@' prefix from highlighted files before submission
-      text = text.replace(/@([\w\/\.-]+\.\w+)/g, '$1');
+      text = text.replace(/@([\w\/\.-]+\.\w+)/g, "$1");
 
       // markdown-style image syntax: ![alt](path)
       text = text.replace(/!\[[^\]]*?\]\(([^)]+)\)/g, (_m, p1: string) => {
@@ -674,8 +737,16 @@ export default function TerminalChatInput({
   if (confirmationPrompt) {
     return (
       <Box flexDirection="column">
-        <Box borderStyle="single" borderColor={theme.dim} paddingX={1} height={3} justifyContent="center">
-          <Text dimColor italic>Waiting for approval above...</Text>
+        <Box
+          borderStyle="single"
+          borderColor={theme.dim}
+          paddingX={1}
+          height={3}
+          justifyContent="center"
+        >
+          <Text dimColor italic>
+            Waiting for approval above...
+          </Text>
         </Box>
       </Box>
     );
@@ -683,22 +754,29 @@ export default function TerminalChatInput({
 
   return (
     <Box flexDirection="column" marginTop={1} paddingX={1}>
-      <Box 
-        flexDirection="row" 
-        gap={1} 
-        paddingX={1} 
-        borderStyle="bold" 
-        borderRight={false} 
-        borderTop={false} 
+      <Box
+        flexDirection="row"
+        gap={1}
+        paddingX={1}
+        borderStyle="bold"
+        borderRight={false}
+        borderTop={false}
         borderBottom={false}
         borderLeftColor={active ? theme.highlight : theme.dim}
       >
-        <Text color={active ? (pulse ? theme.highlight : theme.dim) : theme.dim} bold>
+        <Text
+          color={active ? (pulse ? theme.highlight : theme.dim) : theme.dim}
+          bold
+        >
           {customInputMode ? "?" : "❯"}
         </Text>
         {awaitingContinueConfirmation && !customInputMode ? (
           <Box flexDirection="row" gap={2}>
-            <Text color={theme.dim}>{awaitingContinueConfirmation.type === "yes-no" ? "Allow agent to proceed?" : "Select an option:"}</Text>
+            <Text color={theme.dim}>
+              {awaitingContinueConfirmation.type === "yes-no"
+                ? "Allow agent to proceed?"
+                : "Select an option:"}
+            </Text>
             <Box>
               <Select
                 theme={theme}
@@ -710,8 +788,11 @@ export default function TerminalChatInput({
                         { label: "Custom...", value: "__custom__" },
                       ]
                     : [
-                        ...awaitingContinueConfirmation.choices.map(c => ({ label: c, value: c })),
-                        { label: "Custom...", value: "__custom__" }
+                        ...awaitingContinueConfirmation.choices.map((c) => ({
+                          label: c,
+                          value: c,
+                        })),
+                        { label: "Custom...", value: "__custom__" },
                       ]
                 }
                 onChange={(value: string) => {
@@ -755,8 +836,14 @@ export default function TerminalChatInput({
               />
             </Box>
             {isShellFocused && (
-              <Box backgroundColor={theme.warning as any} paddingX={1} height={1}>
-                <Text bold color="black">SHELL FOCUS ACTIVE</Text>
+              <Box
+                backgroundColor={theme.warning as any}
+                paddingX={1}
+                height={1}
+              >
+                <Text bold color="black">
+                  SHELL FOCUS ACTIVE
+                </Text>
               </Box>
             )}
           </Box>
@@ -798,25 +885,30 @@ export default function TerminalChatInput({
       </Box>
 
       {filteredFiles.length > 0 && (
-        <Box 
-          flexDirection="column" 
-          borderStyle="bold" 
-          borderRight={false} 
-          borderTop={false} 
-          borderBottom={false} 
+        <Box
+          flexDirection="column"
+          borderStyle="bold"
+          borderRight={false}
+          borderTop={false}
+          borderBottom={false}
           borderLeftColor={theme.highlight}
-          paddingLeft={2} 
-          marginTop={1} 
+          paddingLeft={2}
+          marginTop={1}
           width={60}
         >
           <Box marginBottom={0} justifyContent="space-between">
-            <Text bold color={theme.highlight}>AUTOCOMPLETE</Text>
+            <Text bold color={theme.highlight}>
+              AUTOCOMPLETE
+            </Text>
             <Text color={theme.dim}>{filteredFiles.length} matches</Text>
           </Box>
           <Box flexDirection="column" marginTop={0}>
             {filteredFiles.map((f, i) => (
               <Box key={f} gap={2}>
-                <Text color={i === selectedFileIndex ? theme.highlight : theme.dim} bold={i === selectedFileIndex}>
+                <Text
+                  color={i === selectedFileIndex ? theme.highlight : theme.dim}
+                  bold={i === selectedFileIndex}
+                >
                   {i === selectedFileIndex ? "❯" : " "} {f}
                 </Text>
               </Box>
@@ -825,30 +917,41 @@ export default function TerminalChatInput({
         </Box>
       )}
 
-      {filteredSlashCommands.length > 0 && input !== filteredSlashCommands[selectedSlashCommand]?.name && (
-        <Box 
-          flexDirection="column" 
-          borderStyle="bold" 
-          borderRight={false} 
-          borderTop={false} 
-          borderBottom={false} 
-          borderLeftColor={theme.highlight}
-          paddingLeft={2} 
-          marginTop={1}
-        >
-          <Box marginBottom={1}>
-            <Text bold color={theme.highlight}>COMMANDS</Text>
-          </Box>
-          {filteredSlashCommands.map((cmd, i) => (
-            <Box key={cmd.name} gap={2}>
-              <Text color={i === selectedSlashCommand ? theme.highlight : theme.dim} bold={i === selectedSlashCommand}>
-                {i === selectedSlashCommand ? "❯" : " "} {cmd.name.toUpperCase().padEnd(12)}
+      {filteredSlashCommands.length > 0 &&
+        input !== filteredSlashCommands[selectedSlashCommand]?.name && (
+          <Box
+            flexDirection="column"
+            borderStyle="bold"
+            borderRight={false}
+            borderTop={false}
+            borderBottom={false}
+            borderLeftColor={theme.highlight}
+            paddingLeft={2}
+            marginTop={1}
+          >
+            <Box marginBottom={1}>
+              <Text bold color={theme.highlight}>
+                COMMANDS
               </Text>
-              <Text color={theme.dim} italic={i !== selectedSlashCommand}>{cmd.description}</Text>
             </Box>
-          ))}
-        </Box>
-      )}
+            {filteredSlashCommands.map((cmd, i) => (
+              <Box key={cmd.name} gap={2}>
+                <Text
+                  color={
+                    i === selectedSlashCommand ? theme.highlight : theme.dim
+                  }
+                  bold={i === selectedSlashCommand}
+                >
+                  {i === selectedSlashCommand ? "❯" : " "}{" "}
+                  {cmd.name.toUpperCase().padEnd(12)}
+                </Text>
+                <Text color={theme.dim} italic={i !== selectedSlashCommand}>
+                  {cmd.description}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+        )}
       {loading && !confirmationPrompt && (
         <Box paddingLeft={1}>
           <TerminalChatInputThinking

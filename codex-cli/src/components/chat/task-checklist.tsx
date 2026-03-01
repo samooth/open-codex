@@ -10,12 +10,14 @@ type Props = {
 };
 
 const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
-  if (tasks.length === 0) {return null;}
+  if (tasks.length === 0) {
+    return null;
+  }
 
   return (
-    <Box 
-      flexDirection="column" 
-      paddingX={1} 
+    <Box
+      flexDirection="column"
+      paddingX={1}
       paddingY={0}
       borderStyle="bold"
       borderRight={false}
@@ -27,8 +29,12 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
       marginTop={1}
     >
       <Box gap={1} marginBottom={0}>
-        <Text bold color={theme.plan}>📋 ROADMAP</Text>
-        <Text dimColor italic>({tasks.filter(t => t.status === "done").length}/{tasks.length})</Text>
+        <Text bold color={theme.plan}>
+          📋 ROADMAP
+        </Text>
+        <Text dimColor italic>
+          ({tasks.filter((t) => t.status === "done").length}/{tasks.length})
+        </Text>
       </Box>
       <Box flexDirection="column" marginTop={0}>
         {tasks.map((task, i) => {
@@ -49,7 +55,7 @@ const TaskChecklist: React.FC<Props> = ({ tasks, theme }) => {
             <Box key={i} gap={1}>
               <Text color={color}>{icon}</Text>
               <Text color={color} bold={bold}>
-                {typeof task.label === "string" 
+                {typeof task.label === "string"
                   ? task.label.toUpperCase()
                   : JSON.stringify(task.label).toUpperCase()}
               </Text>

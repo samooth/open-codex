@@ -776,11 +776,17 @@ export default class TextBuffer {
     } else if (key["downArrow"]) {
       this.move("down");
     } else if (key["leftArrow"]) {
-      if (key["meta"] || key["ctrl"] || key["alt"]) {this.move("wordLeft");}
-      else {this.move("left");}
+      if (key["meta"] || key["ctrl"] || key["alt"]) {
+        this.move("wordLeft");
+      } else {
+        this.move("left");
+      }
     } else if (key["rightArrow"]) {
-      if (key["meta"] || key["ctrl"] || key["alt"]) {this.move("wordRight");}
-      else {this.move("right");}
+      if (key["meta"] || key["ctrl"] || key["alt"]) {
+        this.move("wordRight");
+      } else {
+        this.move("right");
+      }
     } else if (key["home"]) {
       this.move("home");
     } else if (key["end"]) {
@@ -788,12 +794,19 @@ export default class TextBuffer {
     }
     // 2. Deletion
     else if (key["backspace"] || input === "\x7f") {
-      if (key["meta"] || key["ctrl"] || key["alt"]) {this.deleteWordLeft();}
-      else {this.backspace();}
+      if (key["meta"] || key["ctrl"] || key["alt"]) {
+        this.deleteWordLeft();
+      } else {
+        this.backspace();
+      }
     } else if (key["delete"]) {
-      if (key["meta"] || key["ctrl"] || key["alt"]) {this.deleteWordRight();}
-      else if (key["shift"]) {this.del();}
-      else {this.backspace();} // standard Mac behavior: delete is backspace
+      if (key["meta"] || key["ctrl"] || key["alt"]) {
+        this.deleteWordRight();
+      } else if (key["shift"]) {
+        this.del();
+      } else {
+        this.backspace();
+      } // standard Mac behavior: delete is backspace
     }
     // 3. Insertion
     else if (input && !key["ctrl"] && !key["meta"]) {

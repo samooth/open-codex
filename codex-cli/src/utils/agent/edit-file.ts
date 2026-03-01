@@ -25,22 +25,22 @@ export function applyEdits(filePath: string, edits: Array<Edit>): EditResult {
   let newContent = content;
   for (const edit of edits) {
     const { search, replace } = edit;
-    
+
     // Exact match check
     if (!newContent.includes(search)) {
-      return { 
-        success: false, 
-        error: `Could not find exact match for search block in ${filePath}. Ensure whitespace and indentation match exactly.` 
+      return {
+        success: false,
+        error: `Could not find exact match for search block in ${filePath}. Ensure whitespace and indentation match exactly.`,
       };
     }
 
     // Check for multiple matches to avoid ambiguity
     const occurrences = newContent.split(search).length - 1;
     if (occurrences > 1) {
-       return {
-         success: false,
-         error: `Multiple occurrences of search block found in ${filePath}. Provide more context to make it unique.`
-       };
+      return {
+        success: false,
+        error: `Multiple occurrences of search block found in ${filePath}. Provide more context to make it unique.`,
+      };
     }
 
     newContent = newContent.replace(search, replace);
@@ -55,15 +55,19 @@ export function applyEdits(filePath: string, edits: Array<Edit>): EditResult {
   // Convert standard diff to OpenCodex format for the UI
   const diffLines = standardDiff.split("\n");
   const codexDiffLines = ["*** Begin Patch", `*** Update File: ${filePath}`];
-  
+
   let startedHunks = false;
   for (const line of diffLines) {
     if (line.startsWith("@@")) {
       startedHunks = true;
       codexDiffLines.push(line);
     } else if (startedHunks) {
-      if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\ No newline")) {
-         continue;
+      if (
+        line.startsWith("---") ||
+        line.startsWith("+++") ||
+        line.startsWith("\\ No newline")
+      ) {
+        continue;
       }
       codexDiffLines.push(line);
     }
@@ -81,10 +85,12 @@ export function applyEdits(filePath: string, edits: Array<Edit>): EditResult {
 export function formatStyledDiff(diff: string): string {
   const lines = diff.split("\n");
   let output = "";
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line === undefined) {continue;}
+    if (line === undefined) {
+      continue;
+    }
 
     if (line.startsWith("+") && !line.startsWith("+++")) {
       output += chalk.green(line) + "\n";
@@ -96,6 +102,6 @@ export function formatStyledDiff(diff: string): string {
       output += line + "\n";
     }
   }
-  
+
   return output;
 }

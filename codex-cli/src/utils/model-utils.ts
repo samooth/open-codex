@@ -18,51 +18,56 @@ export const RECOMMENDED_MODELS: Array<string> = ["o4-mini", "o3"];
 const modelsCache = new Map<string, Promise<Array<string>>>();
 
 async function fetchWithRetry(
-	url: string,
-	options: RequestInit,
-	retries = 3,
-	delay = 1000,
+  url: string,
+  options: RequestInit,
+  retries = 3,
+  delay = 1000,
 ): Promise<Response> {
-	for (let i = 0; i < retries; i++) {
-		try {
-			const response = await fetch(url, options);
-			if (response.ok) {
-				return response;
-			}
-		} catch (error: any) {
-			if (error.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' || error.cause?.code === 'EPIPE') {
-				if (i < retries - 1) {
-					await new Promise((resolve) => setTimeout(resolve, delay));
-				} else {
-					throw error;
-				}
-			} else {
-				throw error;
-			}
-		}
-	}
-	throw new Error('Failed to fetch after multiple retries');
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) {
+        return response;
+      }
+    } catch (error: any) {
+      if (
+        error.cause?.code === "UND_ERR_CONNECT_TIMEOUT" ||
+        error.cause?.code === "EPIPE"
+      ) {
+        if (i < retries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error("Failed to fetch after multiple retries");
 }
 
 async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
   try {
     const genAI = new GoogleGenAI({ apiKey: config.apiKey || "" });
     const modelList: Array<any> = [];
-    
+
     // Exact code provided by user
-    const result = await (genAI as any).models.list(); 
+    const result = await (genAI as any).models.list();
     for await (const model of result) {
       modelList.push(model);
     }
-    const devModels=new Set(modelList
-      .filter((m: any) => {
-        // 1. MUST be able to generate text (Chat)
-        const canChat = m.supportedGenerationMethods?.includes("generateContent");
-        // 2. REMOVE legacy models (Gemini is better for coding)
-        const isModern = m.name?.toLowerCase().includes("gemini");
-        return m && m.name && canChat && isModern;
-      })
-      .map((m: any) => m.name.replace("models/", ""))
+    const devModels = new Set(
+      modelList
+        .filter((m: any) => {
+          // 1. MUST be able to generate text (Chat)
+          const canChat =
+            m.supportedGenerationMethods?.includes("generateContent");
+          // 2. REMOVE legacy models (Gemini is better for coding)
+          const isModern = m.name?.toLowerCase().includes("gemini");
+          return m && m.name && canChat && isModern;
+        })
+        .map((m: any) => m.name.replace("models/", "")),
     );
     return Array.from(devModels).sort();
   } catch (error) {
@@ -74,14 +79,18 @@ async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const resp = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1/models?key=${config.apiKey}`, {
-          signal: controller.signal
-        });
+        const resp = await fetchWithRetry(
+          `https://generativelanguage.googleapis.com/v1/models?key=${config.apiKey}`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (resp.ok) {
-          const data = await resp.json() as any;
+          const data = (await resp.json()) as any;
           return (data.models || [])
             .filter((m: any) => {
-              const canChat = m.supportedGenerationMethods?.includes("generateContent");
+              const canChat =
+                m.supportedGenerationMethods?.includes("generateContent");
               const isModern = m.name?.toLowerCase().includes("gemini");
               return m && m.name && canChat && isModern;
             })
@@ -91,12 +100,16 @@ async function fetchGoogleModels(config: AppConfig): Promise<Array<string>> {
       } finally {
         clearTimeout(timeoutId);
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
     return [];
   }
 }
 
-async function fetchHuggingFaceModels(config: AppConfig): Promise<Array<string>> {
+async function fetchHuggingFaceModels(
+  config: AppConfig,
+): Promise<Array<string>> {
   const models: Array<string> = [];
   try {
     for await (const model of listModels({
@@ -134,9 +147,7 @@ async function fetchAnthropicModels(config: AppConfig): Promise<Array<string>> {
       });
       if (resp.ok) {
         const data = (await resp.json()) as any;
-        return (data.data || [])
-          .map((m: any) => m.id)
-          .sort();
+        return (data.data || []).map((m: any) => m.id).sort();
       }
     } finally {
       clearTimeout(timeoutId);
@@ -146,7 +157,7 @@ async function fetchAnthropicModels(config: AppConfig): Promise<Array<string>> {
       log(`[codex] Anthropic models.list() failed: ${error}`);
     }
   }
-  
+
   // Fallback to known models if dynamic fetch fails
   return [
     "claude-opus-4-6",
@@ -165,7 +176,9 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
   }
 
   if (isLoggingEnabled()) {
-    log(`[codex] Fetching models for provider: ${config.provider} (${config.baseURL})`);
+    log(
+      `[codex] Fetching models for provider: ${config.provider} (${config.baseURL})`,
+    );
   }
 
   if (config.provider === "hf") {
@@ -213,7 +226,9 @@ async function fetchModels(config: AppConfig): Promise<Array<string>> {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetchWithRetry(tagsUrl, { signal: controller.signal });
+        const response = await fetchWithRetry(tagsUrl, {
+          signal: controller.signal,
+        });
         if (response.ok) {
           const data = (await response.json()) as {
             models: Array<{ name: string }>;
@@ -315,9 +330,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
           )} for OpenRouter models\n`;
         case "gemini":
         case "google":
-          return `- ${chalk.bold(
-            "GEMINI_API_KEY",
-          )} for Google Gemini models\n`;
+          return `- ${chalk.bold("GEMINI_API_KEY")} for Google Gemini models\n`;
         case "xai":
           return `- ${chalk.bold("XAI_API_KEY")} for xAI models\n`;
         case "deepseek":
@@ -330,9 +343,7 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
               `- ${chalk.bold("OPENAI_API_KEY")} for OpenAI models`,
               `- ${chalk.bold("ANTHROPIC_API_KEY")} for Anthropic models`,
               `- ${chalk.bold("OPENROUTER_API_KEY")} for OpenRouter models`,
-              `- ${chalk.bold(
-                "GEMINI_API_KEY",
-              )} for Google Gemini models`,
+              `- ${chalk.bold("GEMINI_API_KEY")} for Google Gemini models`,
               `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
               `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,
               `- ${chalk.bold("HF_API_KEY")} for Hugging Face models`,

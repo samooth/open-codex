@@ -163,7 +163,8 @@ function DirectoryInfo({
             <Text color={theme.highlight}>↳</Text>{" "}
             <Text bold>Context structure:</Text>{" "}
             <Text dimColor>
-              Hidden. Type <Text color={theme.highlight}>/context</Text> to show it.
+              Hidden. Type <Text color={theme.highlight}>/context</Text> to show
+              it.
             </Text>
           </Text>
         )}
@@ -656,7 +657,11 @@ export function SinglePassApp({
   if (state === "confirm") {
     return (
       <Box flexDirection="column">
-        <SummaryAndDiffs summary={diffInfo.summary} diffs={diffInfo.diffs} theme={theme} />
+        <SummaryAndDiffs
+          summary={diffInfo.summary}
+          diffs={diffInfo.diffs}
+          theme={theme}
+        />
         <ConfirmationPrompt
           message="Apply these changes?"
           onResult={(accept) => {

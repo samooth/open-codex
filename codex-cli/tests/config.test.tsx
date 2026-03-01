@@ -51,7 +51,8 @@ beforeEach(() => {
 
   // Isolate environment variables
   vi.stubEnv("OPENAI_API_KEY", "test-api-key");
-      vi.stubEnv("GEMINI_API_KEY", "");  vi.stubEnv("OPENROUTER_API_KEY", "");
+  vi.stubEnv("GEMINI_API_KEY", "");
+  vi.stubEnv("OPENROUTER_API_KEY", "");
   vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv("DS_API_KEY", "");
   vi.stubEnv("HF_API_KEY", "");
@@ -65,6 +66,32 @@ test("loads default config if files don't exist", () => {
   const config = loadConfig(testConfigPath, testInstructionsPath, {
     disableProjectDoc: true,
     forceApiKeyForTest: "test-api-key",
+  });
+  console.log("actual", config);
+  console.log("expected", {
+    model: "o4-mini",
+    baseURL: "https://api.openai.com/v1",
+    instructions: "",
+    provider: "openai",
+    apiKey: "test-api-key",
+    enableWebSearch: true,
+    enableDeepThinking: false,
+    skipSemanticMemory: false,
+    embeddingModel: undefined,
+    approvalMode: undefined,
+    fullAutoErrorMode: undefined,
+    memory: undefined,
+    pinnedFiles: [],
+    providers: undefined,
+    theme: undefined,
+    searxngUrl: undefined,
+    serpApiKey: undefined,
+    webSearchUrl: undefined,
+    editorCommand: undefined,
+    enableSmartContext: true,
+    enableDeepLinter: false,
+    contextSize: undefined,
+    refreshSystemPrompt: true,
   });
   expect(config).toEqual({
     model: "o4-mini",
@@ -89,6 +116,7 @@ test("loads default config if files don't exist", () => {
     enableSmartContext: true,
     enableDeepLinter: false,
     contextSize: undefined,
+    refreshSystemPrompt: true,
   });
 });
 
@@ -116,6 +144,7 @@ test("saves and loads config correctly", () => {
     enableSmartContext: true,
     enableDeepLinter: false,
     contextSize: undefined,
+    refreshSystemPrompt: true,
   };
   saveConfig(testConfig, testConfigPath, testInstructionsPath);
 
@@ -212,9 +241,9 @@ test("saves and loads serpApiKey correctly", () => {
     forceApiKeyForTest: "test-api-key",
   });
   testConfig.serpApiKey = "test-serp-key";
-  
+
   saveConfig(testConfig, testConfigPath, testInstructionsPath);
-  
+
   const loadedConfig = loadConfig(testConfigPath, testInstructionsPath, {
     disableProjectDoc: true,
     forceApiKeyForTest: "test-api-key",

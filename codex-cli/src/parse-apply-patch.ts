@@ -106,7 +106,7 @@ export function parseApplyPatch(patch: string): Array<ApplyPatchOp> | null {
         ? line.slice(HUNK_ADD_LINE_PREFIX.length)
         : line;
       lastOp.content = appendLine(lastOp.content, contentLine);
-      
+
       if (lastOp.hunks.length > 0) {
         lastOp.hunks[lastOp.hunks.length - 1]!.lines.push(line);
         if (line.startsWith(HUNK_ADD_LINE_PREFIX)) {

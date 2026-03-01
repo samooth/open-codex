@@ -26,17 +26,17 @@ export function mapOpenAiToGoogleMessages(
           text: assistant.reasoning_content,
           thought: true,
           // Propagate thought signature to the reasoning part if available
-          ...(thoughtSignature ? { thoughtSignature } : {})
+          ...(thoughtSignature ? { thoughtSignature } : {}),
         });
       }
 
       if (msg.content && typeof msg.content === "string") {
-        parts.push({ 
+        parts.push({
           text: msg.content,
-          ...(thoughtSignature ? { thoughtSignature } : {})
+          ...(thoughtSignature ? { thoughtSignature } : {}),
         });
       }
-      
+
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls as Array<any>) {
           let args = {};
@@ -51,9 +51,11 @@ export function mapOpenAiToGoogleMessages(
               args,
             },
             // The thoughtSignature must be at the Part level, alongside functionCall.
-            ...(tc.thought_signature || thoughtSignature ? { 
-              thoughtSignature: tc.thought_signature || thoughtSignature 
-            } : {}),
+            ...(tc.thought_signature || thoughtSignature
+              ? {
+                  thoughtSignature: tc.thought_signature || thoughtSignature,
+                }
+              : {}),
           });
         }
       }
@@ -98,7 +100,9 @@ export function mapOpenAiToGoogleMessages(
           response,
         },
         // If the tool message has a thought_signature, or we found one earlier, include it.
-        ...((msg as any).thought_signature ? { thoughtSignature: (msg as any).thought_signature } : {}),
+        ...((msg as any).thought_signature
+          ? { thoughtSignature: (msg as any).thought_signature }
+          : {}),
       });
     }
 
@@ -115,7 +119,10 @@ export function mapOpenAiToGoogleMessages(
   return { contents, systemInstruction };
 }
 
-export function mapOpenAiToGoogleTools(openAiTools: Array<any>, sanitizeFn: (name: string) => string): Array<any> {
+export function mapOpenAiToGoogleTools(
+  openAiTools: Array<any>,
+  sanitizeFn: (name: string) => string,
+): Array<any> {
   const functionDeclarations: Array<any> = [];
 
   for (const tool of openAiTools) {
@@ -128,12 +135,12 @@ export function mapOpenAiToGoogleTools(openAiTools: Array<any>, sanitizeFn: (nam
     }
   }
 
-  return functionDeclarations.length > 0
-    ? [{ functionDeclarations }]
-    : [];
+  return functionDeclarations.length > 0 ? [{ functionDeclarations }] : [];
 }
 
-export async function* googleToOpenAiStream(googleStream: any): AsyncGenerator<any> {
+export async function* googleToOpenAiStream(
+  googleStream: any,
+): AsyncGenerator<any> {
   let first = true;
   let lastThoughtSignature: string | undefined = undefined;
   for await (const chunk of googleStream) {
@@ -169,7 +176,9 @@ export async function* googleToOpenAiStream(googleStream: any): AsyncGenerator<a
             arguments: JSON.stringify(part.functionCall.args),
           },
           // Ensure thought_signature is attached to the tool call delta if available
-          ...(lastThoughtSignature ? { thought_signature: lastThoughtSignature } : {}),
+          ...(lastThoughtSignature
+            ? { thought_signature: lastThoughtSignature }
+            : {}),
         });
       }
     }

@@ -26,18 +26,24 @@ export default function TypeaheadOverlay<T>({
 
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase();
-    if (!q) {return items;}
-    return items.filter(item => 
-      item.label.toLowerCase().includes(q) || 
-      (item.description && item.description.toLowerCase().includes(q))
+    if (!q) {
+      return items;
+    }
+    return items.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)),
     );
   }, [items, query]);
 
-  useInput((_input, key) => {
-    if (key.escape) {
-      onExit();
-    }
-  }, { isActive: true });
+  useInput(
+    (_input, key) => {
+      if (key.escape) {
+        onExit();
+      }
+    },
+    { isActive: true },
+  );
 
   const handleSelect = (item: { value: T }) => {
     onSelect(item.value);
@@ -57,21 +63,28 @@ export default function TypeaheadOverlay<T>({
     >
       <Box paddingX={1} marginBottom={1} gap={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> {title.toUpperCase()} </Text>
+          <Text bold color="black">
+            {" "}
+            {title.toUpperCase()}{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>SEARCH AND SELECT</Text>
+        <Text color={theme.highlight} bold>
+          SEARCH AND SELECT
+        </Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>FIND: </Text>
+          <Text color={theme.highlight} bold>
+            FIND:{" "}
+          </Text>
           <TextInput
             value={query}
             onChange={setQuery}
             placeholder="Type to filter..."
           />
         </Box>
-        
+
         {filteredItems.length > 0 ? (
           <SelectInput
             items={filteredItems}
@@ -80,21 +93,25 @@ export default function TypeaheadOverlay<T>({
             isFocused={true}
           />
         ) : (
-          <Text color={theme.warning} italic>No matches found.</Text>
+          <Text color={theme.warning} italic>
+            No matches found.
+          </Text>
         )}
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>↑↓ navigate │ enter execute │ esc close</Text>
+        <Text dimColor italic>
+          ↑↓ navigate │ enter execute │ esc close
+        </Text>
       </Box>
     </Box>
   );

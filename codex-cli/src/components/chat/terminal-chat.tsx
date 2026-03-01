@@ -3,9 +3,8 @@ import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Task } from "../../utils/agent/types.js";
-import type { AppConfig } from "../../utils/config.js";
 import type { ColorName } from "chalk";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import type { ExtendedChatCompletionMessageParam, MessageStatus } from "../../app";
 
 import TaskChecklist from "./task-checklist.js";
 import TerminalChatInput from "./terminal-chat-input.js";
@@ -16,6 +15,7 @@ import {
 } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
 import TerminalStatusBar from "./terminal-status-bar.js";
+import { useAppContext } from "../../contexts/app-context.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
@@ -27,7 +27,10 @@ import { listAllFiles } from "../../utils/list-all-files.js";
 import { recipes } from "../../utils/recipes.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
-import { saveRollout, undoLastChange } from "../../utils/storage/save-rollout.js";
+import {
+  saveRollout,
+  undoLastChange,
+} from "../../utils/storage/save-rollout.js";
 import { clearTerminal, setTerminalTitle, beep } from "../../utils/terminal.js";
 import { getTheme } from "../../utils/theme.js";
 import { saveConfig } from "../../utils/config.js";
@@ -55,13 +58,15 @@ import { useInterval } from "use-interval";
 import { inspect } from "util";
 
 type Props = {
-  config: AppConfig;
   prompt?: string;
   imagePaths?: Array<string>;
-  rollout?: { items: Array<ChatCompletionMessageParam>; session: any };
+  rollout?: { items: Array<ExtendedChatCompletionMessageParam>; session: any };
   approvalPolicy: ApprovalPolicy;
   fullStdout: boolean;
-  onShutdown?: (model: string, items: Array<ChatCompletionMessageParam>) => void;
+  onShutdown?: (
+    model: string,
+    items: Array<ExtendedChatCompletionMessageParam>,
+  ) => void;
 };
 
 const colorsByPolicy: Record<ApprovalPolicy, ColorName | undefined> = {
@@ -71,7 +76,6 @@ const colorsByPolicy: Record<ApprovalPolicy, ColorName | undefined> = {
 };
 
 export default function TerminalChat({
-  config: initialConfig,
   prompt: _initialPrompt,
   imagePaths: _initialImagePaths,
   rollout: initialRollout,
@@ -79,16 +83,22 @@ export default function TerminalChat({
   fullStdout,
   onShutdown,
 }: Props): React.ReactElement {
-  const [config, setConfig] = useState<AppConfig>(initialConfig);
+  const { config, setConfig, overlayMode, openOverlay, closeOverlay } =
+    useAppContext();
   const [model, setModel] = useState<string>(config.model);
-  const [prevItems, setPrevItems] = useState<Array<ChatCompletionMessageParam>>(
+  const [prevItems, setPrevItems] = useState<Array<ExtendedChatCompletionMessageParam>>(
     initialRollout?.items || [],
   );
-  const [items, setItems] = useState<Array<ChatCompletionMessageParam>>(
+  const [items, setItems] = useState<Array<ExtendedChatCompletionMessageParam>>(
     initialRollout?.items || [],
   );
   const [tasks, setTasks] = useState<Array<Task>>([]);
-  const [indexingStatus, setIndexingStatus] = useState<{ indexing: boolean; current?: number; total?: number; file?: string }>({ indexing: false });
+  const [indexingStatus, setIndexingStatus] = useState<{
+    indexing: boolean;
+    current?: number;
+    total?: number;
+    file?: string;
+  }>({ indexing: false });
   const [shellFocused, setShellFocused] = useState(false);
   const [allFiles, setAllFiles] = useState<Array<string>>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -97,10 +107,16 @@ export default function TerminalChat({
     initialApprovalPolicy,
   );
 
-  const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(undefined);
+  const [lastFileAccess, setLastFileAccess] = useState<string | undefined>(
+    undefined,
+  );
   const fileAccessCounts = React.useRef<Record<string, number>>({});
-  const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(undefined);
-  const [pendingPinAction, setPendingPinAction] = useState<'pin' | 'unpin' | null>(null);
+  const [lastCodeBlock, setLastCodeBlock] = useState<string | undefined>(
+    undefined,
+  );
+  const [pendingPinAction, setPendingPinAction] = useState<
+    "pin" | "unpin" | null
+  >(null);
 
   useEffect(() => {
     // Fetch all files once on mount to avoid blocking UI during chat
@@ -108,7 +124,7 @@ export default function TerminalChat({
       setAllFiles(listAllFiles());
     }, 100);
   }, []);
-  
+
   // Use a ref for incoming partial data to avoid re-rendering TerminalChat on every chunk.
   // We only re-render when the throttled "rendered" state is updated via useInterval.
   const partialDataRef = React.useRef({
@@ -128,31 +144,50 @@ export default function TerminalChat({
     activeBlockType: undefined as "thought" | "think" | "plan" | undefined,
   });
 
-  useInterval(() => {
-    if (
-      renderedPartialData.content !== partialDataRef.current.content ||
-      renderedPartialData.reasoning !== partialDataRef.current.reasoning ||
-      renderedPartialData.activeToolName !== partialDataRef.current.activeToolName ||
-      !isEqual(renderedPartialData.activeToolArguments, partialDataRef.current.activeToolArguments) ||
-      renderedPartialData.activeBlockType !== partialDataRef.current.activeBlockType
-    ) {
-      setRenderedPartialData({ ...partialDataRef.current });
-    }
-  }, loading ? 400 : null);
+  useInterval(
+    () => {
+      if (
+        renderedPartialData.content !== partialDataRef.current.content ||
+        renderedPartialData.reasoning !== partialDataRef.current.reasoning ||
+        renderedPartialData.activeToolName !==
+          partialDataRef.current.activeToolName ||
+        !isEqual(
+          renderedPartialData.activeToolArguments,
+          partialDataRef.current.activeToolArguments,
+        ) ||
+        renderedPartialData.activeBlockType !==
+          partialDataRef.current.activeBlockType
+      ) {
+        setRenderedPartialData({ ...partialDataRef.current });
+      }
+    },
+    loading ? 400 : null,
+  );
 
   const [promptQueue, setPromptQueue] = useState<
-    Array<{ inputs: Array<ChatCompletionMessageParam>; prevItems: Array<ChatCompletionMessageParam> }>
+    Array<{
+      inputs: Array<ChatCompletionMessageParam>;
+      prevItems: Array<ChatCompletionMessageParam>;
+    }>
   >([]);
 
   const queuedInputText = useMemo(() => {
-    if (promptQueue.length === 0) {return "";}
+    if (promptQueue.length === 0) {
+      return "";
+    }
     const firstTurn = promptQueue[0];
-    if (!firstTurn) {return "";}
+    if (!firstTurn) {
+      return "";
+    }
     return firstTurn.inputs
-      .map(item => {
-        if (typeof item.content === "string") {return item.content;}
+      .map((item) => {
+        if (typeof item.content === "string") {
+          return item.content;
+        }
         if (Array.isArray(item.content)) {
-          return item.content.map(c => ("text" in c ? c.text : "")).join("\n");
+          return item.content
+            .map((c) => ("text" in c ? c.text : ""))
+            .join("\n");
         }
         return "";
       })
@@ -168,10 +203,6 @@ export default function TerminalChat({
   const { requestConfirmation, confirmationPrompt, submitConfirmation } =
     useConfirmation();
 
-  const [overlayMode, setOverlayMode] = useState<
-    "none" | "history" | "model" | "approval" | "help" | "config" | "prompt" | "memory" | "prompts" | "history-select" | "theme" | "recipes" | "palette" | "search-url-searxng" | "search-url-generic" | "serp-api-key" | "editor" | "commands"
-  >("none");
-
   const [initialPrompt, setInitialPrompt] = useState(_initialPrompt);
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
@@ -185,7 +216,8 @@ export default function TerminalChat({
   const handlePin = (path: string) => {
     if (config.pinnedFiles?.includes(path)) {
       setItems((prev) => [
-        ...prev, { role: "assistant", content: `File is already pinned: ${path}` },
+        ...prev,
+        { role: "assistant", content: `File is already pinned: ${path}` },
       ]);
       return;
     }
@@ -194,15 +226,17 @@ export default function TerminalChat({
       pinnedFiles: [...new Set([...(prev.pinnedFiles || []), path])],
     }));
     setItems((prev) => [
-      ...prev, { role: "assistant", content: `Pinned file: ${path}` },
+      ...prev,
+      { role: "assistant", content: `Pinned file: ${path}` },
     ]);
-    setPendingPinAction('pin');
+    setPendingPinAction("pin");
   };
 
   const handleUnpin = (path: string) => {
     if (!config.pinnedFiles?.includes(path)) {
       setItems((prev) => [
-        ...prev, { role: "assistant", content: `File is not pinned: ${path}` },
+        ...prev,
+        { role: "assistant", content: `File is not pinned: ${path}` },
       ]);
       return;
     }
@@ -211,37 +245,44 @@ export default function TerminalChat({
       pinnedFiles: (prev.pinnedFiles || []).filter((f) => f !== path),
     }));
     setItems((prev) => [
-      ...prev, { role: "assistant", content: `Unpinned file: ${path}` },
+      ...prev,
+      { role: "assistant", content: `Unpinned file: ${path}` },
     ]);
-    setPendingPinAction('unpin');
+    setPendingPinAction("unpin");
   };
 
   const handleUndo = async () => {
-    if (!agent) {return;}
+    if (!agent) {
+      return;
+    }
     setLoading(true);
     const result = await undoLastChange(
       agent.sessionId,
       (p, c) => fs.writeFileSync(p, c, "utf-8"),
-      (p) => { if (fs.existsSync(p)) {fs.unlinkSync(p);} }
+      (p) => {
+        if (fs.existsSync(p)) {
+          fs.unlinkSync(p);
+        }
+      },
     );
-    
+
     if (result.success) {
       setItems(result.items);
       setPrevItems(result.items);
-      setItems(prev => [
+      setItems((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `🔄 ${result.message}`
-        }
+          content: `🔄 ${result.message}`,
+        },
       ]);
     } else {
-      setItems(prev => [
+      setItems((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `⚠️ ${result.message}`
-        }
+          content: `⚠️ ${result.message}`,
+        },
       ]);
     }
     setLoading(false);
@@ -254,11 +295,11 @@ export default function TerminalChat({
         typeof lastItem.content === "string"
           ? lastItem.content
           : Array.isArray(lastItem.content)
-          ? lastItem.content
-              .map((c) => (c.type === "text" ? (c as any).text : ""))
-              .join("")
-          : "";
-      
+            ? lastItem.content
+                .map((c) => (c.type === "text" ? (c as any).text : ""))
+                .join("")
+            : "";
+
       return detectInteraction(content);
     }
     return null;
@@ -281,7 +322,12 @@ export default function TerminalChat({
       }
     }
     setTerminalTitle(title);
-  }, [loading, awaitingContinueConfirmation, confirmationPrompt, renderedPartialData.activeToolName]);
+  }, [
+    loading,
+    awaitingContinueConfirmation,
+    confirmationPrompt,
+    renderedPartialData.activeToolName,
+  ]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
 
@@ -334,12 +380,12 @@ export default function TerminalChat({
       },
       onFileAccess: (path) => {
         setLastFileAccess(path);
-        
+
         // Smart Context: Track access frequency and auto-pin
         if (config.enableSmartContext) {
           const count = (fileAccessCounts.current[path] || 0) + 1;
           fileAccessCounts.current[path] = count;
-          
+
           if (count >= 3 && !(config.pinnedFiles || []).includes(path)) {
             setConfig((prev) => ({
               ...prev,
@@ -355,7 +401,12 @@ export default function TerminalChat({
           }
         }
       },
-      onPartialUpdate: (content: string, reasoning?: string, activeToolName?: string, activeToolArguments?: Record<string, any>) => {
+      onPartialUpdate: (
+        content: string,
+        reasoning?: string,
+        activeToolName?: string,
+        activeToolArguments?: Record<string, any>,
+      ) => {
         partialDataRef.current.content = content;
         if (reasoning) {
           if (activeToolName) {
@@ -365,9 +416,14 @@ export default function TerminalChat({
           }
         } else if (content) {
           // Check if we are currently inside an unclosed thought/plan block
-          const openTagMatch = content.match(/<(thought|think|plan)>(?![\s\S]*<\/\1>)([\s\S]*?)$/i);
+          const openTagMatch = content.match(
+            /<(thought|think|plan)>(?![\s\S]*<\/\1>)([\s\S]*?)$/i,
+          );
           if (openTagMatch) {
-            const type = openTagMatch[1]!.toLowerCase() as "thought" | "think" | "plan";
+            const type = openTagMatch[1]!.toLowerCase() as
+              | "thought"
+              | "think"
+              | "plan";
             partialDataRef.current.activeBlockType = type;
             partialDataRef.current.reasoning = openTagMatch[2]!.trim();
           } else {
@@ -378,6 +434,34 @@ export default function TerminalChat({
         }
         partialDataRef.current.activeToolName = activeToolName;
         partialDataRef.current.activeToolArguments = activeToolArguments;
+
+        // Set status to 'running' for tool calls being streamed
+        if (activeToolName) {
+          setItems((prev) => {
+            const lastItem = prev[prev.length - 1];
+            if (
+              lastItem &&
+              lastItem.role === "assistant" &&
+              lastItem.tool_calls &&
+              lastItem.tool_calls.length > 0
+            ) {
+              // Update the status of the *last* tool call in the *last* assistant message
+              // This assumes that streaming updates are always for the most recent tool call
+              const updatedToolCalls = lastItem.tool_calls.map((tc) => ({
+                ...tc,
+                status: 'running',
+              }));
+              return [
+                ...prev.slice(0, prev.length - 1),
+                {
+                  ...lastItem,
+                  tool_calls: updatedToolCalls,
+                } as ExtendedChatCompletionMessageParam,
+              ];
+            }
+            return prev;
+          });
+        }
       },
       onItem: (item: ChatCompletionMessageParam) => {
         log(`onItem: ${JSON.stringify(item)}`);
@@ -392,13 +476,37 @@ export default function TerminalChat({
         setRenderedPartialData({ ...partialDataRef.current });
 
         setItems((prev) => {
+          let newItem: ExtendedChatCompletionMessageParam = item;
+          if (item.role === "tool" && !("tool_calls" in item)) {
+            const parsedOutput = parseToolCallOutput(item.content as string);
+            newItem = {
+              ...item,
+              status: parsedOutput.metadata?.exit_code === 0 ? 'success' : 'failure',
+            } as ExtendedChatCompletionMessageParam;
+          } else if (item.role === "assistant" && item.tool_calls) {
+            // Mark all tool calls within this assistant message as running initially
+            newItem = {
+              ...item,
+              tool_calls: item.tool_calls.map((tc) => ({
+                ...tc,
+                status: 'running',
+              })),
+            } as ExtendedChatCompletionMessageParam;
+          }
+
           // Extract code blocks if this is an assistant message
           if (item.role === "assistant") {
-            const content = typeof item.content === "string" ? item.content : "";
-            const codeMatches = content.match(/```(?:\w+)?\n([\s\S]*?)(?:```|$)/g);
+            const content =
+              typeof item.content === "string" ? item.content : "";
+            const codeMatches = content.match(
+              /```(?:\w+)?\n([\s\S]*?)(?:```|$)/g,
+            );
             if (codeMatches && codeMatches.length > 0) {
               const last = codeMatches[codeMatches.length - 1]!;
-              const code = last.replace(/```(?:\w+)?\n/, "").replace(/```$/, "").trim();
+              const code = last
+                .replace(/```(?:\w+)?\n/, "")
+                .replace(/```$/, "")
+                .trim();
               setLastCodeBlock(code);
             }
           }
@@ -411,14 +519,18 @@ export default function TerminalChat({
                 let existingIndex = -1;
                 for (let i = prev.length - 1; i >= 0; i--) {
                   const itemAt = prev[i];
-                  if (itemAt?.role === "tool" && "tool_call_id" in itemAt && itemAt.tool_call_id === item.tool_call_id) {
+                  if (
+                    itemAt?.role === "tool" &&
+                    "tool_call_id" in itemAt &&
+                    itemAt.tool_call_id === item.tool_call_id
+                  ) {
                     existingIndex = i;
                     break;
                   }
                 }
                 if (existingIndex !== -1) {
                   const updated = [...prev];
-                  updated[existingIndex] = item;
+                  updated[existingIndex] = newItem;
                   return updated;
                 }
               }
@@ -427,7 +539,7 @@ export default function TerminalChat({
             }
           }
 
-          const updated = [...prev, item];
+          const updated = [...prev, newItem];
           saveRollout(updated);
           return updated;
         });
@@ -440,7 +552,11 @@ export default function TerminalChat({
                 let existingIndex = -1;
                 for (let i = prev.length - 1; i >= 0; i--) {
                   const itemAt = prev[i];
-                  if (itemAt?.role === "tool" && "tool_call_id" in itemAt && itemAt.tool_call_id === item.tool_call_id) {
+                  if (
+                    itemAt?.role === "tool" &&
+                    "tool_call_id" in itemAt &&
+                    itemAt.tool_call_id === item.tool_call_id
+                  ) {
                     existingIndex = i;
                     break;
                   }
@@ -455,7 +571,7 @@ export default function TerminalChat({
               /* ignore parse errors */
             }
           }
-          return [...prev, item];
+          return [...prev, newItem];
         });
       },
       onLoading: (isLoading: boolean) => {
@@ -477,19 +593,26 @@ export default function TerminalChat({
       ): Promise<CommandConfirmation> => {
         log(`getCommandConfirmation: ${command}`);
         const commandForDisplay = formatCommandForDisplay(command);
-        
+
         // Attach the patch to the request function so it can be passed to the overlay
         (requestConfirmation as any)._pendingApplyPatch = applyPatch;
 
-        const { decision: review, customDenyMessage, updatedApplyPatch } =
-          await requestConfirmation(
-            <TerminalChatToolCallCommand
-              commandForDisplay={commandForDisplay}
-              applyPatch={applyPatch}
-              theme={activeTheme}
-            />,
-          );
-        return { review, customDenyMessage, applyPatch: updatedApplyPatch || applyPatch };
+        const {
+          decision: review,
+          customDenyMessage,
+          updatedApplyPatch,
+        } = await requestConfirmation(
+          <TerminalChatToolCallCommand
+            commandForDisplay={commandForDisplay}
+            applyPatch={applyPatch}
+            theme={activeTheme}
+          />,
+        );
+        return {
+          review,
+          customDenyMessage,
+          applyPatch: updatedApplyPatch || applyPatch,
+        };
       },
     });
 
@@ -509,7 +632,14 @@ export default function TerminalChat({
       agentRef.current = undefined;
       forceUpdate(); // re‑render after teardown too
     };
-  }, [model, config, approvalPolicy, requestConfirmation]);
+  }, [model, approvalPolicy, requestConfirmation]);
+
+  // Sync config updates without recreating the agent
+  useEffect(() => {
+    if (agentRef.current) {
+      agentRef.current.updateConfig(config);
+    }
+  }, [config]);
 
   // Let's also track whenever the ref becomes available
   const agent = agentRef.current;
@@ -534,13 +664,13 @@ export default function TerminalChat({
   useEffect(() => {
     const runPendingAction = async () => {
       if (agent && pendingPinAction) {
-        const actionText = pendingPinAction === 'pin' ? 'pinned' : 'unpinned';
+        const actionText = pendingPinAction === "pin" ? "pinned" : "unpinned";
         const inputItem = await createInputItem(
           `A file has been ${actionText}. Continue processing the original request.`,
           [],
         );
         // Immediately clear the action to prevent re-triggering
-        setPendingPinAction(null); 
+        setPendingPinAction(null);
         agent.run([inputItem], items);
       }
     };
@@ -571,10 +701,15 @@ export default function TerminalChat({
   }, [agent, initialPrompt, initialImagePaths, prevItems]);
 
   // Group consecutive tool messages into batches
-  const batchesRef = React.useRef<Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }>>([]);
-  
+  const batchesRef = React.useRef<
+    Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }>
+  >([]);
+
   const lastMessageBatch = useMemo(() => {
-    const batches: Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }> = [];
+    const batches: Array<{
+      item?: ChatCompletionMessageParam;
+      group?: GroupedResponseItem;
+    }> = [];
     let currentGroup: GroupedResponseItem | null = null;
 
     for (const item of items) {
@@ -601,11 +736,15 @@ export default function TerminalChat({
 
     // Stabilize objects: if item at index i is the same as before, reuse the object wrapper
     const stabilized = batches.map((batch, i) => {
-       const prev = batchesRef.current[i];
-       if (prev && prev.item === batch.item && prev.group?.items === batch.group?.items) {
-          return prev;
-       }
-       return batch;
+      const prev = batchesRef.current[i];
+      if (
+        prev &&
+        prev.item === batch.item &&
+        prev.group?.items === batch.group?.items
+      ) {
+        return prev;
+      }
+      return batch;
     });
     batchesRef.current = stabilized;
 
@@ -624,8 +763,10 @@ export default function TerminalChat({
 
   useEffect(() => {
     const used = 100 - contextLeftPercent;
-    setContextHistory(prev => {
-      if (prev[prev.length - 1] === used) {return prev;}
+    setContextHistory((prev) => {
+      if (prev[prev.length - 1] === used) {
+        return prev;
+      }
       return [...prev, used].slice(-20); // Keep last 20 points
     });
   }, [contextLeftPercent]);
@@ -633,16 +774,22 @@ export default function TerminalChat({
   const activeTheme = getTheme(config.theme);
 
   const memoizedStreamingMessage = useMemo(() => {
-    if (!loading || (!renderedPartialData.content && !renderedPartialData.reasoning)) {
+    if (
+      !loading ||
+      (!renderedPartialData.content && !renderedPartialData.reasoning)
+    ) {
       return undefined;
     }
-    
+
     const content = renderedPartialData.content;
     let finalContent = content;
-    
-    // If we have separate reasoning from the model (e.g. o1/o3 reasoning_content), 
+
+    // If we have separate reasoning from the model (e.g. o1/o3 reasoning_content),
     // always show it wrapped in <thought> at the beginning.
-    if (renderedPartialData.reasoning && !content.includes(renderedPartialData.reasoning)) {
+    if (
+      renderedPartialData.reasoning &&
+      !content.includes(renderedPartialData.reasoning)
+    ) {
       finalContent = `<thought>${renderedPartialData.reasoning}</thought>\n${content}`;
     }
 
@@ -674,7 +821,11 @@ export default function TerminalChat({
             })
           }
           allowAlwaysPatch={config.allowAlwaysPatch}
-          applyPatch={confirmationPrompt ? (requestConfirmation as any)._pendingApplyPatch : undefined}
+          applyPatch={
+            confirmationPrompt
+              ? (requestConfirmation as any)._pendingApplyPatch
+              : undefined
+          }
           loading={loading}
           fullStdout={fullStdout}
           theme={activeTheme}
@@ -693,7 +844,6 @@ export default function TerminalChat({
           isActive={overlayMode === "none"}
           refreshKey={refreshKey}
           onRefresh={handleRefresh}
-          config={config}
         />
       ) : (
         <Box>
@@ -714,24 +864,24 @@ export default function TerminalChat({
           isNew={Boolean(items.length === 0)}
           setPrevItems={setPrevItems}
           confirmationPrompt={confirmationPrompt}
-          openOverlay={() => setOverlayMode("history")}
-          openHistorySelectOverlay={() => setOverlayMode("history-select")}
-          openModelOverlay={() => setOverlayMode("model")}
-          openApprovalOverlay={() => setOverlayMode("approval")}
-          openMemoryOverlay={() => setOverlayMode("memory")}
-          openHelpOverlay={() => setOverlayMode("help")}
-                      openConfigOverlay={() => setOverlayMode("config")}
-                                openPromptOverlay={() => setOverlayMode("prompt")}
-                                openPromptsOverlay={() => setOverlayMode("prompts")}
-                                          openRecipesOverlay={() => setOverlayMode("recipes")}
-                                          openCommandPalette={() => setOverlayMode("palette")}
-                                          openCommandHistory={() => setOverlayMode("commands")}
-                                          openThemeOverlay={() => setOverlayMode("theme")}
-                                          onUndo={handleUndo}
-                                          onPin={handlePin}
-                                          onUnpin={handleUnpin}
-                                          onRefresh={handleRefresh}
-                                          onShellFocus={setShellFocused}
+          openOverlay={() => openOverlay("history")}
+          openHistorySelectOverlay={() => openOverlay("history-select")}
+          openModelOverlay={() => openOverlay("model")}
+          openApprovalOverlay={() => openOverlay("approval")}
+          openMemoryOverlay={() => openOverlay("memory")}
+          openHelpOverlay={() => openOverlay("help")}
+          openConfigOverlay={() => openOverlay("config")}
+          openPromptOverlay={() => openOverlay("prompt")}
+          openPromptsOverlay={() => openOverlay("prompts")}
+          openRecipesOverlay={() => openOverlay("recipes")}
+          openCommandPalette={() => openOverlay("palette")}
+          openCommandHistory={() => openOverlay("commands")}
+          openThemeOverlay={() => openOverlay("theme")}
+          onUndo={handleUndo}
+          onPin={handlePin}
+          onUnpin={handleUnpin}
+          onRefresh={handleRefresh}
+          onShellFocus={setShellFocused}
           onCopy={() => {
             if (lastCodeBlock) {
               clipboard.writeSync(lastCodeBlock);
@@ -770,24 +920,34 @@ export default function TerminalChat({
                 if (prev.length === 0) {
                   return [{ inputs, prevItems }];
                 }
-                
+
                 const existing = prev[0]!;
                 const updatedInputs = [...existing.inputs];
                 const nextMsg = inputs[0];
-                
+
                 // Merge text if both are user messages
-                if (nextMsg && nextMsg.role === 'user' && updatedInputs[0]?.role === 'user') {
-                   const prevContent = typeof updatedInputs[0].content === 'string' ? updatedInputs[0].content : '';
-                   const nextContent = typeof nextMsg.content === 'string' ? nextMsg.content : '';
-                   updatedInputs[0] = {
-                     ...updatedInputs[0],
-                     content: prevContent + "\n\n" + nextContent
-                   };
+                if (
+                  nextMsg &&
+                  nextMsg.role === "user" &&
+                  updatedInputs[0]?.role === "user"
+                ) {
+                  const prevContent =
+                    typeof updatedInputs[0].content === "string"
+                      ? updatedInputs[0].content
+                      : "";
+                  const nextContent =
+                    typeof nextMsg.content === "string" ? nextMsg.content : "";
+                  updatedInputs[0] = {
+                    ...updatedInputs[0],
+                    content: prevContent + "\n\n" + nextContent,
+                  };
                 } else {
-                   updatedInputs.push(...inputs);
+                  updatedInputs.push(...inputs);
                 }
-                
-                return [{ inputs: updatedInputs, prevItems: existing.prevItems }];
+
+                return [
+                  { inputs: updatedInputs, prevItems: existing.prevItems },
+                ];
               });
             }
             return {};
@@ -799,7 +959,6 @@ export default function TerminalChat({
           queuedInputText={queuedInputText}
           onPopQueuedInput={popQueuedInput}
           contextLeftPercent={contextLeftPercent}
-          config={config}
           isShellFocused={shellFocused}
         />
       )}
@@ -816,407 +975,398 @@ export default function TerminalChat({
           indexingStatus={indexingStatus}
         />
       )}
-        {overlayMode === "history" && (
-          <HistoryOverlay items={items} onExit={() => setOverlayMode("none")} theme={activeTheme} />
-        )}
-        {overlayMode === "history-select" && (
-          <HistorySelectOverlay
-            onSelect={(rollout) => {
-              setItems(rollout.items);
-              setPrevItems(rollout.items);
-              if (rollout.session?.id) {
-                setSessionId(rollout.session.id);
-              }
-              // Also update config instructions if they were saved in rollout
-              if (rollout.session?.instructions) {
-                setConfig(prev => ({ ...prev, instructions: rollout.session.instructions }));
-              }
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-        {overlayMode === "model" && (
-          <ModelOverlay
-            currentModel={model}
-            config={config}
-            hasLastResponse={Boolean(prevItems.length > 0)}
-            onSelect={(newModel) => {
-              if (isLoggingEnabled()) {
-                log(
-                  "TerminalChat: interruptAgent invoked – calling agent.cancel()",
-                );
-                if (!agent) {
-                  log("TerminalChat: agent is not ready yet");
-                }
-              }
-              agent?.cancel();
-              setLoading(false);
-
-              setModel(newModel);
-              setPrevItems((prev) => {
-                return prev && newModel !== model ? [] : prev;
-              });
-
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched model to ${newModel}`,
-                    },
-                  ],
-                },
-              ]);
-
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "approval" && (
-          <ApprovalModeOverlay
-            currentMode={approvalPolicy}
-            onSelect={(newMode) => {
-              agent?.cancel();
-              setLoading(false);
-              if (newMode === approvalPolicy) {
-                return;
-              }
-              setApprovalPolicy(newMode as ApprovalPolicy);
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched approval mode to ${newMode}`,
-                    },
-                  ],
-                },
-              ]);
-
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "help" && (
-          <HelpOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
-        )}
-
-        {overlayMode === "config" && (
-          <ConfigOverlay
-            dryRun={!!config.dryRun}
-            debug={!!process.env["DEBUG"]}
-            enableWebSearch={!!config.enableWebSearch}
-            enableDeepThinking={!!config.enableDeepThinking}
-            enableDeepLinter={!!config.enableDeepLinter}
-            enableSmartContext={!!config.enableSmartContext}
-            searxngUrl={config.searxngUrl}
-            serpApiKey={config.serpApiKey}
-            webSearchUrl={config.webSearchUrl}
-            editorCommand={config.editorCommand}
-            onToggleDryRun={() => {
-              setConfig((prev) => ({ ...prev, dryRun: !prev.dryRun }));
-            }}
-            onToggleDebug={() => {
-              if (process.env["DEBUG"]) {
-                delete process.env["DEBUG"];
-              } else {
-                process.env["DEBUG"] = "1";
-              }
-              // Force update to reflect debug status in UI if needed
-              forceUpdate();
-            }}
-            onToggleWebSearch={() => {
-              setConfig((prev) => ({ ...prev, enableWebSearch: !prev.enableWebSearch }));
-            }}
-            onEditSearchUrl={(type) => {
-              if (type === "searxng") {
-                setOverlayMode("search-url-searxng");
-              } else if (type === "serp") {
-                setOverlayMode("serp-api-key");
-              } else {
-                setOverlayMode("search-url-generic");
-              }
-            }}
-            onEditEditorCommand={() => {
-              setOverlayMode("editor");
-            }}
-            onToggleDeepThinking={() => {
-              setConfig((prev) => ({ ...prev, enableDeepThinking: !prev.enableDeepThinking }));
-            }}
-            onToggleDeepLinter={() => {
-              setConfig((prev) => ({ ...prev, enableDeepLinter: !prev.enableDeepLinter }));
-            }}
-            onToggleSmartContext={() => {
-              setConfig((prev) => ({ ...prev, enableSmartContext: !prev.enableSmartContext }));
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "editor" && (
-          <EditorOverlay
-            currentCommand={config.editorCommand || ""}
-            onRefresh={handleRefresh}
-            onSave={(newCommand) => {
-              const newConfig = { ...config, editorCommand: newCommand || undefined };
-              setConfig(newConfig);
-              saveConfig(newConfig);
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: `Updated editor command to: ${newCommand || "default ($EDITOR)"}`,
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "search-url-searxng" && (
-          <SearchUrlOverlay
-            title="SET SEARXNG INSTANCE URL"
-            currentUrl={config.searxngUrl || ""}
-            onRefresh={handleRefresh}
-            onSave={(newUrl) => {
-              setConfig((prev) => ({ ...prev, searxngUrl: newUrl || undefined }));
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: `Updated SearXNG URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "serp-api-key" && (
-          <SearchUrlOverlay
-            title="SET SERP API KEY"
-            subtitle="CONFIGURE SEARCH API"
-            label="API KEY: "
-            placeholder="Enter your API key..."
-            description="Enter the API key for serper.dev or compatible search provider."
-            currentUrl={config.serpApiKey || ""}
-            onRefresh={handleRefresh}
-            onSave={(newKey) => {
-              const newConfig = { ...config, serpApiKey: newKey || undefined };
-              setConfig(newConfig);
-              saveConfig(newConfig);
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: `Updated SERP API key.`,
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "search-url-generic" && (
-          <SearchUrlOverlay
-            title="SET GENERIC SEARCH URL"
-            currentUrl={config.webSearchUrl || ""}
-            onRefresh={handleRefresh}
-            onSave={(newUrl) => {
-              setConfig((prev) => ({ ...prev, webSearchUrl: newUrl || undefined }));
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: `Updated generic search URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "prompt" && (
-          <PromptOverlay
-            currentInstructions={
-              config.instructions?.includes("You are operating as and within OpenCodex")
-                ? config.instructions
-                : [prefix, config.instructions].filter(Boolean).join("\n")
+      {overlayMode === "history" && (
+        <HistoryOverlay
+          items={items}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+      {overlayMode === "history-select" && (
+        <HistorySelectOverlay
+          onSelect={(rollout) => {
+            setItems(rollout.items);
+            setPrevItems(rollout.items);
+            if (rollout.session?.id) {
+              setSessionId(rollout.session.id);
             }
-            onRefresh={handleRefresh}
-            onSave={(newInstructions) => {
-              agent?.cancel();
-              setLoading(false);
-              setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setItems((prev) => [
+            // Also update config instructions if they were saved in rollout
+            if (rollout.session?.instructions) {
+              setConfig((prev) => ({
                 ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Updated system instructions.`,
-                    },
-                  ],
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
+                instructions: rollout.session.instructions,
+              }));
+            }
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+      {overlayMode === "model" && (
+        <ModelOverlay
+          currentModel={model}
+          hasLastResponse={Boolean(prevItems.length > 0)}
+          onSelect={(newModel) => {
+            if (isLoggingEnabled()) {
+              log(
+                "TerminalChat: interruptAgent invoked – calling agent.cancel()",
+              );
+              if (!agent) {
+                log("TerminalChat: agent is not ready yet");
+              }
+            }
+            agent?.cancel();
+            setLoading(false);
 
-        {overlayMode === "prompts" && (
-          <PromptSelectOverlay
-            onSelect={(newInstructions, name) => {
-              agent?.cancel();
-              setLoading(false);
-              setConfig((prev) => ({ ...prev, instructions: newInstructions }));
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched system instructions to prompt: ${name}`,
-                    },
-                  ],
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
+            setModel(newModel);
+            setPrevItems((prev) => {
+              return prev && newModel !== model ? [] : prev;
+            });
 
-        {overlayMode === "theme" && (
-          <ThemeOverlay
-            currentTheme={typeof config.theme === 'string' ? config.theme : 'custom'}
-            onSelect={(newTheme: any) => {
-              clearTerminal();
-              handleRefresh();
-              setConfig((prev) => ({ ...prev, theme: newTheme }));
-              setItems((prev) => [
-                ...prev,
-                {
-                  role: "assistant",
-                  content: [
-                    {
-                      type: "text",
-                      text: `Switched theme to ${typeof newTheme === 'string' ? newTheme : (newTheme as any).name || 'custom'}`,
-                    },
-                  ],
-                },
-              ]);
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
-
-        {overlayMode === "recipes" && (
-          <RecipesOverlay
-            onSelect={(recipe) => {
-              agent?.run(
-                [
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: [
                   {
-                    role: "user",
-                    content: [{ type: "text", text: recipe.prompt }],
+                    type: "text",
+                    text: `Switched model to ${newModel}`,
                   },
                 ],
-                prevItems,
-              );
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
+              },
+            ]);
 
-        {overlayMode === "palette" && (
-          <CommandPaletteOverlay
-            onSelect={(value, type) => {
-              if (type === "command") {
-                // Trigger slash command logic by submitting it
-                // We'll let TerminalChatInput handle it or implement it here
-                // For simplicity, we just set the overlay mode based on the command
-                if (value === "/model") {setOverlayMode("model");}
-                else if (value === "/clear") {
-                   // Reuse clear logic
-                   setSessionId("");
-                   setPrevItems([]);
-                   clearTerminal();
-                   setItems(prev => [...prev, { role: "assistant", content: "Context cleared" }]);
-                   setOverlayMode("none");
-                }
-                else if (value === "/history") {setOverlayMode("history");}
-                else if (value === "/history restore") {setOverlayMode("history-select");}
-                else if (value === "/memory") {setOverlayMode("memory");}
-                else if (value === "/approval") {setOverlayMode("approval");}
-                else if (value === "/config") {setOverlayMode("config");}
-                else if (value === "/prompt") {setOverlayMode("prompt");}
-                else if (value === "/prompts") {setOverlayMode("prompts");}
-                else if (value === "/theme") {setOverlayMode("theme");}
-                else if (value === "/undo") { handleUndo(); setOverlayMode("none"); }
-                else if (value === "/index") {
-                   agent?.run([{ role: "user", content: "Please index the codebase for semantic search." }], prevItems);
-                   setOverlayMode("none");
-                }
-              } else if (type === "recipe") {
-                const recipe = recipes.find(r => r.name === value);
-                if (recipe) {
-                  agent?.run([{ role: "user", content: recipe.prompt }], prevItems);
-                }
-                setOverlayMode("none");
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "approval" && (
+        <ApprovalModeOverlay
+          currentMode={approvalPolicy}
+          onSelect={(newMode) => {
+            agent?.cancel();
+            setLoading(false);
+            if (newMode === approvalPolicy) {
+              return;
+            }
+            setApprovalPolicy(newMode as ApprovalPolicy);
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: `Switched approval mode to ${newMode}`,
+                  },
+                ],
+              },
+            ]);
+
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "help" && (
+        <HelpOverlay onExit={closeOverlay} theme={activeTheme} />
+      )}
+
+      {overlayMode === "config" && (
+        <ConfigOverlay onExit={closeOverlay} theme={activeTheme} />
+      )}
+
+      {overlayMode === "editor" && (
+        <EditorOverlay
+          currentCommand={config.editorCommand || ""}
+          onRefresh={handleRefresh}
+          onSave={(newCommand) => {
+            const newConfig = {
+              ...config,
+              editorCommand: newCommand || undefined,
+            };
+            setConfig(newConfig);
+            saveConfig(newConfig);
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Updated editor command to: ${newCommand || "default ($EDITOR)"}`,
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "search-url-searxng" && (
+        <SearchUrlOverlay
+          title="SET SEARXNG INSTANCE URL"
+          currentUrl={config.searxngUrl || ""}
+          onRefresh={handleRefresh}
+          onSave={(newUrl) => {
+            setConfig((prev) => ({ ...prev, searxngUrl: newUrl || undefined }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Updated SearXNG URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "serp-api-key" && (
+        <SearchUrlOverlay
+          title="SET SERP API KEY"
+          subtitle="CONFIGURE SEARCH API"
+          label="API KEY: "
+          placeholder="Enter your API key..."
+          description="Enter the API key for serper.dev or compatible search provider."
+          currentUrl={config.serpApiKey || ""}
+          onRefresh={handleRefresh}
+          onSave={(newKey) => {
+            const newConfig = { ...config, serpApiKey: newKey || undefined };
+            setConfig(newConfig);
+            saveConfig(newConfig);
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Updated SERP API key.`,
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "search-url-generic" && (
+        <SearchUrlOverlay
+          title="SET GENERIC SEARCH URL"
+          currentUrl={config.webSearchUrl || ""}
+          onRefresh={handleRefresh}
+          onSave={(newUrl) => {
+            setConfig((prev) => ({
+              ...prev,
+              webSearchUrl: newUrl || undefined,
+            }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Updated generic search URL to: ${newUrl || "default (DuckDuckGo fallback)"}`,
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "prompt" && (
+        <PromptOverlay
+          currentInstructions={
+            config.instructions?.includes(
+              "You are operating as and within OpenCodex",
+            )
+              ? config.instructions
+              : [prefix, config.instructions].filter(Boolean).join("\n")
+          }
+          onRefresh={handleRefresh}
+          onSave={(newInstructions) => {
+            agent?.cancel();
+            setLoading(false);
+            setConfig((prev) => ({ ...prev, instructions: newInstructions }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: `Updated system instructions.`,
+                  },
+                ],
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "prompts" && (
+        <PromptSelectOverlay
+          onSelect={(newInstructions, name) => {
+            agent?.cancel();
+            setLoading(false);
+            setConfig((prev) => ({ ...prev, instructions: newInstructions }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: `Switched system instructions to prompt: ${name}`,
+                  },
+                ],
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "theme" && (
+        <ThemeOverlay
+          currentTheme={
+            typeof config.theme === "string" ? config.theme : "custom"
+          }
+          onSelect={(newTheme: any) => {
+            clearTerminal();
+            handleRefresh();
+            setConfig((prev) => ({ ...prev, theme: newTheme }));
+            setItems((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: `Switched theme to ${typeof newTheme === "string" ? newTheme : (newTheme as any).name || "custom"}`,
+                  },
+                ],
+              },
+            ]);
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "recipes" && (
+        <RecipesOverlay
+          onSelect={(recipe) => {
+            agent?.run(
+              [
+                {
+                  role: "user",
+                  content: [{ type: "text", text: recipe.prompt }],
+                },
+              ],
+              prevItems,
+            );
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
+
+      {overlayMode === "palette" && (
+        <CommandPaletteOverlay
+          onSelect={(value, type) => {
+            if (type === "command") {
+              // Trigger slash command logic by submitting it
+              // We'll let TerminalChatInput handle it or implement it here
+              // For simplicity, we just set the overlay mode based on the command
+              if (value === "/model") {
+                openOverlay("model");
+              } else if (value === "/clear") {
+                // Reuse clear logic
+                setSessionId("");
+                setPrevItems([]);
+                clearTerminal();
+                setItems((prev) => [
+                  ...prev,
+                  { role: "assistant", content: "Context cleared" },
+                ]);
+                closeOverlay();
+              } else if (value === "/history") {
+                openOverlay("history");
+              } else if (value === "/history restore") {
+                openOverlay("history-select");
+              } else if (value === "/memory") {
+                openOverlay("memory");
+              } else if (value === "/approval") {
+                openOverlay("approval");
+              } else if (value === "/config") {
+                openOverlay("config");
+              } else if (value === "/prompt") {
+                openOverlay("prompt");
+              } else if (value === "/prompts") {
+                openOverlay("prompts");
+              } else if (value === "/theme") {
+                openOverlay("theme");
+              } else if (value === "/undo") {
+                handleUndo();
+                closeOverlay();
+              } else if (value === "/index") {
+                agent?.run(
+                  [
+                    {
+                      role: "user",
+                      content: "Please index the codebase for semantic search.",
+                    },
+                  ],
+                  prevItems,
+                );
+                closeOverlay();
               }
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
+            } else if (type === "recipe") {
+              const recipe = recipes.find((r) => r.name === value);
+              if (recipe) {
+                agent?.run(
+                  [{ role: "user", content: recipe.prompt }],
+                  prevItems,
+                );
+              }
+              closeOverlay();
+            }
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
 
-        {overlayMode === "memory" && (
-          <MemoryOverlay onExit={() => setOverlayMode("none")} theme={activeTheme} />
-        )}
-        {overlayMode === "commands" && (
-          <CommandHistoryOverlay
-            items={items}
-            onSelect={(cmd) => {
-              // We'll use a hack to set the input by passing it to TerminalChatInput via a ref or a shared state.
-              // For now, let's just use the promptQueue or similar mechanism, or just set overlay to none and hope the user knows.
-              // Actually, we should probably add a way to set the input value in TerminalChat.
-              setInitialPrompt(cmd); // This will populate the input on next render if we handle it in TerminalChatInput
-              setOverlayMode("none");
-            }}
-            onExit={() => setOverlayMode("none")}
-            theme={activeTheme}
-          />
-        )}
+      {overlayMode === "memory" && (
+        <MemoryOverlay onExit={closeOverlay} theme={activeTheme} />
+      )}
+      {overlayMode === "commands" && (
+        <CommandHistoryOverlay
+          items={items}
+          onSelect={(cmd) => {
+            // We'll use a hack to set the input by passing it to TerminalChatInput via a ref or a shared state.
+            // For now, let's just use the promptQueue or similar mechanism, or just set overlay to none and hope the user knows.
+            // Actually, we should probably add a way to set the input value in TerminalChat.
+            setInitialPrompt(cmd); // This will populate the input on next render if we handle it in TerminalChatInput
+            closeOverlay();
+          }}
+          onExit={closeOverlay}
+          theme={activeTheme}
+        />
+      )}
     </Box>
   );
 }

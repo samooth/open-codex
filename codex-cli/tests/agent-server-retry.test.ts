@@ -37,7 +37,7 @@ vi.mock("openai", () => {
 vi.mock("../src/approvals.js", () => ({
   __esModule: true,
   alwaysApprovedCommands: new Set<string>(),
-  canAutoApprove: () => ({ type: "auto-approve", runInSandbox: false } as any),
+  canAutoApprove: () => ({ type: "auto-approve", runInSandbox: false }) as any,
   isSafeCommand: () => null,
 }));
 
@@ -95,7 +95,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
       approvalPolicy: { mode: "auto" } as any,
       onItem: (i) => received.push(i),
       onLoading: () => {},
-      getCommandConfirmation: async () => ({ review: "yes" } as any),
+      getCommandConfirmation: async () => ({ review: "yes" }) as any,
       onReset: () => {},
     });
 
@@ -131,7 +131,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
       approvalPolicy: { mode: "auto" } as any,
       onItem: (i) => received.push(i),
       onLoading: () => {},
-      getCommandConfirmation: async () => ({ review: "yes" } as any),
+      getCommandConfirmation: async () => ({ review: "yes" }) as any,
       onReset: () => {},
     });
 
@@ -151,7 +151,10 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
     const sysMsg = received.find(
       (i) =>
         i.role === "assistant" &&
-        (typeof i.content === "string" ? i.content : i.content?.[0]?.text)?.includes("Network error"),
+        (typeof i.content === "string"
+          ? i.content
+          : i.content?.[0]?.text
+        )?.includes("Network error"),
     );
 
     expect(sysMsg).toBeTruthy();

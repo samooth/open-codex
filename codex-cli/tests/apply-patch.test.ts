@@ -334,5 +334,7 @@ I hope this helps!
 
   process_patch(messyPatch, fs.openFn, fs.writeFn, fs.removeFn);
 
-  expect(fs.writes).toEqual({ "messy.txt": "This is the new & improved line." });
+  expect(fs.writes).toEqual({
+    "messy.txt": "This is the new & improved line.",
+  });
 });

@@ -81,16 +81,18 @@ const MultilineTextEditorInner = (
 
   const buffer = useRef(new TextBuffer(initialText));
   const [version, setVersion] = useState(0);
-  
+
   // Track raw escape sequences from stdin to detect Alt+Enter robustly
   const lastRawWasEscape = useRef(false);
   const { stdin, setRawMode } = useStdin();
 
   useEffect(() => {
-    if (!stdin || !focus) {return;}
+    if (!stdin || !focus) {
+      return;
+    }
     const handleData = (data: Buffer | string) => {
       const s = data.toString();
-      // If we see a raw ESC byte (0x1b), mark it. 
+      // If we see a raw ESC byte (0x1b), mark it.
       // This helps detect Alt+Enter even if Ink's parser splits or strips it.
       if (s === "\u001b" || s === "\x1b" || s.startsWith("\u001b")) {
         lastRawWasEscape.current = true;
@@ -166,6 +168,14 @@ const MultilineTextEditorInner = (
         return;
       }
 
+      // Check if this event was preceded by a raw Escape byte (Alt sequence)
+      const isAlt =
+        key.meta || lastRawWasEscape.current || input.includes("\u001b");
+
+      // Reset the raw escape flag after we've checked it for this event.
+      // Must do this before any 'return' to avoid leakage to next key event.
+      lastRawWasEscape.current = false;
+
       // Allow consumer to handle it first
       if (onKeyDown?.(input, key)) {
         return;
@@ -173,7 +183,14 @@ const MultilineTextEditorInner = (
 
       // If ink has parsed this as a directional key, let TextBuffer handle it directly
       // and skip all the complex newline/submit logic.
-      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow || key.home || key.end) {
+      if (
+        key.upArrow ||
+        key.downArrow ||
+        key.leftArrow ||
+        key.rightArrow ||
+        key.home ||
+        key.end
+      ) {
         const modified = buffer.current.handleInput(
           input,
           key as any as Record<string, boolean>,
@@ -181,17 +198,12 @@ const MultilineTextEditorInner = (
         );
         if (modified) {
           setVersion((v) => v + 1);
-          if (onChange) {onChange(buffer.current.getText());}
+          if (onChange) {
+            onChange(buffer.current.getText());
+          }
         }
         return;
       }
-
-      // Check if this event was preceded by a raw Escape byte (Alt sequence)
-      const isAlt = key.meta || lastRawWasEscape.current || input.includes("\u001b");
-      
-      // Reset the raw escape flag after we've checked it for this event.
-      // Must do this before any 'return' to avoid leakage to next key event.
-      lastRawWasEscape.current = false;
 
       if (key.escape) {
         return;
@@ -201,14 +213,14 @@ const MultilineTextEditorInner = (
       const isLineFeed = input === "\n" || input === "\u000A";
 
       // Standardize return key for raw bytes
-      if ((input === "\r" || isLineFeed || isAlt) && key.return === false) {
+      if ((input === "\r" || isLineFeed) && key.return === false) {
         (key as any).return = true;
       }
 
       // --- PASTE HANDLING ---
       // When pasting, treat any newlines that arrive shortly after as part of the paste
       const now = Date.now();
-      const isRecentPaste = (now - lastPasteTimestamp.current) < 50; // 50ms cooldown
+      const isRecentPaste = now - lastPasteTimestamp.current < 50; // 50ms cooldown
 
       // Paste event
       if (isPaste(input, key)) {
@@ -222,19 +234,24 @@ const MultilineTextEditorInner = (
       }
 
       // Single‑step editor shortcuts
-      const isCtrlX = (key.ctrl && input === "x") || (input === "\x18" && input.length === 1);
-      const isCtrlE = (key.ctrl && input === "e") || (input === "\x05" && input.length === 1);
+      const isCtrlX =
+        (key.ctrl && input === "x") || (input === "\x18" && input.length === 1);
+      const isCtrlE =
+        (key.ctrl && input === "e") || (input === "\x05" && input.length === 1);
       if (isCtrlX || isCtrlE) {
         openExternalEditor();
         return;
       }
 
       if (process.env["TEXTBUFFER_DEBUG"] === "1") {
-        console.error("[MultilineTextEditor] event", { 
-          input, 
-          hex: input.split("").map(c => c.charCodeAt(0).toString(16)).join(" "),
+        console.error("[MultilineTextEditor] event", {
+          input,
+          hex: input
+            .split("")
+            .map((c) => c.charCodeAt(0).toString(16))
+            .join(" "),
           isAlt,
-          key 
+          key,
         });
       }
 
@@ -248,12 +265,16 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
-            if (onChange) {onChange(buffer.current.getText());}
+            if (onChange) {
+              onChange(buffer.current.getText());
+            }
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
-            if (onChange) {onChange(buffer.current.getText());}
+            if (onChange) {
+              onChange(buffer.current.getText());
+            }
           }
           setVersion((v) => v + 1);
           return;
@@ -266,12 +287,16 @@ const MultilineTextEditorInner = (
           const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
           if (hasShift || hasAltMod) {
             buffer.current.newline();
-            if (onChange) {onChange(buffer.current.getText());}
+            if (onChange) {
+              onChange(buffer.current.getText());
+            }
           } else if (onSubmit) {
             onSubmit(buffer.current.getText());
           } else {
             buffer.current.newline();
-            if (onChange) {onChange(buffer.current.getText());}
+            if (onChange) {
+              onChange(buffer.current.getText());
+            }
           }
           setVersion((v) => v + 1);
           return;
@@ -279,8 +304,9 @@ const MultilineTextEditorInner = (
       }
 
       // 2) Single‑byte / control chars -----------------------------------------
-      
-      const isReturn = key.return || input.includes("\r") || input.includes("\n");
+
+      const isReturn =
+        key.return || input.includes("\r") || input.includes("\n");
       if (isReturn) {
         if (key.ctrl) {
           onSubmit?.(buffer.current.getText());
@@ -288,27 +314,33 @@ const MultilineTextEditorInner = (
         }
 
         // Newline triggers: Explicit Line Feed (\n), Alt sequence, or a recent paste event.
-        // NOTE: We ignore Shift+Enter if it's a plain \r because many terminals 
+        // NOTE: We ignore Shift+Enter if it's a plain \r because many terminals
         // incorrectly report Shift for a plain Enter. Use Ctrl+J or Alt+Enter for newlines.
         const isNewlineRequest = isLineFeed || isAlt || isRecentPaste;
 
         if (isNewlineRequest) {
           buffer.current.newline();
           setVersion((v) => v + 1);
-          if (onChange) {onChange(buffer.current.getText());}
+          if (onChange) {
+            onChange(buffer.current.getText());
+          }
           return;
         }
 
         // Plain Enter (\r) – submit.
         if (onSubmit) {
           if (process.env["TEXTBUFFER_DEBUG"] === "1") {
-            console.error(`[MultilineTextEditor] triggering onSubmit. text=${JSON.stringify(buffer.current.getText())}`);
+            console.error(
+              `[MultilineTextEditor] triggering onSubmit. text=${JSON.stringify(buffer.current.getText())}`,
+            );
           }
           onSubmit(buffer.current.getText());
         } else {
           buffer.current.newline();
           setVersion((v) => v + 1);
-          if (onChange) {onChange(buffer.current.getText());}
+          if (onChange) {
+            onChange(buffer.current.getText());
+          }
         }
         return;
       }
@@ -323,7 +355,9 @@ const MultilineTextEditorInner = (
       );
       if (modified) {
         setVersion((v) => v + 1);
-        if (onChange) {onChange(buffer.current.getText());}
+        if (onChange) {
+          onChange(buffer.current.getText());
+        }
       }
     },
     { isActive: focus },
@@ -378,7 +412,10 @@ const MultilineTextEditorInner = (
           if (relativeCol >= 0 && relativeCol < effectiveWidth) {
             const charToHighlight = display[relativeCol] || " ";
             const highlighted = chalk.inverse(charToHighlight);
-            display = display.slice(0, relativeCol) + highlighted + display.slice(relativeCol + 1);
+            display =
+              display.slice(0, relativeCol) +
+              highlighted +
+              display.slice(relativeCol + 1);
           } else if (relativeCol === effectiveWidth) {
             display = display.slice(0, effectiveWidth - 1) + chalk.inverse(" ");
           }

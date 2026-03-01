@@ -4,7 +4,6 @@ import TextInput from "./vendor/ink-text-input.js";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
-
 export default function PromptOverlay({
   currentInstructions,
   onSave,
@@ -20,8 +19,12 @@ export default function PromptOverlay({
   const [instructions, setInstructions] = useState(currentInstructions);
 
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
-    if (key.return) {onSave(instructions.trim());}
+    if (key.escape) {
+      onExit();
+    }
+    if (key.return) {
+      onSave(instructions.trim());
+    }
   });
 
   return (
@@ -39,9 +42,14 @@ export default function PromptOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> PROMPT </Text>
+          <Text bold color="black">
+            {" "}
+            PROMPT{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>EDIT SYSTEM INSTRUCTIONS</Text>
+        <Text color={theme.highlight} bold>
+          EDIT SYSTEM INSTRUCTIONS
+        </Text>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
@@ -52,17 +60,19 @@ export default function PromptOverlay({
         />
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>enter save │ esc close</Text>
+        <Text dimColor italic>
+          enter save │ esc close
+        </Text>
       </Box>
     </Box>
   );

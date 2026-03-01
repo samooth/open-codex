@@ -71,7 +71,7 @@ vi.mock("openai", () => {
 vi.mock("../src/approvals.js", () => ({
   __esModule: true,
   alwaysApprovedCommands: new Set<string>(),
-  canAutoApprove: () => ({ type: "auto-approve", runInSandbox: false } as any),
+  canAutoApprove: () => ({ type: "auto-approve", runInSandbox: false }) as any,
 }));
 
 vi.mock("../src/format-command.js", () => ({
@@ -97,7 +97,7 @@ describe("cancel before first function_call", () => {
       approvalPolicy: { mode: "auto" } as any,
       onItem: () => {},
       onLoading: () => {},
-      getCommandConfirmation: async () => ({ review: "yes" } as any),
+      getCommandConfirmation: async () => ({ review: "yes" }) as any,
       onReset: () => {},
       config: { model: "any", instructions: "", provider: "openai" },
     });

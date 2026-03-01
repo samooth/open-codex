@@ -174,7 +174,9 @@ function TextInput({
       if (i >= cursorOffset - cursorActualWidth && i <= cursorOffset) {
         // If it's a newline, we still want to show the cursor "after" the text on that line
         // or effectively at the newline position.
-        renderedValue += chalk.inverse(displayChar === "\n" ? " \n" : displayChar);
+        renderedValue += chalk.inverse(
+          displayChar === "\n" ? " \n" : displayChar,
+        );
       } else {
         renderedValue += displayChar;
       }
@@ -207,18 +209,21 @@ function TextInput({
       // general character handler which would treat \n as literal input.
       // ────────────────────────────────────────────────────────────────
 
-      function getReturnAction(raw: string, k: any): "submit" | "newline" | "none" {
+      function getReturnAction(
+        raw: string,
+        k: any,
+      ): "submit" | "newline" | "none" {
         // Standard Ink keys
         if (k.return || raw === "\r" || raw === "\n") {
           if (k.ctrl) return "submit";
           if (k.shift || k.meta) return "newline";
-          
+
           // Plain enter: check for backslash continuation
           const isAtEnd = cursorOffset === originalValue.length;
           const trailingMatch = originalValue.match(/\\+$/);
           const trailingCount = trailingMatch ? trailingMatch[0].length : 0;
           if (isAtEnd && trailingCount === 1) return "newline";
-          
+
           return "submit";
         }
 

@@ -34,7 +34,11 @@ export const TerminalSizeProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  return <TerminalSizeContext.Provider value={size}>{children}</TerminalSizeContext.Provider>;
+  return (
+    <TerminalSizeContext.Provider value={size}>
+      {children}
+    </TerminalSizeContext.Provider>
+  );
 };
 
 export const useTerminalSizeContext = () => useContext(TerminalSizeContext);

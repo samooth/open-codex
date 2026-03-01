@@ -24,7 +24,8 @@ export function mapOpenAiToAnthropicMessages(
       continue;
     }
 
-    let role: "user" | "assistant" = msg.role === "assistant" ? "assistant" : "user";
+    let role: "user" | "assistant" =
+      msg.role === "assistant" ? "assistant" : "user";
     const content: Array<any> = [];
 
     if (msg.role === "user") {
@@ -43,7 +44,7 @@ export function mapOpenAiToAnthropicMessages(
         content.push({
           type: "thinking",
           thinking: assistant.reasoning_content,
-          signature: assistant.thought_signature
+          signature: assistant.thought_signature,
         });
       }
       if (msg.content && typeof msg.content === "string") {
@@ -57,8 +58,11 @@ export function mapOpenAiToAnthropicMessages(
             id: tc.id,
             name: sanitizedName,
             input: (() => {
-              try { return JSON.parse(tc.function.arguments); } 
-              catch { return { raw: tc.function.arguments }; }
+              try {
+                return JSON.parse(tc.function.arguments);
+              } catch {
+                return { raw: tc.function.arguments };
+              }
             })(),
           });
         }
@@ -79,7 +83,9 @@ export function mapOpenAiToAnthropicMessages(
         for (const newPart of content) {
           if (newPart.type === "tool_result") {
             const existingIndex = lastMsg.content.findIndex(
-              (p: any) => p.type === "tool_result" && p.tool_use_id === newPart.tool_use_id
+              (p: any) =>
+                p.type === "tool_result" &&
+                p.tool_use_id === newPart.tool_use_id,
             );
             if (existingIndex !== -1) {
               lastMsg.content[existingIndex] = newPart;
@@ -106,10 +112,10 @@ export function mapOpenAiToAnthropicMessages(
 
   // 2. Second Pass: Relocate results, fill holes, and purge empty messages
   const finalMessages: Array<any> = [];
-  
+
   for (let i = 0; i < anthropicMessages.length; i++) {
     const msg = anthropicMessages[i];
-    
+
     if (msg.role === "assistant") {
       const toolUseIds = msg.content
         .filter((p: any) => p.type === "tool_use")
@@ -127,18 +133,22 @@ export function mapOpenAiToAnthropicMessages(
         }
 
         for (const id of toolUseIds) {
-          const hasResult = nextMsg.content.some((p: any) => p.type === "tool_result" && p.tool_use_id === id);
+          const hasResult = nextMsg.content.some(
+            (p: any) => p.type === "tool_result" && p.tool_use_id === id,
+          );
           if (!hasResult) {
             const globalResult = findAndRemoveResult(anthropicMessages, id);
-            nextMsg.content.push(globalResult || {
-              type: "tool_result",
-              tool_use_id: id,
-              content: "Execution interrupted or cancelled by user.",
-              is_error: true
-            });
+            nextMsg.content.push(
+              globalResult || {
+                type: "tool_result",
+                tool_use_id: id,
+                content: "Execution interrupted or cancelled by user.",
+                is_error: true,
+              },
+            );
           }
         }
-        
+
         if (nextMsg.content.length > 0) {
           finalMessages.push(nextMsg);
         }
@@ -168,13 +178,21 @@ export function mapOpenAiToAnthropicMessages(
     }
   }
 
-  return { messages: finalMessages, system: systemBlocks.length > 0 ? systemBlocks : undefined };
+  return {
+    messages: finalMessages,
+    system: systemBlocks.length > 0 ? systemBlocks : undefined,
+  };
 }
 
-function findAndRemoveResult(messages: Array<any>, toolUseId: string): any | null {
+function findAndRemoveResult(
+  messages: Array<any>,
+  toolUseId: string,
+): any | null {
   for (const msg of messages) {
     if (msg.role === "user") {
-      const idx = msg.content.findIndex((p: any) => p.type === "tool_result" && p.tool_use_id === toolUseId);
+      const idx = msg.content.findIndex(
+        (p: any) => p.type === "tool_result" && p.tool_use_id === toolUseId,
+      );
       if (idx !== -1) {
         return msg.content.splice(idx, 1)[0];
       }
@@ -198,7 +216,9 @@ export function mapOpenAiToAnthropicTools(openAiTools: Array<any>): Array<any> {
   return tools;
 }
 
-export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<any>): AsyncGenerator<any> {
+export async function* anthropicToOpenAiStream(
+  anthropicStream: AsyncIterable<any>,
+): AsyncGenerator<any> {
   let first = true;
   let toolCallCount = 0;
   const toolIndexMap = new Map<number, number>();
@@ -207,29 +227,45 @@ export async function* anthropicToOpenAiStream(anthropicStream: AsyncIterable<an
     const delta: any = {};
     let finish_reason: string | null = null;
 
-    if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
+    if (
+      event.type === "content_block_start" &&
+      event.content_block.type === "tool_use"
+    ) {
       const index = toolCallCount++;
       toolIndexMap.set(event.index, index);
-      delta.tool_calls = [{
-        index,
-        id: event.content_block.id,
-        function: { name: event.content_block.name, arguments: "" },
-      }];
+      delta.tool_calls = [
+        {
+          index,
+          id: event.content_block.id,
+          function: { name: event.content_block.name, arguments: "" },
+        },
+      ];
     } else if (event.type === "content_block_delta") {
-      if (event.delta.type === "text_delta") {delta.content = event.delta.text;}
-      else if (event.delta.type === "thinking_delta") {delta.reasoning_content = event.delta.thinking;}
-      else if (event.delta.type === "signature_delta") {delta.thought_signature = event.delta.signature;}
-      else if (event.delta.type === "input_json_delta") {
+      if (event.delta.type === "text_delta") {
+        delta.content = event.delta.text;
+      } else if (event.delta.type === "thinking_delta") {
+        delta.reasoning_content = event.delta.thinking;
+      } else if (event.delta.type === "signature_delta") {
+        delta.thought_signature = event.delta.signature;
+      } else if (event.delta.type === "input_json_delta") {
         const index = toolIndexMap.get(event.index);
         if (typeof index === "number") {
-          delta.tool_calls = [{ index, function: { arguments: event.delta.partial_json } }];
+          delta.tool_calls = [
+            { index, function: { arguments: event.delta.partial_json } },
+          ];
         }
       }
     } else if (event.type === "message_delta" && event.delta.stop_reason) {
-      finish_reason = event.delta.stop_reason === "end_turn" ? "stop" : event.delta.stop_reason;
+      finish_reason =
+        event.delta.stop_reason === "end_turn"
+          ? "stop"
+          : event.delta.stop_reason;
     }
 
-    if (first && (delta.content || delta.reasoning_content || delta.tool_calls)) {
+    if (
+      first &&
+      (delta.content || delta.reasoning_content || delta.tool_calls)
+    ) {
       delta.role = "assistant";
       first = false;
     }

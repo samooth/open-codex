@@ -9,7 +9,16 @@ import { getIgnoreFilter } from "./ignore-utils.js";
 import { log } from "./log.js";
 import { extractSymbols } from "./symbol-extractor.js";
 import { validateFileSyntax } from "./validate-file.js";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync , unlinkSync, renameSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  readdirSync,
+  unlinkSync,
+  renameSync,
+} from "fs";
 import { homedir } from "os";
 import { join, resolve, dirname } from "path";
 
@@ -48,7 +57,11 @@ export async function handleReadFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["cat", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["cat", filePath],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -103,7 +116,11 @@ export async function handleWriteFile(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["write_file", filePath], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["write_file", filePath],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -123,7 +140,7 @@ export async function handleWriteFile(
 
     const fullPath = join(process.cwd(), filePath);
     const parentDir = dirname(fullPath);
-    
+
     // FIXED: Proper directory creation with error handling
     if (!existsSync(parentDir)) {
       try {
@@ -137,42 +154,54 @@ export async function handleWriteFile(
     }
 
     ctx.onFileAccess?.(filePath);
-    
+
     // Capture backup for /undo
     let backup: string | null = null;
     try {
       if (existsSync(fullPath)) {
         backup = readFileSync(fullPath, "utf-8");
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // FIXED: Atomic write using temp file + rename
     const tempPath = `${fullPath}.tmp.${Date.now()}`;
     try {
       writeFileSync(tempPath, content, "utf-8");
-      
+
       // Validate syntax before committing
-      const validation = await validateFileSyntax(tempPath, { enableDeepLinter: ctx.config.enableDeepLinter });
+      const validation = await validateFileSyntax(tempPath, {
+        enableDeepLinter: ctx.config.enableDeepLinter,
+      });
       if (!validation.isValid) {
         // Clean up temp file
-        try { unlinkSync(tempPath); } catch {}
+        try {
+          unlinkSync(tempPath);
+        } catch {}
         return {
           outputText: `Error: File contains issues:\n${validation.error}`,
           metadata: { exit_code: 1, path: filePath, syntax_error: true },
         };
       }
-      
+
       // Atomic rename
       renameSync(tempPath, fullPath);
     } catch (e) {
       // Clean up temp file on error
-      try { unlinkSync(tempPath); } catch {}
+      try {
+        unlinkSync(tempPath);
+      } catch {}
       throw e;
     }
 
     return {
       outputText: `Successfully wrote ${content.length} characters to ${filePath}`,
-      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
+      metadata: {
+        exit_code: 0,
+        path: filePath,
+        backups: { [filePath]: backup },
+      },
     };
   } catch (err) {
     return {
@@ -196,7 +225,8 @@ export async function handleEditFile(
 
     if (!filePath || !edits || !Array.isArray(edits)) {
       return {
-        outputText: "Error: 'path' and 'edits' (array) are required for edit_file",
+        outputText:
+          "Error: 'path' and 'edits' (array) are required for edit_file",
         metadata: { exit_code: 1 },
       };
     }
@@ -221,7 +251,11 @@ export async function handleEditFile(
 
     // Trigger confirmation with the diff
     const execResult = await handleExecCommand(
-      { cmd: ["edit_file", filePath, diff!], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["edit_file", filePath, diff!],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -240,20 +274,26 @@ export async function handleEditFile(
     }
 
     ctx.onFileAccess?.(filePath);
-    
+
     // Capture backup for /undo
     let backup: string | null = null;
     try {
       backup = readFileSync(fullPath, "utf-8");
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // Atomic write
     const tempPath = `${fullPath}.tmp.${Date.now()}`;
     try {
       writeFileSync(tempPath, newContent!, "utf-8");
-      const validation = await validateFileSyntax(tempPath, { enableDeepLinter: ctx.config.enableDeepLinter });
+      const validation = await validateFileSyntax(tempPath, {
+        enableDeepLinter: ctx.config.enableDeepLinter,
+      });
       if (!validation.isValid) {
-        try { unlinkSync(tempPath); } catch {}
+        try {
+          unlinkSync(tempPath);
+        } catch {}
         return {
           outputText: `Error: Edits resulted in issues in ${filePath}:\n${validation.error}`,
           metadata: { exit_code: 1, path: filePath, syntax_error: true },
@@ -261,13 +301,19 @@ export async function handleEditFile(
       }
       renameSync(tempPath, fullPath);
     } catch (e) {
-      try { unlinkSync(tempPath); } catch {}
+      try {
+        unlinkSync(tempPath);
+      } catch {}
       throw e;
     }
 
     return {
       outputText: `Successfully applied edits to ${filePath}. Diff:\n\n${formatStyledDiff(diff!)}`,
-      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
+      metadata: {
+        exit_code: 0,
+        path: filePath,
+        backups: { [filePath]: backup },
+      },
     };
   } catch (err) {
     return {
@@ -305,7 +351,7 @@ export async function handleReadSymbols(
 
     ctx.onFileAccess?.(filePath);
     const symbols = extractSymbols(fullPath);
-    
+
     return {
       outputText: symbols,
       metadata: { exit_code: 0, path: filePath, type: "read_symbols" },
@@ -339,10 +385,10 @@ export async function handleCheckpoint(
     const result = await createCheckpoint(ctx, name);
     return {
       outputText: result.output,
-      metadata: { 
-        exit_code: result.success ? 0 : 1, 
+      metadata: {
+        exit_code: result.success ? 0 : 1,
         checkpoint_name: result.name,
-        type: "checkpoint" 
+        type: "checkpoint",
       },
     };
   } catch (err) {
@@ -373,17 +419,23 @@ export async function handleUpdateTasks(
 
     // Validate and sanitize tasks to ensure they conform to the Task type
     const validatedTasks = tasks
-      .filter(t => t && typeof t === "object")
-      .map(t => ({
+      .filter((t) => t && typeof t === "object")
+      .map((t) => ({
         label: typeof t.label === "string" ? t.label : JSON.stringify(t.label),
-        status: ["todo", "in-progress", "done"].includes(t.status) ? t.status : "todo"
+        status: ["todo", "in-progress", "done"].includes(t.status)
+          ? t.status
+          : "todo",
       }));
 
     ctx.onTasksUpdate?.(validatedTasks);
-    
+
     return {
       outputText: `Task list updated: ${validatedTasks.length} tasks recorded.`,
-      metadata: { exit_code: 0, task_count: validatedTasks.length, type: "update_tasks" },
+      metadata: {
+        exit_code: 0,
+        task_count: validatedTasks.length,
+        type: "update_tasks",
+      },
     };
   } catch (err) {
     return {
@@ -393,9 +445,7 @@ export async function handleUpdateTasks(
   }
 }
 
-export async function handleRunDiagnostics(
-  ctx: AgentContext,
-): Promise<{
+export async function handleRunDiagnostics(ctx: AgentContext): Promise<{
   outputText: string;
   metadata: Record<string, unknown>;
 }> {
@@ -403,10 +453,10 @@ export async function handleRunDiagnostics(
     const result = await runProjectDiagnostics(ctx);
     return {
       outputText: result.output,
-      metadata: { 
-        exit_code: result.success ? 0 : 1, 
+      metadata: {
+        exit_code: result.success ? 0 : 1,
         project_type: result.projectType,
-        type: "run_diagnostics" 
+        type: "run_diagnostics",
       },
     };
   } catch (err) {
@@ -437,22 +487,34 @@ export async function handleSearchSymbols(
 
     const agent = ctx.agent;
     if (!agent) {
-       return { outputText: "Error: Agent not initialized", metadata: { exit_code: 1 } };
+      return {
+        outputText: "Error: Agent not initialized",
+        metadata: { exit_code: 1 },
+      };
     }
 
     // Access semanticMemory from AgentLoop (it's private, so we need a public accessor or use cast)
     const semanticMemory = (agent as any).semanticMemory;
     if (!semanticMemory) {
-       return { outputText: "Error: Semantic memory not available", metadata: { exit_code: 1 } };
+      return {
+        outputText: "Error: Semantic memory not available",
+        metadata: { exit_code: 1 },
+      };
     }
 
     const results = await semanticMemory.searchSymbols(query, limit);
-    
+
     if (results.length === 0) {
-      return { outputText: "No relevant symbol definitions found. Try a broader search or verify the codebase is indexed.", metadata: { exit_code: 0 } };
+      return {
+        outputText:
+          "No relevant symbol definitions found. Try a broader search or verify the codebase is indexed.",
+        metadata: { exit_code: 0 },
+      };
     }
 
-    const outputText = results.map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`).join("\n\n---\n\n");
+    const outputText = results
+      .map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`)
+      .join("\n\n---\n\n");
 
     return {
       outputText,
@@ -465,7 +527,6 @@ export async function handleSearchSymbols(
     };
   }
 }
-
 
 export async function handleDeleteFile(
   ctx: AgentContext,
@@ -514,18 +575,24 @@ export async function handleDeleteFile(
     }
 
     ctx.onFileAccess?.(filePath);
-    
+
     // Capture backup for /undo
     let backup: string | null = null;
     try {
       backup = readFileSync(fullPath, "utf-8");
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     const fs = await import("fs");
     fs.unlinkSync(fullPath);
     return {
       outputText: `Successfully deleted ${filePath}`,
-      metadata: { exit_code: 0, path: filePath, backups: { [filePath]: backup } },
+      metadata: {
+        exit_code: 0,
+        path: filePath,
+        backups: { [filePath]: backup },
+      },
     };
   } catch (err) {
     return {
@@ -572,23 +639,31 @@ export async function handleListDirectory(
       .filter((e) => {
         const relPath = join(dirPath, e.name);
         const posixPath = relPath.replace(/\\/g, "/");
-        
+
         // Always show node_modules folder itself if it exists
-        if (e.name === "node_modules") {return true;}
-        
+        if (e.name === "node_modules") {
+          return true;
+        }
+
         // If we are looking inside node_modules, show everything (bypass ignore)
-        if (dirPath.includes("node_modules")) {return true;}
+        if (dirPath.includes("node_modules")) {
+          return true;
+        }
 
         return !ig.ignores(posixPath);
       })
       .sort((a, b) => {
-        if (a.isDirectory() && !b.isDirectory()) {return -1;}
-        if (!a.isDirectory() && b.isDirectory()) {return 1;}
+        if (a.isDirectory() && !b.isDirectory()) {
+          return -1;
+        }
+        if (!a.isDirectory() && b.isDirectory()) {
+          return 1;
+        }
         return a.name.localeCompare(b.name);
       });
 
     const resultText = entries
-      .map(e => `${e.isDirectory() ? "dir: " : "file:"} ${e.name}`)
+      .map((e) => `${e.isDirectory() ? "dir: " : "file:"} ${e.name}`)
       .join("\n");
 
     return {
@@ -635,7 +710,8 @@ export async function handleSearchCodebase(
 
     if (!pattern) {
       return {
-        outputText: "Error: 'pattern' or 'query' is required for search_codebase",
+        outputText:
+          "Error: 'pattern' or 'query' is required for search_codebase",
         metadata: { exit_code: 1 },
       };
     }
@@ -644,8 +720,8 @@ export async function handleSearchCodebase(
     // e.g. search_codebase({ pattern: "*.json" }) -> list all json files
     const isFileListingMode = !query && pattern.trim().startsWith("*");
 
-    const rgArgs = isFileListingMode 
-      ? ["rg", "--files", "-g", pattern] 
+    const rgArgs = isFileListingMode
+      ? ["rg", "--files", "-g", pattern]
       : ["rg", "--json", pattern];
 
     if (searchPath) {
@@ -662,7 +738,9 @@ export async function handleSearchCodebase(
     // Add .codexignore support to ripgrep
     const gitRoot = findGitRoot(process.cwd());
     const searchDirs = [process.cwd()];
-    if (gitRoot && gitRoot !== process.cwd()) {searchDirs.push(gitRoot);}
+    if (gitRoot && gitRoot !== process.cwd()) {
+      searchDirs.push(gitRoot);
+    }
     searchDirs.push(join(homedir(), ".codex"));
 
     for (const dir of searchDirs) {
@@ -686,12 +764,19 @@ export async function handleSearchCodebase(
 
     // Hybrid Search: Run semantic search in parallel if available
     let semanticResults: Array<any> = [];
-    if (ctx.agent && ctx.agent.hasIndex() && !isFileListingMode && !searchPath) {
+    if (
+      ctx.agent &&
+      ctx.agent.hasIndex() &&
+      !isFileListingMode &&
+      !searchPath
+    ) {
       // Only run semantic search for global searches (no specific path) for now to avoid noise
       try {
         semanticResults = await ctx.agent.searchCode(query || pattern, 5);
       } catch (e) {
-        if (process.env["DEBUG"]) {log(`Semantic search failed during hybrid search: ${e}`);}
+        if (process.env["DEBUG"]) {
+          log(`Semantic search failed during hybrid search: ${e}`);
+        }
       }
     }
 
@@ -707,7 +792,11 @@ export async function handleSearchCodebase(
       const fileList = outputText?.trim();
       return {
         outputText: fileList || "No files found matching the pattern.",
-        metadata: { ...metadata, match_count: fileList ? fileList.split('\n').length : 0, mode: "file_listing" }
+        metadata: {
+          ...metadata,
+          match_count: fileList ? fileList.split("\n").length : 0,
+          mode: "file_listing",
+        },
       };
     }
 
@@ -717,7 +806,9 @@ export async function handleSearchCodebase(
     const seenFiles = new Set<string>();
 
     for (const line of lines) {
-      if (!line) {continue;}
+      if (!line) {
+        continue;
+      }
       try {
         const parsed = JSON.parse(line);
         if (parsed.type === "match") {
@@ -727,7 +818,7 @@ export async function handleSearchCodebase(
             file: filePath,
             line: parsed.data.line_number,
             text: parsed.data.lines.text.trim(),
-            source: "keyword"
+            source: "keyword",
           });
         }
       } catch {
@@ -744,12 +835,16 @@ export async function handleSearchCodebase(
           file: sem.path,
           line: 0, // Semantic search often gives chunks, not exact lines. 0 indicates general relevance.
           text: `[Semantic Match] ${sem.content.slice(0, 200).replace(/\n/g, " ")}...`,
-          source: "semantic"
+          source: "semantic",
         });
       }
     }
 
-    if (results.length === 0 && metadata["exit_code"] !== 0 && metadata["exit_code"] !== 1) {
+    if (
+      results.length === 0 &&
+      metadata["exit_code"] !== 0 &&
+      metadata["exit_code"] !== 1
+    ) {
       return {
         outputText: `Error: search_codebase failed with exit code ${metadata["exit_code"]}. ${outputText.trim() || "Check if 'rg' (ripgrep) is installed."}`,
         metadata,
@@ -757,14 +852,16 @@ export async function handleSearchCodebase(
     }
 
     // Sort results: Keyword matches first, then semantic
-    // results.sort((a, b) => (a.source === "keyword" ? -1 : 1)); 
+    // results.sort((a, b) => (a.source === "keyword" ? -1 : 1));
     // Actually, preserving order might be better or sorting by file.
     // Let's just group by file for readability.
-    
+
     // Group by file
     const grouped: Record<string, Array<any>> = {};
     for (const r of results) {
-      if (!grouped[r.file]) {grouped[r.file] = [];}
+      if (!grouped[r.file]) {
+        grouped[r.file] = [];
+      }
       grouped[r.file]!.push(r);
     }
 
@@ -773,9 +870,9 @@ export async function handleSearchCodebase(
       finalOutput += `File: ${file}\n`;
       for (const m of matches) {
         if (m.source === "semantic") {
-           finalOutput += `  (Semantic) ${m.text}\n`;
+          finalOutput += `  (Semantic) ${m.text}\n`;
         } else {
-           finalOutput += `  ${m.line}: ${m.text}\n`;
+          finalOutput += `  ${m.line}: ${m.text}\n`;
         }
       }
       finalOutput += "\n";
@@ -783,7 +880,11 @@ export async function handleSearchCodebase(
 
     return {
       outputText: finalOutput.trim() || "No matches found.",
-      metadata: { ...metadata, match_count: results.length, hybrid: semanticResults.length > 0 },
+      metadata: {
+        ...metadata,
+        match_count: results.length,
+        hybrid: semanticResults.length > 0,
+      },
     };
   } catch (err) {
     return {
@@ -814,7 +915,11 @@ export async function handlePersistentMemory(
 
     const entry = `[${category}] ${fact}`;
     const result = await handleExecCommand(
-      { cmd: ["persistent_memory", entry], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["persistent_memory", entry],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -881,9 +986,7 @@ export async function handleSummarizeMemory(): Promise<{
   }
 }
 
-export async function handleQueryMemory(
-  rawArgs: string,
-): Promise<{
+export async function handleQueryMemory(rawArgs: string): Promise<{
   outputText: string;
   metadata: Record<string, unknown>;
 }> {
@@ -891,30 +994,42 @@ export async function handleQueryMemory(
     const args = JSON.parse(rawArgs);
     const { query } = args;
     if (!query) {
-      return { outputText: "Error: 'query' is required", metadata: { exit_code: 1 } };
+      return {
+        outputText: "Error: 'query' is required",
+        metadata: { exit_code: 1 },
+      };
     }
 
     const memoryPath = join(process.cwd(), ".codex", "memory.md");
     if (!existsSync(memoryPath)) {
-      return { outputText: "No memory file found.", metadata: { exit_code: 0 } };
+      return {
+        outputText: "No memory file found.",
+        metadata: { exit_code: 0 },
+      };
     }
 
     const content = readFileSync(memoryPath, "utf-8");
     const lines = content.split("\n");
-    const matches = lines.filter((line) => line.toLowerCase().includes(query.toLowerCase()));
+    const matches = lines.filter((line) =>
+      line.toLowerCase().includes(query.toLowerCase()),
+    );
 
     return {
-      outputText: matches.length > 0 ? `Matching memory entries:\n${matches.join("\n")}` : "No matching memory entries found.",
+      outputText:
+        matches.length > 0
+          ? `Matching memory entries:\n${matches.join("\n")}`
+          : "No matching memory entries found.",
       metadata: { exit_code: 0, match_count: matches.length },
     };
   } catch (err) {
-    return { outputText: `Error querying memory: ${String(err)}`, metadata: { exit_code: 1 } };
+    return {
+      outputText: `Error querying memory: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
   }
 }
 
-export async function handleForgetMemory(
-  rawArgs: string,
-): Promise<{
+export async function handleForgetMemory(rawArgs: string): Promise<{
   outputText: string;
   metadata: Record<string, unknown>;
 }> {
@@ -922,47 +1037,68 @@ export async function handleForgetMemory(
     const args = JSON.parse(rawArgs);
     const { pattern } = args;
     if (!pattern) {
-      return { outputText: "Error: 'pattern' is required", metadata: { exit_code: 1 } };
+      return {
+        outputText: "Error: 'pattern' is required",
+        metadata: { exit_code: 1 },
+      };
     }
 
     const memoryPath = join(process.cwd(), ".codex", "memory.md");
     if (!existsSync(memoryPath)) {
-      return { outputText: "No memory file found.", metadata: { exit_code: 0 } };
+      return {
+        outputText: "No memory file found.",
+        metadata: { exit_code: 0 },
+      };
     }
 
     const content = readFileSync(memoryPath, "utf-8");
     const lines = content.split("\n");
-    const nextLines = lines.filter((line) => !line.toLowerCase().includes(pattern.toLowerCase()));
+    const nextLines = lines.filter(
+      (line) => !line.toLowerCase().includes(pattern.toLowerCase()),
+    );
 
     if (lines.length === nextLines.length) {
-      return { outputText: `No entries matched "${pattern}".`, metadata: { exit_code: 0, removed_count: 0 } };
+      return {
+        outputText: `No entries matched "${pattern}".`,
+        metadata: { exit_code: 0, removed_count: 0 },
+      };
     }
 
     writeFileSync(memoryPath, nextLines.join("\n"), "utf-8");
     return {
       outputText: `Successfully removed ${lines.length - nextLines.length} entry(ies) matching "${pattern}".`,
-      metadata: { exit_code: 0, removed_count: lines.length - nextLines.length },
+      metadata: {
+        exit_code: 0,
+        removed_count: lines.length - nextLines.length,
+      },
     };
   } catch (err) {
-    return { outputText: `Error updating memory: ${String(err)}`, metadata: { exit_code: 1 } };
+    return {
+      outputText: `Error updating memory: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
   }
 }
 
-export async function handleMaintainMemory(
-  ctx: AgentContext,
-): Promise<{
+export async function handleMaintainMemory(ctx: AgentContext): Promise<{
   outputText: string;
   metadata: Record<string, unknown>;
 }> {
   try {
     const memoryPath = join(process.cwd(), ".codex", "memory.md");
     if (!existsSync(memoryPath)) {
-      return { outputText: "No memory file found to maintain.", metadata: { exit_code: 0 } };
+      return {
+        outputText: "No memory file found to maintain.",
+        metadata: { exit_code: 0 },
+      };
     }
 
     const content = readFileSync(memoryPath, "utf-8");
     if (content.trim().length === 0) {
-      return { outputText: "Memory is empty, nothing to maintain.", metadata: { exit_code: 0 } };
+      return {
+        outputText: "Memory is empty, nothing to maintain.",
+        metadata: { exit_code: 0 },
+      };
     }
 
     const maintenancePrompt = `
@@ -981,7 +1117,9 @@ ${content}
 `;
 
     if (process.env["DEBUG"] === "1") {
-      log(`[HTTP] Request: POST ${ctx.oai.baseURL}/chat/completions (Maintenance)`);
+      log(
+        `[HTTP] Request: POST ${ctx.oai.baseURL}/chat/completions (Maintenance)`,
+      );
       log(`[HTTP] Model: ${ctx.model}, Messages: 1`);
     }
 
@@ -999,7 +1137,11 @@ ${content}
       writeFileSync(memoryPath, cleanedContent, "utf-8");
       return {
         outputText: `Memory maintenance complete. Memory has been cleaned up and consolidated.`,
-        metadata: { exit_code: 0, original_size: content.length, new_size: cleanedContent.length },
+        metadata: {
+          exit_code: 0,
+          original_size: content.length,
+          new_size: cleanedContent.length,
+        },
       };
     }
 
@@ -1008,7 +1150,10 @@ ${content}
       metadata: { exit_code: 0 },
     };
   } catch (err) {
-    return { outputText: `Error during memory maintenance: ${String(err)}`, metadata: { exit_code: 1 } };
+    return {
+      outputText: `Error during memory maintenance: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
   }
 }
 
@@ -1035,7 +1180,11 @@ export async function handleReadFileLines(
     }
 
     const result = await handleExecCommand(
-      { cmd: ["cat", filePath, `lines ${start_line}-${end_line}`], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["cat", filePath, `lines ${start_line}-${end_line}`],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -1057,10 +1206,10 @@ export async function handleReadFileLines(
     ctx.onFileAccess?.(filePath);
     const content = readFileSync(fullPath, "utf-8");
     const lines = content.split("\n");
-    
+
     const start = Math.max(0, start_line - 1);
     const end = Math.min(lines.length, end_line);
-    
+
     const requestedLines = lines.slice(start, end);
     const resultText = requestedLines.join("\n");
 
@@ -1094,7 +1243,11 @@ export async function handleListFilesRecursive(
     const { path: startPath = ".", depth = 3 } = args;
 
     const result = await handleExecCommand(
-      { cmd: ["ls", "-R", startPath], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["ls", "-R", startPath],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -1119,7 +1272,9 @@ export async function handleListFilesRecursive(
       currentDepth: number,
       currentRelPath: string = "",
     ): Promise<string> => {
-      if (currentDepth > depth) {return "";}
+      if (currentDepth > depth) {
+        return "";
+      }
 
       let dirents: Array<import("fs").Dirent> = [];
       try {
@@ -1132,15 +1287,21 @@ export async function handleListFilesRecursive(
         .filter((e) => {
           const relPath = join(currentRelPath, e.name);
           const posixPath = relPath.replace(/\\/g, "/");
-          
+
           // If the user explicitly requested a path inside/involving node_modules, show content
-          if (startPath.includes("node_modules")) {return true;}
+          if (startPath.includes("node_modules")) {
+            return true;
+          }
 
           return !ig.ignores(posixPath);
         })
         .sort((a, b) => {
-          if (a.isDirectory() && !b.isDirectory()) {return -1;}
-          if (!a.isDirectory() && b.isDirectory()) {return 1;}
+          if (a.isDirectory() && !b.isDirectory()) {
+            return -1;
+          }
+          if (!a.isDirectory() && b.isDirectory()) {
+            return 1;
+          }
           return a.name.localeCompare(b.name);
         });
 
@@ -1150,7 +1311,11 @@ export async function handleListFilesRecursive(
           const relPath = join(currentRelPath, entry.name);
           if (entry.isDirectory()) {
             let subtree = `${indent}dir: ${entry.name}/\n`;
-            subtree += await generateTree(join(dir, entry.name), currentDepth + 1, relPath);
+            subtree += await generateTree(
+              join(dir, entry.name),
+              currentDepth + 1,
+              relPath,
+            );
             return subtree;
           } else {
             return `${indent}file: ${entry.name}\n`;
@@ -1161,7 +1326,11 @@ export async function handleListFilesRecursive(
       return results.join("");
     };
 
-    const treeResult = await generateTree(fullStartPath, 1, startPath === "." ? "" : startPath);
+    const treeResult = await generateTree(
+      fullStartPath,
+      1,
+      startPath === "." ? "" : startPath,
+    );
 
     return {
       outputText: treeResult || "No files found.",
@@ -1194,7 +1363,11 @@ export async function handleFetchUrl(
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["lynx", "-dump", url], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["lynx", "-dump", url],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -1244,7 +1417,11 @@ export async function handleWebSearch(
       }
 
       const execResult = await handleExecCommand(
-        { cmd: ["curl", "-s", searxUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+        {
+          cmd: ["curl", "-s", searxUrl],
+          workdir: process.cwd(),
+          timeoutInMillis: 30000,
+        },
         ctx.config,
         ctx.approvalPolicy,
         ctx.getCommandConfirmation,
@@ -1255,61 +1432,109 @@ export async function handleWebSearch(
         try {
           const json = JSON.parse(execResult.outputText);
           if (json.results && Array.isArray(json.results)) {
-            const results = json.results.slice(0, 10).map((r: any) => 
-              `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content || r.snippet || ""}`
-            ).join("\n\n---\n\n");
-            
+            const results = json.results
+              .slice(0, 10)
+              .map(
+                (r: any) =>
+                  `Title: ${r.title}\nURL: ${r.url}\nContent: ${r.content || r.snippet || ""}`,
+              )
+              .join("\n\n---\n\n");
+
             return {
               outputText: results || "No results found on SearXNG.",
-              metadata: { ...execResult.metadata, query, type: "web_search_searxng", count: json.results.length },
+              metadata: {
+                ...execResult.metadata,
+                query,
+                type: "web_search_searxng",
+                count: json.results.length,
+              },
             };
           }
         } catch (e) {
-          if (process.env["DEBUG"]) {log(`SearXNG JSON parse failed: ${String(e)}`);}
+          if (process.env["DEBUG"]) {
+            log(`SearXNG JSON parse failed: ${String(e)}`);
+          }
         }
       }
     }
 
-    const effectiveSerperApiKey = (ctx.config.serpApiKey || process.env["SERPER_API_KEY"])?.trim();
-    const effectiveSerpapiApiKey = (process.env["SERPAPI_API_KEY"])?.trim();
+    const effectiveSerperApiKey = (
+      ctx.config.serpApiKey ||
+      process.env["SERPER_API_KEY"] ||
+      process.env["SERP_API_KEY"]
+    )?.trim();
+    const effectiveSerpapiApiKey = (
+      process.env["SERPAPI_API_KEY"] || process.env["SERP_API_KEY"]
+    )?.trim();
 
     if (process.env["DEBUG"]) {
-      log(`handleWebSearch: serper key present=${!!effectiveSerperApiKey}, serpapi key present=${!!effectiveSerpapiApiKey}`);
+      log(
+        `handleWebSearch: serper key present=${!!effectiveSerperApiKey}, serpapi key present=${!!effectiveSerpapiApiKey}`,
+      );
     }
 
     // 1. Try SerpApi.com if key is present
     if (effectiveSerpapiApiKey) {
-      if (process.env["DEBUG"]) { log(`handleWebSearch: Attempting SerpApi.com search...`); }
+      if (process.env["DEBUG"]) {
+        log(`handleWebSearch: Attempting SerpApi.com search...`);
+      }
       try {
         const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${effectiveSerpapiApiKey}`;
         const response = await fetch(url);
 
         if (response.ok) {
-          const json = (await response.json()) as {
-            organic_results?: Array<{ title: string; link?: string; snippet?: string }>;
-          };
+          const json = (await response.json()) as any;
+          if (process.env["DEBUG"]) {
+            log(`SerpApi.com response keys: ${Object.keys(json).join(", ")}`);
+          }
+
           if (json.organic_results && Array.isArray(json.organic_results)) {
-            const results = json.organic_results.slice(0, 10).map((r) => 
-              `Title: ${r.title}\nURL: ${r.link}\nContent: ${r.snippet || ""}`
-            ).join("\n\n---\n\n");
-            
+            if (process.env["DEBUG"]) {
+              log(`SerpApi.com found ${json.organic_results.length} results`);
+            }
+            const results = json.organic_results
+              .slice(0, 10)
+              .map(
+                (r: any) =>
+                  `Title: ${r.title}\nURL: ${r.link}\nContent: ${r.snippet || ""}`,
+              )
+              .join("\n\n---\n\n");
+
             return {
               outputText: results || "No organic results found on SerpApi.",
-              metadata: { query, type: "web_search_serpapi", count: json.organic_results.length },
+              metadata: {
+                query,
+                type: "web_search_serpapi",
+                count: json.organic_results.length,
+              },
             };
+          } else {
+            if (process.env["DEBUG"]) {
+              log(
+                `SerpApi.com: 'organic_results' missing or not an array. Keys: ${Object.keys(json).join(", ")}`,
+              );
+            }
           }
         } else {
           const errText = await response.text();
-          if (process.env["DEBUG"]) { log(`SerpApi.com search failed with status ${response.status}: ${errText}`); }
+          if (process.env["DEBUG"]) {
+            log(
+              `SerpApi.com search failed with status ${response.status}: ${errText}`,
+            );
+          }
         }
       } catch (e) {
-        if (process.env["DEBUG"]) { log(`SerpApi.com search failed: ${String(e)}`); }
+        if (process.env["DEBUG"]) {
+          log(`SerpApi.com search failed: ${String(e)}`);
+        }
       }
     }
 
     // 2. Try Serper.dev if key is present
     if (effectiveSerperApiKey) {
-      if (process.env["DEBUG"]) { log(`handleWebSearch: Attempting Serper.dev search...`); }
+      if (process.env["DEBUG"]) {
+        log(`handleWebSearch: Attempting Serper.dev search...`);
+      }
       try {
         const response = await fetch("https://google.serper.dev/search", {
           method: "POST",
@@ -1321,25 +1546,50 @@ export async function handleWebSearch(
         });
 
         if (response.ok) {
-          const json = (await response.json()) as {
-            organic?: Array<{ title: string; link?: string; url?: string; snippet?: string }>;
-          };
+          const json = (await response.json()) as any;
+          if (process.env["DEBUG"]) {
+            log(`Serper.dev response keys: ${Object.keys(json).join(", ")}`);
+          }
+
           if (json.organic && Array.isArray(json.organic)) {
-            const results = json.organic.slice(0, 10).map((r) => 
-              `Title: ${r.title}\nURL: ${r.link || r.url}\nContent: ${r.snippet || ""}`
-            ).join("\n\n---\n\n");
-            
+            if (process.env["DEBUG"]) {
+              log(`Serper.dev found ${json.organic.length} organic results`);
+            }
+            const results = json.organic
+              .slice(0, 10)
+              .map(
+                (r: any) =>
+                  `Title: ${r.title}\nURL: ${r.link || r.url}\nContent: ${r.snippet || ""}`,
+              )
+              .join("\n\n---\n\n");
+
             return {
               outputText: results || "No organic results found on Serper.",
-              metadata: { query, type: "web_search_serper", count: json.organic.length },
+              metadata: {
+                query,
+                type: "web_search_serper",
+                count: json.organic.length,
+              },
             };
+          } else {
+            if (process.env["DEBUG"]) {
+              log(
+                `Serper.dev: 'organic' missing or not an array. Keys: ${Object.keys(json).join(", ")}`,
+              );
+            }
           }
         } else {
           const errText = await response.text();
-          if (process.env["DEBUG"]) { log(`Serper.dev search failed with status ${response.status}: ${errText}`); }
+          if (process.env["DEBUG"]) {
+            log(
+              `Serper.dev search failed with status ${response.status}: ${errText}`,
+            );
+          }
         }
       } catch (e) {
-        if (process.env["DEBUG"]) { log(`Serper.dev search failed: ${String(e)}`); }
+        if (process.env["DEBUG"]) {
+          log(`Serper.dev search failed: ${String(e)}`);
+        }
       }
     }
 
@@ -1357,11 +1607,17 @@ export async function handleWebSearch(
     }
 
     if (process.env["DEBUG"]) {
-      log(`handleWebSearch: falling back to DuckDuckGo/scraping (URL: ${searchUrl})`);
+      log(
+        `handleWebSearch: falling back to DuckDuckGo/scraping (URL: ${searchUrl})`,
+      );
     }
 
     const execResult = await handleExecCommand(
-      { cmd: ["lynx", "-dump", searchUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["lynx", "-dump", searchUrl],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -1405,14 +1661,18 @@ export async function handleBrowse(
     if (url && query) {
       // Site-specific search using DuckDuckGo syntax
       const siteQuery = `site:${url.replace(/^https?:\/\//, "").split("/")[0]} ${query}`;
-      return handleWebSearch(ctx, JSON.stringify({ query: siteQuery, timeout }));
+      return handleWebSearch(
+        ctx,
+        JSON.stringify({ query: siteQuery, timeout }),
+      );
     } else if (url) {
       return handleFetchUrl(ctx, JSON.stringify({ url, timeout }));
     } else if (query) {
       return handleWebSearch(ctx, JSON.stringify({ query, timeout }));
     } else {
       return {
-        outputText: "Error: Either 'url' or 'query' must be provided for browse.",
+        outputText:
+          "Error: Either 'url' or 'query' must be provided for browse.",
         metadata: { exit_code: 1 },
       };
     }
@@ -1448,16 +1708,24 @@ export async function handleSemanticSearch(
 
     const agent = ctx.agent;
     if (!agent) {
-       return { outputText: "Error: Agent not initialized", metadata: { exit_code: 1 } };
+      return {
+        outputText: "Error: Agent not initialized",
+        metadata: { exit_code: 1 },
+      };
     }
 
     const results = await agent.searchCode(query, limit);
-    
+
     if (results.length === 0) {
-      return { outputText: "No semantically relevant code found.", metadata: { exit_code: 0 } };
+      return {
+        outputText: "No semantically relevant code found.",
+        metadata: { exit_code: 0 },
+      };
     }
 
-    const outputText = results.map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`).join("\n\n---\n\n");
+    const outputText = results
+      .map((r: any) => `File: ${r.path}\nContent snippet:\n${r.content}`)
+      .join("\n\n---\n\n");
 
     return {
       outputText,
@@ -1489,8 +1757,8 @@ export async function handleNpmSearch(
       };
     }
 
-    const cmd = detailed 
-      ? ["npm", "view", query, "--json"] 
+    const cmd = detailed
+      ? ["npm", "view", query, "--json"]
       : ["npm", "search", query, "--json", "--limit", "10"];
 
     const result = await handleExecCommand(
@@ -1511,7 +1779,12 @@ export async function handleNpmSearch(
       const parsed = JSON.parse(outputText);
       if (Array.isArray(parsed)) {
         // Format search results
-        outputText = parsed.map((p: any) => `- ${p.name} (v${p.version}): ${p.description || "No description"}`).join("\n");
+        outputText = parsed
+          .map(
+            (p: any) =>
+              `- ${p.name} (v${p.version}): ${p.description || "No description"}`,
+          )
+          .join("\n");
       } else if (detailed && parsed.name) {
         // Format detailed view
         outputText = `Package: ${parsed.name}\nLatest Version: ${parsed.version}\nDescription: ${parsed.description}\nDependencies: ${JSON.stringify(parsed.dependencies || {}, null, 2)}`;
@@ -1554,7 +1827,11 @@ export async function handleSnykSearch(
     const searchUrl = `https://security.snyk.io/vuln/?search=${encodeURIComponent(packageName)}`;
 
     const execResult = await handleExecCommand(
-      { cmd: ["lynx", "-dump", searchUrl], workdir: process.cwd(), timeoutInMillis: 30000 },
+      {
+        cmd: ["lynx", "-dump", searchUrl],
+        workdir: process.cwd(),
+        timeoutInMillis: 30000,
+      },
       ctx.config,
       ctx.approvalPolicy,
       ctx.getCommandConfirmation,
@@ -1563,7 +1840,11 @@ export async function handleSnykSearch(
 
     return {
       ...execResult,
-      metadata: { ...execResult.metadata, package: packageName, type: "snyk_search" },
+      metadata: {
+        ...execResult.metadata,
+        package: packageName,
+        type: "snyk_search",
+      },
     };
   } catch (err) {
     return {
@@ -1573,28 +1854,48 @@ export async function handleSnykSearch(
   }
 }
 
-export async function handleAskConfirmation(ctx: AgentContext, argsStr: string) {
+export async function handleAskConfirmation(
+  ctx: AgentContext,
+  argsStr: string,
+) {
   try {
     const { prompt } = JSON.parse(argsStr);
     if (!ctx.getUserChoice) {
-      return { outputText: "Error: getUserChoice callback not available in current environment.", metadata: { exit_code: 1 } };
+      return {
+        outputText:
+          "Error: getUserChoice callback not available in current environment.",
+        metadata: { exit_code: 1 },
+      };
     }
     const choice = await ctx.getUserChoice(prompt, ["Yes", "No"]);
     return { outputText: choice, metadata: { exit_code: 0, choice } };
   } catch (err) {
-    return { outputText: `Error asking for confirmation: ${String(err)}`, metadata: { exit_code: 1 } };
+    return {
+      outputText: `Error asking for confirmation: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
   }
 }
 
-export async function handleAskMultipleChoice(ctx: AgentContext, argsStr: string) {
+export async function handleAskMultipleChoice(
+  ctx: AgentContext,
+  argsStr: string,
+) {
   try {
     const { prompt, choices } = JSON.parse(argsStr);
     if (!ctx.getUserChoice) {
-      return { outputText: "Error: getUserChoice callback not available in current environment.", metadata: { exit_code: 1 } };
+      return {
+        outputText:
+          "Error: getUserChoice callback not available in current environment.",
+        metadata: { exit_code: 1 },
+      };
     }
     const choice = await ctx.getUserChoice(prompt, choices);
     return { outputText: choice, metadata: { exit_code: 0, choice } };
   } catch (err) {
-    return { outputText: `Error asking for multiple choice: ${String(err)}`, metadata: { exit_code: 1 } };
+    return {
+      outputText: `Error asking for multiple choice: ${String(err)}`,
+      metadata: { exit_code: 1 },
+    };
   }
 }

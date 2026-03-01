@@ -4,12 +4,25 @@ import SelectInput from "./select-input/select-input.js";
 import { Box, Text, useInput } from "ink";
 import React from "react";
 
-
 // Mock prompts since we don't have a real library yet
 const availablePrompts = [
-  { label: "DEFAULT - Balanced coding assistant", value: "default", instructions: "You are OpenCodex, a senior software engineer..." },
-  { label: "TESTER - Focus on unit tests and edge cases", value: "tester", instructions: "You are OpenCodex. Your goal is to write comprehensive tests..." },
-  { label: "REFACTOR - Focus on clean code and patterns", value: "refactor", instructions: "You are OpenCodex. Focus on refactoring for clarity and patterns..." },
+  {
+    label: "DEFAULT - Balanced coding assistant",
+    value: "default",
+    instructions: "You are OpenCodex, a senior software engineer...",
+  },
+  {
+    label: "TESTER - Focus on unit tests and edge cases",
+    value: "tester",
+    instructions:
+      "You are OpenCodex. Your goal is to write comprehensive tests...",
+  },
+  {
+    label: "REFACTOR - Focus on clean code and patterns",
+    value: "refactor",
+    instructions:
+      "You are OpenCodex. Focus on refactoring for clarity and patterns...",
+  },
 ];
 
 export default function PromptSelectOverlay({
@@ -22,7 +35,9 @@ export default function PromptSelectOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   const handleSelect = (item: any) => {
@@ -43,9 +58,14 @@ export default function PromptSelectOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> LIBRARY </Text>
+          <Text bold color="black">
+            {" "}
+            LIBRARY{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>SELECT SYSTEM PROMPT</Text>
+        <Text color={theme.highlight} bold>
+          SELECT SYSTEM PROMPT
+        </Text>
       </Box>
 
       <Box flexDirection="column" paddingX={1} marginBottom={1}>
@@ -57,17 +77,19 @@ export default function PromptSelectOverlay({
         />
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>↑↓ navigate │ enter select │ esc close</Text>
+        <Text dimColor italic>
+          ↑↓ navigate │ enter select │ esc close
+        </Text>
       </Box>
     </Box>
   );

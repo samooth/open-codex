@@ -54,15 +54,15 @@ const DEFAULT_IGNORE_PATTERNS = [
  */
 export function getIgnoreFilter() {
   const ig = ignore().add(DEFAULT_IGNORE_PATTERNS);
-  
+
   const cwd = process.cwd();
   const gitRoot = findGitRoot(cwd);
-  
+
   const searchDirs = [cwd];
   if (gitRoot && gitRoot !== cwd) {
     searchDirs.push(gitRoot);
   }
-  
+
   // Also check home directory for global ignore
   searchDirs.push(join(homedir(), ".codex"));
 
@@ -71,14 +71,18 @@ export function getIgnoreFilter() {
     if (existsSync(codexIgnorePath)) {
       try {
         ig.add(readFileSync(codexIgnorePath, "utf-8"));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
-    
+
     const gitIgnorePath = join(dir, ".gitignore");
     if (existsSync(gitIgnorePath)) {
       try {
         ig.add(readFileSync(gitIgnorePath, "utf-8"));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -91,12 +95,14 @@ export function getIgnoreFilter() {
  */
 export function isPathIgnored(filePath: string): boolean {
   const ig = getIgnoreFilter();
-  const relativePath = filePath.startsWith(process.cwd()) 
-    ? filePath.slice(process.cwd().length + 1) 
+  const relativePath = filePath.startsWith(process.cwd())
+    ? filePath.slice(process.cwd().length + 1)
     : filePath;
-    
-  if (!relativePath) {return false;}
-  
+
+  if (!relativePath) {
+    return false;
+  }
+
   // ignore library requires forward slashes
   const posixPath = relativePath.replace(/\\/g, "/");
   return ig.ignores(posixPath);

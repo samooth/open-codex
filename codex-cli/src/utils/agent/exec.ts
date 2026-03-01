@@ -2,7 +2,15 @@ import type { ExecInput, ExecResult } from "./sandbox/interface.js";
 import type { SpawnOptions } from "child_process";
 
 import { process_patch } from "./apply-patch.js";
-import { parseApplyPatch, PATCH_PREFIX, PATCH_SUFFIX, ADD_FILE_PREFIX, DELETE_FILE_PREFIX, UPDATE_FILE_PREFIX, END_OF_FILE_PREFIX } from "../../parse-apply-patch.js";
+import {
+  parseApplyPatch,
+  PATCH_PREFIX,
+  PATCH_SUFFIX,
+  ADD_FILE_PREFIX,
+  DELETE_FILE_PREFIX,
+  UPDATE_FILE_PREFIX,
+  END_OF_FILE_PREFIX,
+} from "../../parse-apply-patch.js";
 import { SandboxType } from "./sandbox/interface.js";
 import { execWithSeatbelt } from "./sandbox/macos-seatbelt.js";
 import { exec as rawExec } from "./sandbox/raw-exec.js";
@@ -55,7 +63,7 @@ export function exec(
     sandbox === SandboxType.MACOS_SEATBELT ? execWithSeatbelt : rawExec;
 
   const needsShell = requiresShell(cmd);
-  
+
   let finalCmd = cmd;
   if (needsShell) {
     if (process.platform === "win32") {
@@ -74,7 +82,7 @@ export function exec(
   }
 
   const opts: SpawnOptions = {
-    timeout: isFocused ? undefined : (timeoutInMillis || DEFAULT_TIMEOUT_MS),
+    timeout: isFocused ? undefined : timeoutInMillis || DEFAULT_TIMEOUT_MS,
     ...(needsShell ? { shell: true } : {}),
     ...(workdir ? { cwd: workdir } : {}),
     ...(isFocused ? { stdio: "inherit" } : {}),
@@ -83,13 +91,20 @@ export function exec(
   return execForSandbox(finalCmd, opts, writableRoots, abortSignal, onOutput);
 }
 
-export function execApplyPatch(patchText: string, excludedHunks?: Record<string, Array<number>>): ExecResult {
+export function execApplyPatch(
+  patchText: string,
+  excludedHunks?: Record<string, Array<number>>,
+): ExecResult {
   // If we have exclusions, we need to rebuild the patch text without those hunks
   let finalPatchText = patchText;
   if (excludedHunks && Object.keys(excludedHunks).length > 0) {
     const ops = parseApplyPatch(patchText);
     if (!ops) {
-      return { stdout: "", stderr: "Failed to parse patch for hunk exclusion", exitCode: 1 };
+      return {
+        stdout: "",
+        stderr: "Failed to parse patch for hunk exclusion",
+        exitCode: 1,
+      };
     }
 
     let rebuiltPatch = PATCH_PREFIX;
@@ -97,12 +112,16 @@ export function execApplyPatch(patchText: string, excludedHunks?: Record<string,
 
     for (const op of ops) {
       const excluded = excludedHunks[op.path] || [];
-      
+
       // If all hunks of this op are excluded, skip the whole op
-      if (op.type !== "delete" && op.hunks.length > 0 && excluded.length === op.hunks.length) {
+      if (
+        op.type !== "delete" &&
+        op.hunks.length > 0 &&
+        excluded.length === op.hunks.length
+      ) {
         continue;
       }
-      
+
       // Also allow excluding delete ops if path matches and excluded is [0] (dummy index)
       if (op.type === "delete" && excluded.length > 0) {
         continue;

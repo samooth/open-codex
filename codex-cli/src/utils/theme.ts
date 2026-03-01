@@ -58,7 +58,7 @@ export const themes: Record<string, Theme> = {
   default: {
     name: "Default (Codex)",
     assistant: "greenBright",
-    user: "blueBright",
+    user: "white",
     thought: "cyan",
     plan: "yellow",
     toolLabel: "blueBright",
@@ -274,7 +274,7 @@ export const themes: Record<string, Theme> = {
     statusBarModel: "greenBright",
     statusBarSession: "green",
     deletion: "greenBright",
-  }
+  },
 };
 
 /**
@@ -286,7 +286,9 @@ export const themes: Record<string, Theme> = {
  * @param themeConfig - An optional string identifier for a pre-defined theme or a custom theme object.
  * @returns A complete `Theme` object.
  */
-export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Theme {
+export function getTheme(
+  themeConfig?: string | z.infer<typeof ThemeSchema>,
+): Theme {
   if (!themeConfig) {
     return themes["default"]!;
   }
@@ -308,34 +310,34 @@ export function getTheme(themeConfig?: string | z.infer<typeof ThemeSchema>): Th
  */
 export function getSyntaxTheme(_theme: Theme) {
   return {
-    keyword: chalk.magentaBright,
-    built_in: chalk.cyanBright,
-    type: chalk.cyanBright,
-    literal: chalk.yellowBright,
-    number: chalk.yellowBright,
-    regexp: chalk.redBright,
-    string: chalk.greenBright,
-    class: chalk.blueBright,
-    function: chalk.blueBright,
-    comment: chalk.gray,
-    doctag: chalk.gray,
-    meta: chalk.gray,
+    "keyword": chalk.magentaBright,
+    "built_in": chalk.cyanBright,
+    "type": chalk.cyanBright,
+    "literal": chalk.yellowBright,
+    "number": chalk.yellowBright,
+    "regexp": chalk.redBright,
+    "string": chalk.greenBright,
+    "class": chalk.blueBright,
+    "function": chalk.blueBright,
+    "comment": chalk.gray,
+    "doctag": chalk.gray,
+    "meta": chalk.gray,
     "meta-keyword": chalk.gray,
     "meta-string": chalk.gray,
-    section: chalk.bold,
-    tag: chalk.cyanBright,
-    name: chalk.cyanBright,
-    attr: chalk.cyanBright,
-    attribute: chalk.cyanBright,
-    property: chalk.cyanBright, // Added for JSON keys
-    variable: chalk.white,
-    bullet: chalk.magentaBright,
-    code: chalk.white,
-    emphasis: chalk.italic,
-    strong: chalk.bold,
-    formula: chalk.gray,
-    link: chalk.cyanBright.underline,
-    quote: chalk.gray,
+    "section": chalk.bold,
+    "tag": chalk.cyanBright,
+    "name": chalk.cyanBright,
+    "attr": chalk.cyanBright,
+    "attribute": chalk.cyanBright,
+    "property": chalk.cyanBright, // Added for JSON keys
+    "variable": chalk.white,
+    "bullet": chalk.magentaBright,
+    "code": chalk.white,
+    "emphasis": chalk.italic,
+    "strong": chalk.bold,
+    "formula": chalk.gray,
+    "link": chalk.cyanBright.underline,
+    "quote": chalk.gray,
     "selector-tag": chalk.magentaBright,
     "selector-id": chalk.magentaBright,
     "selector-class": chalk.magentaBright,
@@ -343,7 +345,7 @@ export function getSyntaxTheme(_theme: Theme) {
     "selector-pseudo": chalk.magentaBright,
     "template-tag": chalk.magentaBright,
     "template-variable": chalk.white,
-    addition: chalk.green,
-    deletion: chalk.red,
+    "addition": chalk.green,
+    "deletion": chalk.red,
   };
 }

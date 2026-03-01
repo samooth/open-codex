@@ -2,7 +2,7 @@ import * as esbuild from "esbuild";
 import * as fs from "fs";
 import * as path from "path";
 
-const OUT_DIR = 'dist'
+const OUT_DIR = "dist";
 /**
  * ink attempts to import react-devtools-core in an ESM-unfriendly way:
  *
@@ -57,7 +57,9 @@ if (isDevBuild) {
     name: "dev-shebang",
     setup(build) {
       build.onEnd(async () => {
-        const outFile = path.resolve(isDevBuild ? `${OUT_DIR}/cli-dev.js` : `${OUT_DIR}/cli.js`);
+        const outFile = path.resolve(
+          isDevBuild ? `${OUT_DIR}/cli-dev.js` : `${OUT_DIR}/cli.js`,
+        );
         let code = await fs.promises.readFile(outFile, "utf8");
         if (code.startsWith("#!")) {
           code = code.replace(/^#!.*\n/, devShebangLine);

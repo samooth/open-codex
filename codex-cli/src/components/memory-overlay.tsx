@@ -5,7 +5,6 @@ import { Box, Text, useInput } from "ink";
 import path from "path";
 import React, { useState, useEffect } from "react";
 
-
 export default function MemoryOverlay({
   onExit,
   theme,
@@ -25,7 +24,9 @@ export default function MemoryOverlay({
   }, [memoryPath]);
 
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   return (
@@ -43,26 +44,33 @@ export default function MemoryOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> MEMORY </Text>
+          <Text bold color="black">
+            {" "}
+            MEMORY{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>PERSISTENT PROJECT KNOWLEDGE</Text>
+        <Text color={theme.highlight} bold>
+          PERSISTENT PROJECT KNOWLEDGE
+        </Text>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} overflowY="hidden" paddingX={1}>
         <Text color={theme.dim}>{content}</Text>
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>esc close</Text>
+        <Text dimColor italic>
+          esc close
+        </Text>
       </Box>
     </Box>
   );

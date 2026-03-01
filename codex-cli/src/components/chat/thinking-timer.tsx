@@ -25,7 +25,9 @@ export default function ThinkingTimer({
     return () => clearInterval(interval);
   }, [loading]);
 
-  if (!loading) {return null;}
+  if (!loading) {
+    return null;
+  }
 
   return <Text color={theme.warning}>{`(${seconds}s)`}</Text>;
 }

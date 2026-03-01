@@ -6,20 +6,24 @@ import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import { parseApplyPatch } from "../../parse-apply-patch";
 import { shortenPath } from "../../utils/short-path";
+import { getFileExtension } from "../../utils/file-utils";
 import chalk from "chalk";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
+import { Spinner } from "@inkjs/ui";
 
 export function TerminalChatToolCallCommand({
   commandForDisplay,
   applyPatch,
   theme,
   isActive = false,
+  status = 'running',
 }: {
   commandForDisplay: string;
   applyPatch?: ApplyPatchCommand;
   theme: Theme;
   isActive?: boolean;
+  status?: 'running' | 'success' | 'failure';
 }): React.ReactElement {
   useTerminalSize();
   const isPatch =
@@ -30,68 +34,79 @@ export function TerminalChatToolCallCommand({
   const [selectedOpIndex, setSelectedOpIndex] = useState(0);
   const [collapsedOps, setCollapsedOps] = useState<Set<number>>(new Set());
   const [isExpandedAll, setIsExpandedAll] = useState(false);
-  
+
   // path -> hunkIndices
-  const [excludedHunks, setExcludedHunks] = useState<Record<string, Array<number>>>(
-    applyPatch?.excludedHunks || {}
-  );
+  const [excludedHunks, setExcludedHunks] = useState<
+    Record<string, Array<number>>
+  >(applyPatch?.excludedHunks || {});
 
   const ops = React.useMemo(() => {
-    if (applyPatch) {return parseApplyPatch(applyPatch.patch);}
+    if (applyPatch) {
+      return parseApplyPatch(applyPatch.patch);
+    }
     if (commandForDisplay.includes("*** Begin Patch")) {
-      const match = commandForDisplay.match(/\*\*\* Begin Patch[\s\S]*\*\*\* End Patch/);
-      if (match) {return parseApplyPatch(match[0]);}
+      const match = commandForDisplay.match(
+        /\*\*\* Begin Patch[\s\S]*\*\*\* End Patch/,
+      );
+      if (match) {
+        return parseApplyPatch(match[0]);
+      }
     }
     return null;
   }, [applyPatch, commandForDisplay]);
 
-  useInput((input, _key) => {
-    if (!isActive) {return;}
+  useInput(
+    (input, _key) => {
+      if (!isActive) {
+        return;
+      }
 
-    if (input === "e") {
-      setIsExpandedAll(!isExpandedAll);
-      return;
-    }
-    
-    if (isPatch && ops && ops.length > 0) {
-      if (_key.upArrow) {
-        setSelectedOpIndex(prev => (prev - 1 + ops.length) % ops.length);
-      } else if (_key.downArrow) {
-        setSelectedOpIndex(prev => (prev + 1) % ops.length);
-      } else if (input === "c") {
-        setCollapsedOps(prev => {
-          const next = new Set(prev);
-          if (next.has(selectedOpIndex)) {
-            next.delete(selectedOpIndex);
-          } else {
-            next.add(selectedOpIndex);
-          }
-          return next;
-        });
-      } else if (input === " ") {
-        const op = ops[selectedOpIndex];
-        if (op && (op.type === "update" || op.type === "create")) {
-          const path = op.path;
-          setExcludedHunks(prev => {
-            const next = { ...prev };
-            const currentExcl = next[path] || [];
-            if (currentExcl.length > 0) {
-              delete next[path];
+      if (input === "e") {
+        setIsExpandedAll(!isExpandedAll);
+        return;
+      }
+
+      if (isPatch && ops && ops.length > 0) {
+        if (_key.upArrow) {
+          setSelectedOpIndex((prev) => (prev - 1 + ops.length) % ops.length);
+        } else if (_key.downArrow) {
+          setSelectedOpIndex((prev) => (prev + 1) % ops.length);
+        } else if (input === "c") {
+          setCollapsedOps((prev) => {
+            const next = new Set(prev);
+            if (next.has(selectedOpIndex)) {
+              next.delete(selectedOpIndex);
             } else {
-              next[path] = op.hunks.map((_, idx) => idx);
+              next.add(selectedOpIndex);
             }
-            
-            // Sync back to the parent state if possible
-            if (applyPatch) {
-              applyPatch.excludedHunks = next;
-            }
-            
             return next;
           });
+        } else if (input === " ") {
+          const op = ops[selectedOpIndex];
+          if (op && (op.type === "update" || op.type === "create")) {
+            const path = op.path;
+            setExcludedHunks((prev) => {
+              const next = { ...prev };
+              const currentExcl = next[path] || [];
+              if (currentExcl.length > 0) {
+                delete next[path];
+              } else {
+                next[path] = op.hunks.map((_, idx) => idx);
+              }
+
+              // Sync back to the parent state if possible
+              if (applyPatch) {
+                applyPatch.excludedHunks = next;
+              }
+
+              return next;
+            });
+          }
         }
       }
-    }
-  }, { isActive });
+    },
+    { isActive },
+  );
 
   if (isPatch && ops) {
     // Strictly limit patch preview height to keep confirmation prompt on screen unless expanded
@@ -101,77 +116,127 @@ export function TerminalChatToolCallCommand({
 
     return (
       <Box flexDirection="column" gap={0} width="100%" marginY={1}>
-        <Box 
-          flexDirection="column" 
-          paddingLeft={1} 
-          borderStyle="bold" 
-          borderRight={false} 
-          borderTop={false} 
-          borderBottom={false} 
+        <Box
+          flexDirection="column"
+          paddingLeft={1}
+          borderStyle="bold"
+          borderRight={false}
+          borderTop={false}
+          borderBottom={false}
           borderLeftColor={theme.accent}
         >
           <Box gap={1} marginBottom={1}>
-            <Box backgroundColor={theme.accent as any} paddingX={1}>
+            <Box
+              backgroundColor={
+                status === 'success'
+                  ? theme.success
+                  : status === 'failure'
+                    ? theme.error
+                    : theme.accent
+              }
+              paddingX={1}
+            >
               <Text bold color="black">
-                {isEditFile ? " EDIT FILE " : " APPLY PATCH "}
+                {status === 'running' && <Spinner type="dots" />}{" "}
+                {isEditFile ? "EDIT FILE" : "APPLY PATCH"}{" "}
+                {status === 'success' && '✅'}{" "}
+                {status === 'failure' && '❌'}
               </Text>
             </Box>
-            <Text dimColor italic> (↑↓ navigate │ space toggle │ 'e' {isExpandedAll ? 'collapse' : 'expand'})</Text>
+            <Text dimColor italic>
+              {" "}
+              (↑↓ navigate │ space toggle │ 'e'{" "}
+              {isExpandedAll ? "collapse" : "expand"})
+            </Text>
           </Box>
-          
+
           {ops.length > 1 && (
             <Box marginBottom={1}>
-              <Text dimColor italic> [ ↑↓ navigate │ 'c' toggle file ]</Text>
+              <Text dimColor italic>
+                {" "}
+                [ ↑↓ navigate │ 'c' toggle file ]
+              </Text>
             </Box>
           )}
 
           {ops.map((op: any, i) => {
-            if (totalLinesRendered >= maxTotalLines && !collapsedOps.has(i) && i !== selectedOpIndex) {return null;}
+            if (
+              totalLinesRendered >= maxTotalLines &&
+              !collapsedOps.has(i) &&
+              i !== selectedOpIndex
+            ) {
+              return null;
+            }
 
             const isSelected = i === selectedOpIndex;
             const isCollapsed = collapsedOps.has(i) && !isSelected;
-            const isExcluded = (op.type === "update" || op.type === "create") && 
-                               excludedHunks[op.path] && excludedHunks[op.path]!.length === op.hunks.length;
+            const isExcluded =
+              (op.type === "update" || op.type === "create") &&
+              excludedHunks[op.path] &&
+              excludedHunks[op.path]!.length === op.hunks.length;
 
-            const lines = (op.type === "create" ? op.content : op.type === "update" ? op.update : "")
+            const lines = (
+              op.type === "create"
+                ? op.content
+                : op.type === "update"
+                  ? op.update
+                  : ""
+            )
               .split("\n")
-              .filter((l: string) => l.trim().length > 0 || op.type === "create");
-            
-            const availableLines = isCollapsed ? 0 : Math.max(1, maxTotalLines - totalLinesRendered - 2); 
+              .filter(
+                (l: string) => l.trim().length > 0 || op.type === "create",
+              );
+
+            const availableLines = isCollapsed
+              ? 0
+              : Math.max(1, maxTotalLines - totalLinesRendered - 2);
             const showTruncated = !isCollapsed && lines.length > availableLines;
-            const linesToDisplay = isCollapsed ? [] : (showTruncated ? lines.slice(0, availableLines) : lines);
-            
+            const linesToDisplay = isCollapsed
+              ? []
+              : showTruncated
+                ? lines.slice(0, availableLines)
+                : lines;
+
             if (!isCollapsed) {
               totalLinesRendered += linesToDisplay.length + 2;
             } else {
               totalLinesRendered += 1;
             }
 
+            const language = getFileExtension(op.path);
+
             return (
-              <Box 
-                key={i} 
-                flexDirection="column" 
-                marginTop={0} 
+              <Box
+                key={i}
+                flexDirection="column"
+                marginTop={0}
                 marginBottom={1}
-                paddingLeft={1} 
-                borderStyle="bold" 
-                borderRight={false} 
-                borderTop={false} 
-                borderBottom={false} 
+                paddingLeft={1}
+                borderStyle="bold"
+                borderRight={false}
+                borderTop={false}
+                borderBottom={false}
                 borderLeftColor={isSelected ? theme.highlight : theme.divider}
               >
                 <Box gap={1}>
-                  <Text 
-                    bold 
-                    color={isExcluded ? theme.dim : (op.type === "delete" ? theme.error : theme.highlight)}
+                  <Text
+                    bold
+                    color={
+                      isExcluded
+                        ? theme.dim
+                        : op.type === "delete"
+                          ? theme.error
+                          : theme.highlight
+                    }
                     strikethrough={isExcluded}
                   >
-                    {isSelected ? "❯ " : "  "}{op.type.toUpperCase()}
+                    {isSelected ? "❯ " : "  "}
+                    {op.type.toUpperCase()}
                   </Text>
                   <TerminalHyperlink url={getFileUrl(op.path)}>
-                    <Text 
-                      bold 
-                      wrap="wrap" 
+                    <Text
+                      bold
+                      wrap="wrap"
                       color={isSelected ? theme.accent : undefined}
                       strikethrough={isExcluded}
                     >
@@ -181,45 +246,65 @@ export function TerminalChatToolCallCommand({
                   <Text color={theme.dim}>
                     (+{op.added} -{op.deleted})
                   </Text>
-                  {isExcluded && <Text color={theme.error} bold> [EXCLUDED]</Text>}
-                  {isCollapsed && <Text italic color={theme.dim}> [collapsed]</Text>}
+                  {isExcluded && (
+                    <Text color={theme.error} bold>
+                      {" "}
+                      [EXCLUDED]
+                    </Text>
+                  )}
+                  {isCollapsed && (
+                    <Text italic color={theme.dim}>
+                      {" "}
+                      [collapsed]
+                    </Text>
+                  )}
                 </Box>
                 {!isCollapsed && !isExcluded && (
                   <Box marginTop={0} flexDirection="column" paddingLeft={2}>
                     {op.type === "delete" && (
-                      <Text color={theme.error} italic>File will be deleted</Text>
+                      <Text color={theme.error} italic>
+                        File will be deleted
+                      </Text>
                     )}
                     {(() => {
                       const renderedLines: Array<React.ReactNode> = [];
                       for (let j = 0; j < linesToDisplay.length; j++) {
                         const line = linesToDisplay[j]!;
                         const nextLine = linesToDisplay[j + 1];
-                        
+
                         // Semantic pair detection: current is '-' and next is '+'
-                        if (line.startsWith("-") && nextLine?.startsWith("+") && op.type === "update") {
+                        if (
+                          line.startsWith("-") &&
+                          nextLine?.startsWith("+") &&
+                          op.type === "update"
+                        ) {
                           renderedLines.push(
-                            <SemanticDiffPair 
-                              key={j} 
-                              removed={line} 
-                              added={nextLine} 
-                              theme={theme} 
-                            />
+                            <SemanticDiffPair
+                              key={j}
+                              removed={line}
+                              added={nextLine}
+                              theme={theme}
+                              language={language}
+                            />,
                           );
                           j++; // Skip the next line
                         } else {
                           renderedLines.push(
-                            <SemanticDiffLine 
-                              key={j} 
-                              line={line} 
-                              theme={theme} 
-                            />
+                            <SemanticDiffLine
+                              key={j}
+                              line={line}
+                              theme={theme}
+                              language={language}
+                            />,
                           );
                         }
                       }
                       return renderedLines;
                     })()}
                     {showTruncated && (
-                      <Text color={theme.dim} italic>... ({lines.length - availableLines} more lines)</Text>
+                      <Text color={theme.dim} italic>
+                        ... ({lines.length - availableLines} more lines)
+                      </Text>
                     )}
                   </Box>
                 )}
@@ -227,9 +312,14 @@ export function TerminalChatToolCallCommand({
             );
           })}
           {ops.length > 0 && totalLinesRendered >= maxTotalLines && (
-             <Box paddingLeft={1} marginTop={0}>
-               <Text color={theme.dim} italic>+ {ops.length - ops.filter((_, idx) => idx < totalLinesRendered).length} more files truncated</Text>
-             </Box>
+            <Box paddingLeft={1} marginTop={0}>
+              <Text color={theme.dim} italic>
+                +{" "}
+                {ops.length -
+                  ops.filter((_, idx) => idx < totalLinesRendered).length}{" "}
+                more files truncated
+              </Text>
+            </Box>
           )}
         </Box>
       </Box>
@@ -239,7 +329,9 @@ export function TerminalChatToolCallCommand({
   const maxTotalLines = isExpandedAll ? 1000 : 5;
   const commandLines = commandForDisplay.split("\n");
   const showTruncatedCmd = commandLines.length > maxTotalLines;
-  const commandToDisplay = showTruncatedCmd ? commandLines.slice(0, maxTotalLines).join("\n") : commandForDisplay;
+  const commandToDisplay = showTruncatedCmd
+    ? commandLines.slice(0, maxTotalLines).join("\n")
+    : commandForDisplay;
 
   const colorizedCommand = commandToDisplay
     .split("\n")
@@ -265,22 +357,48 @@ export function TerminalChatToolCallCommand({
       borderRight={false}
       borderTop={false}
       borderBottom={false}
-      borderLeftColor={theme.warning}
+      borderLeftColor={
+        status === 'success'
+          ? theme.success
+          : status === 'failure'
+            ? theme.error
+            : theme.warning
+      }
     >
       <Box gap={1} marginBottom={1}>
-        <Box backgroundColor={theme.warning as any} paddingX={1}>
+        <Box
+          backgroundColor={
+            status === 'success'
+              ? theme.success
+              : status === 'failure'
+                ? theme.error
+                : theme.warning
+          }
+          paddingX={1}
+        >
           <Text bold color="black">
-            SHELL COMMAND
+            {status === 'running' && <Spinner type="dots" />}{" "}
+            SHELL COMMAND{" "}
+            {status === 'success' && '✅'}{" "}
+            {status === 'failure' && '❌'}
           </Text>
         </Box>
-        <Text dimColor italic> (press 'e' to {isExpandedAll ? 'collapse' : 'expand'})</Text>
+        <Text dimColor italic>
+          {" "}
+          (press 'e' to {isExpandedAll ? "collapse" : "expand"})
+        </Text>
       </Box>
       <Box paddingLeft={2} flexDirection="column">
         <Text wrap="wrap">
-          <Text color={theme.dim} bold>$</Text> <Text color={theme.shellCommand}>{colorizedCommand}</Text>
+          <Text color={theme.dim} bold>
+            $
+          </Text>{" "}
+          <Text color={theme.shellCommand}>{colorizedCommand}</Text>
         </Text>
         {showTruncatedCmd && (
-          <Text color={theme.dim} italic>... ({commandLines.length - maxTotalLines} more lines)</Text>
+          <Text color={theme.dim} italic>
+            ... ({commandLines.length - maxTotalLines} more lines)
+          </Text>
         )}
       </Box>
     </Box>

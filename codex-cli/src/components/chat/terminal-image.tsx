@@ -22,9 +22,13 @@ export function TerminalImage({
   const isWezTerm = term === "WezTerm";
 
   const imageBase64 = useMemo(() => {
-    if (!isTTY || (!isKitty && !isITerm && !isWezTerm)) {return null;}
+    if (!isTTY || (!isKitty && !isITerm && !isWezTerm)) {
+      return null;
+    }
     try {
-      if (!fs.existsSync(path)) {return null;}
+      if (!fs.existsSync(path)) {
+        return null;
+      }
       return fs.readFileSync(path).toString("base64");
     } catch {
       return null;

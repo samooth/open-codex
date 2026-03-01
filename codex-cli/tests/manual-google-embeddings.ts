@@ -12,17 +12,22 @@ async function testEmbeddings() {
 
   const genAI = new GoogleGenAI({ apiKey });
   const model = "text-embedding-004";
-  
+
   console.log(`Testing Google Embeddings with model: ${model}`);
-  
+
   try {
     const text = "Hello, this is a test for Google embeddings.";
     const result = await (genAI as any).models.embedContent({
       model,
-      contents: text
+      contents: text,
     });
-    const embedding = result.embeddings?.[0]?.values || result.embedding?.values || (Array.isArray(result.embeddings) ? result.embeddings[0] : result.embeddings);
-    
+    const embedding =
+      result.embeddings?.[0]?.values ||
+      result.embedding?.values ||
+      (Array.isArray(result.embeddings)
+        ? result.embeddings[0]
+        : result.embeddings);
+
     console.log(`Successfully generated embedding!`);
     console.log(`Dimensions: ${embedding.length}`);
     console.log(`First 5 values: ${embedding.slice(0, 5)}`);

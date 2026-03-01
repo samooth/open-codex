@@ -59,7 +59,10 @@ export const CommandHistoryOverlay: React.FC<Props> = ({
         position="absolute"
         width={60}
       >
-        <Text bold color={theme.error}> NO SHELL COMMANDS FOUND </Text>
+        <Text bold color={theme.error}>
+          {" "}
+          NO SHELL COMMANDS FOUND{" "}
+        </Text>
         <Box marginTop={1}>
           <Text>There are no shell commands in the current history.</Text>
         </Box>
@@ -82,9 +85,15 @@ export const CommandHistoryOverlay: React.FC<Props> = ({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight} paddingX={1}>
-          <Text bold color="black"> COMMAND HISTORY </Text>
+          <Text bold color="black">
+            {" "}
+            COMMAND HISTORY{" "}
+          </Text>
         </Box>
-        <Text dimColor italic> (↑↓ navigate │ enter to select │ esc exit)</Text>
+        <Text dimColor italic>
+          {" "}
+          (↑↓ navigate │ enter to select │ esc exit)
+        </Text>
       </Box>
 
       <Select
@@ -96,9 +105,18 @@ export const CommandHistoryOverlay: React.FC<Props> = ({
         onChange={(val: string) => onSelect(val)}
       />
 
-      <Box marginTop={1} borderStyle="single" borderLeft={false} borderRight={false} borderBottom={false} borderTopColor={theme.divider} paddingTop={1}>
+      <Box
+        marginTop={1}
+        borderStyle="single"
+        borderLeft={false}
+        borderRight={false}
+        borderBottom={false}
+        borderTopColor={theme.divider}
+        paddingTop={1}
+      >
         <Text color={theme.dim} italic>
-          Tip: Selecting a command will place it in your input buffer for editing.
+          Tip: Selecting a command will place it in your input buffer for
+          editing.
         </Text>
       </Box>
     </Box>

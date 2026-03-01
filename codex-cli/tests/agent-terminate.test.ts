@@ -58,7 +58,7 @@ vi.mock("../src/approvals.js", () => {
     __esModule: true,
     alwaysApprovedCommands: new Set<string>(),
     canAutoApprove: () =>
-      ({ type: "auto-approve", runInSandbox: false } as any),
+      ({ type: "auto-approve", runInSandbox: false }) as any,
     isSafeCommand: () => null,
   };
 });
@@ -112,7 +112,7 @@ describe("Agent terminate (hard cancel)", () => {
       approvalPolicy: { mode: "auto" } as any,
       onItem: (item) => received.push(item),
       onLoading: () => {},
-      getCommandConfirmation: async () => ({ review: "yes" } as any),
+      getCommandConfirmation: async () => ({ review: "yes" }) as any,
       onReset: () => {},
     });
 
@@ -146,7 +146,7 @@ describe("Agent terminate (hard cancel)", () => {
       approvalPolicy: { mode: "auto" } as any,
       onItem: () => {},
       onLoading: () => {},
-      getCommandConfirmation: async () => ({ review: "yes" } as any),
+      getCommandConfirmation: async () => ({ review: "yes" }) as any,
       onReset: () => {},
     });
 

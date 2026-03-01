@@ -28,7 +28,7 @@ import { prefix } from "./system-prompt.js";
 export async function runAgentLoop(
   _input: Array<ChatCompletionMessageParam>,
   _prevItems: Array<ChatCompletionMessageParam> = [],
-  _agentLoopInstance: any // This would be the actual AgentLoop instance
+  _agentLoopInstance: any, // This would be the actual AgentLoop instance
 ): Promise<void> {
   // Implementation would go here - this is a placeholder for the actual logic
   // that was in the original run method

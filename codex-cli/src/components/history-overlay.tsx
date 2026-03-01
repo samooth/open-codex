@@ -15,7 +15,9 @@ export default function HistoryOverlay({
   theme: Theme;
 }) {
   useInput((_input, key) => {
-    if (key.escape) {onExit();}
+    if (key.escape) {
+      onExit();
+    }
   });
 
   const toolCallMap = useMemo(() => {
@@ -45,14 +47,21 @@ export default function HistoryOverlay({
     >
       <Box gap={1} marginBottom={1}>
         <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black"> HISTORY </Text>
+          <Text bold color="black">
+            {" "}
+            HISTORY{" "}
+          </Text>
         </Box>
-        <Text color={theme.highlight} bold>SESSION TRANSCRIPT</Text>
+        <Text color={theme.highlight} bold>
+          SESSION TRANSCRIPT
+        </Text>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} overflowY="hidden">
         {items.length === 0 ? (
-          <Text italic color={theme.dim}>No history yet.</Text>
+          <Text italic color={theme.dim}>
+            No history yet.
+          </Text>
         ) : (
           items.slice(-10).map((item, i) => (
             <Box key={i} flexDirection="column" marginBottom={1}>
@@ -69,17 +78,19 @@ export default function HistoryOverlay({
         )}
       </Box>
 
-      <Box 
-        borderStyle="single" 
-        borderRight={false} 
-        borderTop={true} 
-        borderBottom={false} 
+      <Box
+        borderStyle="single"
+        borderRight={false}
+        borderTop={true}
+        borderBottom={false}
         borderLeft={false}
         borderTopColor={theme.divider}
         paddingX={1}
         paddingTop={1}
       >
-        <Text dimColor italic>Showing last 10 messages │ esc close</Text>
+        <Text dimColor italic>
+          Showing last 10 messages │ esc close
+        </Text>
       </Box>
     </Box>
   );
