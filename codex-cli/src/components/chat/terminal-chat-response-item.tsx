@@ -939,26 +939,39 @@ export const TerminalChatResponseMessage = React.memo(
     });
 
     // 2. Handle UNCLOSED blocks (only relevant during streaming or for malformed output)
-    // We look for the LAST unclosed tag of each type.
-    const unclosedThoughtMatch = displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*)$/i);
-    if (unclosedThoughtMatch) {
-      thoughts.push(unclosedThoughtMatch[2]!.trim());
-      // Strip the unclosed tag and its content from displayContent so it doesn't show up twice
-      displayContent = displayContent.slice(0, unclosedThoughtMatch.index);
-    }
+    // We want to find the LAST unclosed tag and treat everything after it as part of that block.
+    // However, if there are multiple unclosed tags, we only want to strip from the FIRST one
+    // to avoid leaving orphaned opening tags in the main display.
 
-    const unclosedPlanMatch = displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*)$/i);
-    if (unclosedPlanMatch) {
-      plans.push(unclosedPlanMatch[2]!.trim());
-      displayContent = displayContent.slice(0, unclosedPlanMatch.index);
-    }
+    const unclosedTags = [
+      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*)$/i) },
+      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*)$/i) },
+      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*)$/i) }
+    ].filter(t => t.match !== null)
+     .sort((a, b) => a.match!.index! - b.match!.index!);
 
-    const unclosedResponseMatch = displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*)$/i);
-    if (unclosedResponseMatch) {
-      // For <response> we actually WANT to show the content in the main displayContent
-      // So we just strip the tag but keep the content
-      const index = unclosedResponseMatch.index!;
-      displayContent = displayContent.slice(0, index) + unclosedResponseMatch[1];
+    if (unclosedTags.length > 0) {
+      const firstUnclosed = unclosedTags[0]!;
+      const firstIndex = firstUnclosed.match!.index!;
+      
+      // Extract content for each unclosed tag
+      for (const tag of unclosedTags) {
+        if (tag.type === "thought") {
+          thoughts.push(tag.match![2]!.trim());
+        } else if (tag.type === "plan") {
+          plans.push(tag.match![2]!.trim());
+        } else if (tag.type === "response") {
+          // For response, we don't push to a special list, we'll keep it in displayContent
+        }
+      }
+
+      // If the first unclosed tag is NOT <response>, we strip from that point
+      if (firstUnclosed.type !== "response") {
+        displayContent = displayContent.slice(0, firstIndex);
+      } else {
+        // If it IS <response>, we just strip the tag itself but keep its content
+        displayContent = displayContent.slice(0, firstIndex) + firstUnclosed.match![1];
+      }
     }
 
     // Final cleanup: strip any stray leftover closing tags
@@ -998,7 +1011,7 @@ export const TerminalChatResponseMessage = React.memo(
 
     return (
       <Box flexDirection="column" paddingLeft={isAssistant ? 0 : 0}>
-        {showRole && (hasContent || (!hasThoughts && !hasPlans)) && (
+        {showRole && (hasContent || hasThoughts || hasPlans || (!hasThoughts && !hasPlans)) && (
           <Box gap={1} marginBottom={1} marginTop={1}>
             <Box backgroundColor={roleColor as any} paddingX={1}>
               <Text bold color="black">
@@ -1030,7 +1043,7 @@ export const TerminalChatResponseMessage = React.memo(
             borderTop={false}
             borderBottom={false}
             borderLeftColor={theme.thought}
-            marginTop={hasContent ? 1 : 0}
+            marginTop={1}
             marginBottom={1}
           >
             <Box flexDirection="column">
@@ -1043,7 +1056,7 @@ export const TerminalChatResponseMessage = React.memo(
             </Box>
           </Box>
         ))}
-        {plans.map((plan, i) => (
+        {hasPlans && plans.map((plan, i) => (
           <Box
             key={i}
             flexDirection="row"

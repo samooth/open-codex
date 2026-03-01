@@ -426,10 +426,10 @@ export default function TerminalChat({
               | "plan";
             partialDataRef.current.activeBlockType = type;
             partialDataRef.current.reasoning = openTagMatch[2]!.trim();
-          } else {
-            // If no unclosed tag is found, clear the active block type so the Thinking indicator stops showing it
+          } else if (partialDataRef.current.activeBlockType) {
+            // If we had an active block but the tag is now closed or gone, clear it
             partialDataRef.current.activeBlockType = undefined;
-            // But keep reasoning for the streaming message until it's finalized
+            partialDataRef.current.reasoning = "";
           }
         }
         partialDataRef.current.activeToolName = activeToolName;
