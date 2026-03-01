@@ -148,7 +148,7 @@ export class SemanticMemory {
     }
 
     if (this.genAI) {
-      const model = this.embeddingModel || "text-embedding-004";
+      const model = this.embeddingModel || "text-embedding-005";
       if (process.env["DEBUG"] === "1") {
         log(
           `    Fetching Google embedding for: "${text.slice(0, 50).replace(/\n/g, " ")}..."`,

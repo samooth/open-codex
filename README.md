@@ -405,7 +405,7 @@ Codex can index your codebase to provide better context during chat. This allows
 - **How it works**: Codex generates vector embeddings for your files and stores them locally in `.codex/`.
 - **Default Embedding Models**:
   - **OpenAI**: `text-embedding-3-small`
-  - **Gemini**: `text-embedding-004`
+  - **Gemini**: `text-embedding-005`
   - **Ollama**: `nomic-embed-text`
 
 You can override the embedding model in your `config.json`:
