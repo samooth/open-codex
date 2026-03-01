@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import { handleExecCommand } from "../src/utils/agent/handle-exec-command.js";
 import { handleFunctionCall } from "../src/utils/agent/function-call-handler.js";
 
@@ -18,6 +19,7 @@ describe("AgentLoop Protector (Loop Detection)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "test-model",
       config: {
         model: "test-model",

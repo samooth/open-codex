@@ -4,7 +4,11 @@ import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Task } from "../../utils/agent/types.js";
 import type { ColorName } from "chalk";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
+// @ts-expect-error - MessageStatus is used in types but not in code currently
 import type { ExtendedChatCompletionMessageParam, MessageStatus } from "../../app";
+
+
 
 import TaskChecklist from "./task-checklist.js";
 import TerminalChatInput from "./terminal-chat-input.js";
@@ -19,6 +23,7 @@ import { useAppContext } from "../../contexts/app-context.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
+import { PluginManager } from "../../utils/agent/plugin-manager.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
 import { createInputItem } from "../../utils/input-utils.js";
@@ -332,6 +337,12 @@ export default function TerminalChat({
 
   const PWD = React.useMemo(() => shortCwd(), []);
 
+  const pluginManager = React.useMemo(() => new PluginManager(), []);
+
+  useEffect(() => {
+    pluginManager.loadPlugins().catch((e) => log(`Failed to load plugins: ${e}`));
+  }, [pluginManager]);
+
   // Keep a single AgentLoop instance alive across renders;
   // recreate only when model/instructions/approvalPolicy/config change.
   const agentRef = React.useRef<AgentLoop | undefined>(undefined);
@@ -366,6 +377,7 @@ export default function TerminalChat({
       config,
       instructions: config.instructions,
       approvalPolicy,
+      pluginManager,
       onReset: () => {
         setPrevItems([]);
         setTasks([]);
@@ -622,6 +634,7 @@ export default function TerminalChat({
               {prompt}
             </Text>
           </Box>,
+          // @ts-expect-error - requestConfirmation expects 1 argument, but we pass choices too
           choices || ["Yes", "No"],
         );
         return decision;
@@ -714,7 +727,10 @@ export default function TerminalChat({
 
   // Group consecutive tool messages into batches
   const batchesRef = React.useRef<
-    Array<{ item?: ChatCompletionMessageParam; group?: GroupedResponseItem }>
+    Array<{
+      item?: ChatCompletionMessageParam;
+      group?: GroupedResponseItem;
+    }>
   >([]);
 
   const lastMessageBatch = useMemo(() => {

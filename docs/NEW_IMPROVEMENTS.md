@@ -12,7 +12,7 @@ Based on the current state of OpenCodex, here are several high-impact UI/UX impr
 
 - File Pinning: A way to "pin" specific files to the context window so they are never rotated out during long conversations.
 - Context Breakdown: A small expandable view in the status bar showing exactly how many tokens are being used by the System Prompt, History, and current "Active Files."
-- Automatic "Ignored Files" Preview: A command to see what .codexignore is currently filtering out, to help debug why the agent might "miss" a file.
+- Automatic "Ignored Files" Preview: A command to see what .open-codexignore is currently filtering out, to help debug why the agent might "miss" a file.
 
 3. Richer Interaction
 
@@ -50,7 +50,7 @@ Here is the current state of UI improvements for the OpenCodex CLI:
 - **[DONE] Robust Shell Execution:** Improved handling of complex shell commands, avoiding over-quoting and correctly identifying shell built-ins.
 - **[DONE] Cross-Platform Support:**
   - **Windows Support:** Fully implemented Unix-to-Windows command mapping and native process termination using `taskkill`.
-  - **Path Normalization:** Automatic conversion of Windows-style backslashes to forward slashes for consistent `.gitignore` and `.codexignore` behavior.
+  - **Path Normalization:** Automatic conversion of Windows-style backslashes to forward slashes for consistent `.gitignore` and `.open-codexignore` behavior.
 
 ---
 

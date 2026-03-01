@@ -10,8 +10,8 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
-const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
-const SESSIONS_INDEX = path.join(os.homedir(), ".codex", "sessions.json");
+const SESSIONS_ROOT = path.join(os.homedir(), ".open-codex", "sessions");
+const SESSIONS_INDEX = path.join(os.homedir(), ".open-codex", "sessions.json");
 
 async function saveRolloutToHomeSessions(
   items: Array<ChatCompletionMessageParam>,

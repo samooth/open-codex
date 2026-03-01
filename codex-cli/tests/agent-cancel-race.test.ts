@@ -74,6 +74,7 @@ vi.mock("../src/format-command.js", () => ({
 
 // Stub the logger to avoid file‑system side effects during tests.
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 vi.mock("../src/utils/agent/log.js", () => ({
   __esModule: true,
@@ -88,6 +89,7 @@ describe("Agent cancellation race", () => {
     const items: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       config: { model: "any", instructions: "", provider: "openai" },

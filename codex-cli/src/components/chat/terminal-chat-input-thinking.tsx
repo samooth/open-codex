@@ -73,6 +73,7 @@ export default function TerminalChatInputThinking({
   activeBlockType,
   activeToolName,
   activeToolArguments,
+  // @ts-expect-error - isStreamingResponse is currently unused but kept for future logic
   isStreamingResponse,
   theme,
 }: {

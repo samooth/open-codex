@@ -24,7 +24,7 @@ This is the "brain" of the agent. It controls:
   - `list_files_recursive`: Parallel tree-view project exploration.
   - `read_file_lines`: Reading specific line ranges (supports `start`, `end`, `line_start`, `line_end` aliases).
   - `search_codebase`: Structured search using ripgrep. Automatically corrects `pattern`/`query` confusion and supports "file listing mode" for globs (e.g. `*.json`).
-  - `persistent_memory`: Fact storage in `.codex/memory.md` with category support.
+  - `persistent_memory`: Fact storage in `.open-codex/memory.md` with category support.
   - `summarize_memory`: Retrieve all stored facts for review and consolidation.
   - `browse`: Unified web interface. Intelligently searches the web (using SearXNG or SERP APIs if configured, falling back to DuckDuckGo), fetches page text (`lynx`), or performs site-specific searches based on provided `url` and `query` parameters.
   - `semantic_search`: Context-aware codebase search using vector embeddings (requires `/index`).
@@ -104,6 +104,6 @@ OpenCodex includes a normalization layer to support models trained on other agen
 
 ## User Control via Files
 
-- **`~/.codex/instructions.md`**: Global instructions that can tell the model to prefer certain tools or avoid others.
+- **`~/.open-codex/instructions.md`**: Global instructions that can tell the model to prefer certain tools or avoid others.
 - **`CODEX.md`**: Project-level documentation that the agent reads to understand specific local scripts or build tools it should use.
-- **`~/.codex/config.json`**: Controls the default `approvalMode`, API providers, and session settings.
+- **`~/.open-codex/config.json`**: Controls the default `approvalMode`, API providers, and session settings.

@@ -63,6 +63,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 }));
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 describe("AgentLoop – network resilience", () => {
   it("retries once on APIConnectionTimeoutError and succeeds", async () => {
@@ -100,6 +101,7 @@ describe("AgentLoop – network resilience", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,
@@ -140,6 +142,7 @@ describe("AgentLoop – network resilience", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,

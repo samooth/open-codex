@@ -92,7 +92,7 @@ Potential Improvements:
 
 19. [DONE] Ignore File Support:
 
-    - Implemented `.codexignore` support across directory listing and search tools.
+    - Implemented `.open-codexignore` support across directory listing and search tools.
 
 20. [DONE] Session Persistence:
 

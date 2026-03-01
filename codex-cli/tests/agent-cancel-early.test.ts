@@ -86,6 +86,8 @@ vi.mock("../src/utils/agent/log.js", () => ({
 }));
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
+
 
 describe("cancel before first function_call", () => {
   it("clears previous_response_id if no call ids captured", async () => {
@@ -95,6 +97,7 @@ describe("cancel before first function_call", () => {
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,
+      pluginManager: new PluginManager(),
       onItem: () => {},
       onLoading: () => {},
       getCommandConfirmation: async () => ({ review: "yes" }) as any,

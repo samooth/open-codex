@@ -46,11 +46,11 @@ const DEFAULT_IGNORE_PATTERNS = [
   "venv",
   ".venv",
   // OpenCodex internal
-  ".codex",
+  ".open-codex",
 ];
 
 /**
- * Loads ignore patterns from .codexignore and .gitignore files.
+ * Loads ignore patterns from .open-codexignore and .gitignore files.
  */
 export function getIgnoreFilter() {
   const ig = ignore().add(DEFAULT_IGNORE_PATTERNS);
@@ -64,10 +64,10 @@ export function getIgnoreFilter() {
   }
 
   // Also check home directory for global ignore
-  searchDirs.push(join(homedir(), ".codex"));
+  searchDirs.push(join(homedir(), ".open-codex"));
 
   for (const dir of searchDirs) {
-    const codexIgnorePath = join(dir, ".codexignore");
+    const codexIgnorePath = join(dir, ".open-codexignore");
     if (existsSync(codexIgnorePath)) {
       try {
         ig.add(readFileSync(codexIgnorePath, "utf-8"));

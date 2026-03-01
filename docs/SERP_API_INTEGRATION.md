@@ -9,7 +9,7 @@ OpenCodex supports multiple high-quality search providers via SERP APIs. This pr
 [Serper](https://serper.dev) is a fast and cost-effective Google Search API.
 
 - **Environment Variable:** `SERPER_API_KEY`
-- **Config Key:** `serpApiKey` (in `~/.codex/config.json`)
+- **Config Key:** `serpApiKey` (in `~/.open-codex/config.json`)
 - **Endpoint:** `https://google.serper.dev/search`
 
 ### 2. SerpApi.com
@@ -37,7 +37,7 @@ export SERPAPI_API_KEY="your_serpapi_key_here"
 
 ### Method 2: Global Configuration File
 
-Edit your `~/.codex/config.json`:
+Edit your `~/.open-codex/config.json`:
 
 ```json
 {

@@ -159,7 +159,7 @@ Your task is to focus on the backend of this project. You will be responsible fo
   {
     name: "Memory Librarian",
     description:
-      "Curates and organizes the project's persistent memory (.codex/memory.md).",
+      "Curates and organizes the project's persistent memory (.open-codex/memory.md).",
     prompt:
       "Review the current project memory using `summarize_memory`. Use the `maintain_memory` tool to clean up duplicates and outdated facts. Propose new categories or high-level summaries that would make the project easier for a new agent or developer to understand.",
   },

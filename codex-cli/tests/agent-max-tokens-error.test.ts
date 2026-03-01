@@ -43,6 +43,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 }));
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 describe("AgentLoop – max_tokens too large error", () => {
   it("shows context‑length system message and resolves", async () => {
@@ -60,6 +61,7 @@ describe("AgentLoop – max_tokens too large error", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,

@@ -453,6 +453,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(
     toolCall,
     theme,
     isActive = false,
+    // @ts-ignore - status is currently unused
     status,
   }: {
     content: string;
@@ -738,7 +739,8 @@ export const TerminalChatResponseToolCallOutput = React.memo(
 export const TerminalChatResponseToolCall = React.memo(
   function TerminalChatResponseToolCall({
     message,
-    loading = false,
+    // @ts-ignore - loading is currently unused but kept for future logic
+  loading = false,
     theme,
     status = 'running',
   }: {
@@ -832,6 +834,7 @@ export const TerminalChatResponseMessage = React.memo(
     showRole = true,
     disableMarkdown = false,
     isActive = false,
+    // @ts-ignore - status is currently unused
     status,
   }: {
     message: ChatCompletionMessageParam;
@@ -1260,6 +1263,7 @@ function TerminalChatResponseItem({
   group,
   fullStdout = false,
   toolCallMap = new Map(),
+  // @ts-ignore - loading is currently unused but kept for future logic
   loading = false,
   theme,
   model,
@@ -1334,6 +1338,7 @@ function TerminalChatResponseItem({
                 key={i}
                 message={toolCall}
                 loading={loading}
+
                 theme={theme}
                 status={(toolCall as any).status}
               />

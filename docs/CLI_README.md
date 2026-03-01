@@ -162,7 +162,7 @@ The hardening mechanism Codex uses depends on your OS:
 - **macOS 12+** – commands are wrapped with **Apple Seatbelt** (`sandbox-exec`).
 
   - Everything is placed in a read‑only jail except for a small set of
-    writable roots (`$PWD`, `$TMPDIR`, `~/.codex`, etc.).
+    writable roots (`$PWD`, `$TMPDIR`, `~/.open-codex`, etc.).
   - Outbound network is _fully blocked_ by default – even if a child process
     tries to `curl` somewhere it will fail.
 
@@ -244,10 +244,10 @@ For more detailed information, please refer to the following documents:
 
 Codex merges Markdown instructions in this order:
 
-1. `~/.codex/instructions.md` – personal global guidance
-2. `codex.md` at repo root – shared project notes
-3. `codex.md` in cwd – sub‑package specifics
-4. `.codex/memory.md` – persistent project-specific facts learned by the agent.
+1. `~/.open-codex/instructions.md` – personal global guidance
+2. `open-codex.md` at repo root – shared project notes
+3. `open-codex.md` in cwd – sub‑package specifics
+4. `.open-codex/memory.md` – persistent project-specific facts learned by the agent.
 
 Disable with `--no-project-doc` or `CODEX_DISABLE_PROJECT_DOC=1`.
 
@@ -296,10 +296,10 @@ npm link
 
 ## Configuration
 
-Codex looks for config files in **`~/.codex/`** (either YAML or JSON format). The configuration is validated using Zod to ensure correctness.
+Codex looks for config files in **`~/.open-codex/`** (either YAML or JSON format). The configuration is validated using Zod to ensure correctness.
 
 ```json
-// ~/.codex/config.json
+// ~/.open-codex/config.json
 {
   "model": "o4-mini", // Default model
   "provider": "openai", // Default provider
@@ -316,7 +316,7 @@ Codex looks for config files in **`~/.codex/`** (either YAML or JSON format). Th
 You can also define custom instructions:
 
 ```md
-# ~/.codex/instructions.md
+# ~/.open-codex/instructions.md
 
 - Always respond with emojis
 - Only use git commands if I explicitly mention you should
@@ -389,7 +389,7 @@ open-codex --provider ollama --model mistral "Explain this project"
 Codex can index your codebase to provide better context during chat. This allows the agent to "find" relevant code snippets even if they aren't explicitly pinned or open.
 
 - **`/index`**: Run this command inside the chat to start indexing your current directory.
-- **How it works**: Codex generates vector embeddings for your files and stores them locally in `.codex/`.
+- **How it works**: Codex generates vector embeddings for your files and stores them locally in `.open-codex/`.
 - **Default Embedding Models**:
   - **OpenAI**: `text-embedding-3-small`
   - **Gemini**: `text-embedding-005`
@@ -409,7 +409,7 @@ To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context o
 
 - **Automatic Truncation**: When the conversation history grows too long, Codex prunes the oldest messages while keeping your recent context and the system prompt intact.
 - **Content Pruning**: For very old tool results (like large file reads), Codex automatically truncates the content to save tokens while preserving the conversational logic.
-- **Configurable**: You can adjust the maximum number of messages kept in context by setting `"contextSize"` in your `~/.codex/config.json`.
+- **Configurable**: You can adjust the maximum number of messages kept in context by setting `"contextSize"` in your `~/.open-codex/config.json`.
 
 ### Prompt Caching
 
@@ -445,7 +445,7 @@ File pinning allows you to ensure that specific files are always included in the
 - **To pin a file**: `/pin src/main.ts`
 - **To unpin a file**: `/unpin src/main.ts`
 
-Pinned files are persisted in your `~/.codex/config.json` and will be loaded in every session.
+Pinned files are persisted in your `~/.open-codex/config.json` and will be loaded in every session.
 
 #### Dynamic Model Discovery
 

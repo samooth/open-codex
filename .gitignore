@@ -60,7 +60,7 @@ Icon?
 .Spotlight-V100/
 
 # opencodex
-.codex/
+.open-codex/
 
 # Unwanted package managers
 .yarn/

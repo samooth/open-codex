@@ -48,11 +48,11 @@ Enter "q" to exit out of the current session and `open poem.html`. You should se
 
 OpenCodex supports two types of Markdown-based instruction files that influence model behavior and prompting:
 
-### `~/.codex/instructions.md`
+### `~/.open-codex/instructions.md`
 
 Global, user-level custom guidance injected into every session. You should keep this relatively short and concise. These instructions are applied to all OpenCodex runs across all projects and are great for personal defaults, shell setup tips, safety constraints, or preferred tools.
 
-**Example:** "Before executing shell commands, create and activate a `.codex-venv` Python environment." or "Avoid running pytest until you've completed all your changes."
+**Example:** "Before executing shell commands, create and activate a `.open-codex-venv` Python environment." or "Avoid running pytest until you've completed all your changes."
 
 ### `CODEX.md`
 
@@ -67,8 +67,8 @@ Beyond the static instruction files above, you can maintain a library of special
 Use the `/prompts` command to open an interactive selector. OpenCodex scans the following locations for `.md` or `.txt` files:
 
 1. `./prompts/`
-2. `./.codex/prompts/`
-3. `~/.codex/prompts/`
+2. `./.open-codex/prompts/`
+3. `~/.open-codex/prompts/`
 
 This is useful for switching between different roles (e.g., "Senior Security Auditor", "Documentation Specialist", "Performance Optimizer") without restarting the CLI.
 
@@ -76,11 +76,11 @@ This is useful for switching between different roles (e.g., "Senior Security Aud
 
 If you need to pick up where you left off, you can restore previous sessions. OpenCodex saves every session automatically. Use the `/history restore` command to browse and select a past rollout. This is particularly helpful for long-running projects where you want to keep the agent's memory of past decisions and discussions intact.
 
-### Ignoring Files (`.codexignore`)
+### Ignoring Files (`.open-codexignore`)
 
-To keep OpenCodex focused and prevent it from accessing sensitive or irrelevant data, you can use `.codexignore` files. These files support standard glob patterns and work alongside your existing `.gitignore`.
+To keep OpenCodex focused and prevent it from accessing sensitive or irrelevant data, you can use `.open-codexignore` files. These files support standard glob patterns and work alongside your existing `.gitignore`.
 
-Common use cases for `.codexignore`:
+Common use cases for `.open-codexignore`:
 
 - Excluding large data files or binaries that might confuse the agent.
 - Hiding sensitive configuration files or environment variables.
@@ -144,11 +144,11 @@ In such cases where you have a goal in mind but not the exact steps, you can str
 
 For example:
 
-- Add a `.codex/` directory to your working directory. This can act as a shared workspace for you and the agent.
+- Add a `.open-codex/` directory to your working directory. This can act as a shared workspace for you and the agent.
 - Seed your project directory with a high-level requirements document containing your goals and instructions for how you want it to behave as it executes.
-- Instruct it to update its plan as it progresses (i.e. "While you work on the project, create dated files such as `.codex/plan_2025-04-16.md` containing your planned milestones, and update these documents as you progress through the task. For significant pieces of completed work, update the `README.md` with a dated changelog of each functionality introduced and reference the relevant documentation.")
+- Instruct it to update its plan as it progresses (i.e. "While you work on the project, create dated files such as `.open-codex/plan_2025-04-16.md` containing your planned milestones, and update these documents as you progress through the task. For significant pieces of completed work, update the `README.md` with a dated changelog of each functionality introduced and reference the relevant documentation.")
 
-_Note: `.codex/` in your working directory is not special-cased by the CLI like the custom instructions listed above. This is just one recommendation for managing shared-state with the model. OpenCodex will treat this like any other directory in your project._
+_Note: `.open-codex/` in your working directory is not special-cased by the CLI like the custom instructions listed above. This is just one recommendation for managing shared-state with the model. OpenCodex will treat this like any other directory in your project._
 
 ### Modes of interaction
 

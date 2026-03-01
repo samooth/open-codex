@@ -115,11 +115,11 @@ You can also set environment variables directly in your `tasks.json` if you don'
 ```
 
 ### Option C: Global Config (Recommended)
-OpenCodex reads from `~/.codex/config.json`. This is the best place for persistent configurations that should be available across all projects.
+OpenCodex reads from `~/.open-codex/config.json`. This is the best place for persistent configurations that should be available across all projects.
 
-## 5. Automatic Context via `codex.md`
+## 5. Automatic Context via `open-codex.md`
 
-Like in other integrations, keeping a `codex.md` file in your project root allows OpenCodex to be context-aware. Use VS Code to update your project rules or "pinned" facts, and OpenCodex will automatically incorporate them into every request.
+Like in other integrations, keeping a `open-codex.md` file in your project root allows OpenCodex to be context-aware. Use VS Code to update your project rules or "pinned" facts, and OpenCodex will automatically incorporate them into every request.
 
 ---
 

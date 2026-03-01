@@ -4,6 +4,8 @@ import type { AppConfig } from "../config.js";
 import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import type { PluginManager } from "./plugin-manager.js";
+
 export type CommandConfirmation = {
   review: ReviewDecision;
   applyPatch?: ApplyPatchCommand | undefined;
@@ -20,6 +22,7 @@ export type AgentLoopParams = {
   config?: AppConfig;
   instructions?: string;
   approvalPolicy: ApprovalPolicy;
+  pluginManager: PluginManager;
   onItem: (item: ChatCompletionMessageParam) => void;
   onPartialUpdate?: (
     content: string,
@@ -61,6 +64,7 @@ export interface AgentContext {
   onFileAccess?: (path: string) => void;
   onTasksUpdate?: (tasks: Array<Task>) => void;
   onShellFocus?: (isFocused: boolean) => void;
+  pluginManager: PluginManager;
   oai: OpenAI;
   model: string;
   agent: any; // Add reference to AgentLoop

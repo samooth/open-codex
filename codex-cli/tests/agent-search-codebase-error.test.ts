@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import OpenAI from "openai";
 import { handleExecCommand } from "../src/utils/agent/handle-exec-command.js";
 
@@ -18,6 +19,7 @@ describe("AgentLoop search_codebase error handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "test-model",
       approvalPolicy: "full-auto",
       onItem,

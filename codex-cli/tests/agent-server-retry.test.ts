@@ -53,6 +53,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 }));
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 describe("AgentLoop – automatic retry on 5xx errors", () => {
   it("retries up to 3 times then succeeds", async () => {
@@ -90,6 +91,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,
@@ -126,6 +128,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,

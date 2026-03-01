@@ -230,8 +230,8 @@ export async function handleFunctionCall(
       content: "no function found",
     };
 
-    let outputText: string;
-    let metadata: Record<string, unknown>;
+    let outputText = "";
+    let metadata: Record<string, any> = { exit_code: 1 };
     let additionalItems: Array<ChatCompletionMessageParam> | undefined;
 
     if (
@@ -628,6 +628,14 @@ export async function handleFunctionCall(
       onPartialUpdate?.("", "", undefined, undefined);
       outputText = `Codebase indexing complete. Indexed ${totalIndexed} files.`;
       metadata = { exit_code: 0, count: totalIndexed };
+    } else if (name && ctx.pluginManager.hasPlugin(name)) {
+      const pluginHandler = ctx.pluginManager.getHandler(name);
+      if (pluginHandler) {
+        const result = await pluginHandler(ctx, rawArguments || "{}");
+        outputText = result.outputText;
+        metadata = result.metadata;
+        additionalItems = result.additionalItems;
+      }
     } else if (name === "show_context") {
       const { tool_name } = args;
       if (tool_name) {

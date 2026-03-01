@@ -9,10 +9,10 @@ This document describes the integration of SearXNG as a search provider for the 
 A new configuration option `searxngUrl` has been added to the global OpenCodex configuration.
 
 - **Config Key:** `searxngUrl`
-- **Environment Variable Support:** Can be set in `~/.codex/config.json`.
+- **Environment Variable Support:** Can be set in `~/.open-codex/config.json`.
 - **Default:** If not set, the agent falls back to DuckDuckGo via `lynx`.
 
-Example `~/.codex/config.json`:
+Example `~/.open-codex/config.json`:
 
 ```json
 {
@@ -76,7 +76,7 @@ services:
    ```
 
 4. **Update OpenCodex Config**:
-   Set `"searxngUrl": "http://localhost:8080"` in your `~/.codex/config.json`.
+   Set `"searxngUrl": "http://localhost:8080"` in your `~/.open-codex/config.json`.
 
 ### 3. Benefits
 

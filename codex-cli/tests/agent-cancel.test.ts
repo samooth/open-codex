@@ -77,6 +77,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 
 // After mocking dependencies we can import the modules under test.
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import * as handleExec from "../src/utils/agent/handle-exec-command.js";
 
 describe("Agent cancellation", () => {
@@ -91,6 +92,7 @@ describe("Agent cancellation", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       config: { model: "any", instructions: "", provider: "openai" },
@@ -139,6 +141,7 @@ describe("Agent cancellation", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       config: { model: "any", instructions: "", provider: "openai" },

@@ -67,19 +67,19 @@ docker run --rm -it \
 
 ### 1.4. Persisting Configuration and Memory
 
-OpenCodex stores its configuration and semantic memory in a user-specific directory (typically `~/.codex`). To persist this data across container runs, you can mount a local directory for this purpose:
+OpenCodex stores its configuration and semantic memory in a user-specific directory (typically `~/.open-codex`). To persist this data across container runs, you can mount a local directory for this purpose:
 
 ```bash
-mkdir -p ~/.codex-docker-data
+mkdir -p ~/.open-codex-docker-data
 
 docker run --rm -it \
   -v "$(pwd):/app" \
-  -v "$HOME/.codex-docker-data:/root/.codex" \
+  -v "$HOME/.open-codex-docker-data:/root/.open-codex" \
   --env-file openai.env \
   opencodex "Your OpenCodex prompt here"
 ```
 
-This will store the `.codex` directory data from inside the container to `$HOME/.codex-docker-data` on your host machine.
+This will store the `.open-codex` directory data from inside the container to `$HOME/.open-codex-docker-data` on your host machine.
 
 ## 2. Building and Running from Source (for Development)
 

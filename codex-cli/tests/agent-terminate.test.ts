@@ -80,6 +80,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 // After dependency mocks we can import the modules under test.
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import * as handleExec from "../src/utils/agent/handle-exec-command.js";
 
 describe("Agent terminate (hard cancel)", () => {
@@ -106,6 +107,7 @@ describe("Agent terminate (hard cancel)", () => {
     const received: Array<any> = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       config: { model: "any", instructions: "", provider: "openai" },
@@ -140,6 +142,7 @@ describe("Agent terminate (hard cancel)", () => {
 
   it("rejects further run() calls after terminate()", async () => {
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       config: { model: "any", instructions: "", provider: "openai" },

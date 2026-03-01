@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import OpenAI from "openai";
 
 vi.mock("openai");
@@ -20,6 +21,7 @@ describe("AgentLoop Content Tool Call Fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "test-model",
       approvalPolicy: "full-auto",
       onItem,

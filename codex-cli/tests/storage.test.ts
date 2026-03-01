@@ -7,8 +7,8 @@ import { renameSession } from "../src/utils/storage/save-rollout.js";
 vi.mock("fs/promises");
 
 describe("Session Storage Logic", () => {
-  const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
-  const SESSIONS_INDEX = path.join(os.homedir(), ".codex", "sessions.json");
+  const SESSIONS_ROOT = path.join(os.homedir(), ".open-codex", "sessions");
+  const SESSIONS_INDEX = path.join(os.homedir(), ".open-codex", "sessions.json");
 
   beforeEach(() => {
     vi.clearAllMocks();

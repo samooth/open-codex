@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import { describe, it, expect, vi } from "vitest";
 
 // --- OpenAI mock -----------------------------------------------------------
@@ -108,6 +109,7 @@ describe("thinking time counter", () => {
     items = [];
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       config: {} as any,
       model: "any",
       instructions: "",

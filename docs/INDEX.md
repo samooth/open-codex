@@ -14,6 +14,7 @@ This directory contains the core documentation for the OpenCodex project.
 
 - [SEARXNG_INTEGRATION.md](./SEARXNG_INTEGRATION.md): Guide for setting up SearXNG as a search provider.
 - [SERP_API_INTEGRATION.md](./SERP_API_INTEGRATION.md): Guide for using high-quality search APIs (Serper, SerpApi).
+- [PLUGINS.md](./PLUGINS.md): Guide for creating and using custom plugins (tools).
 - [TOOLS.md](./TOOLS.md): Deep dive into the OpenCodex tool architecture and handlers.
 - [RECIPES.md](./RECIPES.md): A collection of common task prompts and patterns.
 - [CLI_RECIPES.md](./CLI_RECIPES.md): CLI-specific prompt templates.

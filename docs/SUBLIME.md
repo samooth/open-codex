@@ -112,7 +112,7 @@ You can specify your provider and configuration directly in your `OpenCodex.subl
 
 ### Option B: Global Config (Recommended)
 
-OpenCodex reads from `~/.codex/config.json`. Setting your configuration here makes it available everywhere:
+OpenCodex reads from `~/.open-codex/config.json`. Setting your configuration here makes it available everywhere:
 
 ```json
 {
@@ -216,6 +216,6 @@ class AskCodexCommand(sublime_plugin.TextCommand):
 [{ "caption": "Ask OpenCodex", "command": "ask_codex" }]
 ```
 
-## 4. Automatic Context via `codex.md`
+## 4. Automatic Context via `open-codex.md`
 
-OpenCodex is context-aware. If you keep a `codex.md` file in your project root, you can use Sublime to update your project rules or "pinned" facts. OpenCodex will automatically read this file every time it runs a command, ensuring it always follows your latest project guidelines.
+OpenCodex is context-aware. If you keep a `open-codex.md` file in your project root, you can use Sublime to update your project rules or "pinned" facts. OpenCodex will automatically read this file every time it runs a command, ensuring it always follows your latest project guidelines.

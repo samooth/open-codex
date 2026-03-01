@@ -107,12 +107,14 @@ vi.mock("../src/utils/agent/log.js", () => ({
 
 // Finally, import the module under test.
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 describe("function_call_output includes original call ID", () => {
   it("copies id → call_id so the API accepts the tool result", async () => {
     const { _test } = (await import("openai")) as any;
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "any",
       instructions: "",
       approvalPolicy: { mode: "auto" } as any,

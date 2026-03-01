@@ -62,9 +62,9 @@ export class SemanticMemory {
     if (provider === "google" || provider === "gemini") {
       this.genAI = new GoogleGenAI({ apiKey: apiKey || "" });
     }
-    this.cachePath = join(process.cwd(), ".codex", "memory_embeddings.json");
-    this.memoryPath = join(process.cwd(), ".codex", "memory.md");
-    this.indexPath = join(process.cwd(), ".codex", "code_index.json");
+    this.cachePath = join(process.cwd(), ".open-codex", "memory_embeddings.json");
+    this.memoryPath = join(process.cwd(), ".open-codex", "memory.md");
+    this.indexPath = join(process.cwd(), ".open-codex", "code_index.json");
     this.loadCache();
     this.loadIndex();
   }

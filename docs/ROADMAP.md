@@ -10,7 +10,7 @@ Detailed roadmap can be found in [CLI_ROADMAP.md](./CLI_ROADMAP.md).
 
 1. **Interactive Hunk Selection:** Finer control over code patches.
 2. **Command Re-run:** Productivty boost for shell tasks.
-3. **Plugin System:** Extensibility for custom tools.
+3. [DONE] **Plugin System:** Extensibility for custom tools (added in `plugin-manager.ts`).
 4. **Enhanced Linux Security:** Landlock/Namespaces integration.
 
 ## Documentation & Maintenance

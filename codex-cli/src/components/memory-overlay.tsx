@@ -13,7 +13,7 @@ export default function MemoryOverlay({
   theme: Theme;
 }) {
   const [content, setContent] = useState<string>("");
-  const memoryPath = path.join(process.cwd(), ".codex", "memory.md");
+  const memoryPath = path.join(process.cwd(), ".open-codex", "memory.md");
 
   useEffect(() => {
     if (fs.existsSync(memoryPath)) {

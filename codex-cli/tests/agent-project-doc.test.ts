@@ -83,6 +83,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 // ---------------------------------------------------------------------------
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 import { loadConfig } from "../src/utils/config.js";
 
 // ---------------------------------------------------------------------------
@@ -118,6 +119,7 @@ describe("AgentLoop", () => {
     expect(config.instructions).toContain("Hello docs!");
 
     const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
       model: "o3", // arbitrary
       instructions: config.instructions,
       config,

@@ -735,16 +735,16 @@ export async function handleSearchCodebase(
       }
     }
 
-    // Add .codexignore support to ripgrep
+    // Add .open-codexignore support to ripgrep
     const gitRoot = findGitRoot(process.cwd());
     const searchDirs = [process.cwd()];
     if (gitRoot && gitRoot !== process.cwd()) {
       searchDirs.push(gitRoot);
     }
-    searchDirs.push(join(homedir(), ".codex"));
+    searchDirs.push(join(homedir(), ".open-codex"));
 
     for (const dir of searchDirs) {
-      const codexIgnorePath = join(dir, ".codexignore");
+      const codexIgnorePath = join(dir, ".open-codexignore");
       if (existsSync(codexIgnorePath)) {
         rgArgs.push("--ignore-file", codexIgnorePath);
       }
@@ -937,7 +937,7 @@ export async function handlePersistentMemory(
       };
     }
 
-    const memoryDir = join(process.cwd(), ".codex");
+    const memoryDir = join(process.cwd(), ".open-codex");
     const memoryPath = join(memoryDir, "memory.md");
 
     if (!existsSync(memoryDir)) {
@@ -965,7 +965,7 @@ export async function handleSummarizeMemory(): Promise<{
   metadata: Record<string, unknown>;
 }> {
   try {
-    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    const memoryPath = join(process.cwd(), ".open-codex", "memory.md");
     if (!existsSync(memoryPath)) {
       return {
         outputText: "No memory file found to summarize.",
@@ -1000,7 +1000,7 @@ export async function handleQueryMemory(rawArgs: string): Promise<{
       };
     }
 
-    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    const memoryPath = join(process.cwd(), ".open-codex", "memory.md");
     if (!existsSync(memoryPath)) {
       return {
         outputText: "No memory file found.",
@@ -1043,7 +1043,7 @@ export async function handleForgetMemory(rawArgs: string): Promise<{
       };
     }
 
-    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    const memoryPath = join(process.cwd(), ".open-codex", "memory.md");
     if (!existsSync(memoryPath)) {
       return {
         outputText: "No memory file found.",
@@ -1085,7 +1085,7 @@ export async function handleMaintainMemory(ctx: AgentContext): Promise<{
   metadata: Record<string, unknown>;
 }> {
   try {
-    const memoryPath = join(process.cwd(), ".codex", "memory.md");
+    const memoryPath = join(process.cwd(), ".open-codex", "memory.md");
     if (!existsSync(memoryPath)) {
       return {
         outputText: "No memory file found to maintain.",

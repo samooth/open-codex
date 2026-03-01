@@ -29,6 +29,7 @@ export function SemanticDiffLine({
         ignoreIllegals: true,
         theme: getSyntaxTheme(theme),
         // Remove leading/trailing newlines added by cli-highlight which break Ink rendering
+        // @ts-expect-error - 'trim' does not exist in type 'HighlightOptions'
         trim: true,
       });
     } catch (e) {
@@ -86,6 +87,7 @@ export function SemanticDiffPair({
         language,
         ignoreIllegals: true,
         theme: syntaxTheme,
+        // @ts-expect-error - 'trim' does not exist in type 'HighlightOptions'
         trim: true,
       });
     } catch {
@@ -110,7 +112,7 @@ export function SemanticDiffPair({
     const parts: React.ReactNode[] = [];
     let currentIndex = 0;
 
-    diffResult.forEach((part) => {
+    diffResult.forEach((part: any) => {
       const value = part.value;
       const start = fullLine.indexOf(value, currentIndex);
 

@@ -55,6 +55,7 @@ vi.mock("../src/utils/agent/log.js", () => ({
 }));
 
 import { AgentLoop } from "../src/utils/agent/agent-loop.js";
+import { PluginManager } from "../src/utils/agent/plugin-manager.js";
 
 describe("AgentLoop – rate‑limit handling", () => {
   it("retries up to the maximum and then surfaces a system message", async () => {
@@ -77,6 +78,7 @@ describe("AgentLoop – rate‑limit handling", () => {
       const received: Array<any> = [];
 
       const agent = new AgentLoop({
+      pluginManager: new PluginManager(),
         model: "any",
         instructions: "",
         approvalPolicy: { mode: "auto" } as any,

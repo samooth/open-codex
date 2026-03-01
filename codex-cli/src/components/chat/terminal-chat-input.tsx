@@ -382,6 +382,7 @@ export default function TerminalChatInput({
         }
 
         const cursorRow = editorRef.current?.getRow?.() ?? 0;
+        // @ts-ignore - wasAtFirstRow is currently unused but kept for parity with up-arrow logic
         const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
         // (Removed 'j'/'k' history navigation logic that was previously here)
       }

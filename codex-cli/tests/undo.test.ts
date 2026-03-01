@@ -7,7 +7,7 @@ import os from "os";
 vi.mock("fs/promises");
 
 describe("Undo Logic", () => {
-  const SESSIONS_ROOT = path.join(os.homedir(), ".codex", "sessions");
+  const SESSIONS_ROOT = path.join(os.homedir(), ".open-codex", "sessions");
   const writeFn = vi.fn();
   const removeFn = vi.fn();
 

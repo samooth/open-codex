@@ -15,7 +15,7 @@ import {
 } from "../parsers.js";
 import { setCurrentModel, setSessionId, getSessionId } from "../session.js";
 import { tools } from "./tool-definitions.js";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, lstatSync } from "fs";
 import { randomUUID } from "node:crypto";
 
 import OpenAI, { APIConnectionTimeoutError } from "openai";
@@ -63,11 +63,14 @@ const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
   10,
 );
 
+import { PluginManager } from "./plugin-manager.js";
+
 export class AgentLoop {
   private model: string;
   private instructions?: string;
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
+  private pluginManager: PluginManager;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
@@ -96,6 +99,11 @@ export class AgentLoop {
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
   ) => Promise<CommandConfirmation>;
+
+  private getUserChoice?: (
+    prompt: string,
+    choices?: Array<string>,
+  ) => Promise<string>;
 
   /**
    * A reference to the currently active stream returned from the OpenAI
@@ -133,6 +141,12 @@ export class AgentLoop {
   private stateSnapshot: StateSnapshot = {};
 
   private onReset: () => void;
+
+  /**
+   * Files automatically pulled into context because they were mentioned 
+   * in thoughts or modified.
+   */
+  private autoPulledFiles: Set<string> = new Set();
 
   /**
    * Tracks history of tool calls in the current session to detect loops.
@@ -176,6 +190,7 @@ export class AgentLoop {
     if (this.pendingAborts.size === 0) {
       try {
         this.toolCallHistory.clear();
+        this.autoPulledFiles.clear();
         this.stateSnapshot = {};
         this.onReset();
       } catch {
@@ -351,6 +366,7 @@ export class AgentLoop {
     // "Cannot read properties of undefined (reading 'apiKey')" when accessing
     // `config.apiKey` below.
     config,
+    pluginManager,
     onItem,
     onPartialUpdate,
     onLoading,
@@ -359,11 +375,14 @@ export class AgentLoop {
     onIndexingStatus,
     onShellFocus,
     getCommandConfirmation,
+    getUserChoice,
     onReset,
   }: AgentLoopParams & { config?: AppConfig }) {
     this.model = model;
     this.instructions = instructions;
     this.approvalPolicy = approvalPolicy;
+    this.pluginManager = pluginManager;
+    this.getUserChoice = getUserChoice;
 
     // If no `config` has been provided we derive a minimal stub so that the
     // rest of the implementation can rely on `this.config` always being a
@@ -615,19 +634,27 @@ export class AgentLoop {
 
             // Pinned Files: Inject full contents of pinned files
             let pinnedFilesContent = "";
-            if (this.config.pinnedFiles && this.config.pinnedFiles.length > 0) {
-              const pinnedFileSnippets = this.config.pinnedFiles.map((path) => {
+            const allFilesToPull = new Set([
+              ...(this.config.pinnedFiles || []),
+              ...this.autoPulledFiles,
+            ]);
+
+            if (allFilesToPull.size > 0) {
+              const snippets = Array.from(allFilesToPull).map((path) => {
                 if (existsSync(path)) {
                   try {
                     const content = readFileSync(path, "utf-8");
-                    return `--- pinned-file: ${path} ---\n${content}`;
+                    const label = this.autoPulledFiles.has(path)
+                      ? "auto-pulled"
+                      : "pinned";
+                    return `--- ${label}-file: ${path} ---\n${content}`;
                   } catch (e) {
                     return `--- pinned-file: ${path} (Error reading: ${e}) ---`;
                   }
                 }
                 return `--- pinned-file: ${path} (Not found) ---`;
               });
-              pinnedFilesContent = `\n\n--- Pinned Files ---\n${pinnedFileSnippets.join("\n\n")}`;
+              pinnedFilesContent = `\n\n--- Context Files ---\n${snippets.join("\n\n")}`;
             }
 
             const deepThinkingPrefix = this.config.enableDeepThinking
@@ -658,6 +685,8 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
+            const toolsToUse = [...tools, ...this.pluginManager.getAllDefinitions()];
+
             if (isLoggingEnabled()) {
               log(
                 `stableInstructions (length ${stableInstructions.length}): ${stableInstructions}`,
@@ -667,7 +696,7 @@ export class AgentLoop {
               );
               log(`[HTTP] Request: ${this.config.provider} completion`);
               log(
-                `[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 2}, Tools: ${tools.length}`,
+                `[HTTP] Model: ${this.model}, Messages: ${currentPrevItems.length + this.staged.length + 2}, Tools: ${toolsToUse.length}`,
               );
             }
 
@@ -698,7 +727,7 @@ export class AgentLoop {
                 mapOpenAiToGoogleMessages(messagesToMap);
 
               const googleTools = mapOpenAiToGoogleTools(
-                tools.filter((tool: any) => {
+                toolsToUse.filter((tool: any) => {
                   if (tool.function.name === "browse") {
                     return !!this.config.enableWebSearch;
                   }
@@ -726,7 +755,7 @@ export class AgentLoop {
                 ]);
 
               const anthropicTools = mapOpenAiToAnthropicTools(
-                tools.filter((tool: any) => {
+                toolsToUse.filter((tool: any) => {
                   if (tool.function.name === "browse") {
                     return !!this.config.enableWebSearch;
                   }
@@ -842,7 +871,7 @@ export class AgentLoop {
                 stream: true,
                 messages: finalMessages,
                 reasoning_effort: reasoning,
-                tools: tools.filter((tool: any) => {
+                tools: toolsToUse.filter((tool: any) => {
                   if (tool.function.name === "browse") {
                     return !!this.config.enableWebSearch;
                   }
@@ -1088,6 +1117,17 @@ export class AgentLoop {
                 }
               }
 
+              // Smart Context: Extract mentioned file paths (regex looking for paths like src/app.ts)
+              // This enables "Automatic inclusion of files mentioned in thoughts".
+              const pathRegex = /(?:^|\s|`|'|")([\w\/\.-]+\.[a-zA-Z0-9]{1,10})(?:$|\s|`|'|")/g;
+              let match;
+              while ((match = pathRegex.exec(content)) !== null) {
+                const possiblePath = match[1]?.trim();
+                if (possiblePath && existsSync(possiblePath) && lstatSync(possiblePath).isFile()) {
+                  this.autoPulledFiles.add(possiblePath);
+                }
+              }
+
               // If there's content but no tool_calls, try to extract one from the content.
               if (!msg?.tool_calls?.[0] && typeof msg?.content === "string") {
                 const extracted = tryExtractToolCallsFromContent(msg.content);
@@ -1110,9 +1150,16 @@ export class AgentLoop {
                   approvalPolicy: this.approvalPolicy,
                   execAbortController: this.execAbortController,
                   getCommandConfirmation: this.getCommandConfirmation,
+                  getUserChoice: this.getUserChoice,
                   onItem: this.onItem,
-                  onFileAccess: this.onFileAccess,
+                  onFileAccess: (path) => {
+                    this.onFileAccess?.(path);
+                    if (existsSync(path) && lstatSync(path).isFile()) {
+                      this.autoPulledFiles.add(path);
+                    }
+                  },
                   onTasksUpdate: this.onTasksUpdate,
+                  pluginManager: this.pluginManager,
                   oai: this.oai,
                   model: this.model,
                   agent: this,
@@ -1489,9 +1536,11 @@ export class AgentLoop {
           approvalPolicy: this.approvalPolicy,
           execAbortController: this.execAbortController,
           getCommandConfirmation: this.getCommandConfirmation,
+          getUserChoice: this.getUserChoice,
           onItem: this.onItem,
           onFileAccess: this.onFileAccess,
           onTasksUpdate: this.onTasksUpdate,
+          pluginManager: this.pluginManager,
           oai: this.oai,
           model: this.model,
           agent: this,

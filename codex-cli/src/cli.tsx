@@ -14,6 +14,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
+import { PluginManager } from "./utils/agent/plugin-manager";
 import { authorizeCommand } from "./utils/agent/handle-exec-command";
 import { initLogger, log, isLoggingEnabled } from "./utils/agent/log";
 import { ReviewDecision } from "./utils/agent/review";
@@ -468,7 +469,7 @@ if (quietMode) {
 //    it is more dangerous than --fullAuto we deliberately give it lower
 //    priority so a user specifying both flags still gets the safer behaviour.
 // 3. --autoEdit – automatically approve edits, but prompt for commands.
-// 4. config.approvalMode - use the approvalMode setting from ~/.codex/config.json.
+// 4. config.approvalMode - use the approvalMode setting from ~/.open-codex/config.json.
 // 5. Default – suggest mode (prompt for everything).
 
 const approvalPolicy: ApprovalPolicy =
@@ -638,11 +639,15 @@ async function runQuietMode({
     }
   }
 
+  const pluginManager = new PluginManager();
+  await pluginManager.loadPlugins();
+
   const agent = new AgentLoop({
     model: config.model,
     config: config,
     instructions: config.instructions,
     approvalPolicy,
+    pluginManager,
     onItem: (item: ChatCompletionMessageParam) => {
       // eslint-disable-next-line no-console
       console.log(formatChatCompletionMessageParamForQuietMode(item, jsonMode));
