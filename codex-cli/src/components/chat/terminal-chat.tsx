@@ -26,6 +26,7 @@ import { detectInteraction } from "../../utils/interactive-detection.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
 import { recipes } from "../../utils/recipes.js";
 import { CLI_VERSION, setSessionId } from "../../utils/session.js";
+import { parseToolCallOutput } from "../../utils/parsers.js";
 import { shortCwd } from "../../utils/short-path.js";
 import {
   saveRollout,
