@@ -23,9 +23,10 @@ Lightweight coding agent that runs in your terminal
 - [System Requirements](#systemrequirements)
 - [CLI Reference](#clireference)
 - [Memory & Project Docs](#memoryprojectdocs)
-- [Non‑interactive / CI mode](#noninteractivecimode)
-- [Editor Integration](#editor-integration)
+- [Non-interactive / CI mode](#noninteractivecimode)
+- [Editor Integration](#documentation-index)
 - [Recipes](#recipes)
+
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [FAQ](#faq)
@@ -227,7 +228,7 @@ For more detailed information, please refer to the following documents:
 
 - **[Installation Guide](#installation)**: How to install and build from source.
 - **[Configuration Guide](#configuration)**: Customizing models, providers, and settings.
-- **[Editor Integration](./SUBLIME.md)**: Using OpenCodex with Sublime Text and other editors.
+- **Editor Integration**: Using OpenCodex with [Sublime Text](./SUBLIME.md), [VS Code](./VSCODE.md), and other editors.
 - **[Non-interactive / CI Mode](./CI.md)**: Running OpenCodex in automated pipelines.
 - **[Recipes](./RECIPES.md)**: A collection of common tasks and prompts.
 - **[Project Memory & Docs](#memoryprojectdocs)**: Managing persistent project context.

@@ -475,42 +475,39 @@ export default function TerminalChat({
         };
         setRenderedPartialData({ ...partialDataRef.current });
 
+        let newItem: ExtendedChatCompletionMessageParam = item;
+        if (item.role === "tool" && !("tool_calls" in item)) {
+          const parsedOutput = parseToolCallOutput(item.content as string);
+          newItem = {
+            ...item,
+            status: parsedOutput.metadata?.exit_code === 0 ? 'success' : 'failure',
+          } as ExtendedChatCompletionMessageParam;
+        } else if (item.role === "assistant" && item.tool_calls) {
+          // Mark all tool calls within this assistant message as running initially
+          newItem = {
+            ...item,
+            tool_calls: item.tool_calls.map((tc) => ({
+              ...tc,
+              status: 'running',
+            })),
+          } as ExtendedChatCompletionMessageParam;
+        }
+
+        // Extract code blocks if this is an assistant message
+        if (item.role === "assistant") {
+          const content = typeof item.content === "string" ? item.content : "";
+          const codeMatches = content.match(/```(?:\w+)?\n([\s\S]*?)(?:```|$)/g);
+          if (codeMatches && codeMatches.length > 0) {
+            const last = codeMatches[codeMatches.length - 1]!;
+            const code = last
+              .replace(/```(?:\w+)?\n/, "")
+              .replace(/```$/, "")
+              .trim();
+            setLastCodeBlock(code);
+          }
+        }
+
         setItems((prev) => {
-          let newItem: ExtendedChatCompletionMessageParam = item;
-          if (item.role === "tool" && !("tool_calls" in item)) {
-            const parsedOutput = parseToolCallOutput(item.content as string);
-            newItem = {
-              ...item,
-              status: parsedOutput.metadata?.exit_code === 0 ? 'success' : 'failure',
-            } as ExtendedChatCompletionMessageParam;
-          } else if (item.role === "assistant" && item.tool_calls) {
-            // Mark all tool calls within this assistant message as running initially
-            newItem = {
-              ...item,
-              tool_calls: item.tool_calls.map((tc) => ({
-                ...tc,
-                status: 'running',
-              })),
-            } as ExtendedChatCompletionMessageParam;
-          }
-
-          // Extract code blocks if this is an assistant message
-          if (item.role === "assistant") {
-            const content =
-              typeof item.content === "string" ? item.content : "";
-            const codeMatches = content.match(
-              /```(?:\w+)?\n([\s\S]*?)(?:```|$)/g,
-            );
-            if (codeMatches && codeMatches.length > 0) {
-              const last = codeMatches[codeMatches.length - 1]!;
-              const code = last
-                .replace(/```(?:\w+)?\n/, "")
-                .replace(/```$/, "")
-                .trim();
-              setLastCodeBlock(code);
-            }
-          }
-
           // If it's a streaming tool update, try to update the existing item
           if (item.role === "tool" && "tool_call_id" in item) {
             try {
@@ -563,7 +560,7 @@ export default function TerminalChat({
                 }
                 if (existingIndex !== -1) {
                   const updated = [...prev];
-                  updated[existingIndex] = item;
+                  updated[existingIndex] = newItem;
                   return updated;
                 }
               }

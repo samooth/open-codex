@@ -18,6 +18,7 @@ This directory contains the core documentation for the OpenCodex project.
 - [RECIPES.md](./RECIPES.md): A collection of common task prompts and patterns.
 - [CLI_RECIPES.md](./CLI_RECIPES.md): CLI-specific prompt templates.
 - [SUBLIME.md](./SUBLIME.md): Integration guide for the Sublime Text editor.
+- [VSCODE.md](./VSCODE.md): Integration guide for the Visual Studio Code editor.
 
 ## Development & Maintenance
 
