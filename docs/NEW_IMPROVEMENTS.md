@@ -168,5 +168,14 @@ Here is the current state of UI improvements for the OpenCodex CLI:
     - **[DONE] Parallel Tool Cancellation:** Improved `ESC` handling to reliably halt all concurrent tool executions immediately.
     - **[DONE] Anthropic Prompt Caching:** Implemented native support for `cache_control` (ephemeral) across system instructions, tool definitions, and long conversation turns, significantly reducing costs and latency for Claude models.
     - **[DONE] Comprehensive Architecture Clean-up:** Resolved 100+ TypeScript compilation errors, improved ESM/CJS library compatibility (especially for `diff`), and implemented more robust state grouping to prevent UI flickering.
+  - **[DONE] Stability & Crash Fixes:**
+    - Fixed `newItem is not defined` ReferenceError in terminal chat.
+    - Resolved `ReferenceError: parseToolCallOutput` by fixing missing imports in `terminal-chat.tsx`.
+    - Fixed `Box can't be nested inside Text` Ink layout error in multiple components (`TerminalChatToolCallCommand`, `TerminalChatResponseMessage`).
+    - Updated retired Google embedding model from `text-embedding-004` to `text-embedding-005` to resolve 404 errors.
+  - **[DONE] Enhanced Tag Extraction during Streaming:**
+    - Refined regex logic to handle unclosed `<thought>`, `<think>`, and `<plan>` tags without stripping subsequent content.
+    - Improved role header visibility and collapse hints for a smoother streaming experience.
+  - **[DONE] VS Code Integration:** Added a comprehensive guide (`docs/VSCODE.md`) for integrating OpenCodex with Visual Studio Code via integrated terminal, tasks, and keybindings.
   ***
-  _Last Updated: 2026-02-14_
+  _Last Updated: 2026-03-01_
