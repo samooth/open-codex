@@ -135,13 +135,14 @@ export function TerminalChatToolCallCommand({
                     : theme.accent
               }
               paddingX={1}
+              gap={1}
             >
+              {status === 'running' && <Spinner type="dots" />}
               <Text bold color="black">
-                {status === 'running' && <Spinner type="dots" />}{" "}
-                {isEditFile ? "EDIT FILE" : "APPLY PATCH"}{" "}
-                {status === 'success' && '✅'}{" "}
-                {status === 'failure' && '❌'}
+                {isEditFile ? "EDIT FILE" : "APPLY PATCH"}
               </Text>
+              {status === 'success' && <Text bold color="black">✅</Text>}
+              {status === 'failure' && <Text bold color="black">❌</Text>}
             </Box>
             <Text dimColor italic>
               {" "}
@@ -375,13 +376,14 @@ export function TerminalChatToolCallCommand({
                 : theme.warning
           }
           paddingX={1}
+          gap={1}
         >
+          {status === 'running' && <Spinner type="dots" />}
           <Text bold color="black">
-            {status === 'running' && <Spinner type="dots" />}{" "}
-            SHELL COMMAND{" "}
-            {status === 'success' && '✅'}{" "}
-            {status === 'failure' && '❌'}
+            SHELL COMMAND
           </Text>
+          {status === 'success' && <Text bold color="black">✅</Text>}
+          {status === 'failure' && <Text bold color="black">❌</Text>}
         </Box>
         <Text dimColor italic>
           {" "}

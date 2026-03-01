@@ -1074,10 +1074,9 @@ export const TerminalChatResponseMessage = React.memo(
               <Text color={theme.user}>{displayContent.trim()}</Text>
             )}
             {disableMarkdown && (
-              <Text>
-                {" "}
+              <Box gap={1}>
                 <Spinner type="dots" color={theme.highlight} />
-              </Text>
+              </Box>
             )}
             {isAssistant && isLargeOutput && isActive && (
               <Box marginTop={0} paddingX={0} marginBottom={0}>
