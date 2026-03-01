@@ -912,39 +912,58 @@ export const TerminalChatResponseMessage = React.memo(
       );
     }
 
-    // Extract <thought>, <think>, or <plan> blocks (handles mixed and unclosed tags during streaming)
+    // Extract <thought>, <think>, or <plan> blocks
     const thoughts: Array<string> = [];
     const plans: Array<string> = [];
 
-    // Use a more flexible regex that allows mixed closing tags or no closing tag (end of string)
-    const thoughtRegex =
-      /<(thought|think|thinking)>([\s\S]*?)(?:<\/(?:thought|think|thinking)>|$)/gim;
-    const planRegex = /<(plan|roadmap)>([\s\S]*?)(?:<\/(?:plan|roadmap)>|$)/gim;
-    const responseTagRegex = /<response>([\s\S]*?)(?:<\/response>|$)/gim;
+    // During streaming (isStreaming=true), we want to show unclosed blocks in the thought/plan sections
+    // but we must be careful not to strip everything if the tag is still open.
+    
+    // 1. Extract FULLY CLOSED blocks first
+    const closedThoughtRegex = /<(thought|think|thinking)>([\s\S]*?)<\/(?:thought|think|thinking)>/gim;
+    const closedPlanRegex = /<(plan|roadmap)>([\s\S]*?)<\/(?:plan|roadmap)>/gim;
+    const closedResponseRegex = /<response>([\s\S]*?)<\/response>/gim;
 
-    let displayContent = content.replace(
-      thoughtRegex,
-      (_, _tagName, thought) => {
-        thoughts.push(thought.trim());
-        return "";
-      },
-    );
+    let displayContent = content.replace(closedThoughtRegex, (_, _tagName, thought) => {
+      thoughts.push(thought.trim());
+      return "";
+    });
 
-    displayContent = displayContent.replace(planRegex, (_, _tagName, plan) => {
+    displayContent = displayContent.replace(closedPlanRegex, (_, _tagName, plan) => {
       plans.push(plan.trim());
       return "";
     });
 
-    displayContent = displayContent.replace(responseTagRegex, (_, resp) => {
+    displayContent = displayContent.replace(closedResponseRegex, (_, resp) => {
       return resp;
     });
 
-    // Final cleanup: strip any stray unclosed or leftover closing tags
+    // 2. Handle UNCLOSED blocks (only relevant during streaming or for malformed output)
+    // We look for the LAST unclosed tag of each type.
+    const unclosedThoughtMatch = displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*)$/i);
+    if (unclosedThoughtMatch) {
+      thoughts.push(unclosedThoughtMatch[2]!.trim());
+      // Strip the unclosed tag and its content from displayContent so it doesn't show up twice
+      displayContent = displayContent.slice(0, unclosedThoughtMatch.index);
+    }
+
+    const unclosedPlanMatch = displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*)$/i);
+    if (unclosedPlanMatch) {
+      plans.push(unclosedPlanMatch[2]!.trim());
+      displayContent = displayContent.slice(0, unclosedPlanMatch.index);
+    }
+
+    const unclosedResponseMatch = displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*)$/i);
+    if (unclosedResponseMatch) {
+      // For <response> we actually WANT to show the content in the main displayContent
+      // So we just strip the tag but keep the content
+      const index = unclosedResponseMatch.index!;
+      displayContent = displayContent.slice(0, index) + unclosedResponseMatch[1];
+    }
+
+    // Final cleanup: strip any stray leftover closing tags
     displayContent = displayContent
-      .replace(
-        /<\/(thought|think|thinking|plan|roadmap|response)>| <\/(thought|think|thinking|plan|roadmap|response)>/gim,
-        "",
-      )
+      .replace(/<\/(thought|think|thinking|plan|roadmap|response)>/gim, "")
       .trim();
 
     const hasThoughts = thoughts.length > 0;
