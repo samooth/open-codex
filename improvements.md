@@ -1,30 +1,25 @@
-Here is a list of the improvements I have made:
+# Actionable Improvements for Open Codex
 
-- Removed duplicate and unnecessary files, making the project cleaner and easier to navigate.
-- Standardized the formatting scripts, ensuring consistent code style across the entire project.
-- Formatted most of the files in the project, improving code readability.
+This list identifies high-impact features and refinements to enhance the Open Codex CLI experience.
 
-Here is a list of things that still need to be done:
+## 1. IDE & Editor Integration
+- **Dedicated VS Code Extension**: Develop a native extension to provide a seamless sidebar interface, inline code suggestions, and one-click patch application.
+- **Enhanced Sublime Text Support**: Provide a formal plugin package for better installation and configuration management.
 
-- Resolve the `npm install` issue. I have tried cleaning the npm cache, but the issue persists. The process is being terminated with a SIGTERM signal, which suggests an environment-specific issue (e.g., running out of memory). Possible solutions to investigate:
-  - Increase the memory available to the node process.
-  - Use a different version of node or npm.
-  - Investigate if any specific dependency is causing a memory leak during installation.
-- Update all outdated dependencies.
-- Updating ESLint and related packages to version 10 is blocked by `eslint-plugin-react`, which does not yet support ESLint 10.
-- Run the linter and fix any issues.
-- Run the tests and fix any issues.
+## 2. Refined Interaction Model
+- **Interactive Diff Hunk Selection**: Allow users to navigate through a proposed patch and selectively approve or reject individual "hunks" (changes) within a single file.
+- **Improved Choice Prompts**: Enhance the interactive selection menus with better descriptions and keyboard-driven navigation.
 
-### Specific Issues Found in `@codex-cli/`
+## 3. Intelligence & Context
+- **Semantic Search 2.0**: Implement faster, incremental indexing and provide visual "heatmaps" or snippets explaining why a specific file was retrieved.
+- **Multi-Model Orchestration**: Enable the agent to automatically switch between specialized models (e.g., high-speed for analysis, high-reasoning for complex logic) based on the task.
 
-1. **TypeScript Errors (Blocking `npm run typecheck`)**:
-   - `src/components/chat/terminal-chat.tsx`: Multiple missing type definitions (e.g. `ChatCompletionMessageParam` is missing, should use `ExtendedChatCompletionMessageParam`), implicit `any` types for parameters `c` and `tc`, and unused variables (`MessageStatus`).
-   - `src/components/chat/semantic-diff.tsx`: Type `HighlightOptions` doesn't support the `trim` property. Implicit `any` type for `part`.
-   - `src/components/chat/terminal-chat-input-thinking.tsx`: Unused variable `isStreamingResponse`.
-   - `src/components/chat/terminal-chat-response-item.tsx`: Unused variables `loading` and `status`.
+## 4. UI & Aesthetics
+- **Theme Marketplace**: Allow users to easily share and download community-created JSON themes.
+- **Live Background Indexing Indicator**: A non-blocking, subtle progress indicator in the status bar for background vector database updates.
+- **Audio Notifications**: Optional sound cues to notify users when long-running background tasks (like full codebase indexing) are complete.
 
-2. **Failing Tests (Vitest)**:
-   - Several UI tests in `codex-cli/tests/` (e.g., `multiline-terminal-quirks.test.tsx`, `multiline-history-behavior.test.tsx`, `multiline-growth.test.tsx`, `multiline-enter-submit-cr.test.tsx`) are failing consistently. This appears to be due to testing environment issues, mocked contexts not being properly provided (e.g., `useAppContext must be used within AppProvider`), and Ink's standard test setup failing on mocked streams (`stdin.ref is not a function`).
-
-3. **Dependency Version Discrepancies**:
-   - `prettier`: The root `package.json` was updated to use `^3.5.3` and runs across the whole repo, but `codex-cli/package.json` still specifies `"prettier": "^2.8.7"`. This inconsistency might lead to format conflicts or unexpected CLI behaviors when run inside vs outside the workspace.
+## 5. Developer Productivity
+- **Automated Onboarding**: A step-by-step interactive configuration wizard for first-time users to set up API keys and default providers.
+- **One-Click Documentation Generation**: A specialized tool to analyze the repo and generate or update the `README.md` or dedicated documentation files.
+- **Better Error Recovery**: Implement smarter retry logic and provide actionable suggestions when tool calls fail due to environment or network issues.
