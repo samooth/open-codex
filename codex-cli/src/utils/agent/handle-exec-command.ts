@@ -14,6 +14,8 @@ import { canAutoApprove } from "../../approvals.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { access } from "fs/promises";
 
+import { getActionableSuggestion } from "./error-recovery.js";
+
 // ---------------------------------------------------------------------------
 // Session‑level cache of commands that the user has chosen to always approve.
 //
@@ -124,7 +126,7 @@ export async function handleExecCommand(
       abortSignal,
       onOutput,
       isFocused,
-    ).then(convertSummaryToResult);
+    ).then((summary) => convertSummaryToResult(summary, args));
   }
 
   // 2) Otherwise fall back to the normal policy
@@ -226,19 +228,29 @@ export async function handleExecCommand(
         onOutput,
         isFocused,
       );
-      return convertSummaryToResult(summary);
+      return convertSummaryToResult(summary, args);
     }
   } else {
-    return convertSummaryToResult(summary);
+    return convertSummaryToResult(summary, args);
   }
 }
 
 function convertSummaryToResult(
   summary: ExecCommandSummary,
+  args?: ExecInput
 ): HandleExecCommandResult {
   const { stdout, stderr, exitCode, durationMs, workdir } = summary;
+  let outputText = stdout || stderr;
+
+  if (exitCode !== 0 && args) {
+    const suggestion = getActionableSuggestion(args.cmd, exitCode, stdout, stderr);
+    if (suggestion) {
+      outputText += `\n\n${suggestion}`;
+    }
+  }
+
   return {
-    outputText: stdout || stderr,
+    outputText,
     metadata: {
       exit_code: exitCode,
       duration_seconds: Math.round(durationMs / 100) / 10,
@@ -246,6 +258,7 @@ function convertSummaryToResult(
     },
   };
 }
+
 
 type ExecCommandSummary = {
   stdout: string;

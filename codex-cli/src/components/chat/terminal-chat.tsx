@@ -612,6 +612,20 @@ export default function TerminalChat({
           applyPatch: updatedApplyPatch || applyPatch,
         };
       },
+      getUserChoice: async (
+        prompt: string,
+        choices?: Array<string>,
+      ): Promise<string> => {
+        const { decision } = await requestConfirmation(
+          <Box flexDirection="column">
+            <Text bold color={activeTheme.warning}>
+              {prompt}
+            </Text>
+          </Box>,
+          choices || ["Yes", "No"],
+        );
+        return decision;
+      },
     });
 
     // force a render so JSX below can "see" the freshly created agent

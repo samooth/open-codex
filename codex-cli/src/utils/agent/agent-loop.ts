@@ -874,19 +874,47 @@ export class AgentLoop {
             const isServerError = typeof status === "number" && status >= 500;
             const isNetworkError = isErrorNetworkOrServer(error);
             if (
-              (isTimeout ||
-                isServerError ||
-                isConnectionError ||
-                isNetworkError) &&
-              attempt < MAX_RETRIES
+              isTimeout ||
+              isServerError ||
+              isConnectionError ||
+              isNetworkError
             ) {
-              const provider = this.config.provider || "AI";
-              const details =
-                (error as any).code || (error as any).message || "Unknown";
-              log(
-                `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}, details: ${details}), retrying...`,
-              );
-              continue;
+              if (attempt < MAX_RETRIES) {
+                const provider = this.config.provider || "AI";
+                const details =
+                  (error as any).code || (error as any).message || "Unknown";
+                log(
+                  `${provider} request failed (attempt ${attempt}/${MAX_RETRIES}, details: ${details}), retrying...`,
+                );
+                continue;
+              } else if (this.getUserChoice) {
+                const provider = this.config.provider || "AI";
+                const details =
+                  (error as any).code || (error as any).message || "Unknown";
+                const prompt = `${provider} request failed after ${MAX_RETRIES} attempts (${details}). How would you like to proceed?`;
+                const choices = ["Retry Now", "Switch Model", "Abort"];
+                const choice = await this.getUserChoice(prompt, choices);
+
+                if (choice === "Retry Now") {
+                  attempt = 0; // Reset and try again
+                  continue;
+                } else if (choice === "Switch Model") {
+                  // We can't easily trigger the overlay from here without a callback, 
+                  // but we can ask the user to use /model or implement a specialized callback.
+                  // For now, let's assume the UI will handle it if we return a specific signal 
+                  // or if we just stop and let the user decide.
+                  // Actually, let's just abort and show a message.
+                  this.stageItem(
+                    {
+                      role: "assistant",
+                      content: "Request failed. Please use `/model` to switch to a different model and try again.",
+                    },
+                    thisGeneration,
+                  );
+                  this.onLoading(false);
+                  return;
+                }
+              }
             }
 
             if (isErrorTooManyTokens(error)) {
@@ -945,19 +973,38 @@ export class AgentLoop {
                 // eslint-disable-next-line no-await-in-loop
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
                 continue;
-              } else {
-                // We have exhausted all retry attempts. Surface a message so the user understands
-                // why the request failed and can decide how to proceed (e.g. wait and retry later
-                // or switch to a different model / account).
+              } else if (this.getUserChoice) {
+                const provider = this.config.provider || "AI";
+                const details =
+                  (error as any).code || (error as any).message || "Unknown";
+                const prompt = `${provider} rate limit exceeded after ${MAX_RETRIES} attempts (${details}). How would you like to proceed?`;
+                const choices = ["Retry Now", "Switch Model", "Abort"];
+                const choice = await this.getUserChoice(prompt, choices);
 
-                this.stageItem(
-                  createRateLimitErrorSystemMessage(error),
-                  thisGeneration,
-                );
-
-                this.onLoading(false);
-                return;
+                if (choice === "Retry Now") {
+                  attempt = 0; // Reset and try again
+                  continue;
+                } else if (choice === "Switch Model") {
+                  this.stageItem(
+                    {
+                      role: "assistant",
+                      content: "Rate limit reached. Please use `/model` to switch to a different model and try again.",
+                    },
+                    thisGeneration,
+                  );
+                  this.onLoading(false);
+                  return;
+                }
               }
+
+              // Default: exhaust all attempts
+              this.stageItem(
+                createRateLimitErrorSystemMessage(error),
+                thisGeneration,
+              );
+
+              this.onLoading(false);
+              return;
             }
 
             if (isErrorClientError(error)) {

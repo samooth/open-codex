@@ -183,13 +183,14 @@ export async function handleFunctionCall(
       );
     }
 
-    if (history.count >= 2) {
+    // Refined Loop Protection: Only hard-stop if the error is identical
+    if (history.count >= 2 && history.lastError) {
       return {
         toolOutput: {
           role: "tool",
           tool_call_id: callId,
           content: JSON.stringify({
-            output: `Error: Loop detected. This exact tool call has been attempted ${history.count} times already and failed with: "${history.lastError}". Please stop and ask the user for clarification instead of retrying again.`,
+            output: `Error: Loop detected. This exact tool call has been attempted ${history.count} times already and failed with the same error: "${history.lastError}". Please stop and ask the user for clarification instead of retrying again.`,
             metadata: {
               exit_code: 1,
               duration_seconds: 0,
@@ -660,6 +661,9 @@ export async function handleFunctionCall(
 
     // Update history for loop detection
     if (metadata["exit_code"] !== 0) {
+      const currentErrorSnippet = outputText.slice(0, 200);
+      const isIdenticalError = history.lastError === currentErrorSnippet;
+
       try {
         const provider = ctx.config.provider || "unknown";
         appendFileSync(
@@ -671,8 +675,8 @@ export async function handleFunctionCall(
       }
 
       toolCallHistory.set(toolCallKey, {
-        count: history.count + 1,
-        lastError: outputText.slice(0, 200), // Store a snippet of the error
+        count: isIdenticalError ? history.count + 1 : 1, // Reset if error changes
+        lastError: currentErrorSnippet,
       });
     } else {
       // If it succeeded, we can clear it from history or at least reset count
