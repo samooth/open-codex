@@ -56,6 +56,7 @@ const slashCommands = [
 
 const typeHelpText = `ctrl+c exit | "/help" help | ↑↓ history | ctrl+x edit | ctrl+j \n | enter send | ctrl+f focus shell`;
 
+
 export default function TerminalChatInput({
   isNew,
   loading,
@@ -382,52 +383,7 @@ export default function TerminalChatInput({
 
         const cursorRow = editorRef.current?.getRow?.() ?? 0;
         const wasAtFirstRow = (prevCursorRow.current ?? cursorRow) === 0;
-        if (_input === "k") {
-          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
-            return;
-          }
-
-          if (history.length > 0 && wasAtFirstRow) {
-            if (historyIndex == null) {
-              const currentDraft = editorRef.current?.getText?.() ?? input;
-              setDraftInput(currentDraft);
-            }
-
-            let newIndex: number;
-            if (historyIndex == null) {
-              newIndex = history.length - 1;
-            } else {
-              newIndex = Math.max(0, historyIndex - 1);
-            }
-            setHistoryIndex(newIndex);
-            setInput(history[newIndex] ?? "");
-            setEditorKey((k) => k + 1);
-            return;
-          }
-        }
-
-        if (_input === "j") {
-          if (filteredFiles.length > 0 || filteredSlashCommands.length > 0) {
-            return;
-          }
-
-          if (
-            historyIndex != null &&
-            (editorRef.current?.isCursorAtLastRow() ?? true)
-          ) {
-            const newIndex = historyIndex + 1;
-            if (newIndex >= history.length) {
-              setHistoryIndex(null);
-              setInput(draftInput);
-              setEditorKey((k) => k + 1);
-            } else {
-              setHistoryIndex(newIndex);
-              setInput(history[newIndex] ?? "");
-              setEditorKey((k) => k + 1);
-            }
-            return;
-          }
-        }
+        // (Removed 'j'/'k' history navigation logic that was previously here)
       }
 
       if (_key.ctrl && _input === "x") {
