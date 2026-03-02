@@ -25,7 +25,12 @@ This list identifies high-impact features and refinements to enhance the Open Co
 - **Theme Customization Tool**: An interactive CLI wizard to help users create and preview their own `.json` themes.
 
 ## 6. Developer Productivity & Stability
-- **Robust Error Recovery 2.0**: Implement a "re-plan" protocol where the agent automatically analyzes tool failures and proposes an alternative approach without user intervention.
+- [DONE] **History Sanitization**: Automatically remove trailing assistant messages with unresponded tool calls during `/history restore` to prevent OpenAI 400 errors (implemented in `terminal-chat.tsx`).
+- [DONE] **Duplicate Tool Call ID Fix**: Prevent "Duplicate value for 'tool_call_id'" errors by deduplicating pending aborts against existing history and clearing IDs as they are staged (implemented in `agent-loop.ts`).
+- [DONE] **OpenAI Tool Naming Compatibility**:
+ Renamed all tools to strictly follow the `^[a-zA-Z0-9_-]+$` pattern, resolving validation errors when using OpenAI models (applied to `tool-definitions.ts` and `parsers.ts`).
+- **Robust Error Recovery 2.0**:
+ Implement a "re-plan" protocol where the agent automatically analyzes tool failures and proposes an alternative approach without user intervention.
 - **Automated Regression Testing**: A tool for developers to "record" a session and turn it into a deterministic integration test to prevent UI regressions.
 - **Shell Environment Synchronization**: Automatically detect and mirror the user's shell environment (aliases, exported functions) within the agent's execution sandbox.
 - **One-Click PR Preparation**: A specialized recipe that performs a final lint check, generates a conventional commit message, and stages the changes for a PR.

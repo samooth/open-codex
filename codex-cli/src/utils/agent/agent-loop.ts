@@ -251,6 +251,11 @@ export class AgentLoop {
       return;
     }
 
+    // If this is a tool response, it's no longer pending an abort response.
+    if (item.role === "tool" && "tool_call_id" in item && item.tool_call_id) {
+      this.pendingAborts.delete(item.tool_call_id);
+    }
+
     // Store the item so the final flush can still operate on a complete list.
     this.onItem(item);
     this.staged.push(item);
@@ -515,18 +520,29 @@ export class AgentLoop {
       // first in the conversation turn.
       const abortOutputs: Array<ChatCompletionMessageParam> = [];
       if (this.pendingAborts.size > 0) {
+        // Safety: Filter out IDs that already have a response in the provided history.
+        // This prevents "Duplicate value for 'tool_call_id'" errors if the turn
+        // was interrupted after some tool calls were already successfully handled.
+        const idsInHistory = new Set(
+          prevItems
+            .filter((m) => m.role === "tool" && "tool_call_id" in m)
+            .map((m) => (m as any).tool_call_id),
+        );
+
         for (const id of this.pendingAborts) {
-          abortOutputs.push({
-            role: "tool",
-            tool_call_id: id,
-            content: JSON.stringify({
-              output: "aborted",
-              metadata: { exit_code: 1, duration_seconds: 0 },
-            }),
-            ...(this.lastThoughtSignature
-              ? ({ thought_signature: this.lastThoughtSignature } as any)
-              : {}),
-          });
+          if (id && !idsInHistory.has(id)) {
+            abortOutputs.push({
+              role: "tool",
+              tool_call_id: id,
+              content: JSON.stringify({
+                output: "aborted",
+                metadata: { exit_code: 1, duration_seconds: 0 },
+              }),
+              ...(this.lastThoughtSignature
+                ? ({ thought_signature: this.lastThoughtSignature } as any)
+                : {}),
+            });
+          }
         }
         // Once converted the pending list can be cleared.
         this.pendingAborts.clear();
@@ -571,7 +587,8 @@ export class AgentLoop {
             let reasoning: ReasoningEffort | undefined;
             if (
               this.model.startsWith("o") ||
-              this.model.startsWith("openai/o")
+              this.model.startsWith("openai/o") ||
+              this.model === "gpt-5.2"
             ) {
               reasoning = "high";
               // FIXME

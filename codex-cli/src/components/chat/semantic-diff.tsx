@@ -119,7 +119,11 @@ export function SemanticDiffPair({
       if (start !== -1) {
         // Add non-diffed part before the current diff segment
         if (start > currentIndex) {
-          parts.push(fullLine.substring(currentIndex, start));
+          parts.push(
+            <Text key={`plain-${currentIndex}`}>
+              {fullLine.substring(currentIndex, start)}
+            </Text>,
+          );
         }
 
         const color = isRemovedLine ? "redBright" : "greenBright";
@@ -142,7 +146,11 @@ export function SemanticDiffPair({
 
     // Add any remaining part of the line after the last diff segment
     if (currentIndex < fullLine.length) {
-      parts.push(fullLine.substring(currentIndex));
+      parts.push(
+        <Text key={`final-${currentIndex}`}>
+          {fullLine.substring(currentIndex)}
+        </Text>,
+      );
     }
 
     return parts;

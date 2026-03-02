@@ -301,7 +301,7 @@ Codex looks for config files in **`~/.open-codex/`** (either YAML or JSON format
 ```json
 // ~/.open-codex/config.json
 {
-  "model": "o4-mini", // Default model
+  "model": "gpt-5.2", // Default model
   "provider": "openai", // Default provider
   "approvalMode": "suggest", // or auto-edit, full-auto
   "fullAutoErrorMode": "ask-user", // or ignore-and-continue
@@ -455,10 +455,10 @@ Here's a list of all the providers and their default models:
 
 | Provider   | Environment Variable Required | Default Agentic Model   | Default Full Context Model |
 | :--------- | :---------------------------- | :---------------------- | :------------------------- |
-| openai     | OPENAI_API_KEY                | o4-mini                 | o3                         |
+| openai     | OPENAI_API_KEY                | gpt-5.2                 | gpt-5.2                         |
 | anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6         | claude-opus-4-6            |
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash        | gemini-2.5-flash           |
-| openrouter | OPENROUTER_API_KEY            | openai/o4-mini          | openai/o3                  |
+| openrouter | OPENROUTER_API_KEY            | openai/gpt-5.2          | openai/gpt-5.2                  |
 | ollama     | OLLAMA_API_KEY (optional)     | User must specify       | User must specify          |
 | xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning | grok-4-1-fast-reasoning    |
 | deepseek   | DS_API_KEY                    | deepseek-chat           | deepseek-reasoner          |
@@ -486,7 +486,7 @@ Codex always runs in a **sandbox first**. If a proposed command or file change l
 Not directly. It requires [Windows Subsystem for Linux (WSL2)](https://learn.microsoft.com/en-us/windows/wsl/install) – Codex has been tested on macOS and Linux with Node ≥ 22.
 
 **Which models are supported?**
-The default is `o4-mini`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override. You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
+The default is `gpt-5.2`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override. You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
 
 ---
 

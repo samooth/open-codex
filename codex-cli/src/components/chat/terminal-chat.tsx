@@ -1013,8 +1013,35 @@ export default function TerminalChat({
       {overlayMode === "history-select" && (
         <HistorySelectOverlay
           onSelect={(rollout) => {
-            setItems(rollout.items);
-            setPrevItems(rollout.items);
+            // Sanitize items: Remove any trailing assistant message that has tool_calls
+            // but no subsequent tool response. This prevents OpenAI 400 errors.
+            let sanitizedItems = [...rollout.items];
+            while (sanitizedItems.length > 0) {
+              const lastItem = sanitizedItems[sanitizedItems.length - 1];
+              if (
+                lastItem &&
+                lastItem.role === "assistant" &&
+                lastItem.tool_calls &&
+                lastItem.tool_calls.length > 0
+              ) {
+                // If it's an assistant message with tool calls, check if all calls have responses
+                const toolCallIds = new Set(
+                  lastItem.tool_calls.map((tc) => tc.id),
+                );
+                // In a restored rollout, we don't easily know if the next message *exists* 
+                // but isn't in this array, but if it's the absolute last message, 
+                // it definitely has no response.
+                sanitizedItems.pop();
+                if (isLoggingEnabled()) {
+                  log("Sanitized rollout: Removed trailing assistant message with tool_calls");
+                }
+              } else {
+                break;
+              }
+            }
+
+            setItems(sanitizedItems);
+            setPrevItems(sanitizedItems);
             if (rollout.session?.id) {
               setSessionId(rollout.session.id);
             }

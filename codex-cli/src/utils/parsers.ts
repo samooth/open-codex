@@ -71,7 +71,7 @@ export function parseToolCallOutput(toolCallOutput: string): {
   try {
     const { output, metadata } = JSON.parse(toolCallOutput);
     return {
-      output,
+      output: String(output ?? ""),
       metadata,
     };
   } catch (err) {
@@ -570,8 +570,8 @@ function normalizeJsonToolCall(
       json.name === "write_file" ||
       json.name === "delete_file" ||
       json.name === "list_directory" ||
-      (json.name.startsWith("repo_browser.") &&
-        json.name !== "repo_browser.exec")
+      (json.name.startsWith("repo_browser_") &&
+        json.name !== "repo_browser_exec")
     ) {
       return {
         name: json.name,
@@ -593,7 +593,7 @@ function normalizeJsonToolCall(
       return {
         name:
           json.name === "apply_patch" ||
-          json.name === "repo_browser.exec" ||
+          json.name === "repo_browser_exec" ||
           json.name === "shell"
             ? "shell"
             : json.name,
@@ -638,7 +638,7 @@ function normalizeJsonToolCall(
         toolName = "read_file";
       }
 
-      if (json.name === "repo_browser.read_file_lines") {
+      if (json.name === "repo_browser_read_file_lines") {
         toolName = "read_file_lines";
       }
       const parsedArgs = result.args;

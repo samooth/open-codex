@@ -7,6 +7,7 @@ import React from "react";
 
 // Mapping models to their recommended uses
 const modelDescriptions: Record<string, string> = {
+  "gpt-5.2": "OpenAI - Next-generation reasoning and massive context support.",
   "o4-mini": "OpenAI - Fast, efficient, and great for common tasks.",
   "o3": "OpenAI - High reasoning, best for complex logic and deep thinking.",
   "claude-opus-4-6": "Anthropic - Balanced power and speed with high accuracy.",
@@ -38,7 +39,7 @@ export default function ModelOverlay({
 
   const providerModels = (config as any).providers?.[
     config.provider || "openai"
-  ]?.models || ["o4-mini", "o3"];
+  ]?.models || ["gpt-5.2", "o4-mini", "o3"];
 
   const options = (providerModels as Array<string>).map((m: string) => ({
     label: `${m === currentModel ? "❯ " : "  "}${m.toUpperCase()}`,

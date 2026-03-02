@@ -17,7 +17,7 @@ export function TerminalHyperlink({
   const isTTY = process.stdout.isTTY;
 
   if (!isTTY) {
-    return <>{children}</>;
+    return <Text color={color}>{children}</Text>;
   }
 
   const osc8Start = `\x1b]8;;${url}\x1b`;

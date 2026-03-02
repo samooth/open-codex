@@ -1163,7 +1163,7 @@ export function TerminalChatResponseReasoning({
         const s = summary as { headline?: string; text: string };
         return (
           <Box key={key} flexDirection="column">
-            {s.headline && <Text bold>{s.headline}</Text>}
+            {Boolean(s.headline) && <Text bold>{s.headline}</Text>}
             <Markdown theme={theme}>{s.text}</Markdown>
           </Box>
         );

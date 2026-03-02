@@ -130,17 +130,17 @@ const TerminalStatusBar: React.FC<Props> = ({
           {showBreakdown ? (
             <Box gap={1}>
               <Text color={theme.assistant}>
-                {isNarrow ? "S" : "SYS"}:{tokenBreakdown.system}
+                {isNarrow ? "S" : "SYS"}:{String(tokenBreakdown.system)}
               </Text>
               <Text color={theme.user}>
-                {isNarrow ? "H" : "HIST"}:{tokenBreakdown.history}
+                {isNarrow ? "H" : "HIST"}:{String(tokenBreakdown.history)}
               </Text>
               <Text color={theme.highlight}>
-                {isNarrow ? "T" : "TOOL"}:{tokenBreakdown.tools}
+                {isNarrow ? "T" : "TOOL"}:{String(tokenBreakdown.tools)}
               </Text>
               <Text color={theme.dim}>/</Text>
               <Text color={theme.success} bold>
-                {isNarrow ? "Σ" : "TOTAL"}:{tokenBreakdown.total}
+                {isNarrow ? "Σ" : "TOTAL"}:{String(tokenBreakdown.total)}
               </Text>
               {separator}
               <Text color={theme.warning}>

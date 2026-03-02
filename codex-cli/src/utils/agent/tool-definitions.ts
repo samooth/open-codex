@@ -196,7 +196,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.exec",
+      name: "repo_browser_exec",
       description:
         "Alias for shell command execution. Use `bash -c` to chain commands.",
       strict: false,
@@ -223,7 +223,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.read_file_lines",
+      name: "repo_browser_read_file_lines",
       description: "Alias for read_file_lines.",
       strict: false,
       parameters: {
@@ -240,7 +240,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.read_file<|channel|>commentary",
+      name: "repo_browser_read_file__channel__commentary",
       description: "Alias for read_file (legacy support).",
       strict: false,
       parameters: {
@@ -255,7 +255,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.open_file<|channel|>commentary",
+      name: "repo_browser_open_file__channel__commentary",
       description: "Alias for read_file.",
       strict: false,
       parameters: {
@@ -270,7 +270,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.open_file",
+      name: "repo_browser_open_file",
       description: "Alias for read_file.",
       strict: false,
       parameters: {
@@ -285,7 +285,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.read_file",
+      name: "repo_browser_read_file",
       description: "Alias for read_file.",
       strict: false,
       parameters: {
@@ -300,7 +300,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.cat",
+      name: "repo_browser_cat",
       description: "Alias for read_file.",
       strict: false,
       parameters: {
@@ -315,7 +315,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.write_file<|channel|>commentary",
+      name: "repo_browser_write_file__channel__commentary",
       description: "Alias for write_file.",
       strict: false,
       parameters: {
@@ -331,7 +331,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.write_file",
+      name: "repo_browser_write_file",
       description: "Alias for write_file.",
       strict: false,
       parameters: {
@@ -347,7 +347,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.list_directory<|channel|>commentary",
+      name: "repo_browser_list_directory__channel__commentary",
       description: "Alias for list_directory.",
       strict: false,
       parameters: {
@@ -361,7 +361,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.print_tree",
+      name: "repo_browser_print_tree",
       description: "Alias for list_files_recursive.",
       strict: false,
       parameters: {
@@ -375,7 +375,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.list_directory",
+      name: "repo_browser_list_directory",
       description: "Alias for list_directory.",
       strict: false,
       parameters: {
@@ -389,7 +389,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.ls<|channel|>commentary",
+      name: "repo_browser_ls__channel__commentary",
       description: "Alias for list_directory.",
       strict: false,
       parameters: {
@@ -403,7 +403,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.ls",
+      name: "repo_browser_ls",
       description: "Alias for list_directory.",
       strict: false,
       parameters: {
@@ -417,7 +417,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.search<|channel|>commentary",
+      name: "repo_browser_search__channel__commentary",
       description: "Alias for search_codebase.",
       strict: false,
       parameters: {
@@ -435,7 +435,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.search",
+      name: "repo_browser_search",
       description: "Alias for search_codebase.",
       strict: false,
       parameters: {
@@ -721,7 +721,7 @@ export const tools: Array<ChatCompletionTool> = [
   {
     type: "function",
     function: {
-      name: "repo_browser.rm",
+      name: "repo_browser_rm",
       description: "Alias for delete_file.",
       strict: false,
       parameters: {

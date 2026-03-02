@@ -425,7 +425,7 @@ export default function TerminalChatInput({
           setSelectedSuggestion(
             (s) => (s + (_key.shift ? -1 : 1)) % (suggestions.length + 1),
           );
-        } else if (selectedSuggestion && _key.return) {
+        } else if (selectedSuggestion > 0 && _key.return) {
           const suggestion = suggestions[selectedSuggestion - 1] || "";
           setInput("");
           setSelectedSuggestion(0);

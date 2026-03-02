@@ -62,100 +62,100 @@ export async function handleFunctionCall(
 
       // Map repo_browser aliases to standard names
       if (
-        name === "repo_browser.exec" ||
-        name === "repo_browser.exec<|channel|>commentary" ||
-        name === "repo_browser.exec__channel__commentary"
+        name === "repo_browser_exec" ||
+        name === "repo_browser_exec__channel__commentary" ||
+        name === "repo_browser_exec__channel__commentary"
       ) {
         name = TOOL_SHELL;
       }
       if (
-        name === "repo_browser.read_file" ||
-        name === "repo_browser.open_file" ||
-        name === "repo_browser.cat" ||
-        name === "repo_browser.read_file<|channel|>commentary" ||
-        name === "repo_browser.read_file__channel__commentary" ||
-        name === "repo_browser.open_file<|channel|>commentary" ||
-        name === "repo_browser.open_file__channel__commentary"
+        name === "repo_browser_read_file" ||
+        name === "repo_browser_open_file" ||
+        name === "repo_browser_cat" ||
+        name === "repo_browser_read_file__channel__commentary" ||
+        name === "repo_browser_read_file__channel__commentary" ||
+        name === "repo_browser_open_file__channel__commentary" ||
+        name === "repo_browser_open_file__channel__commentary"
       ) {
         name = "read_file";
       }
       if (
-        name === "repo_browser.write_file" ||
-        name === "repo_browser.write_file<|channel|>commentary" ||
-        name === "repo_browser.write_file__channel__commentary"
+        name === "repo_browser_write_file" ||
+        name === "repo_browser_write_file__channel__commentary" ||
+        name === "repo_browser_write_file__channel__commentary"
       ) {
         name = "write_file";
       }
       if (
-        name === "repo_browser.read_file_lines" ||
-        name === "repo_browser.read_file_lines<|channel|>commentary" ||
-        name === "repo_browser.read_file_lines__channel__commentary"
+        name === "repo_browser_read_file_lines" ||
+        name === "repo_browser_read_file_lines__channel__commentary" ||
+        name === "repo_browser_read_file_lines__channel__commentary"
       ) {
         name = "read_file_lines";
       }
       if (
-        name === "repo_browser.list_files" ||
-        name === "repo_browser.list_files<|channel|>commentary" ||
-        name === "repo_browser.list_files__channel__commentary"
+        name === "repo_browser_list_files" ||
+        name === "repo_browser_list_files__channel__commentary" ||
+        name === "repo_browser_list_files__channel__commentary"
       ) {
         name = "list_files_recursive";
       }
       if (
-        name === "repo_browser.print_tree" ||
-        name === "repo_browser.print_tree<|channel|>commentary" ||
-        name === "repo_browser.print_tree__channel__commentary"
+        name === "repo_browser_print_tree" ||
+        name === "repo_browser_print_tree__channel__commentary" ||
+        name === "repo_browser_print_tree__channel__commentary"
       ) {
         name = "list_files_recursive";
       }
       if (
-        name === "repo_browser.list_directory" ||
-        name === "repo_browser.ls" ||
-        name === "repo_browser.list_directory<|channel|>commentary" ||
-        name === "repo_browser.list_directory__channel__commentary" ||
-        name === "repo_browser.ls<|channel|>commentary" ||
-        name === "repo_browser.ls__channel__commentary"
+        name === "repo_browser_list_directory" ||
+        name === "repo_browser_ls" ||
+        name === "repo_browser_list_directory__channel__commentary" ||
+        name === "repo_browser_list_directory__channel__commentary" ||
+        name === "repo_browser_ls__channel__commentary" ||
+        name === "repo_browser_ls__channel__commentary"
       ) {
         name = "list_directory";
       }
       if (
-        name === "repo_browser.search" ||
-        name === "repo_browser.search<|channel|>commentary" ||
-        name === "repo_browser.search__channel__commentary"
+        name === "repo_browser_search" ||
+        name === "repo_browser_search__channel__commentary" ||
+        name === "repo_browser_search__channel__commentary"
       ) {
         name = "search_codebase";
       }
       if (
-        name === "repo_browser.rm" ||
-        name === "repo_browser.rm<|channel|>commentary" ||
-        name === "repo_browser.rm__channel__commentary"
+        name === "repo_browser_rm" ||
+        name === "repo_browser_rm__channel__commentary" ||
+        name === "repo_browser_rm__channel__commentary"
       ) {
         name = "delete_file";
       }
-      if (name === "repo_browser.edit_file") {
+      if (name === "repo_browser_edit_file") {
         name = "edit_file";
       }
-      if (name === "repo_browser.read_symbols") {
+      if (name === "repo_browser_read_symbols") {
         name = "read_symbols";
       }
-      if (name === "repo_browser.search_symbols") {
+      if (name === "repo_browser_search_symbols") {
         name = "search_symbols";
       }
-      if (name === "repo_browser.run_diagnostics") {
+      if (name === "repo_browser_run_diagnostics") {
         name = "run_diagnostics";
       }
-      if (name === "repo_browser.update_tasks") {
+      if (name === "repo_browser_update_tasks") {
         name = "update_tasks";
       }
-      if (name === "repo_browser.checkpoint") {
+      if (name === "repo_browser_checkpoint") {
         name = "checkpoint";
       }
-      if (name === "repo_browser.web_search") {
+      if (name === "repo_browser_web_search") {
         name = "web_search";
       }
-      if (name === "repo_browser.fetch_url") {
+      if (name === "repo_browser_fetch_url") {
         name = "fetch_url";
       }
-      if (name === "repo_browser.browse" || name === "google_search") {
+      if (name === "repo_browser_browse" || name === "google_search") {
         name = "browse";
       }
     }
