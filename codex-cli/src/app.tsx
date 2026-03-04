@@ -75,7 +75,7 @@ export default function App({
   }
 
   if (!inGitRepo && !accepted) {
-    const warningTitle = chalk.yellow.bold(" DANGER ");
+    const warningTitle = chalk.yellow.bold("⚠️ DANGER ⚠️");
     const warningMessage = chalk.white(
       `You are running OpenCodex in a directory that is not a Git repository.`,
     );
@@ -86,16 +86,18 @@ export default function App({
     return (
       <Box flexDirection="column" padding={1}>
         <Box
-          borderStyle="round"
+          borderStyle="double"
           borderColor="yellow"
           paddingX={2}
           flexDirection="column"
           gap={1}
         >
-          <Text>{warningTitle}</Text>
+          <Box justifyContent="center">
+            <Text>{warningTitle}</Text>
+          </Box>
           <Text>{warningMessage}</Text>
           <Text>
-            <Text bold>Current Directory:</Text> {chalk.cyan(cwd)}
+            <Text bold>Current Directory:</Text> {chalk.cyan.underline(cwd)}
           </Text>
           <Box height={1} />
           <Text>{adviceMessage}</Text>

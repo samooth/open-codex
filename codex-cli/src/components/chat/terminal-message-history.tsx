@@ -9,7 +9,8 @@ import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";
 import ThinkingTimer from "./thinking-timer.js";
-import { Box, Static } from "ink";
+import { Spinner } from "@inkjs/ui";
+import { Box, Static, Text } from "ink";
 import React, { useMemo } from "react";
 
 // A batch entry can either be a standalone response item or a grouped set of
@@ -19,6 +20,11 @@ import React, { useMemo } from "react";
 type BatchEntry = {
   item?: ExtendedChatCompletionMessageParam;
   group?: GroupedResponseItem;
+};
+type StreamingStatus = {
+  toolName?: string;
+  reasoning?: string;
+  blockType?: string;
 };
 type MessageHistoryProps = {
   batch: Array<BatchEntry>;
@@ -39,6 +45,7 @@ type MessageHistoryProps = {
   fullStdout: boolean;
   theme: Theme;
   streamingMessage?: ExtendedChatCompletionMessageParam;
+  streamingStatus?: StreamingStatus;
   lastFileAccess?: string;
   isActive?: boolean;
   refreshKey?: number;
@@ -58,11 +65,70 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   fullStdout,
   theme,
   streamingMessage,
+  streamingStatus,
   lastFileAccess,
   isActive = true,
   refreshKey = 0,
   onRefresh,
 }) => {
+  const renderStreamingStatus = () => {
+    if (!isActive || !streamingStatus) {
+      return null;
+    }
+    const { toolName, reasoning, blockType } = streamingStatus;
+    const blockHint = blockType
+      ? ` (${blockType.charAt(0).toUpperCase() + blockType.slice(1)})`
+      : "";
+    const title = toolName ? `Running ${toolName}${blockHint}…` : undefined;
+    const thinkingLabel = !toolName && blockType
+      ? blockType.charAt(0).toUpperCase() + blockType.slice(1)
+      : undefined;
+    const reasoningLines = (reasoning || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const placeholderLine =
+      reasoningLines.length === 0 && blockType
+        ? `Inside ${blockType} block...`
+        : undefined;
+    const bodyLines = placeholderLine
+      ? [...reasoningLines, placeholderLine]
+      : reasoningLines;
+
+    return (
+      <Box
+        borderStyle="round"
+        borderColor={theme.accent}
+        paddingX={1}
+        paddingY={0}
+        marginBottom={1}
+        flexDirection="column"
+      >
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          {title ? (
+            <Text color={theme.highlight} bold>
+              {title}
+            </Text>
+          ) : (
+            <>
+              <Spinner type="dots" />
+              {thinkingLabel && (
+                <Text color={theme.highlight} bold>
+                  {thinkingLabel}
+                </Text>
+              )}
+            </>
+          )}
+        </Box>
+        {bodyLines.map((line, index) => (
+          <Text key={index} color={theme.dim}>
+            {line}
+          </Text>
+        ))}
+      </Box>
+    );
+  };
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
     for (const item of items) {
@@ -80,6 +146,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
+      {renderStreamingStatus()}
       <Static
         key={`${theme.name}-${refreshKey}`}
         items={["header", ...messages]}

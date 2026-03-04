@@ -780,7 +780,7 @@ export class AgentLoop {
                 );
               stream = googleToOpenAiStream(googleStream) as any;
             } else if (this.config.provider === "anthropic") {
-              const { messages: anthropicMessages, system } =
+              const { messages: anthropicMessages } =
                 mapOpenAiToAnthropicMessages([
                   ...currentPrevItems,
                   ...(this.staged.filter(
@@ -1481,6 +1481,17 @@ export class AgentLoop {
                     delta = {};
                   }
                   break;
+                case "response.error":
+                  // This case handles errors sent by the API during the stream.
+                  // E.g., rate limit errors.
+                  if (anyChunk.error) {
+                    this.stageItem(
+                      createRateLimitErrorSystemMessage(anyChunk.error),
+                      thisGeneration,
+                    );
+                  }
+                  finish_reason = "error";
+                  break;
                 case "response.done":
                 case "response.completed":
                   finish_reason = anyChunk.error ? "error" : "stop";
@@ -1519,11 +1530,11 @@ export class AgentLoop {
               }
             } else {
               // Standard Chat Completions stream format
-              const choice = chunk?.choices?.[0];
-              delta = choice ? choice.delta : chunk?.delta;
+              const choice = (chunk as any)?.choices?.[0];
+              delta = choice ? choice.delta : (chunk as any)?.delta;
               finish_reason = choice
                 ? choice.finish_reason
-                : chunk?.finish_reason;
+                : (chunk as any)?.finish_reason;
               thought_signature = choice
                 ? (choice as any)?.thought_signature
                 : (chunk as any)?.thought_signature;
@@ -1592,19 +1603,21 @@ export class AgentLoop {
                 }
 
                 for (const tool_call of tool_calls) {
-                  const index = tool_call.index ?? 0;
+                  const normalizedToolCall = tool_call as any;
+                  const index = normalizedToolCall.index ?? 0;
                   if (!message.tool_calls[index]) {
-                    message.tool_calls[index] = tool_call as any;
+                    message.tool_calls[index] = normalizedToolCall as any;
                   } else {
                     const tc = message.tool_calls[index] as any;
-                    if (tool_call.function?.name) {
+                    if (normalizedToolCall.function?.name) {
                       tc.function.name =
-                        (tc.function.name || "") + tool_call.function.name;
+                        (tc.function.name || "") +
+                        normalizedToolCall.function.name;
                     }
-                    if (tool_call.function?.arguments) {
+                    if (normalizedToolCall.function?.arguments) {
                       tc.function.arguments =
                         (tc.function.arguments || "") +
-                        tool_call.function.arguments;
+                        normalizedToolCall.function.arguments;
                     }
                   }
 
@@ -1613,19 +1626,20 @@ export class AgentLoop {
                       thought_signature;
                   }
 
-                  if (tool_call.id && tool_call.function?.name) {
-                    this.pendingAborts.set(tool_call.id, {
-                      name: tool_call.function.name,
+                  if (normalizedToolCall.id && normalizedToolCall.function?.name) {
+                    this.pendingAborts.set(normalizedToolCall.id, {
+                      name: normalizedToolCall.function.name,
                     });
                   }
 
                   // Update active tool info for UI (last tool call in chunk)
-                  if (tool_call.function?.name) {
-                    this.currentActiveToolName = tool_call.function.name;
+                  if (normalizedToolCall.function?.name) {
+                    this.currentActiveToolName =
+                      normalizedToolCall.function.name;
                   }
-                  if (tool_call.function?.arguments) {
+                  if (normalizedToolCall.function?.arguments) {
                     this.currentActiveToolRawArguments =
-                      tool_call.function.arguments;
+                      normalizedToolCall.function.arguments;
                   }
                 }
               }
