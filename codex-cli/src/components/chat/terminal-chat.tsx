@@ -167,7 +167,7 @@ export default function TerminalChat({
         setRenderedPartialData({ ...partialDataRef.current });
       }
     },
-    loading ? 400 : null,
+    loading ? 100 : null,
   );
 
   const [promptQueue, setPromptQueue] = useState<
@@ -1025,9 +1025,6 @@ export default function TerminalChat({
                 lastItem.tool_calls.length > 0
               ) {
                 // If it's an assistant message with tool calls, check if all calls have responses
-                const toolCallIds = new Set(
-                  lastItem.tool_calls.map((tc) => tc.id),
-                );
                 // In a restored rollout, we don't easily know if the next message *exists* 
                 // but isn't in this array, but if it's the absolute last message, 
                 // it definitely has no response.

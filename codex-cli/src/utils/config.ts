@@ -640,6 +640,37 @@ export const loadConfig = (
     // or `saveConfig()` call can handle (re‑)writing later.
   }
 
+  if (process.env["DEBUG"]) {
+    // Redact sensitive keys before logging.
+    const configForLogging = JSON.parse(JSON.stringify(config));
+    if (configForLogging.apiKey) {
+      configForLogging.apiKey = `${configForLogging.apiKey.slice(0, 4)}...`;
+    }
+    if (configForLogging.serpApiKey) {
+      configForLogging.serpApiKey = `${configForLogging.serpApiKey.slice(
+        0,
+        4,
+      )}...`;
+    }
+    if (configForLogging.providers) {
+      for (const key in configForLogging.providers) {
+        if (configForLogging.providers[key].apiKey) {
+          configForLogging.providers[
+            key
+          ].apiKey = `${configForLogging.providers[key].apiKey.slice(0, 4)}...`;
+        }
+      }
+    }
+    // eslint-disable-next-line no-console
+    log(
+      `[codex-debug] Final AppConfig: ${JSON.stringify(
+        configForLogging,
+        null,
+        2,
+      )}`,
+    );
+  }
+
   return config;
 };
 

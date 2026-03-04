@@ -19,7 +19,7 @@ Lightweight coding agent that runs in your terminal
 - [Quickstart](#quickstart)
 - [Why Codex?](#whycodex)
 - [Security Model & Permissions](#securitymodelpermissions)
-  - [Platform sandboxing details](#platform-sandboxing-details)
+- [Platform sandboxing details](#platform-sandboxing-details)
 - [System Requirements](#systemrequirements)
 - [CLI Reference](#clireference)
 - [Memory & Project Docs](#memoryprojectdocs)
@@ -106,7 +106,7 @@ files, and iterate – all under version control. In short, it's _chat‑driven
 development_ that understands and executes your repo.
 
 - **Zero setup** — bring your API key and it just works!
-- **Multiple AI providers** — use OpenAI, Anthropic, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
+- **Multiple AI providers** — use OpenAI, Anthropic, Gemini, OpenRouter, Ollama, xAI, DeepSeek, Moonshot or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
 - **Surgical Editing** — robust Search & Replace tool for precise, context-aware file modifications 📝
 - **Code Intelligence** — specialized tools to extract symbols and search definitions semantically 🔍
@@ -346,6 +346,7 @@ This fork of Codex supports multiple AI providers:
 - ollama
 - xai
 - deepseek
+- moonshot
 - hf (Hugging Face)
 
 To use a different provider, set the `provider` key in your config file:
@@ -429,7 +430,7 @@ To prevent API errors like "Tokens Per Minute (TPM) limit exceeded" or context o
 To reduce latency and costs, OpenCodex leverages prompt caching where supported:
 
 - **Anthropic**: Uses explicit `cache_control` breakpoints. OpenCodex automatically caches the system instructions, the large tool definitions list, and the most recent stable turn of the conversation history.
-- **OpenAI & DeepSeek**: Caching is automatic. These providers automatically cache the prefix of prompts that exceed 1024 tokens.
+- **OpenAI & DeepSeek & Moonshot**: Caching is automatic. These providers automatically cache the prefix of prompts that exceed 1024 tokens.
 - **Ollama**: Local KV caching is automatic. Ollama reuses the processed prefix of the conversation history to speed up subsequent turns.
 - **Gemini**: Large context is managed via a sliding window; dedicated Context Caching for static datasets is not currently utilized as the default window is usually sufficient.
 
@@ -468,7 +469,7 @@ Here's a list of all the providers and their default models:
 
 | Provider   | Environment Variable Required | Default Agentic Model   | Default Full Context Model |
 | :--------- | :---------------------------- | :---------------------- | :------------------------- |
-| openai     | OPENAI_API_KEY                | gpt-5.2                 | gpt-5.2                    |
+| openai     | OPENAI_API_KEY                | gpt-5.1-codex           | gpt-5.1-codex              |
 | anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6         | claude-opus-4-6            |
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash        | gemini-2.5-flash           |
 | openrouter | OPENROUTER_API_KEY            | openai/gpt-5.2          | openai/gpt-5.2             |
@@ -476,13 +477,19 @@ Here's a list of all the providers and their default models:
 | xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning | grok-4-1-fast-reasoning    |
 | deepseek   | DS_API_KEY                    | deepseek-chat           | deepseek-reasoner          |
 | hf         | HF_API_KEY                    | moonshotai/Kimi-K2.5    | moonshotai/Kimi-K2.5       |
+| moonshot   | MOONSHOT_API_KEY              | kimi-k2-turbo-preview   | kimi-k2-turbo-preview      |
 
 #### When using an alternative provider, make sure you have the correct environment variables set.
 
 ```bash
 export GEMINI_API_KEY="your-gemini-api-key-here"
 # or
+export MOONSHOT_API_KEY="your-moonshot-api-key-here"
+# or
+export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
+# or
 export OLLAMA_API_KEY="your-ollama-api-key-here"
+
 ```
 
 ---
@@ -499,7 +506,7 @@ Codex always runs in a **sandbox first**. If a proposed command or file change l
 Not directly. It requires [Windows Subsystem for Linux (WSL2)](https://learn.microsoft.com/en-us/windows/wsl/install) – Codex has been tested on macOS and Linux with Node ≥ 22.
 
 **Which models are supported?**
-The default is `gpt-5.2`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override. You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
+The default is `gpt-5.1-codex`, but pass `--model gpt-4o` or set `model: gpt-4o` in your config file to override. You can also use models from other providers like Gemini, DeepSeek, and Hugging Face. See the [Configuration](#configuration) section for more details.
 
 ---
 

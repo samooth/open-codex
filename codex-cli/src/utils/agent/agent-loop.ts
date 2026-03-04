@@ -71,6 +71,7 @@ export class AgentLoop {
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
   private pluginManager: PluginManager;
+  private responseId: string | null = null;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
   // the TS 5+ `moduleResolution=bundler` setup. OpenAI client instance. We keep the concrete
@@ -127,7 +128,7 @@ export class AgentLoop {
    *  contract and prevents the
    *    400 | No tool output found for function call …
    *  error from OpenAI. */
-  private pendingAborts: Set<string> = new Set();
+  private pendingAborts: Map<string, { name: string }> = new Map();
   /** Set to true by `terminate()` – prevents any further use of the instance. */
   private terminated = false;
   /** Master abort controller – fires when terminate() is invoked. */
@@ -189,6 +190,7 @@ export class AgentLoop {
     // the stored lastResponseId so a subsequent run starts a clean turn.
     if (this.pendingAborts.size === 0) {
       try {
+        this.responseId = null;
         this.toolCallHistory.clear();
         this.autoPulledFiles.clear();
         this.stateSnapshot = {};
@@ -529,11 +531,12 @@ export class AgentLoop {
             .map((m) => (m as any).tool_call_id),
         );
 
-        for (const id of this.pendingAborts) {
+        for (const [id, { name }] of this.pendingAborts) {
           if (id && !idsInHistory.has(id)) {
             abortOutputs.push({
               role: "tool",
               tool_call_id: id,
+              name,
               content: JSON.stringify({
                 output: "aborted",
                 metadata: { exit_code: 1, duration_seconds: 0 },
@@ -702,6 +705,8 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
+            const combinedSystemPrompt = `${stableInstructions}\n\n--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`;
+
             const toolsToUse = [...tools, ...this.pluginManager.getAllDefinitions()];
 
             if (isLoggingEnabled()) {
@@ -728,16 +733,12 @@ export class AgentLoop {
 
               const messagesToMap = [
                 ...(includeStable
-                  ? [{ role: "system" as const, content: stableInstructions }]
+                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
                   : []),
                 ...currentPrevItems,
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
-                {
-                  role: "system" as const,
-                  content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
-                },
               ];
 
               const { contents, systemInstruction } =
@@ -753,14 +754,30 @@ export class AgentLoop {
                 sanitizeGoogleToolName,
               );
 
-              const googleStream = await this.oai.models.generateContentStream({
+              const googleRequestPayload = {
                 model: this.model,
                 contents,
                 config: {
                   systemInstruction,
                   tools: googleTools,
                 },
-              });
+              };
+
+              if (process.env["DEBUG"]) {
+                // eslint-disable-next-line no-console
+                log(
+                  `[codex-debug] Google Request: ${JSON.stringify(
+                    googleRequestPayload,
+                    null,
+                    2,
+                  )}`,
+                );
+              }
+
+              const googleStream =
+                await this.oai.models.generateContentStream(
+                  googleRequestPayload,
+                );
               stream = googleToOpenAiStream(googleStream) as any;
             } else if (this.config.provider === "anthropic") {
               const { messages: anthropicMessages, system } =
@@ -780,6 +797,26 @@ export class AgentLoop {
                 }),
               );
 
+              const requestBody = {
+                model: this.model,
+                messages: anthropicMessages,
+                system: combinedSystemPrompt,
+                tools: anthropicTools,
+                stream: true,
+                max_tokens: 8192,
+              };
+
+              if (process.env["DEBUG"]) {
+                // eslint-disable-next-line no-console
+                log(
+                  `[codex-debug] Anthropic Request: ${JSON.stringify(
+                    requestBody,
+                    null,
+                    2,
+                  )}`,
+                );
+              }
+
               const response = await fetch(
                 `${this.config.baseURL}/v1/messages`,
                 {
@@ -789,34 +826,7 @@ export class AgentLoop {
                     "x-api-key": this.config.apiKey || "",
                     "anthropic-version": "2023-06-01",
                   },
-                  body: JSON.stringify({
-                    model: this.model,
-                    messages: anthropicMessages,
-                    system: (() => {
-                      const blocks: Array<any> = [
-                        {
-                          type: "text",
-                          text: stableInstructions,
-                          cache_control: { type: "ephemeral" },
-                        },
-                        {
-                          type: "text",
-                          text: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
-                        },
-                      ];
-                      if (system) {
-                        if (Array.isArray(system)) {
-                          blocks.push(...system);
-                        } else {
-                          blocks.push({ type: "text", text: system });
-                        }
-                      }
-                      return blocks;
-                    })(),
-                    tools: anthropicTools,
-                    stream: true,
-                    max_tokens: 8192,
-                  }),
+                  body: JSON.stringify(requestBody),
                   signal: this.execAbortController?.signal,
                 },
               );
@@ -862,6 +872,187 @@ export class AgentLoop {
               };
 
               stream = anthropicToOpenAiStream(anthropicAsyncIterable) as any;
+            } else if (this.config.provider === "openai") {
+              const hasExistingSystem = currentPrevItems.some(
+                (m) => m.role === "system",
+              );
+              const includeStable = shouldRefresh || !hasExistingSystem;
+
+              const finalMessages = [
+                ...(includeStable
+                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
+                  : []),
+                ...currentPrevItems,
+                ...(this.staged.filter(
+                  Boolean,
+                ) as Array<ChatCompletionMessageParam>),
+              ];
+
+              const transformedMessages = finalMessages.map((message: any) => {
+                let currentMessage: any = { ...message };
+
+                // The OpenAI /responses API has a non-standard message format.
+                // We apply several transformations to ensure compatibility.
+
+                // 1. Remap 'tool' role to 'developer' and remove 'tool_call_id'.
+                if (currentMessage.role === "tool") {
+                  const { tool_call_id, ...rest } = currentMessage;
+                  currentMessage = { ...rest, role: "developer" };
+                }
+
+                // 2. Remove 'tool_calls' from 'assistant' messages.
+                if (
+                  currentMessage.role === "assistant" &&
+                  currentMessage.tool_calls
+                ) {
+                  const { tool_calls, ...rest } = currentMessage;
+                  currentMessage = rest;
+                }
+
+                // 3. Remap content part types for user and assistant messages.
+                if (
+                  currentMessage.content &&
+                  Array.isArray(currentMessage.content)
+                ) {
+                  const newContent = currentMessage.content.map((part: any) => {
+                    if (part.type === "text") {
+                      const newType =
+                        currentMessage.role === "assistant"
+                          ? "output_text"
+                          : "input_text";
+                      return { ...part, type: newType };
+                    }
+                    return part;
+                  });
+                  currentMessage.content = newContent;
+                }
+                return currentMessage;
+              });
+
+              if (process.env["DEBUG"]) {
+                // eslint-disable-next-line no-console
+                log(
+                  `[codex-debug] OpenAI Response API Request: ${JSON.stringify(
+                    {
+                      model: this.model,
+                      input: transformedMessages,
+                    },
+                    null,
+                    2,
+                  )}`,
+                );
+              }
+
+              const requestBody = {
+                model: this.model,
+                input: transformedMessages,
+                stream: true,
+                reasoning_effort: reasoning,
+                tools: toolsToUse
+                  .filter((tool: any) => {
+                    if (tool.function.name === "browse") {
+                      return !!this.config.enableWebSearch;
+                    }
+                    return true;
+                  })
+                  .map((tool: any) => ({
+                    type: "function",
+                    ...tool.function,
+                  })),
+              };
+
+              const response = await fetch(`${this.config.baseURL}/responses`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${this.config.apiKey}`,
+                },
+                body: JSON.stringify(requestBody),
+                signal: this.execAbortController?.signal,
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const err = new Error(
+                  `OpenAI Response API error: ${response.status} ${JSON.stringify(
+                    errorData,
+                  )}`,
+                );
+                (err as any).status = response.status;
+                throw err;
+              }
+
+              const reader = response.body?.getReader();
+              const decoder = new TextDecoder();
+
+              const openAiResponseApiAsyncIterable = {
+                async *[Symbol.asyncIterator]() {
+                  if (!reader) return;
+
+                  // Read the entire response body
+                  let buffer = "";
+                  let result;
+                  while (!(result = await reader.read()).done) {
+                    buffer += decoder.decode(result.value, { stream: true });
+                  }
+
+                  // Check if the response is an SSE stream or a single JSON object
+                  if (buffer.includes("data: ")) {
+                    // It's a stream, process line by line
+                    const lines = buffer
+                      .split("\n")
+                      .filter((line) => line.startsWith("data: "));
+                    for (const line of lines) {
+                      const data = line.slice(6);
+                      if (data === "[DONE]") continue;
+                      try {
+                        yield JSON.parse(data);
+                      } catch (e) {
+                        log(
+                          `Failed to parse OpenAI Response API stream chunk: ${e}`,
+                        );
+                      }
+                    }
+                  } else {
+                    // It's a single JSON object. Adapt it to look like a real stream.
+                    try {
+                      if (buffer.trim()) {
+                        const responseObject = JSON.parse(buffer);
+
+                        // 1. Yield a "created" event
+                        yield {
+                          type: "response.created",
+                          response: { id: "fake-response-" + Date.now() },
+                        };
+
+                        // 2. Yield a "delta" event for each character to simulate streaming
+                        const content = responseObject.content;
+                        if (typeof content === "string") {
+                          for (const char of content) {
+                            yield {
+                              type: "response.output_text.delta",
+                              delta: char,
+                            };
+                            // A small delay to make the streaming visible
+                            await new Promise((resolve) =>
+                              setTimeout(resolve, 2),
+                            );
+                          }
+                        }
+
+                        // 3. Yield a "done" event
+                        yield { type: "response.done" };
+                      }
+                    } catch (e) {
+                      log(
+                        `Failed to parse and simulate stream from OpenAI Response API JSON: ${e}`,
+                      );
+                    }
+                  }
+                },
+              };
+
+              stream = openAiResponseApiAsyncIterable as any;
             } else {
               const hasExistingSystem = currentPrevItems.some(
                 (m) => m.role === "system",
@@ -870,17 +1061,27 @@ export class AgentLoop {
 
               const finalMessages = [
                 ...(includeStable
-                  ? [{ role: "system" as const, content: stableInstructions }]
+                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
                   : []),
                 ...currentPrevItems,
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
-                {
-                  role: "system",
-                  content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
-                },
               ];
+
+              if (process.env["DEBUG"]) {
+                // eslint-disable-next-line no-console
+                log(
+                  `[codex-debug] OpenAI-compatible Request: ${JSON.stringify(
+                    {
+                      model: this.model,
+                      messages: finalMessages,
+                    },
+                    null,
+                    2,
+                  )}`,
+                );
+              }
 
               // eslint-disable-next-line no-await-in-loop
               stream = await this.oai.chat.completions.create({
@@ -1109,6 +1310,24 @@ export class AgentLoop {
               (msg as any).thought_signature = this.lastThoughtSignature;
             }
 
+            // Sanitize tool_calls to prevent crashes from sparse arrays. The
+            // streaming parser may create empty slots (which become `null` in
+            // JSON) if tool call indices don't start at 0.
+            if (msg.tool_calls) {
+              msg.tool_calls = msg.tool_calls.filter(Boolean);
+            }
+
+            // For OpenAI Response API compatibility: ensure 'content' is present, even if null,
+            // when 'tool_calls' are present. The standard API allows omitting 'content', but
+            // the Response API seems to require it, causing a 400 error if it's missing.
+            if (
+              msg.tool_calls &&
+              msg.tool_calls.length > 0 &&
+              msg.content === undefined
+            ) {
+              (msg as any).content = "";
+            }
+
             if (thisGeneration === this.generation && !this.canceled) {
               // Extract Structured State Snapshot if present
               const content =
@@ -1152,7 +1371,9 @@ export class AgentLoop {
                   (msg as any).tool_calls = extracted;
                   for (const call of extracted) {
                     if (call.id) {
-                      this.pendingAborts.add(call.id);
+                      this.pendingAborts.set(call.id, {
+                        name: call.function.name,
+                      });
                     }
                   }
                 }
@@ -1194,7 +1415,7 @@ export class AgentLoop {
                 if (results.length > 0) {
                   turnInput.push(...results);
                 }
-              } else if (msg && Object.keys(msg).length > 0) {
+              } else if (msg && (msg.content != null || msg.tool_calls)) {
                 this.stageItem(msg, thisGeneration);
               }
             }
@@ -1202,19 +1423,123 @@ export class AgentLoop {
 
           // eslint-disable-next-line no-await-in-loop
           let chunkCount = 0;
+          let responseIdFromChunk: string | null = null;
           for await (const chunk of stream) {
-            chunkCount++;
             if (isLoggingEnabled()) {
+              log(`[codex-debug] Raw Stream Chunk: ${JSON.stringify(chunk)}`);
+            }
+            chunkCount++;
+
+            // Handle different streaming formats based on the provider.
+            // The OpenAI "Response API" uses an event-based stream format,
+            // while other providers use the standard Chat Completions format.
+            const isResponseApi = this.config.provider === "openai";
+
+            let delta: any;
+            let finish_reason: string | null = null;
+            let thought_signature: string | null = null;
+
+            if (isLoggingEnabled()) {
+              const chunkIdentifier = isResponseApi
+                ? `${(chunk as any).type} seq:${(chunk as any).sequence_number}`
+                : chunk.id;
               log(
-                `AgentLoop.run(): completion chunk ${chunk.id} (count: ${chunkCount})`,
+                `AgentLoop.run(): completion chunk ${chunkIdentifier} (count: ${chunkCount})`,
               );
             }
-            const delta = chunk?.choices?.[0]?.delta;
+
+            if (isResponseApi) {
+              const anyChunk = chunk as any;
+              switch (anyChunk.type) {
+                case "response.created":
+                  responseIdFromChunk = anyChunk.response?.id;
+                  delta = {}; // Use an empty delta to proceed without content.
+                  break;
+                case "response.output_text.delta":
+                  delta = { content: anyChunk.delta };
+                  break;
+                case "response.reasoning.delta":
+                  delta = { reasoning_content: anyChunk.delta };
+                  break;
+                case "response.output_item.delta":
+                  if (anyChunk.delta?.type === "function_call") {
+                    const {
+                      name,
+                      arguments_delta: args_delta,
+                      call_id,
+                    } = anyChunk.delta;
+                    delta = {
+                      tool_calls: [
+                        {
+                          index: anyChunk.output_index ?? 0,
+                          id: call_id,
+                          function: { name, arguments: args_delta },
+                        },
+                      ],
+                    };
+                  } else {
+                    delta = {};
+                  }
+                  break;
+                case "response.done":
+                case "response.completed":
+                  finish_reason = anyChunk.error ? "error" : "stop";
+                  // Handle non-streaming function calls that arrive in the final chunk
+                  if (anyChunk.response?.output) {
+                    const toolCalls = [];
+                    for (const [
+                      index,
+                      item,
+                    ] of anyChunk.response.output.entries()) {
+                      if (item.type === "function_call") {
+                        toolCalls.push({
+                          index: index,
+                          id: item.call_id,
+                          function: {
+                            name: item.name,
+                            arguments: item.arguments,
+                          },
+                        });
+                      }
+                    }
+                    if (toolCalls.length > 0) {
+                      delta = { tool_calls: toolCalls };
+                    } else {
+                      delta = {};
+                    }
+                  } else {
+                    delta = {};
+                  }
+                  break;
+                default:
+                  // Gracefully handle other event types like 'response.in_progress'
+                  // by treating them as empty deltas.
+                  delta = {};
+                  break;
+              }
+            } else {
+              // Standard Chat Completions stream format
+              const choice = chunk?.choices?.[0];
+              delta = choice ? choice.delta : chunk?.delta;
+              finish_reason = choice
+                ? choice.finish_reason
+                : chunk?.finish_reason;
+              thought_signature = choice
+                ? (choice as any)?.thought_signature
+                : (chunk as any)?.thought_signature;
+            }
+
+            if (!delta) {
+              continue;
+            }
+
+            // The 'thought_signature' is not present in the new Response API format logs.
+            // It is handled in the 'else' block above for other providers.
+
+
             const content = delta?.content;
             const reasoning = (delta as any)?.reasoning_content;
             const tool_calls = delta?.tool_calls;
-            const thought_signature = (chunk?.choices?.[0] as any)
-              ?.thought_signature;
 
             if (thought_signature) {
               this.lastThoughtSignature = thought_signature;
@@ -1243,10 +1568,9 @@ export class AgentLoop {
             }
 
             if (!message) {
-              message = delta as Extract<
-                ChatCompletionChunk,
-                { role: "assistant" }
-              >;
+              // The role might not be in the first delta from some providers (e.g. OpenAI Response API),
+              // so we ensure it's set to 'assistant'.
+              message = { ...delta, role: "assistant" };
               if (thought_signature) {
                 (message as any).thought_signature = thought_signature;
               }
@@ -1289,8 +1613,10 @@ export class AgentLoop {
                       thought_signature;
                   }
 
-                  if (tool_call.id) {
-                    this.pendingAborts.add(tool_call.id);
+                  if (tool_call.id && tool_call.function?.name) {
+                    this.pendingAborts.set(tool_call.id, {
+                      name: tool_call.function.name,
+                    });
                   }
 
                   // Update active tool info for UI (last tool call in chunk)
@@ -1304,19 +1630,16 @@ export class AgentLoop {
                 }
               }
             }
-            const fr = chunk?.choices?.[0]?.finish_reason;
-            if (fr) {
-              lastFinishReason = fr;
+            if (finish_reason) {
+              lastFinishReason = finish_reason;
             }
           }
+          if (this.config.provider === "openai" && responseIdFromChunk && !this.responseId) {
+            this.responseId = responseIdFromChunk;
+          }
 
-          if (chunkCount === 0) {
+          if (!message && chunkCount === 0) {
             log("AgentLoop.run(): stream ended with ZERO chunks");
-            this.onItem({
-              role: "assistant",
-              content:
-                "⚠️ The model returned an empty response. This can happen due to safety filters or provider issues. Please try again or switch models.",
-            });
           }
 
           // Finalize message after the entire stream is consumed
@@ -1348,6 +1671,15 @@ export class AgentLoop {
             log(
               "AgentLoop.run(): stream had chunks but no message was constructed",
             );
+          }
+
+          // After attempting to process, if the message is still effectively empty, inform the user.
+          if (!message || (message.content == null && !message.tool_calls)) {
+            this.onItem({
+              role: "assistant",
+              content:
+                "⚠️ The model returned an empty response. This can happen due to safety filters or provider issues. Please try again or switch models.",
+            });
           }
         } catch (err: unknown) {
           // Gracefully handle an abort triggered via `cancel()` so that the
