@@ -7,9 +7,6 @@ build/
 out/
 storybook-static/
 
-# ignore README for publishing
-codex-cli/README.md
-
 # editor
 .vscode/
 .idea/
@@ -67,5 +64,5 @@ Icon?
 yarn.lock
 pnpm-lock.yaml
 
-opencodex-error.log
-codex-cli/opencodex-error.log
+opencodex.error.log
+codex-cli/opencodex.error.log

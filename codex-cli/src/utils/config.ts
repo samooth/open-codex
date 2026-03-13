@@ -315,7 +315,13 @@ export type AppConfig = {
 
 export const PROJECT_DOC_MAX_BYTES = 32 * 1024; // 32 kB
 
-const PROJECT_DOC_FILENAMES = ["open-codex.md", ".open-codex.md", "OPEN-CODEX.md"];
+const PROJECT_DOC_FILENAMES = [
+  "open-codex.md",
+  ".open-codex.md",
+  "OPEN-CODEX.md",
+  "codex.md",
+  "CODEX.md",
+];
 
 export function discoverProjectDocPath(startDir: string): string | null {
   const cwd = resolvePath(startDir);

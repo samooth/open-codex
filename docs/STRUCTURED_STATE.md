@@ -71,6 +71,7 @@ To keep the terminal interface clean and focused, Open Codex processes the `<sta
 1.  **Hidden Tags**: The raw XML tags (`<state_snapshot>`, `<key_knowledge>`, etc.) are stripped from the visible reasoning block.
 2.  **Mission Header**: The `<overall_goal>` is extracted and displayed prominently as a **🎯 MISSION: ...** header above the agent's thought.
 3.  **Task Sync**: The `<task_state>` list is automatically parsed and synced with the persistent Task Checklist at the bottom of the chat.
+4.  **Progress Transparency**: The agent is instructed to include brief text explanations alongside tool calls (e.g., "Searching for the database configuration..."). These explanations are displayed directly above the corresponding tool action in the chat.
 
 This allows you to see *what* the agent is planning without getting bogged down in the *how* of its internal state management.
 
