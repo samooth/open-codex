@@ -55,6 +55,7 @@ import {
   isErrorNetworkOrServer,
   isErrorRateLimit,
   isErrorTooManyTokens,
+  extractRetryDelay,
 } from "./error-handling.js";
 
 // Wait time before retrying after rate limit errors (ms).
@@ -64,6 +65,7 @@ const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
 );
 
 import { PluginManager } from "./plugin-manager.js";
+import { McpManager } from "./mcp-manager.js";
 
 export class AgentLoop {
   private model: string;
@@ -71,6 +73,8 @@ export class AgentLoop {
   private approvalPolicy: ApprovalPolicy;
   private config: AppConfig;
   private pluginManager: PluginManager;
+  private mcpManager: McpManager;
+  private mcpInitPromise: Promise<void> | null = null;
   private responseId: string | null = null;
 
   // Using `InstanceType<typeof OpenAI>` sidesteps typing issues with the OpenAI package under
@@ -389,6 +393,7 @@ export class AgentLoop {
     this.instructions = instructions;
     this.approvalPolicy = approvalPolicy;
     this.pluginManager = pluginManager;
+    this.mcpManager = new McpManager();
     this.getUserChoice = getUserChoice;
 
     // If no `config` has been provided we derive a minimal stub so that the
@@ -458,6 +463,10 @@ export class AgentLoop {
 
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
+
+    if (this.config.mcpServers && Object.keys(this.config.mcpServers).length > 0) {
+      this.mcpInitPromise = this.mcpManager.connectServers(this.config.mcpServers);
+    }
 
     this.hardAbort = new AbortController();
 
@@ -571,6 +580,11 @@ export class AgentLoop {
       this.onLoading(true);
       this.staged = [];
 
+      if (this.mcpInitPromise) {
+        await this.mcpInitPromise;
+        this.mcpInitPromise = null;
+      }
+
       while (turnInput.length > 0) {
         if (this.canceled || this.hardAbort.signal.aborted) {
           this.onLoading(false);
@@ -584,7 +598,7 @@ export class AgentLoop {
         // Send request to OpenAI with retry on timeout
         let stream: Stream<ChatCompletionChunk> | undefined = undefined;
         // Retry loop for transient errors. Up to MAX_RETRIES attempts.
-        const MAX_RETRIES = 5;
+        const MAX_RETRIES = 10;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
           try {
             let reasoning: ReasoningEffort | undefined;
@@ -701,13 +715,18 @@ export class AgentLoop {
               pinnedFilesContent,
               missionStateInfo,
               relevantMemory,
+              this.mcpManager.getConnectedServers(),
             ]
               .filter(Boolean)
               .join("\n");
 
             const combinedSystemPrompt = `${stableInstructions}\n\n--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`;
 
-            const toolsToUse = [...tools, ...this.pluginManager.getAllDefinitions()];
+            const toolsToUse = [
+              ...tools,
+              ...this.pluginManager.getAllDefinitions(),
+              ...this.mcpManager.getAllDefinitions()
+            ];
 
             if (isLoggingEnabled()) {
               log(
@@ -1195,35 +1214,33 @@ export class AgentLoop {
                 // if provided.
                 let delayMs = RATE_LIMIT_RETRY_WAIT_MS * 2 ** (attempt - 1);
 
-                if ((error as any).retryAfter) {
-                  const suggested =
-                    parseFloat((error as any).retryAfter) * 1000;
-                  if (!Number.isNaN(suggested)) {
-                    delayMs = suggested;
-                  }
-                } else {
-                  // Parse suggested retry time from error message, e.g., "Please try again in 1.3s"
-                  const msg = errCtx?.message ?? "";
-                  const m = /(?:retry|try) again in ([\d.]+)s/i.exec(msg);
-                  if (m && m[1]) {
-                    const suggested = parseFloat(m[1]) * 1000;
-                    if (!Number.isNaN(suggested)) {
-                      delayMs = suggested;
-                    }
-                  }
+                const suggested = extractRetryDelay(error);
+                if (suggested !== undefined) {
+                  // Add a 2s buffer to ensure the server-side window has definitely reset.
+                  delayMs = suggested + 2000;
                 }
+                const retrySeconds = Math.round(delayMs / 1000);
+                const retryMessage = `⚠️ Rate limit exceeded. Retrying in ${retrySeconds}s... (Attempt ${attempt}/${MAX_RETRIES})`;
+                
                 log(
                   `${this.config.provider || "AI"} rate limit exceeded (attempt ${attempt}/${MAX_RETRIES}), retrying in ${Math.round(
                     delayMs,
                   )} ms...`,
                 );
+
+                // Show the retry message in the UI status indicator (first arg is content)
+                this.onPartialUpdate?.(retryMessage, "", undefined, undefined);
+
                 // eslint-disable-next-line no-await-in-loop
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
+                
+                // Clear the status message before the next attempt
+                this.onPartialUpdate?.("", "", undefined, undefined);
                 continue;
               } else if (this.getUserChoice) {
                 const provider = this.config.provider || "AI";
-                const details =
-                  (error as any).code || (error as any).message || "Unknown";
+                const rawMsg = (error as any).message || "";
+                const details = cleanErrorMessage(rawMsg) || (error as any).code || "Unknown";
                 const prompt = `${provider} rate limit exceeded after ${MAX_RETRIES} attempts (${details}). How would you like to proceed?`;
                 const choices = ["Retry Now", "Switch Model", "Abort"];
                 const choice = await this.getUserChoice(prompt, choices);
@@ -1372,7 +1389,7 @@ export class AgentLoop {
                   for (const call of extracted) {
                     if (call.id) {
                       this.pendingAborts.set(call.id, {
-                        name: call.function.name,
+                        name: (call as any).function?.name || (call as any).name || "unknown",
                       });
                     }
                   }
@@ -1398,6 +1415,7 @@ export class AgentLoop {
                   },
                   onTasksUpdate: this.onTasksUpdate,
                   pluginManager: this.pluginManager,
+                  mcpManager: this.mcpManager,
                   oai: this.oai,
                   model: this.model,
                   agent: this,
@@ -1904,6 +1922,7 @@ export class AgentLoop {
           onFileAccess: this.onFileAccess,
           onTasksUpdate: this.onTasksUpdate,
           pluginManager: this.pluginManager,
+          mcpManager: this.mcpManager,
           oai: this.oai,
           model: this.model,
           agent: this,

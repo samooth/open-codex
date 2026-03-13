@@ -64,6 +64,16 @@ The `AgentLoop` maintains a `stateSnapshot` object that is updated every time th
 - **Artifacts:** Files modified or created.
 - **Tasks:** Synchronized with the UI roadmap (`TaskChecklist`).
 
+## UI Integration
+
+To keep the terminal interface clean and focused, Open Codex processes the `<state_snapshot>` block before displaying it:
+
+1.  **Hidden Tags**: The raw XML tags (`<state_snapshot>`, `<key_knowledge>`, etc.) are stripped from the visible reasoning block.
+2.  **Mission Header**: The `<overall_goal>` is extracted and displayed prominently as a **🎯 MISSION: ...** header above the agent's thought.
+3.  **Task Sync**: The `<task_state>` list is automatically parsed and synced with the persistent Task Checklist at the bottom of the chat.
+
+This allows you to see *what* the agent is planning without getting bogged down in the *how* of its internal state management.
+
 ## Unified Prompt Queue & Editing
 
 To support thoughtful autonomous sessions, OpenCodex merges multiple user instructions sent while the agent is busy into a single pending mission update.

@@ -5,6 +5,7 @@ import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
 import type { PluginManager } from "./plugin-manager.js";
+import type { McpManager } from "./mcp-manager.js";
 
 export type CommandConfirmation = {
   review: ReviewDecision;
@@ -65,6 +66,7 @@ export interface AgentContext {
   onTasksUpdate?: (tasks: Array<Task>) => void;
   onShellFocus?: (isFocused: boolean) => void;
   pluginManager: PluginManager;
+  mcpManager: McpManager;
   oai: OpenAI;
   model: string;
   agent: any; // Add reference to AgentLoop

@@ -96,7 +96,7 @@ beforeEach(() => {
   mkdirSync(join(projectDir, ".git")); // mark as project root
 
   // Write a small project doc that we expect to be included in the prompt.
-  writeFileSync(join(projectDir, "codex.md"), "# Test Project\nHello docs!\n");
+  writeFileSync(join(projectDir, "open-codex.md"), "# Test Project\nHello docs!\n");
 
   lastCreateParams = null; // reset captured SDK params
 });
@@ -106,7 +106,7 @@ afterEach(() => {
 });
 
 describe("AgentLoop", () => {
-  it("passes codex.md contents through the instructions parameter", async () => {
+  it("passes open-codex.md contents through the instructions parameter", async () => {
     const config = loadConfig(undefined, undefined, {
       cwd: projectDir,
       forceApiKeyForTest: "test-api-key",

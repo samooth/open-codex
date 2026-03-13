@@ -35,7 +35,7 @@ import {
   saveRollout,
   undoLastChange,
 } from "../../utils/storage/save-rollout.js";
-import { setTerminalTitle, beep } from "../../utils/terminal.js";
+import { setTerminalTitle, beep, clearTerminal } from "../../utils/terminal.js";
 import { getTheme } from "../../utils/theme.js";
 import TerminalChatOverlays from "./terminal-chat-overlays.js";
 import clipboard from "clipboardy";
@@ -72,7 +72,7 @@ export default function TerminalChat({
   fullStdout,
   onShutdown,
 }: Props): React.ReactElement {
-  const { config, setConfig, overlayMode, openOverlay, closeOverlay } =
+  const { config, setConfig, overlayMode, openOverlay } =
     useAppContext();
   const [model, setModel] = useState<string>(config.model);
   const [prevItems, setPrevItems] = useState<Array<ExtendedChatCompletionMessageParam>>(
@@ -156,7 +156,6 @@ export default function TerminalChat({
   const [promptQueue, setPromptQueue] = useState<
     Array<{
       inputs: Array<ChatCompletionMessageParam>;
-      prevItems: Array<ChatCompletionMessageParam>;
     }>
   >([]);
 
@@ -651,6 +650,15 @@ export default function TerminalChat({
 
   // Let's also track whenever the ref becomes available
   const agent = agentRef.current;
+  const wasAgentReady = React.useRef(false);
+  useEffect(() => {
+    if (agent && !wasAgentReady.current) {
+      clearTerminal();
+      handleRefresh();
+      wasAgentReady.current = true;
+    }
+  }, [agent]);
+
   useEffect(() => {
     if (isLoggingEnabled()) {
       log(`agentRef.current is now ${Boolean(agent)}`);
@@ -663,10 +671,10 @@ export default function TerminalChat({
       const nextPrompt = promptQueue[0];
       if (nextPrompt) {
         setPromptQueue((prev) => prev.slice(1)); // Remove the processed prompt
-        agent.run(nextPrompt.inputs, nextPrompt.prevItems);
+        agent.run(nextPrompt.inputs, prevItems);
       }
     }
-  }, [agent, loading, promptQueue]);
+  }, [agent, loading, promptQueue, prevItems]);
 
   // Effect to continue agent's turn after a file is pinned or unpinned.
   useEffect(() => {
@@ -934,6 +942,7 @@ export default function TerminalChat({
             setLoading(false);
           }}
           active={overlayMode === "none"}
+          partialContent={renderedPartialData.content}
           partialReasoning={renderedPartialData.reasoning}
           activeBlockType={renderedPartialData.activeBlockType}
           activeToolName={renderedPartialData.activeToolName}
@@ -945,7 +954,7 @@ export default function TerminalChat({
             } else {
               setPromptQueue((prev) => {
                 if (prev.length === 0) {
-                  return [{ inputs, prevItems }];
+                  return [{ inputs }];
                 }
 
                 const existing = prev[0]!;
@@ -973,7 +982,7 @@ export default function TerminalChat({
                 }
 
                 return [
-                  { inputs: updatedInputs, prevItems: existing.prevItems },
+                  { inputs: updatedInputs },
                 ];
               });
             }

@@ -480,7 +480,7 @@ const approvalPolicy: ApprovalPolicy =
       : config.approvalMode || AutoApprovalMode.SUGGEST;
 
 if (process.stdin.isTTY) {
-  process.stdout.write("Loading OpenCodex...                    \r");
+  process.stdout.write("Loading OpenCodex... \r");
 }
 
 const instance = render(

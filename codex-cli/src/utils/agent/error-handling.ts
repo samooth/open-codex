@@ -43,11 +43,13 @@ export function isErrorServerError(error: any): boolean {
  */
 export function isErrorRateLimit(error: any): boolean {
   const status = getErrorStatusCode(error);
+  const rawMsg = (error as any).message ?? "";
   const isRateLimit =
     status === 429 ||
     (error as any).code === "rate_limit_exceeded" ||
     (error as any).type === "rate_limit_exceeded" ||
-    /rate limit/i.test((error as any).message ?? "");
+    /rate limit/i.test(rawMsg) ||
+    /quota exceeded/i.test(rawMsg);
   return isRateLimit;
 }
 
@@ -187,6 +189,57 @@ export function createNetworkErrorSystemMessage(
       },
     ],
   };
+}
+
+/**
+ * Extracts a suggested retry delay (in milliseconds) from an error object or message.
+ * Supports OpenAI headers, Google structured RetryInfo, and common string patterns.
+ */
+export function extractRetryDelay(error: any): number | undefined {
+  if (!error) return undefined;
+
+  // 1. Check for explicit retryAfter property (often from headers)
+  if (error.retryAfter) {
+    const suggested = parseFloat(error.retryAfter) * 1000;
+    if (!Number.isNaN(suggested)) return suggested;
+  }
+
+  const rawMsg = error.message || "";
+
+  // 2. Try to parse from Google's structured RetryInfo if it's a JSON string
+  if (typeof rawMsg === "string" && rawMsg.includes("RetryInfo")) {
+    try {
+      // Find the first JSON block that might contain RetryInfo
+      const match = rawMsg.match(/\{[\s\S]*?\}/);
+      if (match) {
+        const json = JSON.parse(match[0]);
+        // Google SDK often double-nests: { error: { details: [ { retryDelay: "59s" } ] } }
+        const details = json.error?.details || json.details;
+        if (Array.isArray(details)) {
+          const retryInfo = details.find(
+            (d: any) =>
+              d["@type"]?.includes("RetryInfo") || d.retryDelay !== undefined,
+          );
+          if (retryInfo?.retryDelay) {
+            const seconds = parseFloat(retryInfo.retryDelay);
+            if (!Number.isNaN(seconds)) return seconds * 1000;
+          }
+        }
+      }
+    } catch {
+      /* ignore parsing failures */
+    }
+  }
+
+  // 3. Fallback to heuristic string matching
+  // Matches "retry in 59s", "try again in 1.3s", "Please retry in 59.48s", etc.
+  const m = /(?:retry|try again) in ([\d.]+)s/i.exec(rawMsg);
+  if (m && m[1]) {
+    const seconds = parseFloat(m[1]);
+    if (!Number.isNaN(seconds)) return seconds * 1000;
+  }
+
+  return undefined;
 }
 
 /**

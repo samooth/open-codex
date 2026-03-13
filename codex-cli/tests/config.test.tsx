@@ -56,6 +56,9 @@ beforeEach(() => {
   vi.stubEnv("XAI_API_KEY", "");
   vi.stubEnv("DS_API_KEY", "");
   vi.stubEnv("HF_API_KEY", "");
+  vi.stubEnv("SERPER_API_KEY", "");
+  vi.stubEnv("SERPAPI_API_KEY", "");
+  vi.stubEnv("SERP_API_KEY", "");
 });
 
 afterEach(() => {
@@ -69,7 +72,7 @@ test("loads default config if files don't exist", () => {
   });
   console.log("actual", config);
   console.log("expected", {
-    model: "o4-mini",
+    model: "gpt-5.2",
     baseURL: "https://api.openai.com/v1",
     instructions: "",
     provider: "openai",
@@ -94,7 +97,7 @@ test("loads default config if files don't exist", () => {
     refreshSystemPrompt: true,
   });
   expect(config).toEqual({
-    model: "o4-mini",
+    model: "gpt-5.2",
     baseURL: "https://api.openai.com/v1",
     instructions: "",
     provider: "openai",
@@ -159,16 +162,16 @@ test("saves and loads config correctly", () => {
   expect(loadedConfig).toEqual(testConfig);
 });
 
-test("loads user instructions + project doc when codex.md is present", () => {
-  // 1) seed memfs: a config JSON, an instructions.md, and a codex.md in the cwd
+test("loads user instructions + project doc when open-codex.md is present", () => {
+  // 1) seed memfs: a config JSON, an instructions.md, and a open-codex.md in the cwd
   const userInstr = "here are user instructions";
   const projectDoc = "# Project Title\n\nSome project‑specific doc";
   // first, make config so loadConfig will see storedConfig
   memfs[testConfigPath] = JSON.stringify({ model: "mymodel" }, null, 2);
   // then user instructions:
   memfs[testInstructionsPath] = userInstr;
-  // and now our fake codex.md in the cwd:
-  const codexPath = join(testDir, "codex.md");
+  // and now our fake open-codex.md in the cwd:
+  const codexPath = join(testDir, "open-codex.md");
   memfs[codexPath] = projectDoc;
 
   // 2) loadConfig without disabling project‑doc, but with cwd=testDir

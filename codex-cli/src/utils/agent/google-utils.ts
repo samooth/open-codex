@@ -108,12 +108,51 @@ export function mapOpenAiToGoogleMessages(
 
     if (parts.length > 0) {
       // Merge consecutive roles to satisfy Google API requirements
+      let shouldMerge = false;
       if (contents.length > 0 && contents[contents.length - 1].role === role) {
+        shouldMerge = true;
+        // Gemini strictly differentiates between "user" turns (text) and "function response" turns.
+        // We cannot mix functionResponse and text in the same user turn.
+        if (role === "user") {
+          const lastTurn = contents[contents.length - 1];
+          const lastHasFunctionResponse = lastTurn.parts.some(
+            (p: any) => p.functionResponse,
+          );
+          const currentHasFunctionResponse = parts.some(
+            (p: any) => p.functionResponse,
+          );
+          if (lastHasFunctionResponse !== currentHasFunctionResponse) {
+            shouldMerge = false;
+            // Inject a dummy model turn to maintain strict role alternation
+            if (lastHasFunctionResponse) {
+              contents.push({
+                role: "model",
+                parts: [{ text: "Function execution completed." }],
+              });
+            } else {
+              contents.push({
+                role: "model",
+                parts: [{ text: "Proceeding with function execution." }],
+              });
+            }
+          }
+        }
+      }
+
+      if (shouldMerge) {
         contents[contents.length - 1].parts.push(...parts);
       } else {
         contents.push({ role, parts });
       }
     }
+  }
+
+  // Google API requires the first message to be from the 'user'
+  if (contents.length > 0 && contents[0].role !== "user") {
+    contents.unshift({
+      role: "user",
+      parts: [{ text: "(Conversation context resumed)" }],
+    });
   }
 
   return { contents, systemInstruction };

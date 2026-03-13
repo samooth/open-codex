@@ -27,32 +27,34 @@ import { z } from "zod";
  * We are intentionally permissive to handle common model hallucinations
  * while still providing structure.
  */
-const ToolCallArgsSchema = z.object({
-  // Shell / apply_patch
-  command: z.union([z.string(), z.array(z.string())]).optional(),
-  cmd: z.union([z.string(), z.array(z.string())]).optional(),
-  patch: z.string().optional(),
-  // Shared
-  workdir: z.string().optional(),
-  timeout: z.number().optional(),
-  path: z.string().optional(),
-  // read_file_lines
-  start_line: z.number().optional(),
-  end_line: z.number().optional(),
-  start: z.number().optional(),
-  end: z.number().optional(),
-  line_start: z.number().optional(),
-  line_end: z.number().optional(),
-  // search_codebase / query_memory
-  pattern: z.string().optional(),
-  query: z.string().optional(),
-  include: z.string().optional(),
-  // persistent_memory
-  fact: z.string().optional(),
-  category: z.string().optional(),
-  // list_files_recursive
-  depth: z.number().optional(),
-});
+const ToolCallArgsSchema = z
+  .object({
+    // Shell / apply_patch
+    command: z.union([z.string(), z.array(z.string())]).optional(),
+    cmd: z.union([z.string(), z.array(z.string())]).optional(),
+    patch: z.string().optional(),
+    // Shared
+    workdir: z.string().optional(),
+    timeout: z.number().optional(),
+    path: z.string().optional(),
+    // read_file_lines
+    start_line: z.number().optional(),
+    end_line: z.number().optional(),
+    start: z.number().optional(),
+    end: z.number().optional(),
+    line_start: z.number().optional(),
+    line_end: z.number().optional(),
+    // search_codebase / query_memory
+    pattern: z.string().optional(),
+    query: z.string().optional(),
+    include: z.string().optional(),
+    // persistent_memory
+    fact: z.string().optional(),
+    category: z.string().optional(),
+    // list_files_recursive
+    depth: z.number().optional(),
+  })
+  .passthrough();
 
 // Fixed: Single, clear type definition without duplicates
 export type ParsedToolCallResult =
@@ -311,6 +313,7 @@ function validateAndBuildResult(json: unknown): ParsedToolCallResult {
     }
 
     const args: ExecInput = {
+      ...data, // Include all passed-through parameters
       cmd: finalCmd,
       workdir: data.workdir,
       timeoutInMillis: data.timeout,

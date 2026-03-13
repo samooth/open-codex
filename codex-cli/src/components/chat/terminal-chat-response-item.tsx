@@ -20,6 +20,7 @@ import {
   parseToolCallOutput,
   parseToolCallArguments,
 } from "../../utils/parsers";
+import { parseStateSnapshot } from "../../utils/agent/state-manager.js";
 import { getSyntaxTheme } from "../../utils/theme.js";
 import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
@@ -246,7 +247,7 @@ export function Markdown({
       let placeholderIndex = 0;
 
       while ((codeMatch = codeBlockRegex.exec(children)) !== null) {
-        const lang = codeMatch[1] || "code";
+        const lang = codeMatch[1] || "plaintext";
         const content = codeMatch[2]!;
         const placeholder = `CID_CB_PLACEHOLDER_${placeholderIndex}`;
 
@@ -1035,30 +1036,47 @@ export const TerminalChatResponseMessage = React.memo(
             ))}
           </Box>
         )}
-        {thoughts.map((thought, i) => (
-          <Box
-            key={i}
-            flexDirection="row"
-            gap={1}
-            paddingLeft={1}
-            borderStyle="bold"
-            borderRight={false}
-            borderTop={false}
-            borderBottom={false}
-            borderLeftColor={theme.thought}
-            marginTop={1}
-            marginBottom={1}
-          >
-            <Box flexDirection="column">
-              <Text italic color={theme.thought} bold>
-                ( thought )
-              </Text>
-              <Text italic color={theme.dim}>
-                {thought}
-              </Text>
+        {thoughts.map((thought, i) => {
+          const snapshot = parseStateSnapshot(thought);
+          const cleanThought = thought
+            .replace(/<state_snapshot>[\s\S]*?<\/state_snapshot>/gim, "")
+            .trim();
+
+          if (!cleanThought && !snapshot) return null;
+
+          return (
+            <Box
+              key={i}
+              flexDirection="column"
+              paddingLeft={1}
+              borderStyle="bold"
+              borderRight={false}
+              borderTop={false}
+              borderBottom={false}
+              borderLeftColor={theme.thought}
+              marginTop={1}
+              marginBottom={1}
+            >
+              {snapshot?.overall_goal && (
+                <Box marginBottom={1}>
+                  <Text bold color={theme.highlight}>
+                    🎯 MISSION: {snapshot.overall_goal.toUpperCase()}
+                  </Text>
+                </Box>
+              )}
+              {cleanThought && (
+                <Box flexDirection="column">
+                  <Text italic color={theme.thought} bold>
+                    ( thought )
+                  </Text>
+                  <Text italic color={theme.dim}>
+                    {cleanThought}
+                  </Text>
+                </Box>
+              )}
             </Box>
-          </Box>
-        ))}
+          );
+        })}
         {hasPlans && plans.map((plan, i) => (
           <Box
             key={i}

@@ -69,6 +69,7 @@ const thinkingTexts = [
 export default function TerminalChatInputThinking({
   onInterrupt,
   active,
+  partialContent,
   partialReasoning,
   activeBlockType,
   activeToolName,
@@ -79,13 +80,14 @@ export default function TerminalChatInputThinking({
 }: {
   onInterrupt: () => void;
   active: boolean;
+  partialContent?: string;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   activeToolName?: string;
   activeToolArguments?: Record<string, any>;
   isStreamingResponse?: boolean;
   theme: Theme;
-}): React.ReactElement | null {
+}) {
   if (!active) {
     return null;
   }
@@ -239,11 +241,13 @@ export default function TerminalChatInputThinking({
       <Box flexDirection="column">
         <Box gap={1}>
           <Text color={theme.thought} bold italic>
-            {activeToolName
-              ? `EXERTING: ${activeToolName.toUpperCase()}`
-              : activeBlockType === "plan"
-                ? "PLANNING"
-                : "THINKING"}
+            {partialContent
+              ? "STATUS"
+              : activeToolName
+                ? `EXERTING: ${activeToolName.toUpperCase()}`
+                : activeBlockType === "plan"
+                  ? "PLANNING"
+                  : "THINKING"}
           </Text>
           {activeToolArguments && activeToolName && (
             <Text dimColor italic>

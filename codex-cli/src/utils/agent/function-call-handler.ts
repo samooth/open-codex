@@ -223,7 +223,7 @@ export async function handleFunctionCall(
       };
     }
 
-    const args = (result as any).args;
+    const args = (result as any).args || (result as any).data;
     const outputItem: ChatCompletionMessageParam = {
       role: "tool",
       tool_call_id: callId,
@@ -635,6 +635,15 @@ export async function handleFunctionCall(
         outputText = result.outputText;
         metadata = result.metadata;
         additionalItems = result.additionalItems;
+      }
+    } else if (name && ctx.mcpManager?.hasTool(name)) {
+      try {
+        const resultText = await ctx.mcpManager.callTool(name, args);
+        outputText = resultText;
+        metadata = { exit_code: 0 };
+      } catch (err) {
+        outputText = `Error: ${(err as Error).message}`;
+        metadata = { exit_code: 1 };
       }
     } else if (name === "show_context") {
       const { tool_name } = args;

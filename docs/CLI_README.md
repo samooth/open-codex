@@ -17,21 +17,22 @@ Lightweight coding agent that runs in your terminal
 
 - [Experimental Technology Disclaimer](#experimental-technology-disclaimer)
 - [Quickstart](#quickstart)
-- [Why Codex?](#whycodex)
-- [Security Model & Permissions](#securitymodelpermissions)
+- [Why Codex?](#why-codex)
+- [Model Context Protocol (MCP)](#mcp-support)
+- [Security Model & Permissions](#security-model--permissions)
   - [Platform sandboxing details](#platform-sandboxing-details)
-- [System Requirements](#systemrequirements)
-- [CLI Reference](#clireference)
-- [Memory & Project Docs](#memoryprojectdocs)
-- [Non-interactive / CI mode](#noninteractivecimode)
+- [System Requirements](#system-requirements)
+- [CLI Reference](#cli-reference)
+- [Memory & Project Docs](#memory--project-docs)
+- [Non-interactive / CI mode](./CI.md)
 - [Editor Integration](#documentation-index)
-- [Recipes](#recipes)
+- [Recipes](./RECIPES.md)
 
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [FAQ](#faq)
-- [Contributing](#contributing)
-- [Security & Responsible AI](#securityresponsibleai)
+- [Contributing](./PROJECT_CONTRIBUTING.md)
+- [Security & Responsible AI](#security--responsible-ai)
 - [License](#license)
 - [Zero Data Retention (ZDR) Organization Limitation](#zero-data-retention-zdr-organization-limitation)
 
@@ -108,6 +109,7 @@ development_ that understands and executes your repo.
 - **Zero setup** — bring your API key and it just works!
 - **Multiple AI providers** — use OpenAI, Anthropic, Gemini, OpenRouter, Ollama, xAI, DeepSeek, or Hugging Face!
 - **High Performance** — parallel tool execution and asynchronous file indexing for speed ✨
+- **MCP Support** — native integration with the Model Context Protocol for extensible tools, resources, and prompts 🔌
 - **Surgical Editing** — robust Search & Replace tool for precise, context-aware file modifications 📝
 - **Code Intelligence** — specialized tools to extract symbols and search definitions semantically 🔍
 - **Automated Verification** — built-in diagnostics to detect project types and run health checks (lint, type-check, tests) 🩺
@@ -127,6 +129,14 @@ development_ that understands and executes your repo.
 - **Loop Protection** — automatic detection and prevention of repetitive failing tool calls 🔄
 
 And it's **fully open-source** so you can see and contribute to how it develops!
+
+---
+
+## Model Context Protocol (MCP)
+
+Open Codex supports the **Model Context Protocol (MCP)**, allowing you to extend the agent's capabilities with external tools, resources, and prompts. Connect to any MCP-compatible server (like SQLite, PostgreSQL, or custom tools) by adding them to your configuration.
+
+For more details, see the **[MCP Integration Guide](./MCP.md)**.
 
 ---
 
@@ -171,7 +181,7 @@ The hardening mechanism Codex uses depends on your OS:
   container image** and mounts your repo _read/write_ at the same path. A
   custom `iptables`/`ipset` firewall script denies all egress except the
   OpenAI API. This gives you deterministic, reproducible runs without needing
-  root on the host. You can use the [`run_in_container.sh`](./codex-cli/scripts/run_in_container.sh) script to set up the sandbox.
+  root on the host. You can use the [`run_in_container.sh`](../codex-cli/scripts/run_in_container.sh) script to set up the sandbox.
 
 ---
 
@@ -231,7 +241,8 @@ For more detailed information, please refer to the following documents:
 - **Editor Integration**: Using OpenCodex with [Sublime Text](./SUBLIME.md), [VS Code](./VSCODE.md), and other editors.
 - **[Non-interactive / CI Mode](./CI.md)**: Running OpenCodex in automated pipelines.
 - **[Recipes](./RECIPES.md)**: A collection of common tasks and prompts.
-- **[Project Memory & Docs](#memoryprojectdocs)**: Managing persistent project context.
+- **[Project Memory & Docs](#memory--project-docs)**: Managing persistent project context.
+- **[MCP Integration Guide](./MCP.md)**: Using the Model Context Protocol to extend Open Codex.
 - **[SearXNG Integration Guide](./SEARXNG_INTEGRATION.md)**: Setting up a custom search provider.
 - **[SERP API Integration Guide](./SERP_API_INTEGRATION.md)**: Using high-quality search APIs (Serper, SerpApi).
 - **[Contributing](./CLI_CONTRIBUTING.md)**: Workflow and guidelines for developers.
@@ -521,6 +532,6 @@ Have you discovered a vulnerability or have concerns about model output? Please 
 
 ## License
 
-This repository is licensed under the [Apache-2.0 License](LICENSE).
+This repository is licensed under the [Apache-2.0 License](../LICENSE).
 
 Original project: [OpenAI Codex CLI](https://github.com/openai/codex)

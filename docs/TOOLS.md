@@ -64,7 +64,16 @@ Controls how the agent interprets model output:
 - **Schema Validation**: Uses `zod` to validate tool arguments with `ToolCallArgsSchema`.
 - **Heuristic Inference**: If a model provides arguments but forgets the tool name, this file infers the tool based on the properties provided (e.g., if it sees `pattern`, it assumes `search_codebase`).
 
-### 5. `src/utils/agent/apply-patch.ts` & `src/parse-apply-patch.ts`
+### 5. `src/utils/agent/mcp-manager.ts`
+
+Controls the integration with the **Model Context Protocol (MCP)**:
+
+- **Parallel Connections**: Connects to all configured MCP servers concurrently for minimal startup latency.
+- **Dynamic Tool Discovery**: Automatically identifies and exposes tools from MCP servers.
+- **Resource & Prompt Support**: Beyond standard tools, it also supports listing and reading MCP resources, as well as listing and getting prompts.
+- **Namespacing**: Automatically prefixes MCP tools with the server name (e.g., `sqlite_query`) to avoid name collisions.
+
+### 6. `src/utils/agent/apply-patch.ts` & `src/parse-apply-patch.ts`
 
 Control the "surgical edit" capability:
 

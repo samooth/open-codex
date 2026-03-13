@@ -242,11 +242,20 @@ export const ProviderConfigSchema = z.object({
 
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 
+export const McpServerConfigSchema = z.object({
+  command: z.string(),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+});
+
+export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+
 export const StoredConfigSchema = z.object({
   model: z.string().optional(),
   baseURL: z.string().optional(),
   provider: z.string().optional(),
   providers: z.record(z.string(), ProviderConfigSchema).optional(),
+  mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
   pinnedFiles: z.array(z.string()).optional(),
   approvalMode: z.nativeEnum(AutoApprovalMode).optional(),
   fullAutoErrorMode: z.nativeEnum(FullAutoErrorMode).optional(),
@@ -276,6 +285,7 @@ export type AppConfig = {
   baseURL?: string;
   provider?: string;
   providers?: Record<string, ProviderConfig>;
+  mcpServers?: Record<string, McpServerConfig>;
   pinnedFiles?: Array<string>;
   model: string;
   instructions: string;
@@ -571,6 +581,7 @@ export const loadConfig = (
     apiKey: apiKeyForProvider,
     provider: derivedProvider,
     providers: storedConfig.providers as any,
+    mcpServers: storedConfig.mcpServers as any,
     pinnedFiles: storedConfig.pinnedFiles || [],
     baseURL: derivedBaseURL,
     instructions: loadInstructions(instructionsPath, options),
@@ -704,6 +715,7 @@ export const saveConfig = (
     model: config.model,
     provider: config.provider,
     providers: config.providers,
+    mcpServers: config.mcpServers,
     pinnedFiles: config.pinnedFiles,
     approvalMode: config.approvalMode,
     enableWebSearch: config.enableWebSearch,

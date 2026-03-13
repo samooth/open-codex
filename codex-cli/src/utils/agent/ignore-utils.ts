@@ -67,10 +67,19 @@ export function getIgnoreFilter() {
   searchDirs.push(join(homedir(), ".open-codex"));
 
   for (const dir of searchDirs) {
-    const codexIgnorePath = join(dir, ".open-codexignore");
+    const codexIgnorePath = join(dir, ".codexignore");
     if (existsSync(codexIgnorePath)) {
       try {
         ig.add(readFileSync(codexIgnorePath, "utf-8"));
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const openCodexIgnorePath = join(dir, ".open-codexignore");
+    if (existsSync(openCodexIgnorePath)) {
+      try {
+        ig.add(readFileSync(openCodexIgnorePath, "utf-8"));
       } catch {
         /* ignore */
       }

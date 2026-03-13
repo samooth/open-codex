@@ -83,6 +83,7 @@ export default function TerminalChatInput({
   onShellFocus,
   onCopy,
   interruptAgent,
+  partialContent,
   partialReasoning,
   activeBlockType,
   active,
@@ -125,6 +126,7 @@ export default function TerminalChatInput({
   onShellFocus?: (isFocused: boolean) => void;
   onCopy?: () => void;
   interruptAgent: () => void;
+  partialContent?: string;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
   active: boolean;
@@ -914,6 +916,7 @@ export default function TerminalChatInput({
           <TerminalChatInputThinking
             onInterrupt={interruptAgent}
             active={active}
+            partialContent={partialContent}
             partialReasoning={partialReasoning}
             activeBlockType={activeBlockType}
             activeToolName={activeToolName}

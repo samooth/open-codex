@@ -26,7 +26,7 @@ afterEach(() => {
 describe("project doc integration", () => {
   test("happy path: project doc gets merged into instructions", () => {
     const docContent = "# Project\nThis is my project.";
-    writeFileSync(join(projectDir, "codex.md"), docContent);
+    writeFileSync(join(projectDir, "open-codex.md"), docContent);
 
     const instructions = loadInstructions(instructionsPath, {
       cwd: projectDir,
@@ -36,7 +36,7 @@ describe("project doc integration", () => {
 
   test("opt-out via flag prevents inclusion", () => {
     const docContent = "will be ignored";
-    writeFileSync(join(projectDir, "codex.md"), docContent);
+    writeFileSync(join(projectDir, "open-codex.md"), docContent);
 
     const instructions = loadInstructions(instructionsPath, {
       cwd: projectDir,
@@ -47,7 +47,7 @@ describe("project doc integration", () => {
 
   test("file larger than limit gets truncated and warns", () => {
     const big = "x".repeat(PROJECT_DOC_MAX_BYTES + 4096);
-    writeFileSync(join(projectDir, "codex.md"), big);
+    writeFileSync(join(projectDir, "open-codex.md"), big);
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const instructions = loadInstructions(instructionsPath, {

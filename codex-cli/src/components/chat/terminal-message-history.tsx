@@ -71,64 +71,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   refreshKey = 0,
   onRefresh,
 }) => {
-  const renderStreamingStatus = () => {
-    if (!isActive || !streamingStatus) {
-      return null;
-    }
-    const { toolName, reasoning, blockType } = streamingStatus;
-    const blockHint = blockType
-      ? ` (${blockType.charAt(0).toUpperCase() + blockType.slice(1)})`
-      : "";
-    const title = toolName ? `Running ${toolName}${blockHint}…` : undefined;
-    const thinkingLabel = !toolName && blockType
-      ? blockType.charAt(0).toUpperCase() + blockType.slice(1)
-      : undefined;
-    const reasoningLines = (reasoning || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    const placeholderLine =
-      reasoningLines.length === 0 && blockType
-        ? `Inside ${blockType} block...`
-        : undefined;
-    const bodyLines = placeholderLine
-      ? [...reasoningLines, placeholderLine]
-      : reasoningLines;
-
-    return (
-      <Box
-        borderStyle="round"
-        borderColor={theme.accent}
-        paddingX={1}
-        paddingY={0}
-        marginBottom={1}
-        flexDirection="column"
-      >
-        <Box flexDirection="row" alignItems="center" gap={1}>
-          {title ? (
-            <Text color={theme.highlight} bold>
-              {title}
-            </Text>
-          ) : (
-            <>
-              <Spinner type="dots" />
-              {thinkingLabel && (
-                <Text color={theme.highlight} bold>
-                  {thinkingLabel}
-                </Text>
-              )}
-            </>
-          )}
-        </Box>
-        {bodyLines.map((line, index) => (
-          <Text key={index} color={theme.dim}>
-            {line}
-          </Text>
-        ))}
-      </Box>
-    );
-  };
   const [messages, debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
     for (const item of items) {
@@ -146,7 +88,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
 
   return (
     <Box flexDirection="column">
-      {renderStreamingStatus()}
       <Static
         key={`${theme.name}-${refreshKey}`}
         items={["header", ...messages]}
@@ -230,11 +171,6 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
             isActive={isActive}
             onRefresh={onRefresh}
           />
-        </Box>
-      )}
-      {loading && !confirmationPrompt && debug && (
-        <Box marginTop={1}>
-          <ThinkingTimer loading={loading} theme={theme} />
         </Box>
       )}
     </Box>
