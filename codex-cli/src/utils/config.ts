@@ -179,8 +179,8 @@ function defaultModelsForProvider(provider: string): {
   switch (provider) {
     case "openai":
       return {
-        agentic: "gpt-5.2",
-        fullContext: "gpt-5.2",
+        agentic: "o4-mini",
+        fullContext: "gpt-5.2-codex",
       };
     case "anthropic":
       return {
@@ -200,8 +200,8 @@ function defaultModelsForProvider(provider: string): {
       };
     case "openrouter":
       return {
-        agentic: "openai/gpt-5.2",
-        fullContext: "openai/gpt-5.2",
+        agentic: "openai/gpt-5.2-codex",
+        fullContext: "openai/gpt-5.2-codex",
       };
     case "xai":
       return {

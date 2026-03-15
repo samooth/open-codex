@@ -966,7 +966,7 @@ export class AgentLoop {
                 model: this.model,
                 input: transformedMessages,
                 stream: true,
-                reasoning_effort: reasoning,
+                reasoning: { effort: reasoning },
                 tools: toolsToUse
                   .filter((tool: any) => {
                     if (tool.function.name === "browse") {

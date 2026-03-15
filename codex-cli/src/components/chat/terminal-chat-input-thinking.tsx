@@ -194,7 +194,7 @@ export default function TerminalChatInputThinking({
   const displayReasoning = partialReasoning || thinkingText;
 
   const [scrollOffset, setScrollOffset] = useState(0);
-  const maxDisplayLines = activeToolName || activeBlockType === "plan" ? 3 : 1; // Minimal lines here as full reasoning is in history
+  const maxDisplayLines = 1; // Keep it compact since full history is shown above
 
   const rawLines = (displayReasoning || "").split("\n");
   const totalLines = rawLines.length;
@@ -236,18 +236,16 @@ export default function TerminalChatInputThinking({
   );
 
   return (
-    <Box flexDirection="row" gap={2} paddingY={1} height={3}>
+    <Box flexDirection="row" gap={2} paddingY={1}>
       <Spinner type="dots" color={theme.thought} />
       <Box flexDirection="column">
-        <Box gap={1}>
+        <Box gap={1} flexWrap="wrap">
           <Text color={theme.thought} bold italic>
-            {partialContent
-              ? "STATUS"
-              : activeToolName
-                ? `EXERTING: ${activeToolName.toUpperCase()}`
-                : activeBlockType === "plan"
-                  ? "PLANNING"
-                  : "THINKING"}
+            {activeToolName
+              ? `EXERTING: ${activeToolName.toUpperCase()}`
+              : activeBlockType === "plan"
+                ? "PLANNING"
+                : "THINKING"}
           </Text>
           {activeToolArguments && activeToolName && (
             <Text dimColor italic>
@@ -259,6 +257,14 @@ export default function TerminalChatInputThinking({
           )}
           <Text dimColor>[ {elapsedSeconds}s ]</Text>
         </Box>
+
+        {partialContent && (
+          <Box marginTop={0} marginBottom={0}>
+            <Text color={theme.highlight} bold italic>
+              ❯ {partialContent}
+            </Text>
+          </Box>
+        )}
 
         {displayedLines.length > 0 && (
           <Box flexDirection="column" marginTop={0}>

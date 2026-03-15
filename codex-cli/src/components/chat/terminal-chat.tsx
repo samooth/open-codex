@@ -402,6 +402,9 @@ export default function TerminalChat({
         activeToolName?: string,
         activeToolArguments?: Record<string, any>,
       ) => {
+        if (isLoggingEnabled()) {
+          log(`onPartialUpdate: content=${JSON.stringify(content)}, reasoning=${JSON.stringify(reasoning)}, tool=${activeToolName}`);
+        }
         partialDataRef.current.content = content;
         if (reasoning) {
           if (activeToolName) {
