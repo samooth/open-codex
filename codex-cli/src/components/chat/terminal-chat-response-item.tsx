@@ -946,11 +946,12 @@ export const TerminalChatResponseMessage = React.memo(
     // We want to find the LAST unclosed tag and treat everything after it as part of that block.
     // However, if there are multiple unclosed tags, we only want to strip from the FIRST one
     // to avoid leaving orphaned opening tags in the main display.
+    // Key fix: use non-greedy match to prevent capturing repeated thinking content
 
     const unclosedTags = [
-      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*)$/i) },
-      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*)$/i) },
-      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*)$/i) }
+      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(thought|think|thinking)|$)/i) },
+      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(plan|roadmap)|$)/i) },
+      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*?)(?=(?:<response|$)/i) }
     ].filter(t => t.match !== null)
      .sort((a, b) => a.match!.index! - b.match!.index!);
 
