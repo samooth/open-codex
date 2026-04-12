@@ -949,9 +949,9 @@ export const TerminalChatResponseMessage = React.memo(
     // Key fix: use non-greedy match to prevent capturing repeated thinking content
 
     const unclosedTags = [
-      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(thought|think|thinking)|$)/i) },
-      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(plan|roadmap)|$)/i) },
-      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*?)(?=(?:<response|$)/i) }
+      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(thought|think|thinking)|$))/i) },
+      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(plan|roadmap)|$))/i) },
+      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*?)(?=(?:<response|$))/i) }
     ].filter(t => t.match !== null)
      .sort((a, b) => a.match!.index! - b.match!.index!);
 
