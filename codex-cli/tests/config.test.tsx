@@ -72,7 +72,7 @@ test("loads default config if files don't exist", () => {
   });
   console.log("actual", config);
   console.log("expected", {
-    model: "gpt-5.2",
+    model: "o4-mini",
     baseURL: "https://api.openai.com/v1",
     instructions: "",
     provider: "openai",
@@ -86,6 +86,7 @@ test("loads default config if files don't exist", () => {
     memory: undefined,
     pinnedFiles: [],
     providers: undefined,
+    mcpServers: undefined,
     theme: undefined,
     searxngUrl: undefined,
     serpApiKey: undefined,
@@ -106,7 +107,7 @@ test("loads default config if files don't exist", () => {
     refreshSystemPrompt: true,
   });
   expect(config).toEqual({
-    model: "gpt-5.2",
+    model: "o4-mini",
     baseURL: "https://api.openai.com/v1",
     instructions: "",
     provider: "openai",
@@ -120,6 +121,7 @@ test("loads default config if files don't exist", () => {
     memory: undefined,
     pinnedFiles: [],
     providers: undefined,
+    mcpServers: undefined,
     theme: undefined,
     searxngUrl: undefined,
     serpApiKey: undefined,
@@ -157,6 +159,7 @@ test("saves and loads config correctly", () => {
     memory: undefined,
     pinnedFiles: [],
     providers: undefined,
+    mcpServers: undefined,
     theme: undefined,
     searxngUrl: undefined,
     serpApiKey: undefined,
