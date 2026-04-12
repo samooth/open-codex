@@ -138,7 +138,7 @@ function getAPIKeyForProviderOrExit(
   }
 }
 
-function baseURLForProvider(
+export function baseURLForProvider(
   provider: string,
   providers?: Record<string, ProviderConfig>,
 ): string {
@@ -238,6 +238,17 @@ export type MemoryConfig = z.infer<typeof MemoryConfigSchema>;
 export const ProviderConfigSchema = z.object({
   apiKey: z.string().optional(),
   baseURL: z.string().optional(),
+  extraBody: z.record(z.string(), z.any()).optional(),
+  temperature: z.number().optional(),
+  contextSize: z.number().optional(),
+  topP: z.number().optional(),
+  topK: z.number().optional(),
+  maxTokens: z.number().optional(),
+  seed: z.number().optional(),
+  stop: z.array(z.string()).optional(),
+  presencePenalty: z.number().optional(),
+  frequencyPenalty: z.number().optional(),
+  repeatPenalty: z.number().optional(),
 });
 
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
@@ -271,6 +282,15 @@ export const StoredConfigSchema = z.object({
   refreshSystemPrompt: z.boolean().optional(),
   embeddingModel: z.string().optional(),
   contextSize: z.number().optional(),
+  temperature: z.number().optional(),
+  topP: z.number().optional(),
+  topK: z.number().optional(),
+  maxTokens: z.number().optional(),
+  seed: z.number().optional(),
+  stop: z.array(z.string()).optional(),
+  presencePenalty: z.number().optional(),
+  frequencyPenalty: z.number().optional(),
+  repeatPenalty: z.number().optional(),
   theme: z.union([z.string(), ThemeSchema]).optional(),
 });
 
@@ -306,6 +326,15 @@ export type AppConfig = {
   refreshSystemPrompt?: boolean;
   embeddingModel?: string;
   contextSize?: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  maxTokens?: number;
+  seed?: number;
+  stop?: Array<string>;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  repeatPenalty?: number;
   theme?: string | z.infer<typeof ThemeSchema>;
 };
 
@@ -611,7 +640,30 @@ export const loadConfig = (
     enableDeepThinking: storedConfig.enableDeepThinking ?? false,
     refreshSystemPrompt: storedConfig.refreshSystemPrompt ?? true,
     embeddingModel: storedConfig.embeddingModel,
-    contextSize: storedConfig.contextSize,
+    contextSize:
+      storedConfig.providers?.[effectiveProvider]?.contextSize ??
+      storedConfig.contextSize,
+    temperature:
+      storedConfig.providers?.[effectiveProvider]?.temperature ??
+      storedConfig.temperature,
+    topP:
+      storedConfig.providers?.[effectiveProvider]?.topP ?? storedConfig.topP,
+    topK:
+      storedConfig.providers?.[effectiveProvider]?.topK ?? storedConfig.topK,
+    maxTokens:
+      storedConfig.providers?.[effectiveProvider]?.maxTokens ??
+      storedConfig.maxTokens,
+    seed: storedConfig.providers?.[effectiveProvider]?.seed ?? storedConfig.seed,
+    stop: storedConfig.providers?.[effectiveProvider]?.stop ?? storedConfig.stop,
+    presencePenalty:
+      storedConfig.providers?.[effectiveProvider]?.presencePenalty ??
+      storedConfig.presencePenalty,
+    frequencyPenalty:
+      storedConfig.providers?.[effectiveProvider]?.frequencyPenalty ??
+      storedConfig.frequencyPenalty,
+    repeatPenalty:
+      storedConfig.providers?.[effectiveProvider]?.repeatPenalty ??
+      storedConfig.repeatPenalty,
     theme: storedConfig.theme,
   };
 
@@ -735,6 +787,15 @@ export const saveConfig = (
     refreshSystemPrompt: config.refreshSystemPrompt,
     embeddingModel: config.embeddingModel,
     contextSize: config.contextSize,
+    temperature: config.temperature,
+    topP: config.topP,
+    topK: config.topK,
+    maxTokens: config.maxTokens,
+    seed: config.seed,
+    stop: config.stop,
+    presencePenalty: config.presencePenalty,
+    frequencyPenalty: config.frequencyPenalty,
+    repeatPenalty: config.repeatPenalty,
     theme: config.theme,
   };
   if (ext === ".yaml" || ext === ".yml") {

@@ -94,6 +94,15 @@ const cli = meow(
     --dry-run                  Preview changes without applying them
     --think                    Enable "Deep Thinking" mode (adds extra identity and protocol prefix to system prompt)
     --context-size <tokens>    Manually set the context window size in tokens
+    --temperature <number>     Set the sampling temperature (0.0 to 2.0)
+    --top-p <number>           Set the top-p sampling threshold
+    --top-k <number>           Set the top-k sampling threshold (Ollama)
+    --max-tokens <number>      Set the maximum tokens to generate
+    --seed <number>            Set the random seed
+    --stop <string>            Set a stop sequence (can be repeated)
+    --presence-penalty <num>   Set the presence penalty
+    --frequency-penalty <num>  Set the frequency penalty
+    --repeat-penalty <num>     Set the repeat penalty (Ollama)
 
   Dangerous options
     --dangerously-auto-approve-everything
@@ -191,6 +200,43 @@ const cli = meow(
       contextSize: {
         type: "number",
         description: "Manually set the context window size in tokens",
+      },
+      temperature: {
+        type: "number",
+        description: "Set the sampling temperature (0.0 to 2.0)",
+      },
+      topP: {
+        type: "number",
+        description: "Set the top-p (nucleus) sampling threshold",
+      },
+      topK: {
+        type: "number",
+        description: "Set the top-k sampling threshold (Ollama specific)",
+      },
+      maxTokens: {
+        type: "number",
+        description: "Set the maximum number of tokens to generate",
+      },
+      seed: {
+        type: "number",
+        description: "Set the random seed for deterministic results",
+      },
+      stop: {
+        type: "string",
+        isMultiple: true,
+        description: "Set one or more stop sequences",
+      },
+      presencePenalty: {
+        type: "number",
+        description: "Set the presence penalty (-2.0 to 2.0)",
+      },
+      frequencyPenalty: {
+        type: "number",
+        description: "Set the frequency penalty (-2.0 to 2.0)",
+      },
+      repeatPenalty: {
+        type: "number",
+        description: "Set the repeat penalty (Ollama specific)",
       },
       allowAlwaysPatch: {
         type: "boolean",
@@ -299,6 +345,15 @@ config = {
       ? Boolean(cli.flags.think)
       : config.enableDeepThinking,
   contextSize: cli.flags.contextSize ?? config.contextSize,
+  temperature: cli.flags.temperature ?? config.temperature,
+  topP: cli.flags.topP ?? config.topP,
+  topK: cli.flags.topK ?? config.topK,
+  maxTokens: cli.flags.maxTokens ?? config.maxTokens,
+  seed: cli.flags.seed ?? config.seed,
+  stop: (cli.flags.stop as Array<string>) ?? config.stop,
+  presencePenalty: cli.flags.presencePenalty ?? config.presencePenalty,
+  frequencyPenalty: cli.flags.frequencyPenalty ?? config.frequencyPenalty,
+  repeatPenalty: cli.flags.repeatPenalty ?? config.repeatPenalty,
 };
 
 /**

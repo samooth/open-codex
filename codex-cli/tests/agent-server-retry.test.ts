@@ -72,7 +72,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
             {
               delta: {
                 role: "assistant",
-                content: [{ type: "text", text: "ok" }],
+                content: "ok",
               },
             },
           ],
@@ -115,7 +115,7 @@ describe("AgentLoop – automatic retry on 5xx errors", () => {
     expect(openAiState.createSpy).toHaveBeenCalledTimes(3);
 
     const assistant = received.find((i) => i.role === "assistant");
-    expect(assistant?.content?.[0]?.text).toBe("ok");
+    expect(assistant?.content).toBe("ok");
   });
 
   it("fails after 3 attempts and surfaces system message", async () => {

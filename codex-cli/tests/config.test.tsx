@@ -94,6 +94,15 @@ test("loads default config if files don't exist", () => {
     enableSmartContext: true,
     enableDeepLinter: false,
     contextSize: undefined,
+    temperature: undefined,
+    topP: undefined,
+    topK: undefined,
+    maxTokens: undefined,
+    seed: undefined,
+    stop: undefined,
+    presencePenalty: undefined,
+    frequencyPenalty: undefined,
+    repeatPenalty: undefined,
     refreshSystemPrompt: true,
   });
   expect(config).toEqual({
@@ -119,6 +128,15 @@ test("loads default config if files don't exist", () => {
     enableSmartContext: true,
     enableDeepLinter: false,
     contextSize: undefined,
+    temperature: undefined,
+    topP: undefined,
+    topK: undefined,
+    maxTokens: undefined,
+    seed: undefined,
+    stop: undefined,
+    presencePenalty: undefined,
+    frequencyPenalty: undefined,
+    repeatPenalty: undefined,
     refreshSystemPrompt: true,
   });
 });
@@ -147,6 +165,15 @@ test("saves and loads config correctly", () => {
     enableSmartContext: true,
     enableDeepLinter: false,
     contextSize: undefined,
+    temperature: undefined,
+    topP: undefined,
+    topK: undefined,
+    maxTokens: undefined,
+    seed: undefined,
+    stop: undefined,
+    presencePenalty: undefined,
+    frequencyPenalty: undefined,
+    repeatPenalty: undefined,
     refreshSystemPrompt: true,
   };
   saveConfig(testConfig, testConfigPath, testInstructionsPath);
