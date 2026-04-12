@@ -397,7 +397,9 @@ When using Ollama, ensure your server is running (`ollama serve`) and you have p
   "provider": "ollama",
   "providers": {
     "ollama": {
-      "baseURL": "http://192.168.1.100:11434/v1"
+      "baseURL": "http://192.168.1.100:11434/v1",
+      "temperature": 0.2,
+      "contextSize": 8192
     }
   }
 }
@@ -407,6 +409,41 @@ When using Ollama, ensure your server is running (`ollama serve`) and you have p
 
 ```bash
 open-codex --provider ollama --model mistral "Explain this project"
+```
+
+#### Advanced Model Parameters
+
+You can fine-tune model behavior using several parameters, both via CLI flags and in your `config.json`. These are supported by most providers (OpenAI, Anthropic, Ollama, etc.):
+
+- **`--temperature <num>`**: Set sampling temperature (0.0 to 2.0).
+- **`--top-p <num>`**: Set nucleus sampling threshold.
+- **`--max-tokens <num>`**: Set maximum tokens to generate.
+- **`--stop <string>`**: Set a stop sequence (can be repeated).
+- **`--seed <num>`**: Set random seed for deterministic results.
+- **`--presence-penalty <num>`**: Set presence penalty (-2.0 to 2.0).
+- **`--frequency-penalty <num>`**: Set frequency penalty (-2.0 to 2.0).
+
+**Ollama Specific Flags**:
+- **`--top-k <num>`**: Set top-k sampling threshold.
+- **`--repeat-penalty <num>`**: Set repeat penalty.
+
+**Custom Parameters (`extraBody`)**:
+For parameters not explicitly supported by Codex flags, you can use the `extraBody` field in your provider configuration. This is particularly useful for Ollama's `options` or experimental features of other providers:
+
+```json
+{
+  "providers": {
+    "ollama": {
+      "extraBody": {
+        "options": {
+          "num_gpu": 1,
+          "main_gpu": 0,
+          "low_vram": true
+        }
+      }
+    }
+  }
+}
 ```
 
 ### Semantic Search & Indexing

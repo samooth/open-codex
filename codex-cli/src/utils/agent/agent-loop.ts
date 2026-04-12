@@ -8,7 +8,7 @@ import type { ReasoningEffort } from "openai/resources.mjs";
 import type { Stream } from "openai/streaming.mjs";
 
 import { log, isLoggingEnabled } from "./log.js";
-import { OPENAI_TIMEOUT_MS } from "../config.js";
+import { OPENAI_TIMEOUT_MS, baseURLForProvider } from "../config.js";
 import {
   flattenToolCalls,
   tryExtractToolCallsFromContent,
@@ -406,7 +406,11 @@ export class AgentLoop {
       ({
         model,
         instructions: instructions ?? "",
+        provider: "openai",
       } as AppConfig);
+    if (!this.config.provider) {
+      this.config.provider = "openai";
+    }
     this.onItem = onItem;
     this.onPartialUpdate = onPartialUpdate;
     this.onLoading = onLoading;
@@ -424,7 +428,13 @@ export class AgentLoop {
     // Configure OpenAI client with optional timeout (ms) from environment
     const timeoutMs = OPENAI_TIMEOUT_MS;
     const apiKey = this.config.apiKey;
-    const baseURL = this.config.baseURL;
+    const baseURL =
+      this.config.baseURL ||
+      baseURLForProvider(this.config.provider || "openai");
+
+    // Ensure config has baseURL for later use (e.g. in run() for fetch)
+    this.config.baseURL = baseURL;
+
     if (
       this.config.provider === "google" ||
       this.config.provider === "gemini"
@@ -598,7 +608,7 @@ export class AgentLoop {
         // Send request to OpenAI with retry on timeout
         let stream: Stream<ChatCompletionChunk> | undefined = undefined;
         // Retry loop for transient errors. Up to MAX_RETRIES attempts.
-        const MAX_RETRIES = 10;
+        const MAX_RETRIES = 5;
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
           try {
             let reasoning: ReasoningEffort | undefined;
@@ -816,13 +826,20 @@ export class AgentLoop {
                 }),
               );
 
+              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const extraBody = providerConfig?.extraBody;
+
               const requestBody = {
                 model: this.model,
                 messages: anthropicMessages,
                 system: combinedSystemPrompt,
                 tools: anthropicTools,
                 stream: true,
-                max_tokens: 8192,
+                max_tokens: this.config.maxTokens || 8192,
+                temperature: this.config.temperature,
+                top_p: this.config.topP,
+                stop_sequences: this.config.stop,
+                ...extraBody,
               };
 
               if (process.env["DEBUG"]) {
@@ -891,7 +908,7 @@ export class AgentLoop {
               };
 
               stream = anthropicToOpenAiStream(anthropicAsyncIterable) as any;
-            } else if (this.config.provider === "openai") {
+            } else if (this.config.provider === "openai-responses") {
               const hasExistingSystem = currentPrevItems.some(
                 (m) => m.role === "system",
               );
@@ -962,11 +979,16 @@ export class AgentLoop {
                 );
               }
 
+              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const extraBody = providerConfig?.extraBody;
+
               const requestBody = {
                 model: this.model,
                 input: transformedMessages,
                 stream: true,
                 reasoning_effort: reasoning,
+                temperature: this.config.temperature,
+                max_tokens: this.config.maxTokens,
                 tools: toolsToUse
                   .filter((tool: any) => {
                     if (tool.function.name === "browse") {
@@ -978,6 +1000,7 @@ export class AgentLoop {
                     type: "function",
                     ...tool.function,
                   })),
+                ...extraBody,
               };
 
               const response = await fetch(`${this.config.baseURL}/responses`, {
@@ -1102,18 +1125,49 @@ export class AgentLoop {
                 );
               }
 
+              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const extraBody = providerConfig?.extraBody;
+
+              const ollamaOptions: any = {};
+              if (this.config.provider === "ollama") {
+                if (this.config.topK !== undefined)
+                  ollamaOptions.top_k = this.config.topK;
+                if (this.config.repeatPenalty !== undefined)
+                  ollamaOptions.repeat_penalty = this.config.repeatPenalty;
+                if (this.config.contextSize !== undefined)
+                  ollamaOptions.num_ctx = this.config.contextSize;
+              }
+
+              const mergedExtraBody = { ...extraBody };
+              if (Object.keys(ollamaOptions).length > 0) {
+                mergedExtraBody.options = {
+                  ...(mergedExtraBody.options || {}),
+                  ...ollamaOptions,
+                };
+              }
+
               // eslint-disable-next-line no-await-in-loop
               stream = await this.oai.chat.completions.create({
                 model: this.model,
                 stream: true,
                 messages: finalMessages,
                 reasoning_effort: reasoning,
+                temperature: this.config.temperature,
+                top_p: this.config.topP,
+                max_tokens: this.config.maxTokens,
+                seed: this.config.seed,
+                stop: this.config.stop,
+                presence_penalty: this.config.presencePenalty,
+                frequency_penalty: this.config.frequencyPenalty,
                 tools: toolsToUse.filter((tool: any) => {
                   if (tool.function.name === "browse") {
                     return !!this.config.enableWebSearch;
                   }
                   return true;
                 }),
+                ...(Object.keys(mergedExtraBody).length > 0
+                  ? { extra_body: mergedExtraBody }
+                  : {}),
               });
             }
             if (isLoggingEnabled()) {
@@ -1451,7 +1505,7 @@ export class AgentLoop {
             // Handle different streaming formats based on the provider.
             // The OpenAI "Response API" uses an event-based stream format,
             // while other providers use the standard Chat Completions format.
-            const isResponseApi = this.config.provider === "openai";
+            const isResponseApi = this.config.provider === "openai-responses";
 
             let delta: any;
             let finish_reason: string | null = null;
