@@ -888,23 +888,35 @@ export const TerminalChatResponseMessage = React.memo(
       { isActive },
     );
 
-    // Capture reasoning content if present (common in models like o1, o3-mini)
-    if ((message as any).reasoning_content) {
-      contentParts.push(
-        `<thought>${(message as any).reasoning_content}</thought>`,
-      );
+    const textContent =
+      typeof message.content === "string"
+        ? message.content
+        : Array.isArray(message.content)
+          ? message.content
+              .map((p) =>
+                p.type === "text"
+                  ? p.text
+                  : p.type === "refusal"
+                    ? p.refusal
+                    : "",
+              )
+              .join("")
+          : "";
+
+    // Capture reasoning_content (o1/o3/etc.) as a <thought> block — but only if
+    // the model didn't already embed <thought>/<plan> tags in the visible text.
+    // Some providers send reasoning in both places, which would double-print it.
+    const alreadyHasReasoningTags = /<(thought|think|thinking|plan|roadmap)/i.test(
+      textContent,
+    );
+    if ((message as any).reasoning_content && !alreadyHasReasoningTags) {
+      contentParts.push(`<thought>${(message as any).reasoning_content}</thought>`);
     }
 
-    if (typeof message.content === "string") {
-      contentParts.push(message.content);
-    } else if (Array.isArray(message.content)) {
+    contentParts.push(textContent);
+
+    if (Array.isArray(message.content)) {
       for (const part of message.content) {
-        if (part.type === "text") {
-          contentParts.push(part.text);
-        }
-        if (part.type === "refusal") {
-          contentParts.push(part.refusal);
-        }
         if (part.type === "image_url") {
           const url = (part as any).image_url?.url || "";
           if (url.startsWith("file://")) {
