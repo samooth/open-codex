@@ -138,10 +138,42 @@ function getAPIKeyForProviderOrExit(
   }
 }
 
+/**
+ * Maps a provider to an optional base‑URL environment variable. Returning a
+ * non‑empty string lets the user override any stored configuration for that
+ * provider from the environment (highest precedence).
+ */
+function resolveEnvBaseURL(provider: string): string {
+  let url: string | undefined;
+  switch (provider) {
+    case "openai":
+      url = process.env["OPENAI_BASE_URL"];
+      break;
+    case "ollama":
+      url = process.env["OLLAMA_BASE_URL"];
+      break;
+    default:
+      url = undefined;
+  }
+  if (!url) {
+    return "";
+  }
+  // Avoid double slashes at the boundary (e.g. ".../v1/" + "/chat/completions").
+  return url.replace(/\/+$/, "");
+}
+
 export function baseURLForProvider(
   provider: string,
   providers?: Record<string, ProviderConfig>,
 ): string {
+  // An explicit environment variable takes precedence over any stored config
+  // (config.json / providers block). This lets users point the CLI at a custom
+  // OpenAI‑compatible gateway via OPENAI_BASE_URL without editing config files.
+  const envBaseURL = resolveEnvBaseURL(provider);
+  if (envBaseURL) {
+    return envBaseURL;
+  }
+
   const configURL = providers?.[provider]?.baseURL;
   if (configURL) {
     return configURL;

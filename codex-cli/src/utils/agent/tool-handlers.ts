@@ -21,6 +21,26 @@ import {
 } from "fs";
 import { homedir } from "os";
 import { join, resolve, dirname } from "path";
+import { spawnSync } from "child_process";
+
+/**
+ * Cached check for whether the `rg` (ripgrep) binary is available on PATH.
+ * We probe once and reuse the result so we can fail gracefully (with a helpful
+ * message) instead of letting a missing executable crash the CLI via an
+ * unhandled spawn `ENOENT`.
+ */
+let ripgrepAvailable: boolean | null = null;
+function isRipgrepAvailable(): boolean {
+  if (ripgrepAvailable === null) {
+    try {
+      const probe = spawnSync("rg", ["--version"], { windowsHide: true });
+      ripgrepAvailable = probe.status === 0 || probe.error === undefined;
+    } catch {
+      ripgrepAvailable = false;
+    }
+  }
+  return ripgrepAvailable;
+}
 
 function findGitRoot(startDir: string): string | null {
   let dir = resolve(startDir);
@@ -687,6 +707,15 @@ export async function handleSearchCodebase(
   additionalItems?: Array<ChatCompletionMessageParam>;
 }> {
   try {
+    // Fail gracefully (instead of crashing) if ripgrep is not installed.
+    if (!isRipgrepAvailable()) {
+      return {
+        outputText:
+          "Error: 'rg' (ripgrep) is required for search_codebase but is not installed or not on your PATH. Install it (https://github.com/BurntSushi/ripgrep#installation) or use a different search method.",
+        metadata: { exit_code: 1, ripgrep_missing: true },
+      };
+    }
+
     const args = JSON.parse(rawArgs);
     let pattern = args.pattern;
     let include = args.include;
@@ -838,6 +867,23 @@ export async function handleSearchCodebase(
           source: "semantic",
         });
       }
+    }
+
+    // Detect a missing ripgrep even if the pre-flight check was bypassed
+    // (e.g. ran via shell, which exits 127, or ENOENT yielding exit 1).
+    const rgMissing =
+      results.length === 0 &&
+      (metadata["exit_code"] === 127 ||
+        /ripgrep|rg.*not found|rg:\s*command not found|ENOENT/i.test(
+          String(outputText),
+        ));
+
+    if (rgMissing) {
+      return {
+        outputText:
+          "Error: 'rg' (ripgrep) is required for search_codebase but is not installed or not on your PATH. Install it (https://github.com/BurntSushi/ripgrep#installation) or use a different search method.",
+        metadata: { ...metadata, ripgrep_missing: true },
+      };
     }
 
     if (
