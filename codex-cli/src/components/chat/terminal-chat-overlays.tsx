@@ -447,6 +447,12 @@ export default function TerminalChatOverlays({
               } else if (value === "/undo") {
                 handleUndo();
                 closeOverlay();
+              } else if (value === "/help") {
+                openOverlay("help");
+                closeOverlay();
+              } else if (value === "/recipes") {
+                openOverlay("recipes");
+                closeOverlay();
               } else if (value === "/index") {
                 agent?.run(
                   [

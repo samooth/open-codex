@@ -712,7 +712,16 @@ export default function TerminalChatInput({
   }
 
   return (
-    <Box flexDirection="column" marginTop={1} paddingX={1}>
+    <Box
+      flexDirection="column"
+      marginTop={1}
+      paddingX={1}
+      borderStyle="single"
+      borderRight={false}
+      borderBottom={false}
+      borderLeft={false}
+      borderTopColor={theme.divider}
+    >
       <Box
         flexDirection="row"
         gap={1}
@@ -926,6 +935,12 @@ export default function TerminalChatInput({
           />
         </Box>
       )}
+
+      <Box paddingX={2} marginTop={0}>
+        <Text color={theme.dim} italic>
+          Ctrl+P palette · /commands · R reasoning · C collapse turn · esc abort
+        </Text>
+      </Box>
     </Box>
   );
 }
