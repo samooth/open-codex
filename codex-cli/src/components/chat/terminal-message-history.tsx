@@ -134,6 +134,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
                 model={model}
                 previousRole={previousRole}
                 status={item?.status}
+                isActive={isActive && index === messages.length}
               />
             </Box>
           );

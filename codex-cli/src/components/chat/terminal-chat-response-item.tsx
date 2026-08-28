@@ -1032,7 +1032,7 @@ export const TerminalChatResponseMessage = React.memo(
                   cleanThought && (
                     <Box flexDirection="column">
                       <Text italic color={theme.thought} bold>
-                        ( thought )
+                        [-] thought
                       </Text>
                       <Text italic color={theme.dim}>
                         {cleanThought}
@@ -1041,7 +1041,7 @@ export const TerminalChatResponseMessage = React.memo(
                   )
                 ) : (
                   <Text italic color={theme.dim}>
-                    🧠 reasoning — press 'r' to expand
+                    [+] thought (press r to expand)
                   </Text>
                 )}
               </Box>
@@ -1064,15 +1064,11 @@ export const TerminalChatResponseMessage = React.memo(
             >
               <Box flexDirection="column">
                 <Text bold color={theme.plan}>
-                  📋 PLAN
+                  {reasoningExpanded
+                    ? "[-] plan"
+                    : "[+] plan (press r to expand)"}
                 </Text>
-                {reasoningExpanded ? (
-                  <Markdown theme={theme}>{plan}</Markdown>
-                ) : (
-                  <Text italic color={theme.dim}>
-                    press 'r' to expand
-                  </Text>
-                )}
+                {reasoningExpanded && <Markdown theme={theme}>{plan}</Markdown>}
               </Box>
             </Box>
           ))}
