@@ -12,6 +12,7 @@ const shortcuts = [
   ["Ctrl+B", "Toggle token usage breakdown"],
   ["Ctrl+J", "Insert newline in input"],
   ["C", "Toggle collapse/expand Turn"],
+  ["R", "Expand/collapse reasoning & plan in a Turn"],
   ["@", "Trigger file autocomplete"],
   ["Up Arrow", "Edit merged instruction queue"],
 ];

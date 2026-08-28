@@ -21,6 +21,8 @@ import {
   parseToolCallArguments,
 } from "../../utils/parsers";
 import { parseStateSnapshot } from "../../utils/agent/state-manager.js";
+import { extractReasoningParts } from "../../utils/reasoning.js";
+import { SafeText } from "../../utils/ink-safe.js";
 import { getSyntaxTheme } from "../../utils/theme.js";
 import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
@@ -712,7 +714,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(
           </Box>
         )}
         <Box marginTop={!aborted && displayedContent ? 0 : 0} paddingX={1}>
-          <Text
+          <SafeText
             color={
               !aborted && type !== "web_fetch" && type !== "web_search"
                 ? theme.dim
@@ -721,7 +723,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(
             wrap="wrap"
           >
             {colorizedContent || chalk.italic.gray("(no output)")}
-          </Text>
+          </SafeText>
         </Box>
         {!aborted && isLargeOutput && isActive && (
           <Box marginTop={0} paddingX={1} marginBottom={0}>
@@ -785,6 +787,19 @@ export const TerminalChatResponseToolCall = React.memo(
       }
     }, [status, theme]);
 
+    const isWrite = toolName === TOOL_APPLY_PATCH;
+    const isExec = toolName === TOOL_SHELL;
+    const riskBadge = isWrite
+      ? "✎ writes files"
+      : isExec
+        ? "⚡ executes"
+        : "read-only";
+    const riskColor = isWrite
+      ? theme.error
+      : isExec
+        ? theme.warning
+        : theme.success;
+
     return (
       <Box
         flexDirection="row"
@@ -812,6 +827,9 @@ export const TerminalChatResponseToolCall = React.memo(
             <Text color={theme.highlight} wrap="wrap">
               {summary}
             </Text>
+            <Text color={riskColor} italic>
+              ({riskBadge})
+            </Text>
           </Box>
           {(status === 'running' || readableText) &&
             (toolName === TOOL_SHELL || toolName === TOOL_APPLY_PATCH) && (
@@ -832,24 +850,27 @@ export const TerminalChatResponseMessage = React.memo(
     toolCallMap = new Map(),
     theme,
     model,
-    showRole = true,
-    disableMarkdown = false,
-    isActive = false,
-    // @ts-ignore - status is currently unused
-    status,
-  }: {
-    message: ChatCompletionMessageParam;
-    fullStdout?: boolean;
-    toolCallMap?: Map<string, any>;
-    theme: Theme;
-    model?: string;
-    showRole?: boolean;
-    disableMarkdown?: boolean;
-    isActive?: boolean;
-    status?: MessageStatus;
-  }) {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const contentParts: Array<string> = [];
+  showRole = true,
+  disableMarkdown = false,
+  isActive = false,
+  isStreaming = false,
+  // @ts-ignore - status is currently unused
+  status,
+}: {
+  message: ChatCompletionMessageParam;
+  fullStdout?: boolean;
+  toolCallMap?: Map<string, any>;
+  theme: Theme;
+  model?: string;
+  showRole?: boolean;
+  disableMarkdown?: boolean;
+  isActive?: boolean;
+  isStreaming?: boolean;
+  status?: MessageStatus;
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
+  const contentParts: Array<string> = [];
     const imagePaths: Array<string> = [];
 
     useInput(
@@ -859,6 +880,9 @@ export const TerminalChatResponseMessage = React.memo(
         }
         if (input === "c") {
           setIsCollapsed(!isCollapsed);
+        }
+        if (input === "r" && !isStreaming && (hasThoughts || hasPlans)) {
+          setReasoningExpanded(!reasoningExpanded);
         }
       },
       { isActive },
@@ -916,73 +940,11 @@ export const TerminalChatResponseMessage = React.memo(
       );
     }
 
-    // Extract <thought>, <think>, or <plan> blocks
-    const thoughts: Array<string> = [];
-    const plans: Array<string> = [];
-
-    // During streaming (isStreaming=true), we want to show unclosed blocks in the thought/plan sections
-    // but we must be careful not to strip everything if the tag is still open.
-    
-    // 1. Extract FULLY CLOSED blocks first
-    const closedThoughtRegex = /<(thought|think|thinking)>([\s\S]*?)<\/(?:thought|think|thinking)>/gim;
-    const closedPlanRegex = /<(plan|roadmap)>([\s\S]*?)<\/(?:plan|roadmap)>/gim;
-    const closedResponseRegex = /<response>([\s\S]*?)<\/response>/gim;
-
-    let displayContent = content.replace(closedThoughtRegex, (_, _tagName, thought) => {
-      thoughts.push(thought.trim());
-      return "";
-    });
-
-    displayContent = displayContent.replace(closedPlanRegex, (_, _tagName, plan) => {
-      plans.push(plan.trim());
-      return "";
-    });
-
-    displayContent = displayContent.replace(closedResponseRegex, (_, resp) => {
-      return resp;
-    });
-
-    // 2. Handle UNCLOSED blocks (only relevant during streaming or for malformed output)
-    // We want to find the LAST unclosed tag and treat everything after it as part of that block.
-    // However, if there are multiple unclosed tags, we only want to strip from the FIRST one
-    // to avoid leaving orphaned opening tags in the main display.
-    // Key fix: use non-greedy match to prevent capturing repeated thinking content
-
-    const unclosedTags = [
-      { type: "thought", match: displayContent.match(/<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(thought|think|thinking)|$))/i) },
-      { type: "plan", match: displayContent.match(/<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(plan|roadmap)|$))/i) },
-      { type: "response", match: displayContent.match(/<response>(?![\s\S]*<\/response>)([\s\S]*?)(?=(?:<response|$))/i) }
-    ].filter(t => t.match !== null)
-     .sort((a, b) => a.match!.index! - b.match!.index!);
-
-    if (unclosedTags.length > 0) {
-      const firstUnclosed = unclosedTags[0]!;
-      const firstIndex = firstUnclosed.match!.index!;
-      
-      // Extract content for each unclosed tag
-      for (const tag of unclosedTags) {
-        if (tag.type === "thought") {
-          thoughts.push(tag.match![2]!.trim());
-        } else if (tag.type === "plan") {
-          plans.push(tag.match![2]!.trim());
-        } else if (tag.type === "response") {
-          // For response, we don't push to a special list, we'll keep it in displayContent
-        }
-      }
-
-      // If the first unclosed tag is NOT <response>, we strip from that point
-      if (firstUnclosed.type !== "response") {
-        displayContent = displayContent.slice(0, firstIndex);
-      } else {
-        // If it IS <response>, we just strip the tag itself but keep its content
-        displayContent = displayContent.slice(0, firstIndex) + firstUnclosed.match![1];
-      }
-    }
-
-    // Final cleanup: strip any stray leftover closing tags
-    displayContent = displayContent
-      .replace(/<\/(thought|think|thinking|plan|roadmap|response)>/gim, "")
-      .trim();
+    // Extract <thought>/<think>/<thinking> and <plan>/<roadmap> blocks.
+    // During streaming (isStreaming) the live reasoning is shown by the input
+    // indicator, so we strip it from the answer text here but do NOT render it
+    // inline below (see the `!isStreaming` guards) to avoid double printing.
+    const { displayContent, thoughts, plans } = extractReasoningParts(content);
 
     const hasThoughts = thoughts.length > 0;
     const hasPlans = plans.length > 0;
@@ -1037,69 +999,83 @@ export const TerminalChatResponseMessage = React.memo(
             ))}
           </Box>
         )}
-        {thoughts.map((thought, i) => {
-          const snapshot = parseStateSnapshot(thought);
-          const cleanThought = thought
-            .replace(/<state_snapshot>[\s\S]*?<\/state_snapshot>/gim, "")
-            .trim();
+        {!isStreaming &&
+          thoughts.map((thought, i) => {
+            const snapshot = parseStateSnapshot(thought);
+            const cleanThought = thought
+              .replace(/<state_snapshot>[\s\S]*?<\/state_snapshot>/gim, "")
+              .trim();
 
-          if (!cleanThought && !snapshot) return null;
+            if (!cleanThought && !snapshot) return null;
 
-          return (
+            return (
+              <Box
+                key={i}
+                flexDirection="column"
+                paddingLeft={1}
+                borderStyle="bold"
+                borderRight={false}
+                borderTop={false}
+                borderBottom={false}
+                borderLeftColor={theme.thought}
+                marginTop={1}
+                marginBottom={1}
+              >
+                {snapshot?.overall_goal && (
+                  <Box marginBottom={1}>
+                    <Text bold color={theme.highlight}>
+                      🎯 MISSION: {snapshot.overall_goal.toUpperCase()}
+                    </Text>
+                  </Box>
+                )}
+                {reasoningExpanded ? (
+                  cleanThought && (
+                    <Box flexDirection="column">
+                      <Text italic color={theme.thought} bold>
+                        ( thought )
+                      </Text>
+                      <Text italic color={theme.dim}>
+                        {cleanThought}
+                      </Text>
+                    </Box>
+                  )
+                ) : (
+                  <Text italic color={theme.dim}>
+                    🧠 reasoning — press 'r' to expand
+                  </Text>
+                )}
+              </Box>
+            );
+          })}
+        {!isStreaming &&
+          hasPlans && plans.map((plan, i) => (
             <Box
               key={i}
-              flexDirection="column"
+              flexDirection="row"
+              gap={1}
               paddingLeft={1}
               borderStyle="bold"
               borderRight={false}
               borderTop={false}
               borderBottom={false}
-              borderLeftColor={theme.thought}
+              borderLeftColor={theme.plan}
               marginTop={1}
               marginBottom={1}
             >
-              {snapshot?.overall_goal && (
-                <Box marginBottom={1}>
-                  <Text bold color={theme.highlight}>
-                    🎯 MISSION: {snapshot.overall_goal.toUpperCase()}
-                  </Text>
-                </Box>
-              )}
-              {cleanThought && (
-                <Box flexDirection="column">
-                  <Text italic color={theme.thought} bold>
-                    ( thought )
-                  </Text>
+              <Box flexDirection="column">
+                <Text bold color={theme.plan}>
+                  📋 PLAN
+                </Text>
+                {reasoningExpanded ? (
+                  <Markdown theme={theme}>{plan}</Markdown>
+                ) : (
                   <Text italic color={theme.dim}>
-                    {cleanThought}
+                    press 'r' to expand
                   </Text>
-                </Box>
-              )}
+                )}
+              </Box>
             </Box>
-          );
-        })}
-        {hasPlans && plans.map((plan, i) => (
-          <Box
-            key={i}
-            flexDirection="row"
-            gap={1}
-            paddingLeft={1}
-            borderStyle="bold"
-            borderRight={false}
-            borderTop={false}
-            borderBottom={false}
-            borderLeftColor={theme.plan}
-            marginTop={1}
-            marginBottom={1}
-          >
-            <Box flexDirection="column">
-              <Text bold color={theme.plan}>
-                📋 PLAN
-              </Text>
-              <Markdown theme={theme}>{plan}</Markdown>
-            </Box>
-          </Box>
-        ))}
+          ))}
         {hasContent && (
           <Box flexDirection="column" paddingLeft={2}>
             {isAssistant && isActive && !disableMarkdown && (
@@ -1208,17 +1184,17 @@ function TerminalChatResponseToolBatch({
   const items = group.items;
   const isLargeBatch = items.length > 3;
 
-  useInput(
-    (input, _key) => {
-      if (!isActive) {
-        return;
-      }
-      if (input === "c") {
-        setIsCollapsed(!isCollapsed);
-      }
-    },
-    { isActive },
-  );
+    useInput(
+      (input, _key) => {
+        if (!isActive) {
+          return;
+        }
+        if (input === "c") {
+          setIsCollapsed(!isCollapsed);
+        }
+      },
+      { isActive },
+    );
 
   return (
     <Box flexDirection="column" gap={0} marginY={0}>
@@ -1349,6 +1325,7 @@ function TerminalChatResponseItem({
             model={model}
             showRole={currentShowRole}
             disableMarkdown={isStreaming}
+            isStreaming={isStreaming}
             isActive={isActive}
           />
           {item.tool_calls?.map((toolCall, i) => {

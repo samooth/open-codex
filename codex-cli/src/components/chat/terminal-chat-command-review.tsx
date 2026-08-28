@@ -175,6 +175,30 @@ export function TerminalChatCommandReview({
     { isActive },
   );
 
+  const riskInfo = React.useMemo(() => {
+    if (applyPatch) {
+      return { label: "⚠ MODIFIES FILES", color: theme.error };
+    }
+    if (React.isValidElement(confirmationPrompt)) {
+      const command: unknown = (confirmationPrompt as any).props?.commandForDisplay;
+      const baseCmd =
+        typeof command === "string"
+          ? command.split("\n")[0]?.trim().split(/\s+/)[0] ?? ""
+          : "";
+      const readOnly = [
+        "read_file",
+        "read_file_lines",
+        "search_codebase",
+        "semantic_search",
+        "list_files",
+        "grep",
+        "glob",
+      ].includes(baseCmd);
+      if (readOnly) return { label: "read-only", color: theme.success };
+    }
+    return { label: "⚡ EXECUTES COMMAND", color: theme.warning };
+  }, [applyPatch, confirmationPrompt, theme]);
+
   return (
     <Box
       flexDirection="column"
@@ -193,6 +217,38 @@ export function TerminalChatCommandReview({
             isActive,
           })
         : confirmationPrompt}
+      <Box paddingLeft={1} marginTop={1}>
+        <Text color={riskInfo.color} bold>
+          ({riskInfo.label})
+        </Text>
+      </Box>
+      {applyPatch && (
+        <Box flexDirection="column" marginTop={1} paddingLeft={2}>
+          <Text bold color={theme.error}>
+            DIFF PREVIEW
+          </Text>
+          {applyPatch.patch
+            .split("\n")
+            .slice(0, 14)
+            .map((line: string, i: number) => (
+              <Text
+                key={i}
+                color={
+                  line.startsWith("+") && !line.startsWith("+++")
+                    ? theme.success
+                    : line.startsWith("-") && !line.startsWith("---")
+                      ? theme.error
+                      : theme.dim
+                }
+              >
+                {line.length > 200 ? `${line.slice(0, 200)}…` : line}
+              </Text>
+            ))}
+          {applyPatch.patch.split("\n").length > 14 && (
+            <Text color={theme.dim}>…</Text>
+          )}
+        </Box>
+      )}
       <Box flexDirection="column" gap={0} marginTop={1}>
         {mode === "select" ? (
           <>
@@ -242,6 +298,12 @@ export function TerminalChatCommandReview({
                 }}
                 options={approvalOptions as any}
               />
+              <Box paddingLeft={2} marginTop={1}>
+                <Text color={theme.dim} italic>
+                  y approve · a always · v view/edit · e feedback · n deny · esc
+                  stop
+                </Text>
+              </Box>
             </Box>
           </>
         ) : (

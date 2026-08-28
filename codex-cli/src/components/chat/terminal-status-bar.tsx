@@ -108,9 +108,17 @@ const TerminalStatusBar: React.FC<Props> = ({
               {!isNarrow && (
                 <Text color={theme.dim}>
                   INDEXING
-                  {indexingStatus.current
-                    ? ` [${indexingStatus.current}/${indexingStatus.total}]`
-                    : ""}
+                  {indexingStatus.total
+                    ? ` ${Math.min(
+                        100,
+                        Math.round(
+                          ((indexingStatus.current || 0) / indexingStatus.total) *
+                            100,
+                        ),
+                      )}% (${indexingStatus.current || 0}/${indexingStatus.total})`
+                    : indexingStatus.current
+                      ? ` ${indexingStatus.current}`
+                      : ""}
                 </Text>
               )}
             </>
@@ -149,6 +157,9 @@ const TerminalStatusBar: React.FC<Props> = ({
             </Box>
           ) : (
             <Box gap={1}>
+              <Text color={theme.success} bold>
+                {tokenBreakdown.total}T
+              </Text>
               <Text color={theme.warning}>
                 ${tokenBreakdown.cost.toFixed(4)}
               </Text>

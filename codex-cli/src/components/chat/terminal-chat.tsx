@@ -25,6 +25,7 @@ import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { PluginManager } from "../../utils/agent/plugin-manager.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
+import { ChatErrorBoundary } from "./chat-error-boundary.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { detectInteraction } from "../../utils/interactive-detection.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
@@ -836,8 +837,20 @@ export default function TerminalChat({
     };
   }, [loading, renderedPartialData]);
 
+  const handleRenderError = React.useCallback(
+    (error: Error, info: React.ErrorInfo) => {
+      if (isLoggingEnabled()) {
+        log(
+          `TerminalChat render error: ${error.stack ?? error.message}\n${info.componentStack ?? ""}`,
+        );
+      }
+    },
+    [],
+  );
+
   return (
-    <Box flexDirection="column">
+    <ChatErrorBoundary theme={activeTheme} onError={handleRenderError}>
+      <Box flexDirection="column">
       {agent ? (
         <TerminalMessageHistory
           batch={lastMessageBatch}
@@ -1029,6 +1042,7 @@ export default function TerminalChat({
         handleRefresh={handleRefresh}
         setInitialPrompt={setInitialPrompt}
       />
-    </Box>
+      </Box>
+    </ChatErrorBoundary>
   );
 }
