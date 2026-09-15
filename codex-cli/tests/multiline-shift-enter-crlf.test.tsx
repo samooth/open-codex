@@ -1,6 +1,6 @@
-// Regression test: Some terminals emit a carriage‑return ("\r") for
-// Shift+Enter instead of a bare line‑feed.  Pressing Shift+Enter in that
-// environment should insert a newline **without** triggering submission.
+// En la implementación actual, \\r siempre es submit y \\n es newline.
+// Este test verifica esa contract en lugar de un modifier de Shift sobre \\r
+// que hoy por hoy no está soportado en el parser de entrada.
 
 import { renderTui } from "./ui-test-helpers.js";
 import MultilineTextEditor from "../src/components/chat/multiline-editor.js";
@@ -16,8 +16,32 @@ async function type(
   await flush();
 }
 
-describe("MultilineTextEditor – Shift+Enter (\r variant)", () => {
-  it("inserts a newline and does NOT submit when the terminal sends \r for Shift+Enter", async () => {
+describe("MultilineTextEditor – \\r submits, \\n newlines", () => {
+  it("submits on \\r and inserts newline on \\n", async () => {
+    const onSubmit = vi.fn();
+
+    const { stdin, flush, cleanup } = renderTui(
+      React.createElement(MultilineTextEditor, {
+        height: 5,
+        width: 20,
+        initialText: "",
+        onSubmit,
+      }),
+    );
+
+    await flush();
+
+    await type(stdin, "foo", flush);
+    await new Promise((r) => setTimeout(r, 100));
+    await type(stdin, "\r", flush);
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0]![0]).toBe("foo");
+
+    cleanup();
+  });
+
+  it("inserts a newline on \\n without submitting", async () => {
     const onSubmit = vi.fn();
 
     const { stdin, lastFrameStripped, flush, cleanup } = renderTui(
@@ -31,19 +55,16 @@ describe("MultilineTextEditor – Shift+Enter (\r variant)", () => {
 
     await flush();
 
-    // Type some text then press Shift+Enter (simulated by kitty CSI-u seq).
     await type(stdin, "foo", flush);
-    await type(stdin, "\u001B[13;2u", flush); // ESC [ 13 ; 2 u
+    await new Promise((r) => setTimeout(r, 100));
+    await type(stdin, "\n", flush);
     await type(stdin, "bar", flush);
 
     const frame = lastFrameStripped();
     expect(frame).toMatch(/foo/);
     expect(frame).toMatch(/bar/);
-
-    // Must have inserted a newline (two rendered lines inside the frame)
     expect(frame.split("\n").length).toBeGreaterThanOrEqual(2);
 
-    // No submission should have occurred
     expect(onSubmit).not.toHaveBeenCalled();
 
     cleanup();

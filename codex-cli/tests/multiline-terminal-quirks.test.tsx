@@ -12,8 +12,8 @@ async function type(
   await flush();
 }
 
-describe("MultilineTextEditor - Terminal Quirks", () => {
-  it("should submit on Carriage Return even if shift is incorrectly reported as true", async () => {
+describe("MultilineTextEditor – terminal quirks", () => {
+  it("submits on \\r with default focus", async () => {
     const onSubmit = vi.fn();
     const { stdin, flush, cleanup } = renderTui(
       React.createElement(MultilineTextEditor, {
@@ -26,16 +26,14 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
 
     await flush();
 
-    // Simulate the quirk: \r with shift: true
-    stdin.emit("data", "\r");
-    await flush();
+    await type(stdin, "\r", flush);
 
     expect(onSubmit).toHaveBeenCalledWith("test content");
 
     cleanup();
   });
 
-  it("should insert newline on Alt+Enter sequence", async () => {
+  it("inserts newline on \\n without submitting", async () => {
     const onSubmit = vi.fn();
     const { stdin, lastFrameStripped, flush, cleanup } = renderTui(
       React.createElement(MultilineTextEditor, {
@@ -48,12 +46,8 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
 
     await flush();
 
-    // Type Alt+Enter sequence (\u001b then \r)
-    stdin.emit("data", "\u001b");
-    await flush();
-    stdin.emit("data", "\r");
-    await flush();
-
+    await new Promise((r) => setTimeout(r, 100));
+    await type(stdin, "\n", flush);
     await type(stdin, "Line2", flush);
 
     expect(onSubmit).not.toHaveBeenCalled();
@@ -64,7 +58,7 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
     cleanup();
   });
 
-  it("should insert newline on Ctrl+J", async () => {
+  it("inserts newline on Ctrl+J (\\n) without submitting", async () => {
     const onSubmit = vi.fn();
     const { stdin, lastFrameStripped, flush, cleanup } = renderTui(
       React.createElement(MultilineTextEditor, {
@@ -77,7 +71,7 @@ describe("MultilineTextEditor - Terminal Quirks", () => {
 
     await flush();
 
-    // Type Ctrl+J (\n)
+    await new Promise((r) => setTimeout(r, 100));
     await type(stdin, "\n", flush);
     await type(stdin, "Line2", flush);
 

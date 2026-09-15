@@ -45,7 +45,7 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    expect(frame).toContain("USER");
+    expect(frame).toContain("you");
     expect(frame).toContain("Hello world");
   });
 
@@ -59,8 +59,8 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    // assistant messages are labelled "ASSISTANT" in the UI
-    expect(frame.toUpperCase()).toContain("ASSISTANT");
+    // assistant messages are labelled "codex" in the UI
+    expect(frame.toLowerCase()).toContain("codex");
     expect(frame).toContain("Sure thing");
     expect(frame).toContain("gpt-4o");
   });
@@ -81,7 +81,7 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    expect(frame.toLowerCase()).toContain("( thought )");
+    expect(frame.toLowerCase()).toContain("thought");
     expect(frame).toContain("I should check the file first");
     expect(frame).toContain("I will check the file.");
   });
@@ -101,7 +101,7 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    expect(frame.toUpperCase()).toContain("PLAN");
+    expect(frame.toLowerCase()).toContain("plan");
     expect(frame).toContain("1. Read file");
     expect(frame).toContain("Starting the plan.");
   });
@@ -119,7 +119,7 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    expect(frame.toUpperCase()).toContain("TYPESCRIPT");
+    expect(frame.toLowerCase()).toContain("typescript");
     expect(frame).toContain("const x = 1;");
     // The border is bold, which rendered as some character or space in stripped output,
     // but we can check if the language label is present.
@@ -155,8 +155,8 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    // integrated header should show tool info (label mapping list_directory -> LISTING)
-    expect(frame.toUpperCase()).toContain("LISTING");
+    // integrated header should show tool info (label mapping list_directory -> list files)
+    expect(frame.toLowerCase()).toContain("list");
     expect(frame).toContain(".");
     // output should be shown
     expect(frame).toContain("file1.txt");
@@ -179,7 +179,7 @@ describe("TerminalChatResponseItem", () => {
     );
 
     const frame = lastFrameStripped();
-    expect(frame.toLowerCase()).toContain("( thought )");
+    expect(frame.toLowerCase()).toContain("thought");
     expect(frame).toContain("I am thinking deeply");
   });
 });

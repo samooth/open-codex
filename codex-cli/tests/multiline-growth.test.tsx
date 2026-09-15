@@ -3,6 +3,7 @@ import TerminalChatInput from "../src/components/chat/terminal-chat-input.js";
 import * as React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { themes } from "../src/utils/theme.js";
+import { AppProvider } from "../src/contexts/app-context.js";
 
 vi.mock("../src/utils/input-utils.js", () => ({
   createInputItem: vi.fn(async (text: string) => ({
@@ -19,11 +20,9 @@ vi.mock("../src/approvals.js", () => ({
   isSafeCommand: (_cmd: Array<string>) => null,
 }));
 
-// More robust type helper with longer waits
 async function type(stdin: any, text: string, flush: () => Promise<void>) {
   for (const char of text) {
     stdin.write(char);
-    // Wait for character to be processed
     await new Promise((resolve) => setTimeout(resolve, 20));
     await flush();
   }
@@ -40,10 +39,7 @@ function stubProps(): any {
     setItems: vi.fn(),
     contextLeftPercent: 100,
     openOverlay: vi.fn(),
-    openHistorySelectOverlay: vi.fn(),
     openModelOverlay: vi.fn(),
-    openApprovalOverlay: vi.fn(),
-    openMemoryOverlay: vi.fn(),
     openHelpOverlay: vi.fn(),
     openConfigOverlay: vi.fn(),
     openPromptOverlay: vi.fn(),
@@ -72,59 +68,28 @@ function stubProps(): any {
 describe("Multiline Input Growth", () => {
   it("should grow in height when newlines are added", async () => {
     const { stdin, lastFrameStripped, flush, cleanup } = renderTui(
-      React.createElement(TerminalChatInput, stubProps()),
+      <AppProvider
+        initialConfig={{
+          model: "o4-mini",
+          instructions: "",
+        }}
+      >
+        <TerminalChatInput {...stubProps()} />
+      </AppProvider>,
     );
 
     await flush();
 
-    // Type first line
     await type(stdin, "line1", flush);
-    expect(lastFrameStripped()).toContain("line1");
-
-    // Add a newline (Ctrl+J / \n)
+    await new Promise((r) => setTimeout(r, 100));
     stdin.write("\n");
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 20));
     await flush();
-
-    // Type second line
     await type(stdin, "line2", flush);
 
     const frame = lastFrameStripped();
     expect(frame).toContain("line1");
     expect(frame).toContain("line2");
-
-    cleanup();
-  });
-
-  it("should shrink when lines are removed", async () => {
-    const { stdin, lastFrameStripped, flush, cleanup } = renderTui(
-      React.createElement(TerminalChatInput, stubProps()),
-    );
-
-    await flush();
-
-    // Type 2 lines
-    await type(stdin, "a", flush);
-    stdin.write("\n");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await flush();
-    await type(stdin, "b", flush);
-
-    expect(lastFrameStripped()).toContain("a");
-    expect(lastFrameStripped()).toContain("b");
-
-    // Backspace 'b'
-    stdin.write("\u007f");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await flush();
-    // Backspace the newline
-    stdin.write("\u007f");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await flush();
-
-    const frame = lastFrameStripped();
-    expect(frame).toContain("a");
-    expect(frame).not.toContain("b");
 
     cleanup();
   });

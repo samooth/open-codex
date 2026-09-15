@@ -56,6 +56,7 @@ import {
   isErrorRateLimit,
   isErrorTooManyTokens,
   extractRetryDelay,
+  cleanErrorMessage,
 } from "./error-handling.js";
 
 // Wait time before retrying after rate limit errors (ms).
@@ -730,8 +731,16 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
-            const combinedSystemPrompt = `${stableInstructions}\n\n--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`;
-
+            let systemMessages: Array<ChatCompletionMessageParam> = [
+              { role: "system" as const, content: stableInstructions },
+              {
+                role: "system" as const,
+                content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
+              },
+            ];
+            this.pluginManager.applySystemTransforms(input, systemMessages).catch((e) =>
+              log(`System transform error: ${e}`),
+            );
             const toolsToUse = [
               ...tools,
               ...this.pluginManager.getAllDefinitions(),
@@ -755,16 +764,17 @@ export class AgentLoop {
               this.config.provider === "google" ||
               this.config.provider === "gemini"
             ) {
-              const hasExistingSystem = currentPrevItems.some(
-                (m) => m.role === "system",
-              );
-              const includeStable = shouldRefresh || !hasExistingSystem;
+              const mergedSystem = systemMessages
+                .map((m) =>
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+                )
+                .join("\n\n");
 
               const messagesToMap = [
-                ...(includeStable
-                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
-                  : []),
-                ...currentPrevItems,
+                { role: "system" as const, content: mergedSystem },
+                ...currentPrevItems.filter((m) => m.role !== "system"),
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
@@ -832,7 +842,7 @@ export class AgentLoop {
               const requestBody = {
                 model: this.model,
                 messages: anthropicMessages,
-                system: combinedSystemPrompt,
+                system: systemMessages.map((m) => m.content).join("\n\n"),
                 tools: anthropicTools,
                 stream: true,
                 max_tokens: this.config.maxTokens || 8192,
@@ -909,16 +919,17 @@ export class AgentLoop {
 
               stream = anthropicToOpenAiStream(anthropicAsyncIterable) as any;
             } else if (this.config.provider === "openai-responses") {
-              const hasExistingSystem = currentPrevItems.some(
-                (m) => m.role === "system",
-              );
-              const includeStable = shouldRefresh || !hasExistingSystem;
+              const mergedSystem = systemMessages
+                .map((m) =>
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+                )
+                .join("\n\n");
 
               const finalMessages = [
-                ...(includeStable
-                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
-                  : []),
-                ...currentPrevItems,
+                { role: "system" as const, content: mergedSystem },
+                ...currentPrevItems.filter((m) => m.role !== "system"),
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
@@ -1096,16 +1107,21 @@ export class AgentLoop {
 
               stream = openAiResponseApiAsyncIterable as any;
             } else {
-              const hasExistingSystem = currentPrevItems.some(
-                (m) => m.role === "system",
+              const prevWithoutSystem = currentPrevItems.filter(
+                (m) => m.role !== "system",
               );
-              const includeStable = shouldRefresh || !hasExistingSystem;
+
+              const mergedSystem = systemMessages
+                .map((m) =>
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+                )
+                .join("\n\n");
 
               const finalMessages = [
-                ...(includeStable
-                  ? [{ role: "system" as const, content: combinedSystemPrompt }]
-                  : []),
-                ...currentPrevItems,
+                { role: "system" as const, content: mergedSystem },
+                ...prevWithoutSystem,
                 ...(this.staged.filter(
                   Boolean,
                 ) as Array<ChatCompletionMessageParam>),
@@ -1113,7 +1129,7 @@ export class AgentLoop {
 
               if (process.env["DEBUG"]) {
                 // eslint-disable-next-line no-console
-                log(
+                console.error(
                   `[codex-debug] OpenAI-compatible Request: ${JSON.stringify(
                     {
                       model: this.model,
@@ -1140,8 +1156,8 @@ export class AgentLoop {
 
               const mergedExtraBody = { ...extraBody };
               if (Object.keys(ollamaOptions).length > 0) {
-                mergedExtraBody.options = {
-                  ...(mergedExtraBody.options || {}),
+                mergedExtraBody["options"] = {
+                  ...(mergedExtraBody["options"] || {}),
                   ...ollamaOptions,
                 };
               }

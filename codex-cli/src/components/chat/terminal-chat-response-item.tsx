@@ -26,7 +26,7 @@ import { SafeText } from "../../utils/ink-safe.js";
 import { getSyntaxTheme } from "../../utils/theme.js";
 import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
-import { highlight as syntaxHighlight } from "cli-highlight";
+import { chalkFor, type ThemeColor } from "../../utils/theme.js";import { highlight as syntaxHighlight } from "cli-highlight";
 import { Box, Text, useInput } from "ink";
 import { parse } from "marked";
 import TerminalRenderer from "marked-terminal";
@@ -121,7 +121,7 @@ export const LiteMarkdown = React.memo(function LiteMarkdown({
             <Box
               key={i}
               flexDirection="column"
-              borderStyle="bold"
+              borderStyle="single"
               borderRight={false}
               borderTop={false}
               borderBottom={false}
@@ -206,16 +206,14 @@ export function Markdown({
           }
         },
         // Enhanced styling
-        heading:
-          chalk[theme.assistant as ForegroundColorName]?.bold || chalk.bold,
+        heading: chalkFor(theme.assistant)?.bold || chalk.bold,
         firstHeading:
-          chalk[theme.assistant as ForegroundColorName]?.bold?.underline ||
-          chalk.bold.underline,
+          chalkFor(theme.assistant)?.bold?.underline || chalk.bold.underline,
         strong: chalk.bold,
         em: chalk.italic,
-        codespan: chalk.cyan,
-        link: chalk.cyanBright.underline,
-        href: chalk.cyanBright.underline,
+        codespan: chalkFor(theme.highlight),
+        link: chalkFor(theme.highlight).underline,
+        href: chalkFor(theme.highlight).underline,
         code: chalk.reset,
         tableOptions: {
           style: {
@@ -287,19 +285,19 @@ export function Markdown({
       const taskListFixed = renderedMarkdown
         .replace(
           /^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim,
-          chalk[theme.success as ForegroundColorName]("✅ "),
+          chalkFor(theme.success)("✓ "),
         )
         .replace(
           /^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim,
-          chalk[theme.dim as ForegroundColorName]("⬜ "),
+          chalkFor(theme.dim)("○ "),
         )
         .replace(
           /(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim,
-          `$1  ${chalk[theme.success as ForegroundColorName]("✅ ")}`,
+          `$1  ${chalkFor(theme.success)("✓ ")}`,
         )
         .replace(
           /(\n)[ \t]{2,}[*+-][ \t]+\[ \][ \t]+/gim,
-          `$1  ${chalk[theme.dim as ForegroundColorName]("⬜ ")}`,
+          `$1  ${chalkFor(theme.dim)("○ ")}`,
         );
 
       // 3. Split the rendered text back into parts by finding our placeholders
@@ -349,7 +347,7 @@ export function Markdown({
             <Box
               key={i}
               flexDirection="column"
-              borderStyle="bold"
+              borderStyle="single"
               borderRight={false}
               borderTop={false}
               borderBottom={false}
@@ -525,12 +523,12 @@ export const TerminalChatResponseToolCallOutput = React.memo(
       [exit_code, duration_seconds],
     );
 
-    let label = "STDOUT";
-    let labelColor: ForegroundColorName = theme.dim as ForegroundColorName;
+    let label = "output";
+    let labelColor: ThemeColor = theme.dim;
     let headerContent: string | undefined;
 
     if (type === "web_fetch") {
-      label = "WEB.FETCH";
+      label = "web fetch";
       labelColor = theme.highlight;
       headerContent = url;
     } else if (
@@ -538,7 +536,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(
       type === "web_search_serper" ||
       type === "web_search_searxng"
     ) {
-      label = "WEB.SEARCH";
+      label = "web search";
       labelColor = theme.highlight;
       headerContent = `query: ${query}`;
     }
@@ -554,8 +552,8 @@ export const TerminalChatResponseToolCallOutput = React.memo(
         const remaining = lines.length - 10;
         displayedContent = [
           ...head,
-          chalk.gray(
-            `... (${remaining} more lines${isActive ? ", press 'c' to expand" : ""})`,
+          chalkFor(theme.dim)(
+            `▾ ${remaining} more lines${isActive ? " · c expand" : ""}`,
           ),
         ].join("\n");
       }
@@ -563,8 +561,8 @@ export const TerminalChatResponseToolCallOutput = React.memo(
       if (displayedContent.length > 9000) {
         displayedContent =
           displayedContent.slice(0, 9000) +
-          chalk.gray(
-            `\n... (truncated, ${output.length - 9000} more characters${isActive ? ", press 'c' to expand" : ""})`,
+          chalkFor(theme.dim)(
+            `\n▾ ${output.length - 9000} more chars${isActive ? " · c expand" : ""}`,
           );
       }
     }
@@ -619,13 +617,13 @@ export const TerminalChatResponseToolCallOutput = React.memo(
           .split("\n")
           .map((line) => {
             if (line.startsWith("+") && !line.startsWith("+++")) {
-              return chalk[theme.success](line);
+              return chalkFor(theme.success)(line);
             }
             if (line.startsWith("-") && !line.startsWith("---")) {
-              return chalk[theme.error](line);
+              return chalkFor(theme.error)(line);
             }
             if (line.startsWith("@@")) {
-              return chalk.cyan(line);
+              return chalkFor(theme.highlight)(line);
             }
             return line;
           })
@@ -641,7 +639,7 @@ export const TerminalChatResponseToolCallOutput = React.memo(
         gap={0}
         marginY={aborted ? 0 : 1}
         paddingLeft={1}
-        borderStyle="bold"
+        borderStyle="single"
         borderRight={false}
         borderTop={false}
         borderBottom={false}
@@ -667,9 +665,9 @@ export const TerminalChatResponseToolCallOutput = React.memo(
               {icon}
             </Text>
             <Text color={theme.toolLabel} bold>
-              {callLabel.toUpperCase()}
+              {callLabel}
             </Text>
-            <Text color={theme.highlight} wrap="wrap">
+            <Text color={theme.dim} wrap="wrap">
               {summary}
             </Text>
           </Box>
@@ -727,10 +725,10 @@ export const TerminalChatResponseToolCallOutput = React.memo(
         </Box>
         {!aborted && isLargeOutput && isActive && (
           <Box marginTop={0} paddingX={1} marginBottom={0}>
-            <Text color={theme.dim} italic>
+            <Text color={theme.dim}>
               {isCollapsed
-                ? `(press 'c' to expand ${lineCount - 10} more lines)`
-                : "(press 'c' to collapse)"}
+                ? `▸ c expand ${lineCount - 10} more lines`
+                : "▾ c collapse"}
             </Text>
           </Box>
         )}
@@ -746,11 +744,13 @@ export const TerminalChatResponseToolCall = React.memo(
   loading = false,
     theme,
     status = 'running',
+    durationSeconds,
   }: {
     message: ChatCompletionMessageToolCall;
     loading?: boolean;
     theme: Theme;
     status?: MessageStatus;
+    durationSeconds?: number;
   }) {
     const { label, icon, summary, toolName, details } = useMemo(
       () => getToolDisplayInfo(message),
@@ -789,11 +789,6 @@ export const TerminalChatResponseToolCall = React.memo(
 
     const isWrite = toolName === TOOL_APPLY_PATCH;
     const isExec = toolName === TOOL_SHELL;
-    const riskBadge = isWrite
-      ? "✎ writes files"
-      : isExec
-        ? "⚡ executes"
-        : "read-only";
     const riskColor = isWrite
       ? theme.error
       : isExec
@@ -806,7 +801,7 @@ export const TerminalChatResponseToolCall = React.memo(
         gap={1}
         marginY={1}
         paddingLeft={1}
-        borderStyle="bold"
+        borderStyle="single"
         borderRight={false}
         borderTop={false}
         borderBottom={false}
@@ -818,18 +813,29 @@ export const TerminalChatResponseToolCall = React.memo(
               <Spinner type="dots" color={theme.toolLabel} />
             ) : (
               <Text color={textColor} bold>
-                {status === 'success' ? '✅' : status === 'failure' ? '❌' : icon}
+                {status === 'success' ? '✓' : status === 'failure' ? '✗' : icon}
               </Text>
             )}
             <Text color={theme.toolLabel} bold>
-              {label.toUpperCase()}
+              {label}
             </Text>
-            <Text color={theme.highlight} wrap="wrap">
+            <Text color={theme.dim} wrap="wrap">
               {summary}
             </Text>
-            <Text color={riskColor} italic>
-              ({riskBadge})
-            </Text>
+            {status !== 'running' && (
+              <Text color={riskColor}>
+                {isWrite ? '· writes' : isExec ? '· exec' : '· read'}
+              </Text>
+            )}
+            {status !== 'running' &&
+              typeof durationSeconds === 'number' &&
+              durationSeconds >= 0 && (
+                <Text color={theme.dim}>
+                  {durationSeconds >= 10
+                    ? `· ${Math.round(durationSeconds)}s`
+                    : `· ${durationSeconds.toFixed(1)}s`}
+                </Text>
+              )}
           </Box>
           {(status === 'running' || readableText) &&
             (toolName === TOOL_SHELL || toolName === TOOL_APPLY_PATCH) && (
@@ -869,7 +875,7 @@ export const TerminalChatResponseMessage = React.memo(
   status?: MessageStatus;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [reasoningExpanded, setReasoningExpanded] = useState(false);
+  const [reasoningExpanded, setReasoningExpanded] = useState(true);
   const contentParts: Array<string> = [];
     const imagePaths: Array<string> = [];
 
@@ -971,18 +977,16 @@ export const TerminalChatResponseMessage = React.memo(
       return (
         <Box flexDirection="column" paddingLeft={2} marginY={1}>
           <Box gap={1}>
-            <Box backgroundColor={roleColor as any} paddingX={1}>
-              <Text bold color="black">
-                {isAssistant ? " ASSISTANT " : " USER "}
-              </Text>
-            </Box>
+            <Text color={roleColor} bold>
+              {isAssistant ? "◆ codex" : "◇ you"}
+            </Text>
             <Text color={theme.dim} italic>
-              (collapsed - press 'c' to expand)
+              (collapsed · press c to expand)
             </Text>
           </Box>
           <Text color={theme.dim} italic>
             {displayContent.slice(0, 100).replace(/\n/g, " ")}
-            {displayContent.length > 100 ? "..." : ""}
+            {displayContent.length > 100 ? "…" : ""}
           </Text>
         </Box>
       );
@@ -992,11 +996,9 @@ export const TerminalChatResponseMessage = React.memo(
       <Box flexDirection="column" paddingLeft={isAssistant ? 0 : 0}>
         {showRole && (hasContent || hasThoughts || hasPlans || (!hasThoughts && !hasPlans)) && (
           <Box gap={1} marginBottom={1} marginTop={1}>
-            <Box backgroundColor={roleColor as any} paddingX={1}>
-              <Text bold color="black">
-                {isAssistant ? " ASSISTANT " : " USER "}
-              </Text>
-            </Box>
+            <Text color={roleColor} bold>
+              {isAssistant ? "◆ codex" : "◇ you"}
+            </Text>
             {isAssistant && model && (
               <Text color={theme.dim} italic>
                 {model}
@@ -1025,7 +1027,7 @@ export const TerminalChatResponseMessage = React.memo(
                 key={i}
                 flexDirection="column"
                 paddingLeft={1}
-                borderStyle="bold"
+                borderStyle="single"
                 borderRight={false}
                 borderTop={false}
                 borderBottom={false}
@@ -1036,15 +1038,17 @@ export const TerminalChatResponseMessage = React.memo(
                 {snapshot?.overall_goal && (
                   <Box marginBottom={1}>
                     <Text bold color={theme.highlight}>
-                      🎯 MISSION: {snapshot.overall_goal.toUpperCase()}
+                      ▸ mission
                     </Text>
+                    <Text color={theme.dim}> {snapshot.overall_goal}</Text>
                   </Box>
                 )}
                 {reasoningExpanded ? (
                   cleanThought && (
                     <Box flexDirection="column">
-                      <Text italic color={theme.thought} bold>
-                        [-] thought
+                      <Text color={theme.thought} bold>
+                        ▾ thought
+                        <Text color={theme.dim}> r collapse</Text>
                       </Text>
                       <Text italic color={theme.dim}>
                         {cleanThought}
@@ -1052,8 +1056,9 @@ export const TerminalChatResponseMessage = React.memo(
                     </Box>
                   )
                 ) : (
-                  <Text italic color={theme.dim}>
-                    [+] thought (press r to expand)
+                  <Text color={theme.dim}>
+                    ▸ thought
+                    <Text color={theme.dim}> r expand</Text>
                   </Text>
                 )}
               </Box>
@@ -1066,7 +1071,7 @@ export const TerminalChatResponseMessage = React.memo(
               flexDirection="row"
               gap={1}
               paddingLeft={1}
-              borderStyle="bold"
+              borderStyle="single"
               borderRight={false}
               borderTop={false}
               borderBottom={false}
@@ -1076,9 +1081,8 @@ export const TerminalChatResponseMessage = React.memo(
             >
               <Box flexDirection="column">
                 <Text bold color={theme.plan}>
-                  {reasoningExpanded
-                    ? "[-] plan"
-                    : "[+] plan (press r to expand)"}
+                  {reasoningExpanded ? "▾ plan" : "▸ plan"}
+                  <Text color={theme.dim}> r {reasoningExpanded ? "collapse" : "expand"}</Text>
                 </Text>
                 {reasoningExpanded && <Markdown theme={theme}>{plan}</Markdown>}
               </Box>
@@ -1088,8 +1092,8 @@ export const TerminalChatResponseMessage = React.memo(
           <Box flexDirection="column" paddingLeft={2}>
             {isAssistant && isActive && !disableMarkdown && (
               <Box marginBottom={0}>
-                <Text color={theme.dim} italic>
-                  (press 'c' to collapse)
+                <Text color={theme.dim}>
+                  {isCollapsed ? "▸ c expand" : "▾ c collapse"}
                 </Text>
               </Box>
             )}
@@ -1118,10 +1122,10 @@ export const TerminalChatResponseMessage = React.memo(
             )}
             {isAssistant && isLargeOutput && isActive && (
               <Box marginTop={0} paddingX={0} marginBottom={0}>
-                <Text color={theme.dim} italic>
+                <Text color={theme.dim}>
                   {isCollapsed
-                    ? `(press 'c' to expand ${lineCount - 10} more lines)`
-                    : "(press 'c' to collapse)"}
+                    ? `▸ c expand ${lineCount - 10} more lines`
+                    : "▾ c collapse"}
                 </Text>
               </Box>
             )}
@@ -1207,9 +1211,11 @@ function TerminalChatResponseToolBatch({
   return (
     <Box flexDirection="column" gap={0} marginY={0}>
       <Box gap={1} marginBottom={0} marginLeft={2}>
-        <Text color={theme.dim} bold italic>
-          batch: {items.length} ops{" "}
-          {isActive && `(press 'c' to ${isCollapsed ? "expand" : "collapse"})`}
+        <Text color={theme.dim} bold>
+          {isCollapsed ? "▸" : "▾"} batch · {items.length} ops
+          {isActive && (
+            <Text color={theme.dim}> c {isCollapsed ? "expand" : "collapse"}</Text>
+          )}
         </Text>
       </Box>
       {!isCollapsed && (
@@ -1337,6 +1343,25 @@ function TerminalChatResponseItem({
             isActive={isActive}
           />
           {item.tool_calls?.map((toolCall, i) => {
+            // Pair this call with its tool result (if already arrived) to
+            // surface per-call duration in the header.
+            let durationSeconds: number | undefined;
+            const paired = toolCallMap.get(toolCall.id);
+            if (
+              paired &&
+              "content" in paired &&
+              typeof paired.content === "string"
+            ) {
+              try {
+                const parsed = parseToolCallOutput(paired.content);
+                const secs = (parsed.metadata as any)?.duration_seconds;
+                if (typeof secs === "number") {
+                  durationSeconds = secs;
+                }
+              } catch {
+                /* not JSON — ignore */
+              }
+            }
             return (
               <TerminalChatResponseToolCall
                 key={i}
@@ -1345,6 +1370,7 @@ function TerminalChatResponseItem({
 
                 theme={theme}
                 status={(toolCall as any).status}
+                durationSeconds={durationSeconds}
               />
             );
           })}

@@ -15,7 +15,7 @@ async function type(
 }
 
 describe("MultilineTextEditor – Enter submits (CR)", () => {
-  it("calls onSubmit when \r is received", async () => {
+  it("calls onSubmit when carriage return is received", async () => {
     const onSubmit = vi.fn();
 
     const { stdin, flush, cleanup } = renderTui(
@@ -29,6 +29,7 @@ describe("MultilineTextEditor – Enter submits (CR)", () => {
     await flush();
 
     await type(stdin, "hello", flush);
+    await new Promise((r) => setTimeout(r, 100));
     await type(stdin, "\r", flush);
 
     await flush();

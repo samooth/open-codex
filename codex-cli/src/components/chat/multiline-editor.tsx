@@ -257,45 +257,33 @@ const MultilineTextEditorInner = (
 
       // 1) CSI sequences -------------------------------------------------------
       if (input.startsWith("[") || input.startsWith("\u001b[")) {
-        // CSI-u (mode 2)
-        const mU = input.match(/\[([0-9]+);([0-9]+)u$/);
-        if (mU && mU[1] === "13") {
-          const mod = Number(mU[2]);
-          const hasShift = (mod - 1) % 2 === 1;
-          const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
-          if (hasShift || hasAltMod) {
-            buffer.current.newline();
-            if (onChange) {
-              onChange(buffer.current.getText());
+        const raw = input.replace(/^\u001b/, "");
+        const m = raw.match(/^\[(?:13;([0-9]+)u|27;([0-9]+);13~)$/);
+        if (m) {
+          const mod = Number(m[1] || m[2]);
+          if (mod === 1) {
+            if (onSubmit) {
+              onSubmit(buffer.current.getText());
             }
-          } else if (onSubmit) {
-            onSubmit(buffer.current.getText());
-          } else {
-            buffer.current.newline();
-            if (onChange) {
-              onChange(buffer.current.getText());
-            }
+            setVersion((v) => v + 1);
+            return;
           }
-          setVersion((v) => v + 1);
-          return;
-        }
-        // CSI-~ (mode 1)
-        const mT = input.match(/\[27;([0-9]+);13~$/);
-        if (mT) {
-          const mod = Number(mT[1]);
+          const hasCtrl = Math.floor(mod / 4) % 2 === 1;
           const hasShift = (mod - 1) % 2 === 1;
-          const hasAltMod = Math.floor((mod - 1) / 2) % 2 === 1;
-          if (hasShift || hasAltMod) {
+          const hasAlt = Math.floor((mod - 1) / 2) % 2 === 1;
+
+          if (hasCtrl) {
+            if (onSubmit) {
+              onSubmit(buffer.current.getText());
+            }
+          } else if (hasShift || hasAlt) {
             buffer.current.newline();
             if (onChange) {
               onChange(buffer.current.getText());
             }
-          } else if (onSubmit) {
-            onSubmit(buffer.current.getText());
           } else {
-            buffer.current.newline();
-            if (onChange) {
-              onChange(buffer.current.getText());
+            if (onSubmit) {
+              onSubmit(buffer.current.getText());
             }
           }
           setVersion((v) => v + 1);

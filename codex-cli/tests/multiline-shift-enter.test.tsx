@@ -4,12 +4,11 @@ import * as React from "react";
 import { describe, it, expect, vi } from "vitest";
 
 async function type(
-  stdin: any,
+  stdin: NodeJS.WritableStream,
   text: string,
   flush: () => Promise<void>,
-  key: any = {},
 ) {
-  stdin.write(text, key);
+  stdin.write(text);
   await flush();
 }
 
@@ -28,20 +27,15 @@ describe("MultilineTextEditor – Shift+Enter", () => {
 
     await flush();
 
-    // type 'hi'
     await type(stdin, "hi", flush);
-
-    // send Shift+Enter (\n)
+    await new Promise((r) => setTimeout(r, 100));
     await type(stdin, "\n", flush);
-
-    // type 'there'
     await type(stdin, "there", flush);
 
     const frame = lastFrameStripped();
     expect(frame).toMatch(/hi/);
     expect(frame).toMatch(/there/);
 
-    // Shift+Enter must not trigger submission
     expect(onSubmit).not.toHaveBeenCalled();
 
     cleanup();

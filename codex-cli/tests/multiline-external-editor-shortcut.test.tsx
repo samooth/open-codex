@@ -14,7 +14,7 @@ async function type(
 }
 
 describe("MultilineTextEditor – external editor shortcut", () => {
-  it("fires openInExternalEditor on Ctrl‑E (single key)", async () => {
+  it("fires openInExternalEditor on Ctrl+E (single key)", async () => {
     const spy = vi
       .spyOn(TextBuffer.prototype as any, "openInExternalEditor")
       .mockResolvedValue(undefined);
@@ -27,18 +27,16 @@ describe("MultilineTextEditor – external editor shortcut", () => {
       }),
     );
 
-    // Ensure initial render.
     await flush();
 
-    // Send Ctrl‑E → should fire immediately
-    await type(stdin, "\x05", flush); // Ctrl‑E (ENQ / 0x05)
+    await type(stdin, "\x05", flush);
     expect(spy).toHaveBeenCalledTimes(1);
 
     spy.mockRestore();
     cleanup();
   });
 
-  it("fires openInExternalEditor on Ctrl‑X (single key)", async () => {
+  it("fires openInExternalEditor on Ctrl+X (single key)", async () => {
     const spy = vi
       .spyOn(TextBuffer.prototype as any, "openInExternalEditor")
       .mockResolvedValue(undefined);
@@ -51,11 +49,9 @@ describe("MultilineTextEditor – external editor shortcut", () => {
       }),
     );
 
-    // Ensure initial render.
     await flush();
 
-    // Send Ctrl‑X → should fire immediately
-    await type(stdin, "\x18", flush); // Ctrl‑X (SUB / 0x18)
+    await type(stdin, "\x18", flush);
     expect(spy).toHaveBeenCalledTimes(1);
 
     spy.mockRestore();
