@@ -8,6 +8,14 @@ export type TokenBreakdown = {
   history: number;
   tools: number;
   cost: number;
+  /** Input tokens (system + user + tool) */
+  input: number;
+  /** Output tokens (assistant) */
+  output: number;
+  /** Input cost in USD */
+  inputCost: number;
+  /** Output cost in USD */
+  outputCost: number;
 };
 
 /**
@@ -79,14 +87,26 @@ export function approximateTokensUsed(
   const total = inputTokens + outputTokens;
   const pricing = getModelPricing(model);
   let cost = 0;
+  let inputCost = 0;
+  let outputCost = 0;
   if (pricing) {
-    const inputCost = (inputTokens / 1_000_000) * pricing.input;
-    const outputCost = (outputTokens / 1_000_000) * pricing.output;
+    inputCost = (inputTokens / 1_000_000) * pricing.input;
+    outputCost = (outputTokens / 1_000_000) * pricing.output;
     cost = inputCost + outputCost;
   }
 
   // For display, we still break it down a bit differently
   const history = userInputTokens + assistantOutputTokens;
 
-  return { total, system: systemTokens, history, tools: toolTokens, cost };
+  return {
+    total,
+    system: systemTokens,
+    history,
+    tools: toolTokens,
+    cost,
+    input: inputTokens,
+    output: outputTokens,
+    inputCost,
+    outputCost,
+  };
 }

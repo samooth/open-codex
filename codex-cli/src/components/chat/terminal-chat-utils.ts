@@ -1,4 +1,7 @@
 import type { Theme } from "../../utils/theme.js";
+
+import { chalkFor } from "../../utils/theme.js";
+import chalk, { type ForegroundColorName } from "chalk";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
@@ -12,7 +15,6 @@ import {
 } from "../../utils/agent/tool-constants.js";
 import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
 import { parseToolCallArguments } from "../../utils/parsers.js";
-import chalk, { type ForegroundColorName } from "chalk";
 
 export interface CommandReviewDetails {
   cmd: Array<string>;
@@ -132,13 +134,13 @@ export function getToolDisplayInfo(message: ChatCompletionMessageToolCall) {
  * This ensures syntax highlighting is consistent and doesn't use red for non-errors.
  */
 export function getSyntaxHighlightTheme(theme: Theme) {
-  const assistantColor = chalk[theme.assistant] || chalk.greenBright;
-  const userColor = chalk[theme.user] || chalk.blueBright;
-  const highlightColor = chalk[theme.highlight] || chalk.cyanBright;
-  const successColor = chalk[theme.success] || chalk.green;
-  const warningColor = chalk[theme.warning] || chalk.yellow;
-  const dimColor = chalk[theme.dim] || chalk.gray;
-  const deletionColor = chalk[theme.deletion] || chalk.magenta;
+  const assistantColor = chalkFor(theme.assistant) || chalk.greenBright;
+  const userColor = chalkFor(theme.user) || chalk.blueBright;
+  const highlightColor = chalkFor(theme.highlight) || chalk.cyanBright;
+  const successColor = chalkFor(theme.success) || chalk.green;
+  const warningColor = chalkFor(theme.warning) || chalk.yellow;
+  const dimColor = chalkFor(theme.dim) || chalk.gray;
+  const deletionColor = chalkFor(theme.deletion) || chalk.magenta;
 
   return {
     "keyword": assistantColor,
@@ -229,6 +231,54 @@ export function maxTokensForModel(model: string): number {
   }
   // Default to 128k for newer long‑context models
   return 128000;
+}
+
+/**
+ * Typical max output tokens reserved per model family. The context window
+ * must leave room for the model's reply, so "available for input" is the
+ * context limit minus this reservation.
+ */
+export function outputReservationForModel(
+  model: string,
+  configuredMaxTokens?: number,
+): number {
+  if (configuredMaxTokens && configuredMaxTokens > 0) {
+    return configuredMaxTokens;
+  }
+  const lower = model.toLowerCase();
+  if (lower.includes("o1") || lower.includes("o3") || lower.includes("o4")) {
+    return 32768;
+  }
+  if (lower.includes("claude")) {
+    return 8192;
+  }
+  if (lower.includes("gemini")) {
+    return 8192;
+  }
+  return 16384;
+}
+
+/**
+ * Three-segment context split: used (input+output so far), reserved for the
+ * model's output, and genuinely free — mirrors Kilo's ContextProgress bar.
+ */
+export function calculateContextSegments(
+  items: Array<ChatCompletionMessageParam>,
+  model: string,
+  forcedMaxTokens?: number,
+): { usedPct: number; reservedPct: number; freePct: number } {
+  const breakdown = approximateTokensUsed(model, items);
+  const max = forcedMaxTokens || maxTokensForModel(model);
+  const reserved = outputReservationForModel(model, undefined);
+  const used = Math.min(breakdown.total, max);
+  const free = Math.max(0, max - used - reserved);
+  // If usage already ate into the reservation, show it as 0 free.
+  const freeClamped = Math.min(free, Math.max(0, max - used));
+  return {
+    usedPct: (used / max) * 100,
+    reservedPct: (Math.min(reserved, Math.max(0, max - used)) / max) * 100,
+    freePct: (freeClamped / max) * 100,
+  };
 }
 
 /**

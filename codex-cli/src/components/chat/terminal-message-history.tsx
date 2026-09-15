@@ -8,9 +8,8 @@ import type { ExtendedChatCompletionMessageParam } from "../../app";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";
 import TerminalHeader from "./terminal-header.js";
-import ThinkingTimer from "./thinking-timer.js";
-import { Spinner } from "@inkjs/ui";
-import { Box, Static, Text } from "ink";
+import WelcomeView from "./welcome-view.js";
+import { Box, Static } from "ink";
 import React, { useMemo } from "react";
 
 // A batch entry can either be a standalone response item or a grouped set of
@@ -21,11 +20,7 @@ type BatchEntry = {
   item?: ExtendedChatCompletionMessageParam;
   group?: GroupedResponseItem;
 };
-type StreamingStatus = {
-  toolName?: string;
-  reasoning?: string;
-  blockType?: string;
-};
+
 type MessageHistoryProps = {
   batch: Array<BatchEntry>;
   groupCounts: Record<string, number>;
@@ -45,11 +40,14 @@ type MessageHistoryProps = {
   fullStdout: boolean;
   theme: Theme;
   streamingMessage?: ExtendedChatCompletionMessageParam;
-  streamingStatus?: StreamingStatus;
-  lastFileAccess?: string;
+  welcomeProps?: {
+    theme: import("../../utils/theme.js").Theme;
+    selected: number;
+  };
   isActive?: boolean;
   refreshKey?: number;
   onRefresh?: () => void;
+  lastFileAccess?: string;
 };
 
 const MessageHistory: React.FC<MessageHistoryProps> = ({
@@ -65,13 +63,13 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
   fullStdout,
   theme,
   streamingMessage,
-  streamingStatus,
   lastFileAccess,
   isActive = true,
   refreshKey = 0,
   onRefresh,
+  welcomeProps,
 }) => {
-  const [messages, debug, toolCallMap] = useMemo(() => {
+    const [messages, _debug, toolCallMap] = useMemo(() => {
     const map = new Map<string, any>();
     for (const item of items) {
       if (item.role === "assistant" && item.tool_calls) {
@@ -140,8 +138,13 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
           );
         }}
       </Static>
-      {streamingMessage && (
-        <StreamingAssistantResponse
+      {messages.length === 0 && !streamingMessage && !confirmationPrompt && welcomeProps && (
+        <WelcomeView
+          theme={welcomeProps.theme}
+          selected={welcomeProps.selected}
+        />
+      )}
+      {streamingMessage && (        <StreamingAssistantResponse
           message={streamingMessage}
           loading={loading}
           theme={theme}

@@ -323,7 +323,10 @@ export const StoredConfigSchema = z.object({
   presencePenalty: z.number().optional(),
   frequencyPenalty: z.number().optional(),
   repeatPenalty: z.number().optional(),
+  alwaysApprovedCommands: z.array(z.string()).optional(),
   theme: z.union([z.string(), ThemeSchema]).optional(),
+  plugins: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+  skills: z.object({ paths: z.array(z.string()).optional() }).optional(),
 });
 
 // Represents config as persisted in config.json.
@@ -367,7 +370,12 @@ export type AppConfig = {
   presencePenalty?: number;
   frequencyPenalty?: number;
   repeatPenalty?: number;
+  alwaysApprovedCommands?: Array<string>;
   theme?: string | z.infer<typeof ThemeSchema>;
+  plugins?: Record<string, Record<string, unknown>>;
+  skills?: {
+    paths?: Array<string>;
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -696,6 +704,7 @@ export const loadConfig = (
     repeatPenalty:
       storedConfig.providers?.[effectiveProvider]?.repeatPenalty ??
       storedConfig.repeatPenalty,
+    alwaysApprovedCommands: storedConfig.alwaysApprovedCommands,
     theme: storedConfig.theme,
   };
 
@@ -828,6 +837,7 @@ export const saveConfig = (
     presencePenalty: config.presencePenalty,
     frequencyPenalty: config.frequencyPenalty,
     repeatPenalty: config.repeatPenalty,
+    alwaysApprovedCommands: config.alwaysApprovedCommands,
     theme: config.theme,
   };
   if (ext === ".yaml" || ext === ".yml") {

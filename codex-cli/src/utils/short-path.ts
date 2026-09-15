@@ -25,3 +25,27 @@ export function shortenPath(p: string, maxLength = 40): string {
 export function shortCwd(maxLength = 40): string {
   return shortenPath(process.cwd(), maxLength);
 }
+
+/**
+ * Middle-truncate a string keeping head and tail (best for file paths —
+ * the filename and the root context stay visible). Falls back to the
+ * original when it already fits.
+ */
+export function truncateMiddle(value: string, maxLength: number): string {
+  if (value.length <= maxLength || maxLength < 5) {
+    return value;
+  }
+  const half = Math.floor((maxLength - 1) / 2);
+  return `${value.slice(0, half)}…${value.slice(value.length - half)}`;
+}
+
+/**
+ * End-truncate a string (best for model names and identifiers where the
+ * meaningful suffix/version lives at the end).
+ */
+export function truncateEnd(value: string, maxLength: number): string {
+  if (value.length <= maxLength || maxLength < 5) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 1)}…`;
+}

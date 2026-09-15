@@ -1,5 +1,6 @@
 import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+import { homedir } from "os";
 
 import MultilineTextEditor, {
   type MultilineTextEditorHandle,
@@ -25,7 +26,6 @@ import React, {
   useEffect,
   Fragment,
 } from "react";
-import { useInterval } from "use-interval";
 
 const suggestions = [
   "explain this codebase to me",
@@ -42,6 +42,7 @@ const slashCommands = [
   { name: "/memory maintain", description: "perform automated memory cleanup" },
   { name: "/approval", description: "change approval mode" },
   { name: "/config", description: "toggle dry-run/debug" },
+  { name: "/connect", description: "connect a model provider" },
   { name: "/index", description: "index codebase for semantic search" },
   { name: "/pin", description: "pin a file to the context" },
   { name: "/unpin", description: "unpin a file from the context" },
@@ -50,15 +51,20 @@ const slashCommands = [
   { name: "/prompt", description: "edit system instructions" },
   { name: "/prompts", description: "select from available system prompts" },
   { name: "/theme", description: "change UI theme" },
+  { name: "/skills", description: "list installed skills" },
   { name: "/undo", description: "revert last turn and file changes" },
   { name: "/help", description: "show help" },
 ];
 
-const typeHelpText = `ctrl+c exit | "/help" help | ↑↓ history | ctrl+x edit | ctrl+j \n | enter send | ctrl+f focus shell`;
+const typeHelpText = `↑↓ history · ctrl+j newline · ctrl+x editor · ctrl+f shell · enter send · /help`;
 
 
 export default function TerminalChatInput({
   isNew,
+  welcomeItemCount = 0,
+  welcomeSelected: welcomeSelectedProp = -1,
+  setWelcomeSelected: setWelcomeSelectedProp,
+  onWelcomeActivate,
   loading,
   submitInput,
   confirmationPrompt,
@@ -71,6 +77,7 @@ export default function TerminalChatInput({
   openMemoryOverlay,
   openHelpOverlay,
   openConfigOverlay,
+  openConnectOverlay,
   openPromptOverlay,
   openPromptsOverlay,
   openRecipesOverlay,
@@ -83,6 +90,7 @@ export default function TerminalChatInput({
   onShellFocus,
   onCopy,
   interruptAgent,
+  skillManager,
   partialContent,
   partialReasoning,
   activeBlockType,
@@ -99,6 +107,10 @@ export default function TerminalChatInput({
   isShellFocused,
 }: {
   isNew: boolean;
+  welcomeItemCount?: number;
+  welcomeSelected?: number;
+  setWelcomeSelected?: (index: number) => void;
+  onWelcomeActivate?: (index: number) => void;
   loading: boolean;
   submitInput: (input: Array<ChatCompletionMessageParam>) => void;
   confirmationPrompt: React.ReactNode | null;
@@ -113,6 +125,7 @@ export default function TerminalChatInput({
   openMemoryOverlay: () => void;
   openHelpOverlay: () => void;
   openConfigOverlay: () => void;
+  openConnectOverlay: () => void;
   openPromptOverlay: () => void;
   openPromptsOverlay: () => void;
   openRecipesOverlay: () => void;
@@ -126,6 +139,7 @@ export default function TerminalChatInput({
   onShellFocus?: (isFocused: boolean) => void;
   onCopy?: () => void;
   interruptAgent: () => void;
+  skillManager?: import("../../utils/agent/skill-manager.js").SkillManager;
   partialContent?: string;
   partialReasoning?: string;
   activeBlockType?: "thought" | "think" | "plan";
@@ -169,16 +183,14 @@ export default function TerminalChatInput({
   }, [active, onRefresh]);
 
   const [customInputMode, setCustomInputMode] = useState(false);
-  const [pulse, setPulse] = useState(false);
-
-  useInterval(
-    () => {
-      setPulse((p) => !p);
-    },
-    active && !loading ? 800 : null,
-  );
 
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+
+  // Welcome-screen navigation: selection state is owned by the parent so
+  // both the input (key handling) and the WelcomeView (rendering) share it.
+  const welcomeSelected = welcomeSelectedProp ?? -1;
+  const setWelcomeSelected =
+    setWelcomeSelectedProp ?? (() => {});
 
   const fileSearchMatch = useMemo(() => {
     return getFileSearchMatch(input);
@@ -206,6 +218,32 @@ export default function TerminalChatInput({
   }, [filteredSlashCommands.length]);
 
   const onKeyDown = (_inputStr: string, key: any) => {
+    // ────────────────────────────────────────────────────────────────
+    // Welcome navigation (only while the buffer is empty on a fresh
+    // session, and nothing else — file/slash autocomplete — is active).
+    // Driven from here so the WelcomeView itself stays presentational
+    // and can never hijack typing.
+    // ────────────────────────────────────────────────────────────────
+    if (
+      isNew &&
+      input === "" &&
+      filteredFiles.length === 0 &&
+      !input.startsWith("/")
+    ) {
+      if (welcomeItemCount > 0 && key.tab) {
+        setWelcomeSelected((welcomeSelected + 1) % welcomeItemCount);
+        return true;
+      }
+      if (welcomeSelected >= 0 && key.return && _inputStr === "") {
+        onWelcomeActivate?.(welcomeSelected);
+        return true;
+      }
+      if (welcomeSelected >= 0 && key.escape) {
+        setWelcomeSelected(-1);
+        return true;
+      }
+    }
+
     if (
       _inputStr === "" &&
       key.upArrow &&
@@ -521,6 +559,32 @@ export default function TerminalChatInput({
         return;
       }
 
+      if (inputValue.startsWith("/connect")) {
+        setInput("");
+        openConnectOverlay();
+        return;
+      }
+
+      if (inputValue === "/skills") {
+        setInput("");
+        const skills = skillManager?.getSkills() ?? [];
+        const lines = skills.length === 0
+          ? "No skills installed. Drop .js/.ts modules into ~/.open-codex/skills/ (or project-local .open-codex/skills/)"
+          : skills.map((s) => {
+              const originLabel = s.origin.replace(process.cwd(), ".").replace(homedir(), "~");
+              return `  • ${s.manifest.name}${s.manifest.description ? ` — ${s.manifest.description}` : ""}  [${originLabel}]`;
+            }).join("\n");
+        submitInput([
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `[skills] (${skills.length})\n${lines}` },
+            ],
+          },
+        ]);
+        return;
+      }
+
       if (inputValue.startsWith("/pin ")) {
         const path = inputValue.slice(5).trim();
         if (path) {
@@ -703,9 +767,7 @@ export default function TerminalChatInput({
           height={3}
           justifyContent="center"
         >
-          <Text dimColor italic>
-            Waiting for approval above...
-          </Text>
+          <Text dimColor>waiting for approval above…</Text>
         </Box>
       </Box>
     );
@@ -726,17 +788,17 @@ export default function TerminalChatInput({
         flexDirection="row"
         gap={1}
         paddingX={1}
-        borderStyle="bold"
+        borderStyle="single"
         borderRight={false}
         borderTop={false}
         borderBottom={false}
         borderLeftColor={active ? theme.highlight : theme.dim}
       >
         <Text
-          color={active ? (pulse ? theme.highlight : theme.dim) : theme.dim}
+          color={active ? theme.highlight : theme.dim}
           bold
         >
-          {customInputMode ? "?" : "❯"}
+          {customInputMode ? "?" : "›"}
         </Text>
         {awaitingContinueConfirmation && !customInputMode ? (
           <Box flexDirection="row" gap={2}>
@@ -804,15 +866,7 @@ export default function TerminalChatInput({
               />
             </Box>
             {isShellFocused && (
-              <Box
-                backgroundColor={theme.warning as any}
-                paddingX={1}
-                height={1}
-              >
-                <Text bold color="black">
-                  SHELL FOCUS ACTIVE
-                </Text>
-              </Box>
+              <Text color={theme.warning}>· shell focus</Text>
             )}
           </Box>
         )}
@@ -822,13 +876,15 @@ export default function TerminalChatInput({
         <Text dimColor>
           {!input && isNew ? (
             <>
-              try:{" "}
+              try{" "}
               {suggestions.map((m, key) => (
                 <Fragment key={key}>
-                  {key !== 0 ? " | " : ""}
+                  {key !== 0 ? " · " : ""}
                   <Text
-                    backgroundColor={
-                      key + 1 === selectedSuggestion ? "blackBright" : ""
+                    color={
+                      key + 1 === selectedSuggestion
+                        ? theme.highlight
+                        : undefined
                     }
                   >
                     {m}
@@ -855,7 +911,7 @@ export default function TerminalChatInput({
       {filteredFiles.length > 0 && (
         <Box
           flexDirection="column"
-          borderStyle="bold"
+          borderStyle="single"
           borderRight={false}
           borderTop={false}
           borderBottom={false}
@@ -866,7 +922,7 @@ export default function TerminalChatInput({
         >
           <Box marginBottom={0} justifyContent="space-between">
             <Text bold color={theme.highlight}>
-              AUTOCOMPLETE
+              files
             </Text>
             <Text color={theme.dim}>{filteredFiles.length} matches</Text>
           </Box>
@@ -889,7 +945,7 @@ export default function TerminalChatInput({
         input !== filteredSlashCommands[selectedSlashCommand]?.name && (
           <Box
             flexDirection="column"
-            borderStyle="bold"
+            borderStyle="single"
             borderRight={false}
             borderTop={false}
             borderBottom={false}

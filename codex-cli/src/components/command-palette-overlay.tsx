@@ -1,9 +1,10 @@
 import type { Theme } from "../utils/theme.js";
 
+import CenteredOverlay from "./centered-overlay.js";
 import SelectInput from "./select-input/select-input.js";
 import TextInput from "./vendor/ink-text-input.js";
 import { recipes } from "../utils/recipes.js";
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
 import React, { useState, useMemo } from "react";
 
 const slashCommands = [
@@ -47,6 +48,12 @@ const slashCommands = [
     label: "/CONFIG",
     description: "TUI settings dashboard",
     value: "/config",
+    type: "command",
+  },
+  {
+    label: "/CONNECT",
+    description: "Connect a model provider",
+    value: "/connect",
     type: "command",
   },
   {
@@ -121,45 +128,21 @@ export default function CommandPaletteOverlay({
     );
   }, [allItems, query]);
 
-  useInput((_input, key) => {
-    if (key.escape) {
-      onExit();
-    }
-  });
-
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={1}
-      borderStyle="bold"
-      borderRight={false}
-      borderTop={false}
-      borderBottom={false}
-      borderLeftColor={theme.highlight}
-      width={100}
-      marginY={1}
+    <CenteredOverlay
+      title="commands"
+      description="Search actions & recipes"
+      footer="type filter · ↑↓ navigate · enter execute · esc close"
+      theme={theme}
+      onExit={onExit}
     >
-      <Box paddingX={1} marginBottom={1} gap={1}>
-        <Box backgroundColor={theme.highlight} paddingX={1}>
-          <Text bold color="black">
-            {" "}
-            COMMAND PALETTE{" "}
-          </Text>
-        </Box>
-        <Text color={theme.highlight} bold>
-          SEARCH ACTIONS & RECIPES
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+      <Box flexDirection="column">
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>
-            FIND:{" "}
-          </Text>
+          <Text color={theme.dim}>›</Text>
           <TextInput
             value={query}
             onChange={setQuery}
-            placeholder="Type to filter commands..."
+            placeholder="Type to filter commands…"
           />
         </Box>
 
@@ -173,26 +156,9 @@ export default function CommandPaletteOverlay({
             isFocused={true}
           />
         ) : (
-          <Text color={theme.warning} italic>
-            No commands match your search.
-          </Text>
+          <Text color={theme.warning}>No commands match your search.</Text>
         )}
       </Box>
-
-      <Box
-        borderStyle="single"
-        borderRight={false}
-        borderTop={true}
-        borderBottom={false}
-        borderLeft={false}
-        borderTopColor={theme.divider}
-        paddingX={1}
-        paddingTop={1}
-      >
-        <Text dimColor italic>
-          ↑↓ navigate │ enter execute │ esc close
-        </Text>
-      </Box>
-    </Box>
+    </CenteredOverlay>
   );
 }

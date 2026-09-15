@@ -10,6 +10,11 @@ import React, { useState } from "react";
 
 type Props = {
   contextLeftPercent: number;
+  contextSegments?: {
+    usedPct: number;
+    reservedPct: number;
+    freePct: number;
+  };
   contextHistory: Array<number>;
   tokenBreakdown: TokenBreakdown;
   sessionId: string;
@@ -26,6 +31,7 @@ type Props = {
 
 const TerminalStatusBar: React.FC<Props> = ({
   contextLeftPercent,
+  contextSegments,
   contextHistory,
   tokenBreakdown,
   sessionId,
@@ -85,20 +91,14 @@ const TerminalStatusBar: React.FC<Props> = ({
         <Box gap={1}>
           {!isUltraNarrow && (
             <>
-              <Text color={theme.accent} bold>
-                ID:
-              </Text>
+              <Text color={theme.dim}>id</Text>
               <Text color={theme.statusBarSession}>{shortSessionId}</Text>
               {separator}
             </>
           )}
-          <Text color={theme.accent} bold>
-            {isNarrow ? "M:" : "MODE:"}
-          </Text>
+          <Text color={theme.dim}>{isNarrow ? "m" : "mode"}</Text>
           <Text color={getPolicyColor(approvalPolicy)}>
-            {isNarrow
-              ? approvalPolicy.slice(0, 1).toUpperCase()
-              : approvalPolicy.toUpperCase()}
+            {approvalPolicy}
           </Text>
 
           {indexingStatus?.indexing && (
@@ -107,7 +107,7 @@ const TerminalStatusBar: React.FC<Props> = ({
               <Spinner type="dots" color={theme.highlight} />
               {!isNarrow && (
                 <Text color={theme.dim}>
-                  INDEXING
+                  indexing
                   {indexingStatus.total
                     ? ` ${Math.min(
                         100,
@@ -127,8 +127,8 @@ const TerminalStatusBar: React.FC<Props> = ({
           {queuedInputLength > 0 && !isNarrow && (
             <>
               {separator}
-              <Text color="yellow" bold>
-                QUEUED: {queuedInputLength}c
+              <Text color="yellow">
+                queued {queuedInputLength}c
               </Text>
             </>
           )}
@@ -137,23 +137,40 @@ const TerminalStatusBar: React.FC<Props> = ({
         <Box gap={1}>
           {showBreakdown ? (
             <Box gap={1}>
-              <Text color={theme.assistant}>
-                {isNarrow ? "S" : "SYS"}:{String(tokenBreakdown.system)}
+              <Text color={theme.dim}>
+                {isNarrow ? "s" : "sys"}
+                <Text color={theme.assistant}> {String(tokenBreakdown.system)}</Text>
               </Text>
-              <Text color={theme.user}>
-                {isNarrow ? "H" : "HIST"}:{String(tokenBreakdown.history)}
+              <Text color={theme.dim}>
+                {isNarrow ? "h" : "hist"}
+                <Text color={theme.user}> {String(tokenBreakdown.history)}</Text>
               </Text>
-              <Text color={theme.highlight}>
-                {isNarrow ? "T" : "TOOL"}:{String(tokenBreakdown.tools)}
+              <Text color={theme.dim}>
+                {isNarrow ? "t" : "tool"}
+                <Text color={theme.highlight}> {String(tokenBreakdown.tools)}</Text>
               </Text>
-              <Text color={theme.dim}>/</Text>
               <Text color={theme.success} bold>
-                {isNarrow ? "Σ" : "TOTAL"}:{String(tokenBreakdown.total)}
+                {String(tokenBreakdown.total)}t
               </Text>
+              {!isUltraNarrow && (
+                <>
+                  {separator}
+                  <Text color={theme.accent}>
+                    in {String(tokenBreakdown.input)} · out{" "}
+                    {String(tokenBreakdown.output)}
+                  </Text>
+                </>
+              )}
               {separator}
               <Text color={theme.warning}>
                 ${tokenBreakdown.cost.toFixed(4)}
               </Text>
+              {!isUltraNarrow && (
+                <Text color={theme.dim}>
+                  in ${tokenBreakdown.inputCost.toFixed(4)} / out $
+                  {tokenBreakdown.outputCost.toFixed(4)}
+                </Text>
+              )}
             </Box>
           ) : (
             <Box gap={1}>
@@ -164,16 +181,38 @@ const TerminalStatusBar: React.FC<Props> = ({
                 ${tokenBreakdown.cost.toFixed(4)}
               </Text>
               {separator}
-              {!isNarrow && <Text color={theme.dim}>CONTEXT</Text>}
-              {!isUltraNarrow && (
-                <Sparkline
-                  data={contextHistory}
-                  color={getContextColor(usedPercent)}
-                />
-              )}
+              {!isNarrow && <Text color={theme.dim}>ctx</Text>}
+              {!isUltraNarrow &&
+                (contextSegments ? (
+                  <Text>
+                    <Text color={getContextColor(usedPercent)}>
+                      {"█".repeat(
+                        Math.max(1, Math.round(contextSegments.usedPct / 10)),
+                      )}
+                    </Text>
+                    <Text color={theme.divider}>
+                      {"▒".repeat(
+                        Math.max(
+                          0,
+                          Math.round(contextSegments.reservedPct / 10),
+                        ),
+                      )}
+                    </Text>
+                  </Text>
+                ) : (
+                  <Sparkline
+                    data={contextHistory}
+                    color={getContextColor(usedPercent)}
+                  />
+                ))}
               <Text color={getContextColor(usedPercent)}>
                 {Math.round(usedPercent)}%
               </Text>
+              {!isNarrow && contextSegments && (
+                <Text color={theme.dim}>
+                  · out ~{Math.round(contextSegments.reservedPct)}%
+                </Text>
+              )}
             </Box>
           )}
           {!isNarrow && (

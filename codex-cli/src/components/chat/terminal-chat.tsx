@@ -15,6 +15,7 @@ import TerminalChatInput from "./terminal-chat-input.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
 import {
   calculateContextPercentRemaining,
+  calculateContextSegments,
   calculateTokenBreakdown,
 } from "./terminal-chat-utils.js";
 import TerminalMessageHistory from "./terminal-message-history.js";
@@ -23,7 +24,9 @@ import { useAppContext } from "../../contexts/app-context.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
+import { loadPersistedApprovedCommands } from "../../utils/agent/handle-exec-command.js";
 import { PluginManager } from "../../utils/agent/plugin-manager.js";
+import { SkillManager } from "../../utils/agent/skill-manager.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { ChatErrorBoundary } from "./chat-error-boundary.js";
 import { createInputItem } from "../../utils/input-utils.js";
@@ -33,17 +36,20 @@ import { CLI_VERSION } from "../../utils/session.js";
 import { parseToolCallOutput } from "../../utils/parsers.js";
 import { shortCwd } from "../../utils/short-path.js";
 import {
+  loadRollout,
+  loadRollouts,
   saveRollout,
   undoLastChange,
 } from "../../utils/storage/save-rollout.js";
 import { setTerminalTitle, beep, clearTerminal } from "../../utils/terminal.js";
 import { getTheme } from "../../utils/theme.js";
 import TerminalChatOverlays from "./terminal-chat-overlays.js";
+import SuggestBar from "./suggest-bar.js";
 import clipboard from "clipboardy";
 import isEqual from "fast-deep-equal";
 import fs from "fs";
 import { Box, Text } from "ink";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useInterval } from "use-interval";
 import { inspect } from "util";
 
@@ -196,6 +202,15 @@ export default function TerminalChat({
   const [initialImagePaths, setInitialImagePaths] =
     useState(_initialImagePaths);
 
+  // ────────────────────────────────────────────────────────────────
+  // Welcome-screen navigation state. Owned here so the input component
+  // (key handling) and the WelcomeView (rendering) stay in sync without
+  // the WelcomeView ever capturing input itself.
+  // ────────────────────────────────────────────────────────────────
+  const [welcomeSelected, setWelcomeSelected] = useState(-1);
+  const welcomeRecentCount = 3;
+  const welcomeItemCount = welcomeRecentCount + 3;
+
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
@@ -322,9 +337,17 @@ export default function TerminalChat({
 
   const pluginManager = React.useMemo(() => new PluginManager(), []);
 
+  const skillManager = React.useMemo(() => {
+    const paths = config.skills?.paths?.length
+      ? config.skills.paths
+      : SkillManager.getDefaultSearchPaths(process.cwd());
+    return new SkillManager(pluginManager, paths);
+  }, [pluginManager, config.skills?.paths]);
+
   useEffect(() => {
     pluginManager.loadPlugins().catch((e) => log(`Failed to load plugins: ${e}`));
-  }, [pluginManager]);
+    skillManager.loadSkills().catch((e) => log(`Failed to load skills: ${e}`));
+  }, [pluginManager, skillManager]);
 
   // Keep a single AgentLoop instance alive across renders;
   // recreate only when model/instructions/approvalPolicy/config change.
@@ -350,6 +373,11 @@ export default function TerminalChat({
           config.instructions,
         )} approvalPolicy=${approvalPolicy}`,
       );
+    }
+
+    // Seed "always approve" rules persisted from previous sessions.
+    if (config.alwaysApprovedCommands?.length) {
+      loadPersistedApprovedCommands(config.alwaysApprovedCommands);
     }
 
     // Tear down any existing loop before creating a new one
@@ -697,6 +725,41 @@ export default function TerminalChat({
     runPendingAction();
   }, [agent, pendingPinAction, items]);
 
+  const handleWelcomeActivate = useCallback(
+    async (index: number) => {
+      setWelcomeSelected(-1);
+      if (index < welcomeRecentCount) {
+        const rollouts = await loadRollouts();
+        const target = rollouts[index];
+        if (!target) return;
+        const data = await loadRollout(target.path);
+        if (!data) return;
+        let sanitizedItems = [...data.items];
+        while (
+          sanitizedItems.length > 0 &&
+          sanitizedItems[sanitizedItems.length - 1]?.role === "assistant" &&
+          (sanitizedItems[sanitizedItems.length - 1] as any)?.tool_calls
+        ) {
+          sanitizedItems.pop();
+        }
+        setItems(sanitizedItems);
+        setPrevItems(sanitizedItems);
+        return;
+      }
+      const starter = [
+        "explain this codebase to me",
+        "fix any build errors",
+        "are there any bugs in my code?",
+      ][index - welcomeRecentCount];
+      if (starter) {
+        const inputItems = [await createInputItem(starter, [])];
+        agent?.run(inputItems, prevItems);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [agent, prevItems, welcomeRecentCount],
+  );
+
   // ---------------------------------------------------------------------
   // Dynamic layout constraints – keep total rendered rows <= terminal rows
   // ---------------------------------------------------------------------
@@ -739,7 +802,7 @@ export default function TerminalChat({
       if (item.role === "tool") {
         if (!currentGroup) {
           currentGroup = {
-            label: "Tool Batch",
+            label: "tools",
             items: [item as any],
           };
         } else {
@@ -782,6 +845,11 @@ export default function TerminalChat({
     [items, model, config.contextSize],
   );
 
+  const contextSegments = useMemo(
+    () => calculateContextSegments(items, model, config.contextSize),
+    [items, model, config.contextSize],
+  );
+
   const [contextHistory, setContextHistory] = useState<Array<number>>([]);
 
   useEffect(() => {
@@ -795,6 +863,53 @@ export default function TerminalChat({
   }, [contextLeftPercent]);
 
   const activeTheme = getTheme(config.theme);
+
+  // ────────────────────────────────────────────────────────────────
+  // Post-task suggestions: show once when a turn completes (loading
+  // true → false) with a non-empty assistant reply. Dismissed by the
+  // user or when new activity starts.
+  // ────────────────────────────────────────────────────────────────
+  const [lastTurnEnd, setLastTurnEnd] = useState<number | null>(null);
+  const prevLoadingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (prevLoadingRef.current && !loading) {
+      setLastTurnEnd(Date.now());
+    }
+    prevLoadingRef.current = loading;
+  }, [loading]);
+
+  const lastAssistantText = React.useMemo(() => {
+    if (loading || lastTurnEnd === null) return "";
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
+      if (item?.role === "assistant") {
+        const content =
+          typeof item.content === "string"
+            ? item.content
+            : Array.isArray(item.content)
+              ? item.content
+                  .map((c) => (c.type === "text" ? (c as any).text : ""))
+                  .join("")
+              : "";
+        return content.trim();
+      }
+      if (item?.role === "user") break; // turn already consumed by user
+    }
+    return "";
+  }, [items, loading, lastTurnEnd]);
+
+  const showSuggestions =
+    !loading &&
+    !confirmationPrompt &&
+    !awaitingContinueConfirmation &&
+    overlayMode === "none" &&
+    lastAssistantText.length > 0;
+
+  const handleAcceptSuggestion = async (text: string) => {
+    setLastTurnEnd(null);
+    const inputItems = [await createInputItem(text, [])];
+    agent?.run(inputItems, prevItems);
+  };
 
   const memoizedStreamingMessage = useMemo(() => {
     if (
@@ -821,21 +936,6 @@ export default function TerminalChat({
       content: finalContent,
     };
   }, [loading, renderedPartialData.content, renderedPartialData.reasoning]);
-
-  const streamingStatus = useMemo(() => {
-    if (!loading) {
-      return undefined;
-    }
-    const { activeToolName, reasoning, activeBlockType } = renderedPartialData;
-    if (!activeToolName && !reasoning) {
-      return undefined;
-    }
-    return {
-      toolName: activeToolName,
-      reasoning: reasoning?.trim() || undefined,
-      blockType: activeBlockType,
-    };
-  }, [loading, renderedPartialData]);
 
   const handleRenderError = React.useCallback(
     (error: Error, info: React.ErrorInfo) => {
@@ -890,11 +990,14 @@ export default function TerminalChat({
             theme: activeTheme,
           }}
           streamingMessage={memoizedStreamingMessage}
-          streamingStatus={streamingStatus}
           lastFileAccess={lastFileAccess}
           isActive={overlayMode === "none"}
           refreshKey={refreshKey}
           onRefresh={handleRefresh}
+          welcomeProps={{
+            theme: activeTheme,
+            selected: welcomeSelected,
+          }}
         />
       ) : (
         <Box>
@@ -908,11 +1011,29 @@ export default function TerminalChat({
         </Box>
       )}
 
+      {showSuggestions && (
+        <SuggestBar
+          suggestions={[
+            "run the tests",
+            "review the changes you made",
+            "commit these changes",
+          ]}
+          theme={activeTheme}
+          onAccept={handleAcceptSuggestion}
+          onDismiss={() => setLastTurnEnd(null)}
+          isActive={overlayMode === "none" && !shellFocused}
+        />
+      )}
+
       {overlayMode === "none" && agent && (
         <TerminalChatInput
           loading={loading}
           setItems={setItems}
           isNew={Boolean(items.length === 0)}
+          welcomeItemCount={welcomeItemCount}
+          welcomeSelected={welcomeSelected}
+          setWelcomeSelected={setWelcomeSelected}
+          onWelcomeActivate={handleWelcomeActivate}
           setPrevItems={setPrevItems}
           confirmationPrompt={confirmationPrompt}
           openOverlay={() => openOverlay("history")}
@@ -922,6 +1043,7 @@ export default function TerminalChat({
           openMemoryOverlay={() => openOverlay("memory")}
           openHelpOverlay={() => openOverlay("help")}
           openConfigOverlay={() => openOverlay("config")}
+          openConnectOverlay={() => openOverlay("connect")}
           openPromptOverlay={() => openOverlay("prompt")}
           openPromptsOverlay={() => openOverlay("prompts")}
           openRecipesOverlay={() => openOverlay("recipes")}
@@ -957,6 +1079,7 @@ export default function TerminalChat({
             agent.cancel();
             setLoading(false);
           }}
+          skillManager={skillManager}
           active={overlayMode === "none"}
           partialContent={renderedPartialData.content}
           partialReasoning={renderedPartialData.reasoning}
@@ -1018,6 +1141,7 @@ export default function TerminalChat({
       {agent && (
         <TerminalStatusBar
           contextLeftPercent={contextLeftPercent}
+          contextSegments={contextSegments}
           contextHistory={contextHistory}
           tokenBreakdown={calculateTokenBreakdown(model, items)}
           sessionId={agent.sessionId}

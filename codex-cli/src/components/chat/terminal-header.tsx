@@ -3,6 +3,7 @@ import type { Theme } from "../../utils/theme.js";
 
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size.js";
+import { truncateEnd, truncateMiddle } from "../../utils/short-path.js";
 import { Box, Text } from "ink";
 import React from "react";
 
@@ -29,9 +30,13 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
 }) => {
   const { columns: terminalCols } = useTerminalSize();
 
-  const labelStyle = { color: theme.dim };
-  const valueStyle = { color: theme.highlight, bold: true };
-  const separator = <Text color={theme.divider}> │ </Text>;
+  const valueStyle = { color: theme.highlight };
+  const separator = <Text color={theme.divider}> · </Text>;
+
+  // Keep the header on one line even on narrow terminals / long values.
+  const maxModelLen = Math.max(16, Math.floor(terminalCols / 4));
+  const displayModel = truncateEnd(model, maxModelLen);
+  const displayBreadcrumb = truncateMiddle(breadcrumb ?? "", 48);
 
   return (
     <Box
@@ -47,36 +52,33 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
     >
       <Box flexDirection="row">
         <Box flexGrow={1}>
-          <Text {...labelStyle}>OpenCodex </Text>
-          <Text {...valueStyle}>v{version}</Text>
+          <Text color={theme.dim}>open-codex </Text>
+          <Text color={theme.dim}>v{version}</Text>
           {separator}
-          <Text {...labelStyle}>📁 </Text>
           <TerminalHyperlink
             url={getFileUrl(process.cwd())}
             color={valueStyle.color}
           >
-            <Text {...valueStyle}>{PWD}</Text>
+            <Text color={theme.highlight}>{PWD}</Text>
           </TerminalHyperlink>
         </Box>
         <Box>
-          <Text {...labelStyle}>🤖 </Text>
-          <Text {...valueStyle}>{model}</Text>
+          <Text color={theme.dim}>{displayModel}</Text>
           {separator}
-          <Text {...labelStyle}>🛡️ </Text>
-          <Text color={colorsByPolicy[approvalPolicy] || theme.success} bold>
+          <Text color={colorsByPolicy[approvalPolicy] || theme.success}>
             {approvalPolicy}
           </Text>
         </Box>
       </Box>
       {breadcrumb && (
         <Box marginTop={0}>
-          <Text color={theme.dim}>❯ </Text>
+          <Text color={theme.dim}>└ </Text>
           <TerminalHyperlink
             url={getFileUrl(breadcrumb)}
             color={theme.highlight}
           >
             <Text color={theme.highlight} italic>
-              {breadcrumb}
+              {displayBreadcrumb}
             </Text>
           </TerminalHyperlink>
         </Box>

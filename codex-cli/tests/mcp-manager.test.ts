@@ -84,7 +84,7 @@ describe("McpManager", () => {
     // 1 tool + 2 resource tools + 2 prompt tools = 5 tools
     expect(definitions).toHaveLength(5);
     
-    const names = definitions.map(d => d.function.name);
+    const names = definitions.map(d => (d as any).function?.name || (d as any).name);
     expect(names).toContain("test_server_test_tool");
     expect(names).toContain("test_server_list_resources");
     expect(names).toContain("test_server_read_resource");

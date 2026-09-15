@@ -12,7 +12,7 @@
 import "dotenv/config";
 
 const ENDPOINT = "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse";
-const API_KEY = process.env.GEMINI_API_KEY || "";
+const API_KEY = (process.env as Record<string, string | undefined>)["GEMINI_API_KEY"] || "";
 
 async function probe() {
   console.log(`Probing internal endpoint: ${ENDPOINT}`);

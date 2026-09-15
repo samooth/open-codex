@@ -1,6 +1,7 @@
 import type { ApplyPatchCommand } from "../../approvals.js";
 import type { Theme } from "../../utils/theme.js";
 
+import { DiffChanges } from "./diff-changes.js";
 import { ReviewDecision } from "../../utils/agent/review";
 import { useAppContext } from "../../contexts/app-context.js";
 import { openExternalEditor } from "../../utils/input-utils.js";
@@ -203,7 +204,7 @@ export function TerminalChatCommandReview({
     <Box
       flexDirection="column"
       gap={0}
-      borderStyle="bold"
+      borderStyle="single"
       borderRight={false}
       borderTop={false}
       borderBottom={false}
@@ -218,15 +219,25 @@ export function TerminalChatCommandReview({
           })
         : confirmationPrompt}
       <Box paddingLeft={1} marginTop={1}>
-        <Text color={riskInfo.color} bold>
-          ({riskInfo.label})
+        <Text color={riskInfo.color}>
+          {applyPatch
+            ? "· modifies files"
+            : riskInfo.label === "read-only"
+              ? "· read-only"
+              : "· executes command"}
         </Text>
       </Box>
       {applyPatch && (
         <Box flexDirection="column" marginTop={1} paddingLeft={2}>
-          <Text bold color={theme.error}>
-            DIFF PREVIEW
-          </Text>
+          <Box gap={1} marginBottom={0}>
+            <Text color={theme.dim}>diff preview</Text>
+            <DiffChanges
+              additions={(applyPatch.patch.match(/^\+(?!\+\+)/gm) || []).length}
+              deletions={(applyPatch.patch.match(/^-(?!--)/gm) || []).length}
+              theme={theme}
+              showBar={false}
+            />
+          </Box>
           {applyPatch.patch
             .split("\n")
             .slice(0, 14)
@@ -253,12 +264,6 @@ export function TerminalChatCommandReview({
         {mode === "select" ? (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Box backgroundColor={theme.highlight as any} paddingX={1}>
-                <Text bold color="black">
-                  {" "}
-                  PROMPT{" "}
-                </Text>
-              </Box>
               <Text color={theme.highlight} bold>
                 Allow command execution?
               </Text>
@@ -299,9 +304,8 @@ export function TerminalChatCommandReview({
                 options={approvalOptions as any}
               />
               <Box paddingLeft={2} marginTop={1}>
-                <Text color={theme.dim} italic>
-                  y approve · a always · v view/edit · e feedback · n deny · esc
-                  stop
+                <Text color={theme.dim}>
+                  y approve · a always · v view/edit · e feedback · n deny · esc stop
                 </Text>
               </Box>
             </Box>
@@ -309,18 +313,12 @@ export function TerminalChatCommandReview({
         ) : (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
-              <Box backgroundColor={theme.highlight as any} paddingX={1}>
-                <Text bold color="black">
-                  {" "}
-                  FEEDBACK{" "}
-                </Text>
-              </Box>
               <Text color={theme.highlight} bold>
                 Give the model feedback (↵ to submit):
               </Text>
             </Box>
             <Box
-              borderStyle="bold"
+              borderStyle="single"
               borderRight={false}
               borderTop={false}
               borderBottom={false}

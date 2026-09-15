@@ -38,8 +38,9 @@ export class McpManager {
           },
           {
             capabilities: {
-              resources: {},
-              prompts: {},
+              experimental: {},
+              roots: { listChanged: true },
+              sampling: { context: {}, tools: {} },
             },
           }
         );

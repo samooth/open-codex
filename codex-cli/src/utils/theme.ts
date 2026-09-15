@@ -2,6 +2,25 @@ import chalk, { type ForegroundColorName } from "chalk";
 import { z } from "zod";
 
 /**
+ * A theme color: either an ANSI color name (used with `chalk[name]`) or a
+ * hex string like "#8a8a98" (used with `chalk.hex()`). Hex is preferred for
+ * `dim`-style tokens because ANSI `gray` is bright-black and disappears on
+ * dark backgrounds.
+ */
+export type ThemeColor = ForegroundColorName | `#${string}`;
+
+/**
+ * Resolve a theme color to a chalk chainable instance, supporting both
+ * ANSI names and hex values.
+ */
+export function chalkFor(color: ThemeColor): ReturnType<typeof chalk.hex> {
+  if (color.startsWith("#")) {
+    return chalk.hex(color);
+  }
+  return (chalk as any)[color] ?? chalk.reset;
+}
+
+/**
  * Zod schema for validating a custom theme object.
  * Ensures that theme properties are optional strings compatible with Chalk colors.
  */
@@ -27,36 +46,61 @@ export const ThemeSchema = z.object({
 });
 
 /**
- * Defines the structure of a theme, mapping UI components to Chalk color names.
+ * Defines the structure of a theme, mapping UI components to Chalk colors.
  */
 export type Theme = {
   name: string;
-  assistant: ForegroundColorName;
-  user: ForegroundColorName;
-  thought: ForegroundColorName;
-  plan: ForegroundColorName;
-  toolLabel: ForegroundColorName;
-  toolIcon: ForegroundColorName;
-  shellCommand: ForegroundColorName;
-  error: ForegroundColorName;
-  success: ForegroundColorName;
-  warning: ForegroundColorName;
-  highlight: ForegroundColorName;
-  dim: ForegroundColorName;
-  accent: ForegroundColorName;
-  divider: ForegroundColorName;
-  statusBarModel: ForegroundColorName;
-  statusBarSession: ForegroundColorName;
-  deletion: ForegroundColorName;
+  assistant: ThemeColor;
+  user: ThemeColor;
+  thought: ThemeColor;
+  plan: ThemeColor;
+  toolLabel: ThemeColor;
+  toolIcon: ThemeColor;
+  shellCommand: ThemeColor;
+  error: ThemeColor;
+  success: ThemeColor;
+  warning: ThemeColor;
+  highlight: ThemeColor;
+  dim: ThemeColor;
+  accent: ThemeColor;
+  divider: ThemeColor;
+  statusBarModel: ThemeColor;
+  statusBarSession: ThemeColor;
+  deletion: ThemeColor;
 };
 
 /**
  * A collection of pre-defined themes.
  * The `default` theme is used as a fallback and as the base for custom theme configurations.
+ *
+ * Design language (mirrors Kilo Code's OC-2 tokens in a terminal palette):
+ * - Neutral grayscale hierarchy (strong ≈ 95%, base ≈ 60%, dim ≈ 40%).
+ * - A single blue accent (`blueBright`) for interactive/selected elements.
+ * - Semantic color (green/red/yellow) reserved for status, never decoration.
  */
 export const themes: Record<string, Theme> = {
   default: {
-    name: "Default (Codex)",
+    name: "Kilo (Default)",
+    assistant: "white",
+    user: "yellowBright",
+    thought: "#8a8a98",
+    plan: "magenta",
+    toolLabel: "white",
+    toolIcon: "#8a8a98",
+    shellCommand: "white",
+    error: "redBright",
+    success: "green",
+    warning: "yellow",
+    highlight: "#ffd76a",
+    dim: "#8a8a98",
+    accent: "#ffd76a",
+    divider: "#5c5c68",
+    statusBarModel: "white",
+    statusBarSession: "#8a8a98",
+    deletion: "red",
+  },
+  classic: {
+    name: "Classic (Codex)",
     assistant: "greenBright",
     user: "white",
     thought: "cyan",

@@ -27,6 +27,29 @@ import { getActionableSuggestion } from "./error-recovery.js";
 // ---------------------------------------------------------------------------
 const alwaysApprovedCommands = new Set<string>();
 
+// Commands the user marked "always approve" in a *previous* CLI session,
+// persisted via config.json (`alwaysApprovedCommands`). Kept separate from
+// the in-memory set so tests using authorizeCommand() stay session-scoped.
+const persistedApprovedCommands = new Set<string>();
+
+/**
+ * Seed the persisted "always approve" rules (loaded from config.json once
+ * at startup). Safe to call multiple times; duplicates are ignored.
+ */
+export function loadPersistedApprovedCommands(commands: Array<string>): void {
+  for (const key of commands) {
+    const trimmed = key.trim();
+    if (trimmed) {
+      persistedApprovedCommands.add(trimmed);
+    }
+  }
+}
+
+/** All active always-approve keys (session + persisted). */
+export function getAlwaysApprovedCommands(): Set<string> {
+  return new Set([...alwaysApprovedCommands, ...persistedApprovedCommands]);
+}
+
 /**
  * Register a command name that should always be approved for the remainder
  * of the current CLI session.
@@ -116,9 +139,12 @@ export async function handleExecCommand(
 
   const key = deriveCommandKey(command);
 
-  // 1) If the user has already said "always approve", skip
-  //    any policy & never sandbox.
-  if (alwaysApprovedCommands.has(key)) {
+  // 1) If the user has already said "always approve" (this session or a
+  //    persisted rule), skip any policy & never sandbox.
+  if (
+    alwaysApprovedCommands.has(key) ||
+    persistedApprovedCommands.has(key)
+  ) {
     return execCommand(
       args,
       /* applyPatch */ undefined,
@@ -385,9 +411,21 @@ async function askUserPermission(
   );
 
   if (decision === ReviewDecision.ALWAYS) {
-    // Persist this command so we won't ask again during this session.
+    // Persist this command so we won't ask again during this session…
     const key = deriveCommandKey(args.cmd);
     alwaysApprovedCommands.add(key);
+    // …and (best-effort) across future sessions via config.json.
+    try {
+      const { loadConfig, saveConfig } = await import("../config.js");
+      const cfg = loadConfig();
+      const existing = new Set(cfg.alwaysApprovedCommands ?? []);
+      if (!existing.has(key)) {
+        existing.add(key);
+        saveConfig({ ...cfg, alwaysApprovedCommands: [...existing] });
+      }
+    } catch {
+      // Persistence is best-effort; the in-memory rule above still applies.
+    }
   }
 
   // Any decision other than an affirmative (YES / ALWAYS) aborts execution.

@@ -11,6 +11,7 @@ import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import CommandHistoryOverlay from "../command-history-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
 import ConfigOverlay from "../config-overlay.js";
+import ConnectOverlay from "../connect-overlay.js";
 import EditorOverlay from "../editor-overlay.js";
 import HelpOverlay from "../help-overlay.js";
 import HistoryOverlay from "../history-overlay.js";
@@ -197,6 +198,10 @@ export default function TerminalChatOverlays({
 
       {overlayMode === "config" && (
         <ConfigOverlay onExit={closeOverlay} theme={activeTheme} />
+      )}
+
+      {overlayMode === "connect" && (
+        <ConnectOverlay onExit={closeOverlay} theme={activeTheme} />
       )}
 
       {overlayMode === "editor" && (
@@ -438,6 +443,8 @@ export default function TerminalChatOverlays({
                 openOverlay("approval");
               } else if (value === "/config") {
                 openOverlay("config");
+              } else if (value === "/connect") {
+                openOverlay("connect");
               } else if (value === "/prompt") {
                 openOverlay("prompt");
               } else if (value === "/prompts") {

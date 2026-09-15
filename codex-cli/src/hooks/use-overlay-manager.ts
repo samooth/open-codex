@@ -7,6 +7,7 @@ export type OverlayMode =
   | "approval"
   | "help"
   | "config"
+  | "connect"
   | "prompt"
   | "memory"
   | "prompts"

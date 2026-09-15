@@ -1,9 +1,9 @@
 import type { Theme } from "../utils/theme.js";
 
+import CenteredOverlay from "./centered-overlay.js";
 import SelectInput from "./select-input/select-input.js";
 import TextInput from "./vendor/ink-text-input.js";
-import { useTerminalSizeContext } from "../contexts/terminal-size-context.js";
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
 import React, { useState, useMemo } from "react";
 
 type Props<T> = {
@@ -22,7 +22,6 @@ export default function TypeaheadOverlay<T>({
   theme,
 }: Props<T>) {
   const [query, setQuery] = useState("");
-  const { columns } = useTerminalSizeContext();
 
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase();
@@ -36,52 +35,24 @@ export default function TypeaheadOverlay<T>({
     );
   }, [items, query]);
 
-  useInput(
-    (_input, key) => {
-      if (key.escape) {
-        onExit();
-      }
-    },
-    { isActive: true },
-  );
-
   const handleSelect = (item: { value: T }) => {
     onSelect(item.value);
   };
 
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={1}
-      borderStyle="bold"
-      borderRight={false}
-      borderTop={false}
-      borderBottom={false}
-      borderLeftColor={theme.highlight}
-      width={Math.min(columns - 4, 100)}
-      marginY={1}
+    <CenteredOverlay
+      title={title}
+      footer="type filter · ↑↓ navigate · enter select · esc close"
+      theme={theme}
+      onExit={onExit}
     >
-      <Box paddingX={1} marginBottom={1} gap={1}>
-        <Box backgroundColor={theme.highlight as any} paddingX={1}>
-          <Text bold color="black">
-            {" "}
-            {title.toUpperCase()}{" "}
-          </Text>
-        </Box>
-        <Text color={theme.highlight} bold>
-          SEARCH AND SELECT
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+      <Box flexDirection="column">
         <Box gap={1} marginBottom={1}>
-          <Text color={theme.highlight} bold>
-            FIND:{" "}
-          </Text>
+          <Text color={theme.dim}>›</Text>
           <TextInput
             value={query}
             onChange={setQuery}
-            placeholder="Type to filter..."
+            placeholder="Type to filter…"
           />
         </Box>
 
@@ -93,26 +64,9 @@ export default function TypeaheadOverlay<T>({
             isFocused={true}
           />
         ) : (
-          <Text color={theme.warning} italic>
-            No matches found.
-          </Text>
+          <Text color={theme.warning}>No matches found.</Text>
         )}
       </Box>
-
-      <Box
-        borderStyle="single"
-        borderRight={false}
-        borderTop={true}
-        borderBottom={false}
-        borderLeft={false}
-        borderTopColor={theme.divider}
-        paddingX={1}
-        paddingTop={1}
-      >
-        <Text dimColor italic>
-          ↑↓ navigate │ enter execute │ esc close
-        </Text>
-      </Box>
-    </Box>
+    </CenteredOverlay>
   );
 }

@@ -15,6 +15,7 @@ import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
 import { PluginManager } from "./utils/agent/plugin-manager";
+import { SkillManager } from "./utils/agent/skill-manager";
 import { authorizeCommand } from "./utils/agent/handle-exec-command";
 import { initLogger, log, isLoggingEnabled } from "./utils/agent/log";
 import { ReviewDecision } from "./utils/agent/review";
@@ -695,7 +696,24 @@ async function runQuietMode({
   }
 
   const pluginManager = new PluginManager();
-  await pluginManager.loadPlugins();
+  await pluginManager.loadPlugins(config.plugins);
+
+  const skillSearchPaths = config.skills?.paths?.length
+    ? config.skills.paths
+    : SkillManager.getDefaultSearchPaths(process.cwd());
+  const skillManager = new SkillManager(pluginManager, skillSearchPaths);
+  await skillManager.loadSkills();
+
+  const exit = async () => {
+    await pluginManager.disposeAll();
+    await skillManager.disposeAll();
+    onExit();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => exit());
+  process.on("SIGQUIT", () => exit());
+  process.on("SIGTERM", () => exit());
 
   const agent = new AgentLoop({
     model: config.model,
@@ -729,15 +747,6 @@ async function runQuietMode({
   await agent.run([inputItem], prevItems);
 }
 
-const exit = () => {
-  onExit();
-  process.exit(0);
-};
-
-process.on("SIGINT", exit);
-process.on("SIGQUIT", exit);
-process.on("SIGTERM", exit);
-
 // ---------------------------------------------------------------------------
 // Fallback for Ctrl‑C when stdin is in raw‑mode
 // ---------------------------------------------------------------------------
@@ -750,7 +759,8 @@ if (process.stdin.isTTY) {
   const onRawData = (data: Buffer | string): void => {
     const str = Buffer.isBuffer(data) ? data.toString("utf8") : data;
     if (str === "\u0003") {
-      exit();
+      // In interactive mode, re-emit SIGINT so the handler in main() runs
+      process.kill(process.pid, "SIGINT");
     }
   };
   process.stdin.on("data", onRawData);

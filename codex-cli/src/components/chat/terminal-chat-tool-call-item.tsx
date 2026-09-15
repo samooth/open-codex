@@ -1,6 +1,7 @@
 import type { ApplyPatchCommand } from "../../approvals.js";
 import type { Theme } from "../../utils/theme";
 
+import { DiffChanges } from "./diff-changes.js";
 import { SemanticDiffLine, SemanticDiffPair } from "./semantic-diff.js";
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
@@ -54,6 +55,26 @@ export function TerminalChatToolCallCommand({
     }
     return null;
   }, [applyPatch, commandForDisplay]);
+
+  const patchTotals = React.useMemo(() => {
+    let added = 0;
+    let deleted = 0;
+    for (const op of ops ?? []) {
+      if (op.type === "update") {
+        added += op.added ?? 0;
+        deleted += op.deleted ?? 0;
+        for (const hunk of op.hunks ?? []) {
+          added += hunk.added ?? 0;
+          deleted += hunk.deleted ?? 0;
+        }
+      } else if (op.type === "create") {
+        added += op.content.split("\n").length;
+      } else if (op.type === "delete") {
+        deleted += 1;
+      }
+    }
+    return { added, deleted };
+  }, [ops]);
 
   useInput(
     (input, _key) => {
@@ -119,35 +140,52 @@ export function TerminalChatToolCallCommand({
         <Box
           flexDirection="column"
           paddingLeft={1}
-          borderStyle="bold"
+          borderStyle="single"
           borderRight={false}
           borderTop={false}
           borderBottom={false}
           borderLeftColor={theme.accent}
         >
           <Box gap={1} marginBottom={1}>
-            <Box
-              backgroundColor={
-                status === 'success'
-                  ? theme.success
-                  : status === 'failure'
-                    ? theme.error
-                    : theme.accent
-              }
-              paddingX={1}
-              gap={1}
-            >
-              {status === 'running' && <Spinner type="dots" />}
-              <Text bold color="black">
-                {isEditFile ? "EDIT FILE" : "APPLY PATCH"}
+            {status === 'running' ? (
+              <Spinner type="dots" />
+            ) : (
+              <Text
+                bold
+                color={
+                  status === 'success'
+                    ? theme.success
+                    : status === 'failure'
+                      ? theme.error
+                      : theme.accent
+                }
+              >
+                {status === 'success' ? '✓' : status === 'failure' ? '✗' : '✎'}
               </Text>
-              {status === 'success' && <Text bold color="black">✅</Text>}
-              {status === 'failure' && <Text bold color="black">❌</Text>}
-            </Box>
-            <Text dimColor italic>
+            )}
+            <Text bold
+              color={
+                status === 'failure'
+                  ? theme.error
+                  : status === 'success'
+                    ? theme.success
+                    : theme.toolLabel
+              }
+            >
+              {isEditFile ? "edit file" : "apply patch"}
+            </Text>
+            {patchTotals.added + patchTotals.deleted > 0 && (
+              <DiffChanges
+                additions={patchTotals.added}
+                deletions={patchTotals.deleted}
+                theme={theme}
+                showBar={false}
+              />
+            )}
+            <Text dimColor>
               {" "}
-              (↑↓ navigate │ space toggle │ 'e'{" "}
-              {isExpandedAll ? "collapse" : "expand"})
+              ↑↓ navigate · space toggle · e{" "}
+              {isExpandedAll ? "collapse" : "expand"}
             </Text>
           </Box>
 
@@ -213,7 +251,7 @@ export function TerminalChatToolCallCommand({
                 marginTop={0}
                 marginBottom={1}
                 paddingLeft={1}
-                borderStyle="bold"
+                borderStyle="single"
                 borderRight={false}
                 borderTop={false}
                 borderBottom={false}
@@ -232,7 +270,7 @@ export function TerminalChatToolCallCommand({
                     strikethrough={isExcluded}
                   >
                     {isSelected ? "❯ " : "  "}
-                    {op.type.toUpperCase()}
+                    {op.type}
                   </Text>
                   <TerminalHyperlink url={getFileUrl(op.path)}>
                     <Text
@@ -244,19 +282,21 @@ export function TerminalChatToolCallCommand({
                       {shortenPath(op.path)}
                     </Text>
                   </TerminalHyperlink>
-                  <Text color={theme.dim}>
-                    (+{op.added} -{op.deleted})
-                  </Text>
+                  <DiffChanges
+                    additions={op.added}
+                    deletions={op.deleted}
+                    theme={theme}
+                  />
                   {isExcluded && (
                     <Text color={theme.error} bold>
                       {" "}
-                      [EXCLUDED]
+                      · excluded
                     </Text>
                   )}
                   {isCollapsed && (
-                    <Text italic color={theme.dim}>
+                    <Text color={theme.dim}>
                       {" "}
-                      [collapsed]
+                      · collapsed
                     </Text>
                   )}
                 </Box>
@@ -354,7 +394,7 @@ export function TerminalChatToolCallCommand({
       width="100%"
       marginY={1}
       paddingLeft={1}
-      borderStyle="bold"
+      borderStyle="single"
       borderRight={false}
       borderTop={false}
       borderBottom={false}
@@ -367,27 +407,37 @@ export function TerminalChatToolCallCommand({
       }
     >
       <Box gap={1} marginBottom={1}>
-        <Box
-          backgroundColor={
-            status === 'success'
-              ? theme.success
-              : status === 'failure'
-                ? theme.error
-                : theme.warning
-          }
-          paddingX={1}
-          gap={1}
-        >
-          {status === 'running' && <Spinner type="dots" />}
-          <Text bold color="black">
-            SHELL COMMAND
+        {status === 'running' ? (
+          <Spinner type="dots" />
+        ) : (
+          <Text
+            bold
+            color={
+              status === 'success'
+                ? theme.success
+                : status === 'failure'
+                  ? theme.error
+                  : theme.warning
+            }
+          >
+            {status === 'success' ? '✓' : status === 'failure' ? '✗' : '⚡'}
           </Text>
-          {status === 'success' && <Text bold color="black">✅</Text>}
-          {status === 'failure' && <Text bold color="black">❌</Text>}
-        </Box>
-        <Text dimColor italic>
+        )}
+        <Text
+          bold
+          color={
+            status === 'failure'
+              ? theme.error
+              : status === 'success'
+                ? theme.success
+                : theme.toolLabel
+          }
+        >
+          shell
+        </Text>
+        <Text dimColor>
           {" "}
-          (press 'e' to {isExpandedAll ? "collapse" : "expand"})
+          press e to {isExpandedAll ? "collapse" : "expand"}
         </Text>
       </Box>
       <Box paddingLeft={2} flexDirection="column">
@@ -398,8 +448,8 @@ export function TerminalChatToolCallCommand({
           <Text color={theme.shellCommand}>{colorizedCommand}</Text>
         </Text>
         {showTruncatedCmd && (
-          <Text color={theme.dim} italic>
-            ... ({commandLines.length - maxTotalLines} more lines)
+          <Text color={theme.dim}>
+            … {commandLines.length - maxTotalLines} more lines
           </Text>
         )}
       </Box>
