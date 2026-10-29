@@ -1752,7 +1752,7 @@ export class AgentLoop {
               );
             }
 
-            // Clear partial data and give UI a moment to settle before potential confirmation boxes
+            // Clear partial data so the UI stops showing the streaming indicator
             this.onPartialUpdate?.("", "", undefined, undefined);
 
             if (lastFinishReason === "length") {
@@ -1767,7 +1767,6 @@ export class AgentLoop {
               continue; // Continue the while(turnInput.length > 0) loop
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 100));
             await finalizeMessage(message);
           } else if (!message && chunkCount > 0) {
             log(

@@ -40,9 +40,11 @@ export const STARTERS = [
 export default function WelcomeView({
   theme,
   selected,
+  gitInfo,
 }: {
   theme: Theme;
   selected: number;
+  gitInfo?: { branch: string; dirty: boolean; lastCommit: string };
 }): React.ReactElement | null {
   const [recent, setRecent] = useState<Array<RecentSession>>([]);
   const [loaded, setLoaded] = useState(false);
@@ -73,6 +75,20 @@ export default function WelcomeView({
 
   return (
     <Box flexDirection="column" paddingX={2}>
+      {gitInfo && (
+        <Box gap={1} marginBottom={0}>
+          <Text color={theme.dim}>repo</Text>
+          <Text color={theme.highlight}>{gitInfo.branch}</Text>
+          {gitInfo.dirty && (
+            <Text color={theme.warning}> · dirty</Text>
+          )}
+          {gitInfo.lastCommit && (
+            <Text color={theme.dim}>
+              {" "}· {gitInfo.lastCommit.slice(0, 60)}
+            </Text>
+          )}
+        </Box>
+      )}
       {recent.length > 0 && (
         <Box gap={1}>
           <Text color={theme.dim}>resume</Text>
@@ -112,6 +128,11 @@ export default function WelcomeView({
           </Text>
         </Box>
       )}
+      <Box marginTop={0}>
+        <Text color={theme.dim}>
+          ctrl+p palette · ctrl+r history · /help · /theme
+        </Text>
+      </Box>
     </Box>
   );
 }

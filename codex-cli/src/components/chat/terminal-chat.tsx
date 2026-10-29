@@ -334,6 +334,15 @@ export default function TerminalChat({
   ]);
 
   const PWD = React.useMemo(() => shortCwd(), []);
+  const gitInfo = React.useMemo(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getGitInfo } = require("../../utils/git-info.js");
+      return getGitInfo();
+    } catch {
+      return null;
+    }
+  }, []);
 
   const pluginManager = React.useMemo(() => new PluginManager(), []);
 
@@ -975,6 +984,7 @@ export default function TerminalChat({
           welcomeProps={{
             theme: activeTheme,
             selected: welcomeSelected,
+            gitInfo: gitInfo,
           }}
         />
       ) : (

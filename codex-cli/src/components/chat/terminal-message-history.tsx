@@ -43,6 +43,7 @@ type MessageHistoryProps = {
   welcomeProps?: {
     theme: import("../../utils/theme.js").Theme;
     selected: number;
+    gitInfo?: { branch: string; dirty: boolean; lastCommit: string };
   };
   isActive?: boolean;
   refreshKey?: number;
@@ -142,6 +143,7 @@ const MessageHistory: React.FC<MessageHistoryProps> = ({
         <WelcomeView
           theme={welcomeProps.theme}
           selected={welcomeProps.selected}
+          gitInfo={welcomeProps.gitInfo}
         />
       )}
       {streamingMessage && (        <StreamingAssistantResponse
