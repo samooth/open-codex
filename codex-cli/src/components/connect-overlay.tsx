@@ -44,6 +44,24 @@ const PROVIDER_CATALOG: Array<{
   },
   { id: "hf", name: "Hugging Face", envKey: "HF_API_KEY", needsKey: true },
   {
+    id: "opencode",
+    name: "OpenCode Zen",
+    envKey: "OPENCODE_API_KEY",
+    needsKey: true,
+  },
+  {
+    id: "kilocode",
+    name: "Kilo Gateway",
+    envKey: "KILOCODE_API_KEY",
+    needsKey: true,
+  },
+  {
+    id: "llama.cpp",
+    name: "llama.cpp (local)",
+    envUrl: "LLAMACPP_BASE_URL",
+    needsKey: false,
+  },
+  {
     id: "ollama",
     name: "Ollama (local)",
     envUrl: "OLLAMA_BASE_URL",

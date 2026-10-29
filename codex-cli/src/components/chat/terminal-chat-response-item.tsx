@@ -7,7 +7,10 @@ import type {
   ChatCompletionMessageToolCall,
 } from "openai/resources/chat/completions.mjs";
 import type { ResponseReasoningItem } from "openai/resources/responses/responses";
-import type { ExtendedChatCompletionMessageParam, MessageStatus } from "../../app";
+import type {
+  ExtendedChatCompletionMessageParam,
+  MessageStatus,
+} from "../../app";
 
 import { TerminalImage } from "./terminal-image.js";
 import { formatCommandForDisplay } from "../../format-command.js";
@@ -26,7 +29,8 @@ import { SafeText } from "../../utils/ink-safe.js";
 import { getSyntaxTheme } from "../../utils/theme.js";
 import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
-import { chalkFor, type ThemeColor } from "../../utils/theme.js";import { highlight as syntaxHighlight } from "cli-highlight";
+import { chalkFor, type ThemeColor } from "../../utils/theme.js";
+import { highlight as syntaxHighlight } from "cli-highlight";
 import { Box, Text, useInput } from "ink";
 import { parse } from "marked";
 import TerminalRenderer from "marked-terminal";
@@ -287,10 +291,7 @@ export function Markdown({
           /^[ \t]*[*+-][ \t]+\[x\][ \t]+/gim,
           chalkFor(theme.success)("✓ "),
         )
-        .replace(
-          /^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim,
-          chalkFor(theme.dim)("○ "),
-        )
+        .replace(/^[ \t]*[*+-][ \t]+\[ \][ \t]+/gim, chalkFor(theme.dim)("○ "))
         .replace(
           /(\n)[ \t]{2,}[*+-][ \t]+\[x\][ \t]+/gim,
           `$1  ${chalkFor(theme.success)("✓ ")}`,
@@ -644,9 +645,9 @@ export const TerminalChatResponseToolCallOutput = React.memo(
         borderTop={false}
         borderBottom={false}
         borderLeftColor={
-          status === 'success'
+          status === "success"
             ? theme.success
-            : status === 'failure'
+            : status === "failure"
               ? theme.error
               : isError
                 ? theme.error
@@ -741,9 +742,9 @@ export const TerminalChatResponseToolCall = React.memo(
   function TerminalChatResponseToolCall({
     message,
     // @ts-ignore - loading is currently unused but kept for future logic
-  loading = false,
+    loading = false,
     theme,
-    status = 'running',
+    status = "running",
     durationSeconds,
   }: {
     message: ChatCompletionMessageToolCall;
@@ -761,16 +762,16 @@ export const TerminalChatResponseToolCall = React.memo(
       let text = details?.cmdReadableText || "";
       // If it's a huge patch or shell command during streaming, truncate it
       // to prevent terminal flickering and massive layout shifts.
-      if (status === 'running' && text.length > 500) {
+      if (status === "running" && text.length > 500) {
         text = text.slice(0, 500) + "... (streaming)";
       }
       return text;
     }, [details?.cmdReadableText, status]);
 
     const borderColor = useMemo(() => {
-      if (status === 'success') {
+      if (status === "success") {
         return theme.success;
-      } else if (status === 'failure') {
+      } else if (status === "failure") {
         return theme.error;
       } else {
         return theme.accent;
@@ -778,9 +779,9 @@ export const TerminalChatResponseToolCall = React.memo(
     }, [status, theme]);
 
     const textColor = useMemo(() => {
-      if (status === 'success') {
+      if (status === "success") {
         return theme.success;
-      } else if (status === 'failure') {
+      } else if (status === "failure") {
         return theme.error;
       } else {
         return theme.toolIcon;
@@ -809,11 +810,11 @@ export const TerminalChatResponseToolCall = React.memo(
       >
         <Box flexDirection="column" gap={0}>
           <Box gap={1}>
-            {status === 'running' ? (
+            {status === "running" ? (
               <Spinner type="dots" color={theme.toolLabel} />
             ) : (
               <Text color={textColor} bold>
-                {status === 'success' ? '✓' : status === 'failure' ? '✗' : icon}
+                {status === "success" ? "✓" : status === "failure" ? "✗" : icon}
               </Text>
             )}
             <Text color={theme.toolLabel} bold>
@@ -822,13 +823,13 @@ export const TerminalChatResponseToolCall = React.memo(
             <Text color={theme.dim} wrap="wrap">
               {summary}
             </Text>
-            {status !== 'running' && (
+            {status !== "running" && (
               <Text color={riskColor}>
-                {isWrite ? '· writes' : isExec ? '· exec' : '· read'}
+                {isWrite ? "· writes" : isExec ? "· exec" : "· read"}
               </Text>
             )}
-            {status !== 'running' &&
-              typeof durationSeconds === 'number' &&
+            {status !== "running" &&
+              typeof durationSeconds === "number" &&
               durationSeconds >= 0 && (
                 <Text color={theme.dim}>
                   {durationSeconds >= 10
@@ -837,7 +838,7 @@ export const TerminalChatResponseToolCall = React.memo(
                 </Text>
               )}
           </Box>
-          {(status === 'running' || readableText) &&
+          {(status === "running" || readableText) &&
             (toolName === TOOL_SHELL || toolName === TOOL_APPLY_PATCH) && (
               <Box paddingLeft={2} marginTop={readableText ? 0 : 0}>
                 <Text color={theme.shellCommand}>$ {readableText}</Text>
@@ -856,27 +857,27 @@ export const TerminalChatResponseMessage = React.memo(
     toolCallMap = new Map(),
     theme,
     model,
-  showRole = true,
-  disableMarkdown = false,
-  isActive = false,
-  isStreaming = false,
-  // @ts-ignore - status is currently unused
-  status,
-}: {
-  message: ChatCompletionMessageParam;
-  fullStdout?: boolean;
-  toolCallMap?: Map<string, any>;
-  theme: Theme;
-  model?: string;
-  showRole?: boolean;
-  disableMarkdown?: boolean;
-  isActive?: boolean;
-  isStreaming?: boolean;
-  status?: MessageStatus;
-}) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [reasoningExpanded, setReasoningExpanded] = useState(true);
-  const contentParts: Array<string> = [];
+    showRole = true,
+    disableMarkdown = false,
+    isActive = false,
+    isStreaming = false,
+    // @ts-ignore - status is currently unused
+    status,
+  }: {
+    message: ChatCompletionMessageParam;
+    fullStdout?: boolean;
+    toolCallMap?: Map<string, any>;
+    theme: Theme;
+    model?: string;
+    showRole?: boolean;
+    disableMarkdown?: boolean;
+    isActive?: boolean;
+    isStreaming?: boolean;
+    status?: MessageStatus;
+  }) {
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [reasoningExpanded, setReasoningExpanded] = useState(false);
+    const contentParts: Array<string> = [];
     const imagePaths: Array<string> = [];
 
     useInput(
@@ -887,7 +888,7 @@ export const TerminalChatResponseMessage = React.memo(
         if (input === "c") {
           setIsCollapsed(!isCollapsed);
         }
-        if (input === "r" && !isStreaming && (hasThoughts || hasPlans)) {
+        if (input === "r" && !isStreaming) {
           setReasoningExpanded(!reasoningExpanded);
         }
       },
@@ -912,11 +913,12 @@ export const TerminalChatResponseMessage = React.memo(
     // Capture reasoning_content (o1/o3/etc.) as a <thought> block — but only if
     // the model didn't already embed <thought>/<plan> tags in the visible text.
     // Some providers send reasoning in both places, which would double-print it.
-    const alreadyHasReasoningTags = /<(thought|think|thinking|plan|roadmap)/i.test(
-      textContent,
-    );
+    const alreadyHasReasoningTags =
+      /<(thought|think|thinking|plan|roadmap)/i.test(textContent);
     if ((message as any).reasoning_content && !alreadyHasReasoningTags) {
-      contentParts.push(`<thought>${(message as any).reasoning_content}</thought>`);
+      contentParts.push(
+        `<thought>${(message as any).reasoning_content}</thought>`,
+      );
     }
 
     contentParts.push(textContent);
@@ -994,18 +996,22 @@ export const TerminalChatResponseMessage = React.memo(
 
     return (
       <Box flexDirection="column" paddingLeft={isAssistant ? 0 : 0}>
-        {showRole && (hasContent || hasThoughts || hasPlans || (!hasThoughts && !hasPlans)) && (
-          <Box gap={1} marginBottom={1} marginTop={1}>
-            <Text color={roleColor} bold>
-              {isAssistant ? "◆ codex" : "◇ you"}
-            </Text>
-            {isAssistant && model && (
-              <Text color={theme.dim} italic>
-                {model}
+        {showRole &&
+          (hasContent ||
+            hasThoughts ||
+            hasPlans ||
+            (!hasThoughts && !hasPlans)) && (
+            <Box gap={1} marginBottom={1} marginTop={1}>
+              <Text color={roleColor} bold>
+                {isAssistant ? "◆ codex" : "◇ you"}
               </Text>
-            )}
-          </Box>
-        )}
+              {isAssistant && model && (
+                <Text color={theme.dim} italic>
+                  {model}
+                </Text>
+              )}
+            </Box>
+          )}
         {hasImages && (
           <Box flexDirection="row" gap={2} marginY={1}>
             {imagePaths.map((p, i) => (
@@ -1036,11 +1042,52 @@ export const TerminalChatResponseMessage = React.memo(
                 marginBottom={1}
               >
                 {snapshot?.overall_goal && (
-                  <Box marginBottom={1}>
+                  <Box marginBottom={1} flexDirection="column">
                     <Text bold color={theme.highlight}>
                       ▸ mission
                     </Text>
                     <Text color={theme.dim}> {snapshot.overall_goal}</Text>
+                    {snapshot.active_constraints &&
+                      snapshot.active_constraints.length > 0 && (
+                        <Box flexDirection="column" marginTop={0}>
+                          <Text bold color={theme.dim}>
+                            constraints:
+                          </Text>
+                          {snapshot.active_constraints.map((c, ci) => (
+                            <Text key={ci} color={theme.dim}>
+                              {" "}
+                              • {c}
+                            </Text>
+                          ))}
+                        </Box>
+                      )}
+                    {snapshot.key_knowledge &&
+                      snapshot.key_knowledge.length > 0 && (
+                        <Box flexDirection="column" marginTop={0}>
+                          <Text bold color={theme.dim}>
+                            knowledge:
+                          </Text>
+                          {snapshot.key_knowledge.map((k, ki) => (
+                            <Text key={ki} color={theme.dim}>
+                              {" "}
+                              • {k}
+                            </Text>
+                          ))}
+                        </Box>
+                      )}
+                    {snapshot.task_state && snapshot.task_state.length > 0 && (
+                      <Box flexDirection="column" marginTop={0}>
+                        <Text bold color={theme.dim}>
+                          progress:
+                        </Text>
+                        {snapshot.task_state.map((t, ti) => (
+                          <Text key={ti} color={theme.dim}>
+                            {" "}
+                            • {t}
+                          </Text>
+                        ))}
+                      </Box>
+                    )}
                   </Box>
                 )}
                 {reasoningExpanded ? (
@@ -1050,9 +1097,9 @@ export const TerminalChatResponseMessage = React.memo(
                         ▾ thought
                         <Text color={theme.dim}> r collapse</Text>
                       </Text>
-                      <Text italic color={theme.dim}>
-                        {cleanThought}
-                      </Text>
+                      <Box paddingLeft={1}>
+                        <Markdown theme={theme}>{cleanThought}</Markdown>
+                      </Box>
                     </Box>
                   )
                 ) : (
@@ -1065,7 +1112,8 @@ export const TerminalChatResponseMessage = React.memo(
             );
           })}
         {!isStreaming &&
-          hasPlans && plans.map((plan, i) => (
+          hasPlans &&
+          plans.map((plan, i) => (
             <Box
               key={i}
               flexDirection="row"
@@ -1082,7 +1130,10 @@ export const TerminalChatResponseMessage = React.memo(
               <Box flexDirection="column">
                 <Text bold color={theme.plan}>
                   {reasoningExpanded ? "▾ plan" : "▸ plan"}
-                  <Text color={theme.dim}> r {reasoningExpanded ? "collapse" : "expand"}</Text>
+                  <Text color={theme.dim}>
+                    {" "}
+                    r {reasoningExpanded ? "collapse" : "expand"}
+                  </Text>
                 </Text>
                 {reasoningExpanded && <Markdown theme={theme}>{plan}</Markdown>}
               </Box>
@@ -1196,17 +1247,17 @@ function TerminalChatResponseToolBatch({
   const items = group.items;
   const isLargeBatch = items.length > 3;
 
-    useInput(
-      (input, _key) => {
-        if (!isActive) {
-          return;
-        }
-        if (input === "c") {
-          setIsCollapsed(!isCollapsed);
-        }
-      },
-      { isActive },
-    );
+  useInput(
+    (input, _key) => {
+      if (!isActive) {
+        return;
+      }
+      if (input === "c") {
+        setIsCollapsed(!isCollapsed);
+      }
+    },
+    { isActive },
+  );
 
   return (
     <Box flexDirection="column" gap={0} marginY={0}>
@@ -1214,7 +1265,10 @@ function TerminalChatResponseToolBatch({
         <Text color={theme.dim} bold>
           {isCollapsed ? "▸" : "▾"} batch · {items.length} ops
           {isActive && (
-            <Text color={theme.dim}> c {isCollapsed ? "expand" : "collapse"}</Text>
+            <Text color={theme.dim}>
+              {" "}
+              c {isCollapsed ? "expand" : "collapse"}
+            </Text>
           )}
         </Text>
       </Box>
@@ -1367,7 +1421,6 @@ function TerminalChatResponseItem({
                 key={i}
                 message={toolCall}
                 loading={loading}
-
                 theme={theme}
                 status={(toolCall as any).status}
                 durationSeconds={durationSeconds}

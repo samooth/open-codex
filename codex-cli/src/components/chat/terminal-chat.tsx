@@ -462,33 +462,11 @@ export default function TerminalChat({
         partialDataRef.current.activeToolName = activeToolName;
         partialDataRef.current.activeToolArguments = activeToolArguments;
 
-        // Set status to 'running' for tool calls being streamed
-        if (activeToolName) {
-          setItems((prev) => {
-            const lastItem = prev[prev.length - 1];
-            if (
-              lastItem &&
-              lastItem.role === "assistant" &&
-              lastItem.tool_calls &&
-              lastItem.tool_calls.length > 0
-            ) {
-              // Update the status of the *last* tool call in the *last* assistant message
-              // This assumes that streaming updates are always for the most recent tool call
-              const updatedToolCalls = lastItem.tool_calls.map((tc) => ({
-                ...tc,
-                status: 'running',
-              }));
-              return [
-                ...prev.slice(0, prev.length - 1),
-                {
-                  ...lastItem,
-                  tool_calls: updatedToolCalls,
-                } as ExtendedChatCompletionMessageParam,
-              ];
-            }
-            return prev;
-          });
-        }
+        // NOTE: We intentionally do NOT mutate `items` on every partial update.
+        // Updating the whole history on each streamed chunk caused terminal
+        // flickering and layout shifts. Tool-call status is reconciled when the
+        // final item arrives (see onItem). The throttled partialDataRef above
+        // is what drives the live streaming indicator instead.
       },
       onItem: (item: ChatCompletionMessageParam) => {
         log(`onItem: ${JSON.stringify(item)}`);

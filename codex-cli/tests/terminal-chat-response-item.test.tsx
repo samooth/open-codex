@@ -65,20 +65,27 @@ describe("TerminalChatResponseItem", () => {
     expect(frame).toContain("gpt-4o");
   });
 
-  it("renders an assistant message with thoughts", () => {
+  it("renders an assistant message with thoughts", async () => {
     const item = {
       role: "assistant",
       content:
         "<thought>I should check the file first</thought>I will check the file.",
     } as any;
 
-    const { lastFrameStripped } = renderTui(
+    const { stdin, flush, lastFrameStripped } = renderTui(
       <TerminalChatResponseItem
         item={item}
         theme={themes["default"]!}
         model="gpt-4o"
+        isActive={true}
       />,
     );
+
+    await flush();
+    // collapsed by default; expand with 'r'
+    stdin.write("r");
+    await flush();
+    await new Promise((r) => setTimeout(r, 50));
 
     const frame = lastFrameStripped();
     expect(frame.toLowerCase()).toContain("thought");
@@ -86,19 +93,25 @@ describe("TerminalChatResponseItem", () => {
     expect(frame).toContain("I will check the file.");
   });
 
-  it("renders an assistant message with a plan", () => {
+  it("renders an assistant message with a plan", async () => {
     const item = {
       role: "assistant",
       content: "<plan>1. Read file\n2. Edit file</plan>Starting the plan.",
     } as any;
 
-    const { lastFrameStripped } = renderTui(
+    const { stdin, flush, lastFrameStripped } = renderTui(
       <TerminalChatResponseItem
         item={item}
         theme={themes["default"]!}
         model="gpt-4o"
+        isActive={true}
       />,
     );
+
+    await flush();
+    stdin.write("r");
+    await flush();
+    await new Promise((r) => setTimeout(r, 50));
 
     const frame = lastFrameStripped();
     expect(frame.toLowerCase()).toContain("plan");
@@ -163,20 +176,26 @@ describe("TerminalChatResponseItem", () => {
     expect(frame).toContain("file2.txt");
   });
 
-  it("renders an assistant message with only reasoning_content", () => {
+  it("renders an assistant message with only reasoning_content", async () => {
     const item = {
       role: "assistant",
       content: "",
       reasoning_content: "I am thinking deeply",
     } as any;
 
-    const { lastFrameStripped } = renderTui(
+    const { stdin, flush, lastFrameStripped } = renderTui(
       <TerminalChatResponseItem
         item={item}
         theme={themes["default"]!}
         model="gpt-4o"
+        isActive={true}
       />,
     );
+
+    await flush();
+    stdin.write("r");
+    await flush();
+    await new Promise((r) => setTimeout(r, 50));
 
     const frame = lastFrameStripped();
     expect(frame.toLowerCase()).toContain("thought");

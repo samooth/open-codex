@@ -2,8 +2,9 @@ import type { Theme } from "../utils/theme.js";
 
 import SelectInput from "./select-input/select-input.js";
 import { useAppContext } from "../contexts/app-context.js";
+import { getAvailableModels } from "../utils/model-utils.js";
 import { Box, Text, useInput } from "ink";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 // Mapping models to their recommended uses
 const modelDescriptions: Record<string, string> = {
@@ -15,6 +16,8 @@ const modelDescriptions: Record<string, string> = {
   "deepseek-chat":
     "DeepSeek - Versatile and optimized for developer efficiency.",
 };
+
+const PAGE_SIZE = 12;
 
 export default function ModelOverlay({
   currentModel,
@@ -30,19 +33,71 @@ export default function ModelOverlay({
   theme: Theme;
 }) {
   const { config } = useAppContext();
+  const [models, setModels] = useState<Array<string>>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
-  useInput((_input, key) => {
+  useInput((input, key) => {
     if (key.escape) {
       onExit();
+      return;
+    }
+    if (key.backspace || key.delete) {
+      setQuery((q) => q.slice(0, -1));
+      return;
+    }
+    // Typing a printable character updates the search filter.
+    if (input && input.length === 1 && !key.ctrl && !key.meta && !key.return) {
+      const code = input.charCodeAt(0);
+      if (code >= 32 && code < 127) {
+        setQuery((q) => q + input);
+      }
     }
   });
 
-  const providerModels = (config as any).providers?.[
-    config.provider || "openai"
-  ]?.models || ["gpt-5.2", "o4-mini", "o3"];
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getAvailableModels(config)
+      .then((list) => {
+        if (cancelled) return;
+        if (list && list.length > 0) {
+          setModels(list);
+        } else {
+          const configured = (config as any).providers?.[
+            config.provider || "openai"
+          ]?.models;
+          setModels(
+            Array.isArray(configured) && configured.length > 0
+              ? configured
+              : ["gpt-5.2", "o4-mini", "o3"],
+          );
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const configured = (config as any).providers?.[
+          config.provider || "openai"
+        ]?.models;
+        setModels(
+          Array.isArray(configured) && configured.length > 0
+            ? configured
+            : ["gpt-5.2", "o4-mini", "o3"],
+        );
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [config]);
 
-  const options = (providerModels as Array<string>).map((m: string) => ({
-    label: `${m === currentModel ? "❯ " : "  "}${m.toUpperCase()}`,
+  const filtered = query
+    ? models.filter((m) => m.toLowerCase().includes(query.toLowerCase()))
+    : models;
+
+  const options = filtered.map((m: string) => ({
+    label: `${m === currentModel ? "❯ " : "  "}${m}`,
     value: m,
     description: modelDescriptions[m] || `${config.provider} model`,
   }));
@@ -87,15 +142,31 @@ export default function ModelOverlay({
             <Text color={theme.highlight} bold>
               SWITCH AI ENGINE
             </Text>
+            <Text color={theme.dim}>
+              ({filtered.length}/{models.length})
+            </Text>
+          </Box>
+
+          <Box paddingLeft={1} marginBottom={1}>
+            <Text color={theme.dim}>search: </Text>
+            <Text color={theme.highlight}>{query || " "}</Text>
+            <Text color={theme.dim}> (type to filter, backspace to edit)</Text>
           </Box>
 
           <Box flexDirection="column" paddingX={1} marginBottom={1}>
-            <SelectInput
-              items={options}
-              onSelect={handleSelect}
-              theme={theme}
-              isFocused={true}
-            />
+            {loading ? (
+              <Text color={theme.dim}>loading models…</Text>
+            ) : options.length === 0 ? (
+              <Text color={theme.dim}>no models match</Text>
+            ) : (
+              <SelectInput
+                items={options}
+                onSelect={handleSelect}
+                theme={theme}
+                isFocused={true}
+                itemsPerPage={PAGE_SIZE}
+              />
+            )}
           </Box>
 
           <Box
@@ -109,7 +180,7 @@ export default function ModelOverlay({
             paddingTop={1}
           >
             <Text dimColor italic>
-              ↑↓ navigate │ enter switch │ esc close
+              type to search │ ↑↓ navigate │ ←→ page │ enter switch │ esc close
             </Text>
           </Box>
         </>

@@ -41,8 +41,14 @@ export function TerminalChatCommandReview({
   isActive?: boolean;
   onRefresh?: () => void;
 }): React.ReactElement {
-  const [mode, setMode] = React.useState<"select" | "input">("select");
+  const [mode, setMode] = React.useState<"select" | "input" | "hunks">(
+    "select",
+  );
   const [msg, setMsg] = React.useState<string>("");
+  const [hunkCursor, setHunkCursor] = React.useState(0);
+  const [selectedHunks, setSelectedHunks] = React.useState<Set<number>>(
+    new Set(),
+  );
   const { config } = useAppContext();
 
   // -------------------------------------------------------------------------
@@ -103,6 +109,10 @@ export function TerminalChatCommandReview({
         label: "View or Edit patch in $EDITOR (v)",
         value: "view-edit" as any,
       });
+      opts.push({
+        label: "Select hunks to apply (h)",
+        value: "hunks" as any,
+      });
     }
 
     opts.push(
@@ -123,13 +133,79 @@ export function TerminalChatCommandReview({
     return opts;
   }, [showAlwaysApprove, applyPatch]);
 
+  const hunks = React.useMemo(() => {
+    if (!applyPatch) return [] as string[];
+    const lines = applyPatch.patch.split("\n");
+    const out: string[] = [];
+    let current: string[] = [];
+    let inHunk = false;
+    for (const line of lines) {
+      if (line.startsWith("@@")) {
+        if (inHunk && current.length) out.push(current.join("\n"));
+        current = [line];
+        inHunk = true;
+      } else if (line.startsWith("*** ")) {
+        if (inHunk && current.length) {
+          out.push(current.join("\n"));
+          current = [];
+          inHunk = false;
+        }
+      } else if (inHunk) {
+        current.push(line);
+      }
+    }
+    if (inHunk && current.length) out.push(current.join("\n"));
+    return out;
+  }, [applyPatch]);
+
+  React.useEffect(() => {
+    setSelectedHunks(new Set(hunks.map((_, i) => i)));
+    setHunkCursor(0);
+  }, [hunks]);
+
+  const buildFilteredPatch = React.useCallback(() => {
+    if (!applyPatch) return "";
+    if (selectedHunks.size === hunks.length) return applyPatch.patch;
+    let result = applyPatch.patch;
+    hunks.forEach((h, i) => {
+      if (!selectedHunks.has(i)) {
+        result = result.replace(h, "");
+      }
+    });
+    return result.replace(/\n{3,}/g, "\n\n");
+  }, [applyPatch, hunks, selectedHunks]);
+
   useInput(
     async (input, key) => {
       if (!isActive) {
         return;
       }
 
-      if (mode === "select") {
+      if (mode === "hunks") {
+        if (key.upArrow) {
+          setHunkCursor((c) => Math.max(0, c - 1));
+        } else if (key.downArrow) {
+          setHunkCursor((c) => Math.min(Math.max(0, hunks.length - 1), c + 1));
+        } else if (input === " ") {
+          setSelectedHunks((prev) => {
+            const next = new Set(prev);
+            if (next.has(hunkCursor)) next.delete(hunkCursor);
+            else next.add(hunkCursor);
+            return next;
+          });
+        } else if (input === "a") {
+          setSelectedHunks(new Set(hunks.map((_, i) => i)));
+        } else if (input === "n" || key.escape) {
+          setMode("select");
+        } else if (key.return) {
+          const filtered = buildFilteredPatch();
+          onReviewCommand(
+            ReviewDecision.YES,
+            undefined,
+            applyPatch ? { ...applyPatch, patch: filtered } : undefined,
+          );
+        }
+      } else if (mode === "select") {
         if (input === "y") {
           onReviewCommand(ReviewDecision.YES);
         } else if (input === "v" && applyPatch) {
@@ -148,6 +224,8 @@ export function TerminalChatCommandReview({
           }
         } else if (input === "e") {
           setMode("input");
+        } else if (input === "h" && applyPatch) {
+          setMode("hunks");
         } else if (input === "n") {
           onReviewCommand(
             ReviewDecision.NO_CONTINUE,
@@ -181,10 +259,11 @@ export function TerminalChatCommandReview({
       return { label: "⚠ MODIFIES FILES", color: theme.error };
     }
     if (React.isValidElement(confirmationPrompt)) {
-      const command: unknown = (confirmationPrompt as any).props?.commandForDisplay;
+      const command: unknown = (confirmationPrompt as any).props
+        ?.commandForDisplay;
       const baseCmd =
         typeof command === "string"
-          ? command.split("\n")[0]?.trim().split(/\s+/)[0] ?? ""
+          ? (command.split("\n")[0]?.trim().split(/\s+/)[0] ?? "")
           : "";
       const readOnly = [
         "read_file",
@@ -261,7 +340,33 @@ export function TerminalChatCommandReview({
         </Box>
       )}
       <Box flexDirection="column" gap={0} marginTop={1}>
-        {mode === "select" ? (
+        {mode === "hunks" ? (
+          <>
+            <Box gap={1} marginBottom={1} paddingLeft={1}>
+              <Text color={theme.highlight} bold>
+                Select hunks to apply (space toggle, ↵ confirm):
+              </Text>
+            </Box>
+            <Box flexDirection="column" paddingLeft={2}>
+              {hunks.map((_, i) => (
+                <Box key={i} gap={1}>
+                  <Text color={i === hunkCursor ? theme.highlight : theme.dim}>
+                    {i === hunkCursor ? "›" : " "}{" "}
+                    {selectedHunks.has(i) ? "[x]" : "[ ]"} hunk {i + 1}
+                  </Text>
+                </Box>
+              ))}
+              {hunks.length === 0 && (
+                <Text color={theme.dim}>No hunks detected.</Text>
+              )}
+            </Box>
+            <Box paddingLeft={2} marginTop={1}>
+              <Text color={theme.dim}>
+                ↑↓ move · space toggle · a all · ↵ apply selected · esc back
+              </Text>
+            </Box>
+          </>
+        ) : mode === "select" ? (
           <>
             <Box gap={1} marginBottom={1} paddingLeft={1}>
               <Text color={theme.highlight} bold>
@@ -278,10 +383,12 @@ export function TerminalChatCommandReview({
                 theme={theme}
                 isDisabled={!isActive}
                 onChange={async (
-                  value: ReviewDecision | "edit" | "view-edit",
+                  value: ReviewDecision | "edit" | "view-edit" | "hunks",
                 ) => {
                   if (value === "edit") {
                     setMode("input");
+                  } else if (value === "hunks" && applyPatch) {
+                    setMode("hunks");
                   } else if (value === "view-edit" && applyPatch) {
                     const edited = await openExternalEditor(
                       applyPatch.patch,
@@ -305,7 +412,8 @@ export function TerminalChatCommandReview({
               />
               <Box paddingLeft={2} marginTop={1}>
                 <Text color={theme.dim}>
-                  y approve · a always · v view/edit · e feedback · n deny · esc stop
+                  y approve · a always · v view/edit · e feedback · n deny · esc
+                  stop
                 </Text>
               </Box>
             </Box>

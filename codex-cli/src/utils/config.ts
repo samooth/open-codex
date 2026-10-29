@@ -33,6 +33,42 @@ export const INSTRUCTIONS_FILEPATH = join(CONFIG_DIR, "instructions.md");
 export const OPENAI_TIMEOUT_MS =
   parseInt(process.env["OPENAI_TIMEOUT_MS"] || "0", 10) || undefined;
 
+// Canonical provider ids + their accepted aliases. Used so that users can
+// refer to a provider by any of its names (e.g. "kilogateway" vs "kilocode")
+// and still resolve keys/URLs stored under a different alias.
+const PROVIDER_ALIASES: Record<string, Array<string>> = {
+  opencode: ["opencode", "opencode-zen", "opencodezen", "opencode_zen"],
+  kilocode: [
+    "kilo",
+    "kilocode",
+    "kilogateway",
+    "kilo-gateway",
+    "kilo_gateway",
+  ],
+  "llama.cpp": [
+    "llama.cpp",
+    "llamacpp",
+    "llama-cpp",
+    "llama_cpp",
+    "llamacpp-server",
+  ],
+};
+
+export function canonicalProvider(provider: string): string {
+  const lower = (provider || "").toLowerCase();
+  for (const [canonical, aliases] of Object.entries(PROVIDER_ALIASES)) {
+    if (aliases.includes(lower)) {
+      return canonical;
+    }
+  }
+  return lower;
+}
+
+export function providerAliases(provider: string): Array<string> {
+  const canonical = canonicalProvider(provider);
+  return PROVIDER_ALIASES[canonical] || [canonical];
+}
+
 export function getDefaultProvider(): string {
   if (process.env["OPENAI_API_KEY"]) {
     return "openai";
@@ -58,6 +94,23 @@ export function getDefaultProvider(): string {
   if (process.env["HF_API_KEY"]) {
     return "hf";
   }
+  if (process.env["OPENCODE_API_KEY"] || process.env["OPENCODE_ZEN_API_KEY"]) {
+    return "opencode";
+  }
+  if (
+    process.env["KILOCODE_API_KEY"] ||
+    process.env["KILO_API_KEY"] ||
+    process.env["KILOGATEWAY_API_KEY"]
+  ) {
+    return "kilocode";
+  }
+  if (
+    process.env["LLAMACPP_BASE_URL"] ||
+    process.env["LLAMA_CPP_BASE_URL"] ||
+    process.env["LLAMACPP_URL"]
+  ) {
+    return "llama.cpp";
+  }
   return "openai";
 }
 
@@ -65,7 +118,11 @@ function getAPIKeyForProviderOrExit(
   provider: string,
   providers?: Record<string, ProviderConfig>,
 ): string {
-  let configKey = providers?.[provider]?.apiKey;
+  const aliases = providerAliases(provider);
+  let configKey: string | undefined;
+  for (const id of aliases) {
+    configKey = configKey || providers?.[id]?.apiKey;
+  }
 
   if (!configKey && (provider === "google" || provider === "gemini")) {
     configKey = providers?.["google"]?.apiKey || providers?.["gemini"]?.apiKey;
@@ -132,6 +189,46 @@ function getAPIKeyForProviderOrExit(
       reportMissingAPIKeyForProvider(provider);
       process.exit(1);
       break;
+    case "opencode":
+    case "opencode-zen":
+    case "opencodezen":
+    case "opencode_zen":
+      if (process.env["OPENCODE_API_KEY"]) {
+        return process.env["OPENCODE_API_KEY"];
+      }
+      if (process.env["OPENCODE_ZEN_API_KEY"]) {
+        return process.env["OPENCODE_ZEN_API_KEY"];
+      }
+      reportMissingAPIKeyForProvider(provider);
+      process.exit(1);
+      break;
+    case "kilo":
+    case "kilocode":
+    case "kilogateway":
+    case "kilo-gateway":
+    case "kilo_gateway":
+      if (process.env["KILOCODE_API_KEY"]) {
+        return process.env["KILOCODE_API_KEY"];
+      }
+      if (process.env["KILO_API_KEY"]) {
+        return process.env["KILO_API_KEY"];
+      }
+      if (process.env["KILOGATEWAY_API_KEY"]) {
+        return process.env["KILOGATEWAY_API_KEY"];
+      }
+      reportMissingAPIKeyForProvider(provider);
+      process.exit(1);
+      break;
+    case "llama.cpp":
+    case "llamacpp":
+    case "llama-cpp":
+    case "llama_cpp":
+    case "llamacpp-server":
+      // Local server — no API key required.
+      if (process.env["LLAMACPP_API_KEY"]) {
+        return process.env["LLAMACPP_API_KEY"];
+      }
+      return "llama.cpp";
     default:
       reportMissingAPIKeyForProvider("");
       process.exit(1);
@@ -151,6 +248,32 @@ function resolveEnvBaseURL(provider: string): string {
       break;
     case "ollama":
       url = process.env["OLLAMA_BASE_URL"];
+      break;
+    case "opencode":
+    case "opencode-zen":
+    case "opencodezen":
+    case "opencode_zen":
+      url = process.env["OPENCODE_BASE_URL"] || process.env["OPENCODE_ZEN_BASE_URL"];
+      break;
+    case "kilo":
+    case "kilocode":
+    case "kilogateway":
+    case "kilo-gateway":
+    case "kilo_gateway":
+      url =
+        process.env["KILOCODE_BASE_URL"] ||
+        process.env["KILO_BASE_URL"] ||
+        process.env["KILOGATEWAY_BASE_URL"];
+      break;
+    case "llama.cpp":
+    case "llamacpp":
+    case "llama-cpp":
+    case "llama_cpp":
+    case "llamacpp-server":
+      url =
+        process.env["LLAMACPP_BASE_URL"] ||
+        process.env["LLAMA_CPP_BASE_URL"] ||
+        process.env["LLAMACPP_URL"];
       break;
     default:
       url = undefined;
@@ -174,6 +297,13 @@ export function baseURLForProvider(
     return envBaseURL;
   }
 
+  const aliases = providerAliases(provider);
+  for (const id of aliases) {
+    const aliasURL = providers?.[id]?.baseURL;
+    if (aliasURL) {
+      return aliasURL;
+    }
+  }
   const configURL = providers?.[provider]?.baseURL;
   if (configURL) {
     return configURL;
@@ -198,6 +328,23 @@ export function baseURLForProvider(
       return "https://api.deepseek.com/v1";
     case "hf":
       return "https://router.huggingface.co/v1";
+    case "opencode":
+    case "opencode-zen":
+    case "opencodezen":
+    case "opencode_zen":
+      return "https://opencode.ai/zen/v1";
+    case "kilo":
+    case "kilocode":
+    case "kilogateway":
+    case "kilo-gateway":
+    case "kilo_gateway":
+      return "https://api.kilo.ai/api/gateway";
+    case "llama.cpp":
+    case "llamacpp":
+    case "llama-cpp":
+    case "llama_cpp":
+    case "llamacpp-server":
+      return "http://localhost:8080/v1";
     default:
       // TODO throw?
       return "";
@@ -250,6 +397,32 @@ function defaultModelsForProvider(provider: string): {
         agentic: "moonshotai/Kimi-K2.5",
         fullContext: "moonshotai/Kimi-K2.5",
       };
+    case "opencode":
+    case "opencode-zen":
+    case "opencodezen":
+    case "opencode_zen":
+      return {
+        agentic: "gpt-5.2-codex",
+        fullContext: "gpt-5.2-codex",
+      };
+    case "kilo":
+    case "kilocode":
+    case "kilogateway":
+    case "kilo-gateway":
+    case "kilo_gateway":
+      return {
+        agentic: "kilo-auto/balanced",
+        fullContext: "kilo-auto/balanced",
+      };
+    case "llama.cpp":
+    case "llamacpp":
+    case "llama-cpp":
+    case "llama_cpp":
+    case "llamacpp-server":
+      return {
+        agentic: "",
+        fullContext: "",
+      };
     default:
       return {
         agentic: "",
@@ -277,7 +450,7 @@ export const ProviderConfigSchema = z.object({
   topK: z.number().optional(),
   maxTokens: z.number().optional(),
   seed: z.number().optional(),
-  stop: z.array(z.string()).optional(),
+  stop: z.array(z.string().min(1)).optional(),
   presencePenalty: z.number().optional(),
   frequencyPenalty: z.number().optional(),
   repeatPenalty: z.number().optional(),
@@ -319,7 +492,7 @@ export const StoredConfigSchema = z.object({
   topK: z.number().optional(),
   maxTokens: z.number().optional(),
   seed: z.number().optional(),
-  stop: z.array(z.string()).optional(),
+  stop: z.array(z.string().min(1)).optional(),
   presencePenalty: z.number().optional(),
   frequencyPenalty: z.number().optional(),
   repeatPenalty: z.number().optional(),
@@ -694,7 +867,7 @@ export const loadConfig = (
       storedConfig.providers?.[effectiveProvider]?.maxTokens ??
       storedConfig.maxTokens,
     seed: storedConfig.providers?.[effectiveProvider]?.seed ?? storedConfig.seed,
-    stop: storedConfig.providers?.[effectiveProvider]?.stop ?? storedConfig.stop,
+    stop: (() => { const f = ((storedConfig.providers?.[effectiveProvider]?.stop ?? storedConfig.stop) || []).filter((x: string) => typeof x === 'string' && x.trim().length > 0); return f.length ? f : undefined; })(),
     presencePenalty:
       storedConfig.providers?.[effectiveProvider]?.presencePenalty ??
       storedConfig.presencePenalty,
@@ -833,7 +1006,9 @@ export const saveConfig = (
     topK: config.topK,
     maxTokens: config.maxTokens,
     seed: config.seed,
-    stop: config.stop,
+    stop: (config.stop || []).filter((x: string) => typeof x === 'string' && x.trim().length > 0).length
+      ? (config.stop || []).filter((x: string) => typeof x === 'string' && x.trim().length > 0)
+      : undefined,
     presencePenalty: config.presencePenalty,
     frequencyPenalty: config.frequencyPenalty,
     repeatPenalty: config.repeatPenalty,

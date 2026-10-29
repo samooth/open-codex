@@ -177,10 +177,12 @@ const TerminalStatusBar: React.FC<Props> = ({
               <Text color={theme.success} bold>
                 {tokenBreakdown.total}T
               </Text>
-              <Text color={theme.warning}>
-                ${tokenBreakdown.cost.toFixed(4)}
-              </Text>
-              {separator}
+              {!isUltraNarrow && (
+                <Text color={theme.warning}>
+                  ${tokenBreakdown.cost.toFixed(4)}
+                </Text>
+              )}
+              {!isUltraNarrow && separator}
               {!isNarrow && <Text color={theme.dim}>ctx</Text>}
               {!isUltraNarrow &&
                 (contextSegments ? (

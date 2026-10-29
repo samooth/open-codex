@@ -4,87 +4,154 @@ export interface ReasoningParts {
   plans: string[];
 }
 
+// Tag aliases recognised as reasoning/thought blocks.
+const THOUGHT_TAGS =
+  "thought|think|thinking|reasoning|analysis|scratchpad|internal";
+// Tag aliases recognised as plan blocks.
+const PLAN_TAGS = "plan|roadmap|strategy";
+// Tag aliases whose content should be treated as the final response.
+const RESPONSE_TAGS = "response|answer|final";
+
+function stripOrphanCloses(text: string): string {
+  return text.replace(
+    new RegExp(`</(${THOUGHT_TAGS}|${PLAN_TAGS}|${RESPONSE_TAGS})>`, "gim"),
+    "",
+  );
+}
+
+function clean(s: string): string {
+  return s.replace(/\r\n/g, "\n").trim();
+}
+
+function dedupe(list: string[]): string[] {
+  const out: string[] = [];
+  for (const item of list) {
+    if (item && (out.length === 0 || out[out.length - 1] !== item)) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 /**
- * Extract <thought>/<think>/<thinking> and <plan>/<roadmap> blocks from a
+ * Extract <thought>/<think>/<thinking>/... and <plan>/... blocks from a
  * message's text content, returning the remaining display content plus the
  * extracted reasoning/plan snippets.
  *
- * Handles both fully-closed blocks and (during streaming) unclosed tag blocks
- * so the live reasoning can be shown by the input indicator without leaving
- * orphaned opening tags in the main answer text.
- *
- * This is the single source of truth for reasoning/plan extraction used by the
- * message renderer.
+ * Handles fully-closed blocks, unclosed (streaming) blocks, tags with
+ * attributes, orphaned closing tags and interleaved content. This is the
+ * single source of truth for reasoning/plan extraction used by the renderer.
  */
 export function extractReasoningParts(content: string): ReasoningParts {
+  if (!content) {
+    return { displayContent: "", thoughts: [], plans: [] };
+  }
+
   const thoughts: string[] = [];
   const plans: string[] = [];
 
-  const closedThoughtRegex =
-    /<(thought|think|thinking)>([\s\S]*?)<\/(?:thought|think|thinking)>/gim;
-  const closedPlanRegex = /<(plan|roadmap)>([\s\S]*?)<\/(?:plan|roadmap)>/gim;
-  const closedResponseRegex = /<response>([\s\S]*?)<\/response>/gim;
-
-  let displayContent = content.replace(
-    closedThoughtRegex,
-    (_m, _tag, thought) => {
-      thoughts.push(thought.trim());
-      return "";
-    },
+  const closedThoughtRegex = new RegExp(
+    `<(?:${THOUGHT_TAGS})(?:\\s[^>]*)?>([\\s\\S]*?)</(?:${THOUGHT_TAGS})>`,
+    "gim",
+  );
+  const closedPlanRegex = new RegExp(
+    `<(?:${PLAN_TAGS})(?:\\s[^>]*)?>([\\s\\S]*?)</(?:${PLAN_TAGS})>`,
+    "gim",
+  );
+  const closedResponseRegex = new RegExp(
+    `<(?:${RESPONSE_TAGS})(?:\\s[^>]*)?>([\\s\\S]*?)</(?:${RESPONSE_TAGS})>`,
+    "gim",
   );
 
-  displayContent = displayContent.replace(closedPlanRegex, (_m, _tag, plan) => {
-    plans.push(plan.trim());
+  let displayContent = content.replace(closedThoughtRegex, (_m, thought) => {
+    const t = clean(thought);
+    if (t) thoughts.push(t);
     return "";
   });
 
-  displayContent = displayContent.replace(closedResponseRegex, (_m, resp) => resp);
+  displayContent = displayContent.replace(closedPlanRegex, (_m, plan) => {
+    const p = clean(plan);
+    if (p) plans.push(p);
+    return "";
+  });
 
-  const unclosedTags = [
-    {
-      type: "thought" as const,
-      match: displayContent.match(
-        /<(thought|think|thinking)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(thought|think|thinking)|$))/i,
-      ),
-    },
-    {
-      type: "plan" as const,
-      match: displayContent.match(
-        /<(plan|roadmap)>(?![\s\S]*<\/\1>)([\s\S]*?)(?=(?:<(plan|roadmap)|$))/i,
-      ),
-    },
-    {
-      type: "response" as const,
-      match: displayContent.match(
-        /<response>(?![\s\S]*<\/response>)([\s\S]*?)(?=(?:<response|$))/i,
-      ),
-    },
-  ]
-    .filter((t) => t.match !== null)
-    .sort((a, b) => a.match!.index! - b.match!.index!);
+  displayContent = displayContent.replace(closedResponseRegex, (_m, resp) =>
+    clean(resp),
+  );
 
-  if (unclosedTags.length > 0) {
-    const firstUnclosed = unclosedTags[0]!;
-    const firstIndex = firstUnclosed.match!.index!;
+  // Unclosed (streaming) tags: a tag that has been opened but not yet closed.
+  const unclosedCandidates: Array<{
+    type: "thought" | "plan" | "response";
+    index: number;
+    tag: string;
+    content: string;
+  }> = [];
 
-    for (const tag of unclosedTags) {
-      if (tag.type === "thought") {
-        thoughts.push(tag.match![2]!.trim());
-      } else if (tag.type === "plan") {
-        plans.push(tag.match![2]!.trim());
-      }
+  const unclosedThought = displayContent.match(
+    new RegExp(
+      `<(?:${THOUGHT_TAGS})(?:\\s[^>]*)?>(?![\\s\\S]*</(?:${THOUGHT_TAGS})>)([\\s\\S]*?)(?=<(?:${THOUGHT_TAGS}|${PLAN_TAGS}|${RESPONSE_TAGS})|$)`,
+      "i",
+    ),
+  );
+  if (unclosedThought && unclosedThought.index !== undefined) {
+    unclosedCandidates.push({
+      type: "thought",
+      index: unclosedThought.index,
+      tag: unclosedThought[0].match(/^<([a-zA-Z]+)/)?.[1] ?? "thought",
+      content: clean(unclosedThought[1] ?? ""),
+    });
+  }
+
+  const unclosedPlan = displayContent.match(
+    new RegExp(
+      `<(?:${PLAN_TAGS})(?:\\s[^>]*)?>(?![\\s\\S]*</(?:${PLAN_TAGS})>)([\\s\\S]*?)(?=<(?:${THOUGHT_TAGS}|${PLAN_TAGS}|${RESPONSE_TAGS})|$)`,
+      "i",
+    ),
+  );
+  if (unclosedPlan && unclosedPlan.index !== undefined) {
+    unclosedCandidates.push({
+      type: "plan",
+      index: unclosedPlan.index,
+      tag: unclosedPlan[0].match(/^<([a-zA-Z]+)/)?.[1] ?? "plan",
+      content: clean(unclosedPlan[1] ?? ""),
+    });
+  }
+
+  const unclosedResponse = displayContent.match(
+    new RegExp(
+      `<(?:${RESPONSE_TAGS})(?:\\s[^>]*)?>(?![\\s\\S]*</(?:${RESPONSE_TAGS})>)([\\s\\S]*?)(?=<(?:${THOUGHT_TAGS}|${PLAN_TAGS}|${RESPONSE_TAGS})|$)`,
+      "i",
+    ),
+  );
+  if (unclosedResponse && unclosedResponse.index !== undefined) {
+    unclosedCandidates.push({
+      type: "response",
+      index: unclosedResponse.index,
+      tag: unclosedResponse[0].match(/^<([a-zA-Z]+)/)?.[1] ?? "response",
+      content: clean(unclosedResponse[1] ?? ""),
+    });
+  }
+
+  unclosedCandidates.sort((a, b) => a.index - b.index);
+
+  if (unclosedCandidates.length > 0) {
+    const first = unclosedCandidates[0]!;
+    for (const c of unclosedCandidates) {
+      if (c.type === "thought" && c.content) thoughts.push(c.content);
+      else if (c.type === "plan" && c.content) plans.push(c.content);
     }
-
-    if (firstUnclosed.type !== "response") {
-      displayContent = displayContent.slice(0, firstIndex);
+    if (first.type !== "response") {
+      displayContent = displayContent.slice(0, first.index);
     } else {
-      displayContent = displayContent.slice(0, firstIndex) + firstUnclosed.match![1];
+      displayContent = displayContent.slice(0, first.index) + first.content;
     }
   }
 
-  displayContent = displayContent
-    .replace(/<\/(thought|think|thinking|plan|roadmap|response)>/gim, "")
-    .trim();
+  displayContent = stripOrphanCloses(displayContent).trim();
 
-  return { displayContent, thoughts, plans };
+  return {
+    displayContent,
+    thoughts: dedupe(thoughts),
+    plans: dedupe(plans),
+  };
 }

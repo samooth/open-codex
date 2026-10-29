@@ -337,6 +337,17 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
           return `- ${chalk.bold("DS_API_KEY")} for DeepSeek models\n`;
         case "hf":
           return `- ${chalk.bold("HF_API_KEY")} for Hugging Face models\n`;
+        case "opencode":
+        case "opencode-zen":
+        case "opencodezen":
+        case "opencode_zen":
+          return `- ${chalk.bold("OPENCODE_API_KEY")} for OpenCode Zen models\n`;
+        case "kilo":
+        case "kilocode":
+        case "kilogateway":
+        case "kilo-gateway":
+        case "kilo_gateway":
+          return `- ${chalk.bold("KILOCODE_API_KEY")} for Kilo Gateway models\n`;
         default:
           return (
             [
@@ -347,6 +358,8 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
               `- ${chalk.bold("XAI_API_KEY")} for xAI models`,
               `- ${chalk.bold("DS_API_KEY")} for DeepSeek models`,
               `- ${chalk.bold("HF_API_KEY")} for Hugging Face models`,
+              `- ${chalk.bold("OPENCODE_API_KEY")} for OpenCode Zen models`,
+              `- ${chalk.bold("KILOCODE_API_KEY")} for Kilo Gateway models`,
             ].join("\n") + "\n"
           );
       }
@@ -382,6 +395,21 @@ export function reportMissingAPIKeyForProvider(provider: string): void {
         case "hf":
           return `You can create a Hugging Face key here: ${chalk.bold(
             chalk.underline("https://huggingface.co/settings/tokens"),
+          )}\n`;
+        case "opencode":
+        case "opencode-zen":
+        case "opencodezen":
+        case "opencode_zen":
+          return `You can create an OpenCode Zen key here: ${chalk.bold(
+            chalk.underline("https://opencode.ai/auth"),
+          )}\n`;
+        case "kilo":
+        case "kilocode":
+        case "kilogateway":
+        case "kilo-gateway":
+        case "kilo_gateway":
+          return `You can create a Kilo Gateway key here: ${chalk.bold(
+            chalk.underline("https://app.kilo.ai"),
           )}\n`;
         default:
           return "";

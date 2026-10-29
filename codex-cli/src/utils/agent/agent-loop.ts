@@ -848,7 +848,7 @@ export class AgentLoop {
                 max_tokens: this.config.maxTokens || 8192,
                 temperature: this.config.temperature,
                 top_p: this.config.topP,
-                stop_sequences: this.config.stop,
+                ...(() => { const f = (this.config.stop || []).filter((s) => typeof s === 'string' && s.trim().length > 0); return f.length ? { stop_sequences: f } : {}; })(),
                 ...extraBody,
               };
 
@@ -1172,7 +1172,7 @@ export class AgentLoop {
                 top_p: this.config.topP,
                 max_tokens: this.config.maxTokens,
                 seed: this.config.seed,
-                stop: this.config.stop,
+                ...(() => { const f = (this.config.stop || []).filter((s) => typeof s === 'string' && s.trim().length > 0); return f.length ? { stop: f } : {}; })(),
                 presence_penalty: this.config.presencePenalty,
                 frequency_penalty: this.config.frequencyPenalty,
                 tools: toolsToUse.filter((tool: any) => {
