@@ -253,6 +253,18 @@ const cli = meow(
         description: `Run in full-context editing approach. The model is given the whole code
           directory as context and performs changes in one go without acting.`,
       },
+      port: {
+        type: "number",
+        description: "Port for serve mode (default: 4096)",
+      },
+      host: {
+        type: "string",
+        description: "Host for serve mode (default: 127.0.0.1)",
+      },
+      token: {
+        type: "string",
+        description: "Bearer token for serve mode authentication",
+      },
     },
   },
 );
@@ -387,6 +399,19 @@ async function readStdin(): Promise<string> {
     // Safety timeout for non-closed pipes
     setTimeout(onEnd, 1000);
   });
+}
+
+// Handle 'serve' subcommand: run an HTTP + SSE server instead of the TUI.
+if (cli.input[0] === "serve") {
+  const { runServeMode } = await import("./utils/serve.js");
+  await runServeMode({
+    config,
+    port: (cli.flags.port as number | undefined) ?? 4096,
+    host: (cli.flags.host as string | undefined) ?? "127.0.0.1",
+    token: cli.flags.token as string | undefined,
+  });
+  onExit();
+  process.exit(0);
 }
 
 let prompt = cli.input.join(cli.input.length > 1 ? "\n\n" : " ");
