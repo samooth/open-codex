@@ -103,7 +103,11 @@ function authorize(
 }
 
 function emit(session: Session, type: string, data: unknown): void {
-  const payload = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+  const base =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? { sessionID: session.id, ...(data as Record<string, unknown>) }
+      : { sessionID: session.id };
+  const payload = `event: ${type}\ndata: ${JSON.stringify(base)}\n\n`;
   for (const client of session.clients) {
     try {
       client.write(payload);
@@ -334,11 +338,26 @@ async function createSession(
       }
 
       const approvalId = randomUUID();
-      emit(session, "session.approval.requested", {
+      const tool = applyPatch ? "apply_patch" : "shell";
+      const resources = applyPatch
+        ? [applyPatch.patch]
+        : Array.isArray(command)
+          ? command
+          : [String(command)];
+      const payload = {
         id: approvalId,
+        sessionID: session.id,
+        tool,
+        resources,
         command,
         applyPatch,
-      });
+      };
+      for (const type of [
+        "session.approval.requested",
+        "permission.asked",
+      ]) {
+        emit(session, type, payload);
+      }
 
       return new Promise<CommandConfirmation>((resolve) => {
         session.pendingApprovals.set(approvalId, { resolve });
@@ -373,6 +392,7 @@ async function runPrompt(
   await previous.catch(() => {});
 
   session.running = true;
+  emit(session, "session.status", { status: "busy" });
   session.textStarted = false;
   session.reasoningStarted = false;
   session.prevText = "";
@@ -417,6 +437,7 @@ async function runPrompt(
   } finally {
     process.chdir(prevCwd);
     session.running = false;
+    emit(session, "session.status", { status: "idle" });
     if (session.items.length > 0) {
       try {
         setSessionId(session.id);
@@ -603,6 +624,12 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           const body = await readBody(req);
           if (body?.directory) {
             session.directory = path.resolve(String(body.directory));
+            emit(session, "session.updated", {
+              directory: session.directory,
+            });
+            emit(session, "session.moved", {
+              directory: session.directory,
+            });
           }
           sendJson(res, 200, {
             id: session.id,
@@ -621,6 +648,19 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           }
           const text = body?.text ?? body?.prompt ?? "";
           const files = body?.files;
+          const wait =
+            body?.wait !== false &&
+            url.searchParams.get("wait") !== "false" &&
+            url.searchParams.get("async") !== "true";
+          if (wait) {
+            try {
+              await runPrompt(session, String(text), files);
+              sendJson(res, 200, { ok: true, id: session.id });
+            } catch (err) {
+              sendJson(res, 500, { error: String(err) });
+            }
+            return;
+          }
           // fire and forget
           runPrompt(session, String(text), files).catch(() => {});
           sendJson(res, 202, { ok: true, id: session.id });
@@ -667,10 +707,18 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           }
           pending.resolve({ review });
           session.pendingApprovals.delete(approvalId);
-          emit(session, "session.approval.resolved", {
+          const payload = {
             id: approvalId,
+            sessionID: session.id,
             decision,
-          });
+            review: decision,
+          };
+          for (const type of [
+            "session.approval.resolved",
+            "permission.replied",
+          ]) {
+            emit(session, type, payload);
+          }
           sendJson(res, 200, { ok: true });
           return;
         }
@@ -745,6 +793,13 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           } catch (err) {
             sendJson(res, 400, { error: String(err) });
           }
+          return;
+        }
+
+        // POST /session/:id/compact
+        if (sm.rest === "/compact" && method === "POST") {
+          emit(session, "session.compacted", { items: session.items.length });
+          sendJson(res, 200, { ok: true, items: session.items.length });
           return;
         }
 
