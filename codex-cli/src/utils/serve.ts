@@ -10,8 +10,16 @@ import { SkillManager } from "./agent/skill-manager.js";
 import { AutoApprovalMode } from "./auto-approval-mode.js";
 import { ReviewDecision } from "./agent/review.js";
 import { createInputItem } from "./input-utils.js";
+import { setSessionId, setCurrentModel } from "./session.js";
+import {
+  loadRollouts,
+  loadRollout,
+  saveRollout,
+  flushRollout,
+} from "./storage/save-rollout.js";
 import type { AppConfig } from "./config.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
+import type { CommandConfirmation } from "./agent/types.js";
 
 interface Session {
   id: string;
@@ -19,6 +27,7 @@ interface Session {
   model: string;
   provider?: string;
   agent?: string;
+  approvalPolicy: string;
   config: AppConfig;
   createdAt: number;
   items: ChatCompletionMessageParam[];
@@ -31,6 +40,10 @@ interface Session {
   reasoningStarted: boolean;
   prevText: string;
   currentTool: string | null;
+  pendingApprovals: Map<
+    string,
+    { resolve: (value: CommandConfirmation) => void }
+  >;
 }
 
 export interface ServeOptions {
@@ -239,11 +252,17 @@ async function createSession(
   const model = opts?.model ? String(opts.model) : baseConfig.model;
   const provider = opts?.provider ? String(opts.provider) : baseConfig.provider;
   const agent = opts?.agent ? String(opts.agent) : undefined;
+  const approvalPolicy =
+    opts?.approvalPolicy ??
+    opts?.approvalMode ??
+    baseConfig.approvalMode ??
+    AutoApprovalMode.FULL_AUTO;
 
   const config: AppConfig = {
     ...baseConfig,
     model,
     provider: provider ?? baseConfig.provider,
+    approvalMode: approvalPolicy as any,
   };
 
   const pluginManager = new PluginManager();
@@ -261,6 +280,7 @@ async function createSession(
     model,
     provider,
     agent,
+    approvalPolicy: String(approvalPolicy),
     config,
     createdAt: Date.now(),
     items: [],
@@ -273,13 +293,14 @@ async function createSession(
     reasoningStarted: false,
     prevText: "",
     currentTool: null,
+    pendingApprovals: new Map(),
   };
 
   const agentLoop = new AgentLoop({
     model,
     config,
     instructions: config.instructions,
-    approvalPolicy: AutoApprovalMode.FULL_AUTO,
+    approvalPolicy: approvalPolicy as any,
     pluginManager,
     onItem: (item: ChatCompletionMessageParam) => {
       session.items.push(item);
@@ -302,7 +323,26 @@ async function createSession(
     onLoading: (loading: boolean) => {
       handleLoading(session, loading);
     },
-    getCommandConfirmation: async () => ({ review: ReviewDecision.YES }),
+    getCommandConfirmation: async (
+      command: Array<string>,
+      applyPatch: any,
+    ): Promise<CommandConfirmation> => {
+      // Auto-approve everything in full-auto mode.
+      if (approvalPolicy === AutoApprovalMode.FULL_AUTO) {
+        return { review: ReviewDecision.YES };
+      }
+
+      const approvalId = randomUUID();
+      emit(session, "session.approval.requested", {
+        id: approvalId,
+        command,
+        applyPatch,
+      });
+
+      return new Promise<CommandConfirmation>((resolve) => {
+        session.pendingApprovals.set(approvalId, { resolve });
+      });
+    },
     onReset: () => {
       session.items = [];
     },
@@ -376,6 +416,16 @@ async function runPrompt(
   } finally {
     process.chdir(prevCwd);
     session.running = false;
+    if (session.items.length > 0) {
+      try {
+        setSessionId(session.id);
+        setCurrentModel(session.model);
+        saveRollout(session.items);
+        await flushRollout();
+      } catch {
+        // ignore persistence errors
+      }
+    }
     emit(session, "session.idle", {});
     releaseQueue();
   }
@@ -451,6 +501,50 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
         return;
       }
 
+      // GET /sessions/saved
+      if (pathname === "/sessions/saved" && method === "GET") {
+        const rollouts = await loadRollouts();
+        sendJson(res, 200, rollouts);
+        return;
+      }
+
+      // POST /session/restore
+      if (pathname === "/session/restore" && method === "POST") {
+        const body = await readBody(req);
+        let data: { session?: any; items?: any } | null = null;
+        if (body?.path) {
+          data = await loadRollout(String(body.path));
+        } else if (body?.id) {
+          const rollouts = await loadRollouts();
+          const match = rollouts.find(
+            (r: any) => r.session?.id === body.id,
+          );
+          if (match) {
+            data = await loadRollout(match.path);
+          }
+        }
+        if (!data) {
+          sendJson(res, 404, { error: "saved session not found" });
+          return;
+        }
+        const restored = await createSession(
+          {
+            directory: body?.directory ?? process.cwd(),
+            model: data.session?.model ?? baseConfig.model,
+            provider: data.session?.provider,
+          },
+          baseConfig,
+        );
+        restored.items = Array.isArray(data.items) ? data.items : [];
+        sessions.set(restored.id, restored);
+        sendJson(res, 201, {
+          id: restored.id,
+          directory: restored.directory,
+          model: restored.model,
+        });
+        return;
+      }
+
       // /session/:id...
       const sm = matchSessionPath(pathname);
       if (sm) {
@@ -468,6 +562,7 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
             model: session.model,
             provider: session.provider,
             agent: session.agent ?? currentAgent,
+            approvalPolicy: session.approvalPolicy,
             running: session.running,
             createdAt: session.createdAt,
             items: session.items,
@@ -536,6 +631,55 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
             session.agentLoop.cancel();
           } catch {
             // ignore
+          }
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+
+        // POST /session/:id/approve
+        if (sm.rest === "/approve" && method === "POST") {
+          const body = await readBody(req);
+          const approvalId = String(
+            body?.approvalId ?? body?.id ?? body?.approval_id ?? "",
+          );
+          const pending = session.pendingApprovals.get(approvalId);
+          if (!pending) {
+            sendJson(res, 404, { error: "approval not found" });
+            return;
+          }
+          const decision = String(
+            body?.decision ?? body?.review ?? "no",
+          ).toLowerCase();
+          let review = ReviewDecision.NO_CONTINUE;
+          if (
+            decision === "yes" ||
+            decision === "approve" ||
+            decision === "approved" ||
+            decision === "true"
+          ) {
+            review = ReviewDecision.YES;
+          } else if (decision === "always") {
+            review = ReviewDecision.ALWAYS;
+          } else if (decision === "no_exit" || decision === "no-exit") {
+            review = ReviewDecision.NO_EXIT;
+          }
+          pending.resolve({ review });
+          session.pendingApprovals.delete(approvalId);
+          emit(session, "session.approval.resolved", {
+            id: approvalId,
+            decision,
+          });
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+
+        // POST /session/:id/save
+        if (sm.rest === "/save" && method === "POST") {
+          if (session.items.length > 0) {
+            setSessionId(session.id);
+            setCurrentModel(session.model);
+            saveRollout(session.items);
+            await flushRollout();
           }
           sendJson(res, 200, { ok: true });
           return;
