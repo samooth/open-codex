@@ -185,6 +185,14 @@ export class McpManager {
     return `Connected MCP Servers: ${Array.from(this.clients.keys()).join(", ")}`;
   }
 
+  public getServerNames(): Array<string> {
+    return Array.from(this.clients.keys());
+  }
+
+  public getToolNames(): Array<string> {
+    return Array.from(this.tools.keys());
+  }
+
   public hasTool(name: string): boolean {
     return this.tools.has(name);
   }

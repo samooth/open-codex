@@ -11,6 +11,7 @@ import { AutoApprovalMode } from "./auto-approval-mode.js";
 import { ReviewDecision } from "./agent/review.js";
 import { createInputItem } from "./input-utils.js";
 import { setSessionId, setCurrentModel } from "./session.js";
+import { getAvailableModels } from "./model-utils.js";
 import {
   loadRollouts,
   loadRollout,
@@ -442,6 +443,7 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
   const baseConfig: AppConfig = { ...options.config };
   let currentModel = baseConfig.model;
   let currentProvider = baseConfig.provider;
+  let currentVariant = (baseConfig as any).modelVariant as string | undefined;
   let currentAgent = "default";
 
   const server = http.createServer(async (req, res) => {
@@ -685,6 +687,67 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           return;
         }
 
+        // GET /session/:id/mcp
+        if (sm.rest === "/mcp" && method === "GET") {
+          const mcp = session.agentLoop.getMcpManager();
+          sendJson(res, 200, {
+            servers: mcp.getServerNames(),
+            tools: mcp.getToolNames(),
+            definitions: mcp.getAllDefinitions(),
+          });
+          return;
+        }
+
+        // POST /session/:id/mcp/connect
+        if (sm.rest === "/mcp/connect" && method === "POST") {
+          const body = await readBody(req);
+          const servers =
+            body?.servers && typeof body.servers === "object"
+              ? body.servers
+              : session.config.mcpServers ?? baseConfig.mcpServers ?? {};
+          const mcp = session.agentLoop.getMcpManager();
+          try {
+            await mcp.connectServers(servers);
+          } catch (err) {
+            sendJson(res, 200, {
+              ok: false,
+              error: String(err),
+              servers: mcp.getServerNames(),
+              tools: mcp.getToolNames(),
+            });
+            return;
+          }
+          // update config
+          session.config.mcpServers = servers;
+          sendJson(res, 200, {
+            ok: true,
+            servers: mcp.getServerNames(),
+            tools: mcp.getToolNames(),
+          });
+          return;
+        }
+
+        // POST /session/:id/mcp/call
+        if (sm.rest === "/mcp/call" && method === "POST") {
+          const body = await readBody(req);
+          const name = body?.name ?? body?.tool;
+          if (!name) {
+            sendJson(res, 400, { error: "name required" });
+            return;
+          }
+          const mcp = session.agentLoop.getMcpManager();
+          try {
+            const result = await mcp.callTool(
+              String(name),
+              body?.arguments ?? body?.args ?? {},
+            );
+            sendJson(res, 200, { result });
+          } catch (err) {
+            sendJson(res, 400, { error: String(err) });
+          }
+          return;
+        }
+
         // GET /session/:id/events (SSE)
         if (sm.rest === "/events" && method === "GET") {
           res.writeHead(200, {
@@ -725,7 +788,21 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
         sendJson(res, 200, {
           model: currentModel,
           provider: currentProvider,
+          variant: currentVariant,
         });
+        return;
+      }
+
+      // GET /models
+      if (pathname === "/models" && method === "GET") {
+        const provider = url.searchParams.get("provider") || currentProvider;
+        const cfg: AppConfig = { ...baseConfig, provider: provider ?? baseConfig.provider };
+        try {
+          const models = await getAvailableModels(cfg);
+          sendJson(res, 200, { provider, models });
+        } catch (err) {
+          sendJson(res, 200, { provider, models: [], error: String(err) });
+        }
         return;
       }
 
@@ -734,11 +811,14 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
         const body = await readBody(req);
         if (body?.model) currentModel = String(body.model);
         if (body?.provider) currentProvider = String(body.provider);
+        if (body?.variant !== undefined) currentVariant = String(body.variant);
         baseConfig.model = currentModel;
         if (currentProvider) baseConfig.provider = currentProvider;
+        (baseConfig as any).modelVariant = currentVariant;
         sendJson(res, 200, {
           model: currentModel,
           provider: currentProvider,
+          variant: currentVariant,
         });
         return;
       }
@@ -754,6 +834,22 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
         const body = await readBody(req);
         if (body?.agent) currentAgent = String(body.agent);
         sendJson(res, 200, { agent: currentAgent });
+        return;
+      }
+
+      // GET /mcp/servers
+      if (pathname === "/mcp/servers" && method === "GET") {
+        sendJson(res, 200, {
+          servers: baseConfig.mcpServers ?? {},
+        });
+        return;
+      }
+
+      // GET /mcp (alias)
+      if (pathname === "/mcp" && method === "GET") {
+        sendJson(res, 200, {
+          servers: baseConfig.mcpServers ?? {},
+        });
         return;
       }
 

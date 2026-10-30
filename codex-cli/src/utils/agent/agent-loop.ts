@@ -248,6 +248,10 @@ export class AgentLoop {
     return this.semanticMemory.search(query, limit);
   }
 
+  public getMcpManager(): McpManager {
+    return this.mcpManager;
+  }
+
   public hasIndex(): boolean {
     return this.semanticMemory.hasIndex();
   }
