@@ -491,9 +491,50 @@ export class AgentLoop {
   }
 
   public updateConfig(newConfig: AppConfig) {
+    const providerChanged = newConfig.provider !== this.config.provider;
+    const apiKeyChanged = newConfig.apiKey !== this.config.apiKey;
+    const baseURLChanged = newConfig.baseURL !== this.config.baseURL;
+
     this.config = newConfig;
     if (newConfig.instructions !== undefined) {
       this.instructions = newConfig.instructions;
+    }
+    if (newConfig.model) {
+      this.model = newConfig.model;
+    }
+
+    // Rebuild the underlying client when the provider or its credentials change
+    // (e.g. after /connect) so the new API key / base URL / provider SDK is
+    // actually used by subsequent requests instead of the stale instance.
+    if (providerChanged || apiKeyChanged || baseURLChanged) {
+      const provider = newConfig.provider || "openai";
+      const apiKey = newConfig.apiKey;
+      const baseURL =
+        newConfig.baseURL || baseURLForProvider(provider, newConfig.providers);
+      newConfig.baseURL = baseURL;
+
+      if (provider === "google" || provider === "gemini") {
+        this.oai = new GoogleGenAI({
+          apiKey: apiKey || "",
+        });
+      } else if (provider === "anthropic") {
+        this.oai = null;
+      } else {
+        this.oai = new OpenAI({
+          ...(apiKey ? { apiKey } : {}),
+          ...(baseURL ? { baseURL } : {}),
+          ...(OPENAI_TIMEOUT_MS !== undefined
+            ? { timeout: OPENAI_TIMEOUT_MS }
+            : {}),
+        });
+      }
+
+      this.semanticMemory = new SemanticMemory(
+        this.oai,
+        provider,
+        newConfig.embeddingModel,
+        apiKey,
+      );
     }
   }
 

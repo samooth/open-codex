@@ -665,6 +665,11 @@ export default function TerminalChat({
     if (agentRef.current) {
       agentRef.current.updateConfig(config);
     }
+    // Keep the local model state in sync when the provider/model changes
+    // (e.g. after /connect) so the UI and context calculations reflect it.
+    if (config.model && config.model !== model) {
+      setModel(config.model);
+    }
   }, [config]);
 
   // Let's also track whenever the ref becomes available

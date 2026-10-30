@@ -351,7 +351,7 @@ export function baseURLForProvider(
   }
 }
 
-function defaultModelsForProvider(provider: string): {
+export function defaultModelsForProvider(provider: string): {
   agentic: string;
   fullContext: string;
 } {

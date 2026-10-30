@@ -5,7 +5,11 @@ import { useAppContext } from "../contexts/app-context.js";
 import CenteredOverlay from "./centered-overlay.js";
 import SelectInput from "./select-input/select-input.js";
 import TextInput from "./vendor/ink-text-input.js";
-import { saveConfig } from "../utils/config.js";
+import {
+  saveConfig,
+  defaultModelsForProvider,
+  baseURLForProvider,
+} from "../utils/config.js";
 import { Box, Text, useInput } from "ink";
 import React, { useMemo, useState } from "react";
 
@@ -109,30 +113,46 @@ export default function ConnectOverlay({
   const provider = catalogWithStatus.find((p) => p.id === selectedProvider);
 
   const finishConnect = (providerId: string, key: string, url: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      provider: providerId,
-      providers: {
-        ...(prev.providers ?? {}),
-        [providerId]: {
-          ...(prev.providers?.[providerId] ?? {}),
-          ...(key.trim() ? { apiKey: key.trim() } : {}),
-          ...(url.trim() ? { baseURL: url.trim() } : {}),
-        },
+    const catalogEntry = PROVIDER_CATALOG.find((p) => p.id === providerId);
+    const newProviders = {
+      ...(config.providers ?? {}),
+      [providerId]: {
+        ...(config.providers?.[providerId] ?? {}),
+        ...(key.trim() ? { apiKey: key.trim() } : {}),
+        ...(url.trim() ? { baseURL: url.trim() } : {}),
       },
-    }));
+    };
+
+    // Resolve a usable API key for the runtime (env var or local placeholder)
+    // so the freshly selected provider works without a restart.
+    const envKey = catalogEntry?.envKey;
+    const derivedApiKey =
+      key.trim() ||
+      (envKey ? process.env[envKey] : undefined) ||
+      (providerId === "ollama"
+        ? "ollama"
+        : providerId === "llama.cpp"
+          ? "llama.cpp"
+          : config.apiKey);
+
+    const derivedBaseURL =
+      url.trim() || baseURLForProvider(providerId, newProviders);
+
+    const derivedModel =
+      defaultModelsForProvider(providerId).agentic || config.model;
+
+    const newConfig: AppConfig = {
+      ...config,
+      provider: providerId,
+      apiKey: derivedApiKey,
+      baseURL: derivedBaseURL,
+      model: derivedModel,
+      providers: newProviders,
+    };
+
+    setConfig(newConfig);
     try {
-      const stored = { ...config };
-      stored.provider = providerId;
-      stored.providers = {
-        ...(config.providers ?? {}),
-        [providerId]: {
-          ...(config.providers?.[providerId] ?? {}),
-          ...(key.trim() ? { apiKey: key.trim() } : {}),
-          ...(url.trim() ? { baseURL: url.trim() } : {}),
-        },
-      };
-      saveConfig(stored);
+      saveConfig(newConfig);
     } catch {
       // best-effort persistence; the runtime switch still applies
     }
