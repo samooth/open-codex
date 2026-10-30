@@ -72,6 +72,7 @@ const cli = meow(
   Usage
     $ opencodex [options] <prompt>
     $ opencodex completion <bash|zsh|fish>
+    $ opencodex serve --port 4096 [--host 127.0.0.1] [--token <secret>]
 
   Options
     -h, --help                 Show usage and exit
@@ -115,10 +116,16 @@ const cli = meow(
                                into context and applies a batch of edits in one go. Incompatible
                                with all other flags, except for --model.
 
+  Serve options (used with 'serve')
+    --port <number>            Port for the HTTP+SSE server (default: 4096)
+    --host <string>            Host/interface to bind (default: 127.0.0.1)
+    --token <secret>           Optional Bearer token for authentication
+
   Examples
     $ codex "Write and run a python program that prints ASCII art"
     $ codex -q "fix build issues"
     $ codex completion bash
+    $ codex serve --port 4096 --host 127.0.0.1 --token secret
 `,
   {
     importMeta: import.meta,

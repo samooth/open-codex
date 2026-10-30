@@ -208,6 +208,7 @@ The hardening mechanism Codex uses depends on your OS:
 | `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY    | `codex "explain utils.ts"`     |
 | `open-codex -r <recipe> "…"`              | Run with a predefined prompt template | `codex -r test "src/utils.ts"` |
 | `open-codex completion <bash\|zsh\|fish>` | Print shell completion script         | `codex completion bash`        |
+| `open-codex serve`                        | Run an HTTP + SSE server (for bots/IDEs) | `open-codex serve --port 4096` |
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
 
@@ -239,6 +240,30 @@ Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/confi
 - `--top-k <num>`: Set top-k sampling threshold (Ollama specific).
 - `--repeat-penalty <num>`: Set repeat penalty (Ollama specific).
 - `--context-size <tokens>`: Manually set the context window size in tokens.
+
+### Serve mode (HTTP + SSE)
+
+Run Open Codex as a headless server for integrations (e.g. Telegram bots, IDEs):
+
+```bash
+open-codex serve --port 4096 --host 127.0.0.1 --token <secret>
+```
+
+Endpoints (basic):
+- `POST /session` create session `{ directory, model, agent, approvalPolicy }` → `{ id, directory, model }`
+- `GET /session` list active sessions
+- `GET /session/:id` session details
+- `DELETE /session/:id` remove session
+- `POST /session/:id/move` change working directory
+- `POST /session/:id/prompt` `{ text, files?, wait? }` run a turn (blocks by default)
+- `POST /session/:id/interrupt` cancel
+- `GET /session/:id/events` SSE stream (`permission.asked`, `session.text.*`, `session.tool.*`, `session.step.*`, `session.status`, `session.idle`, …)
+- `POST /session/:id/approve` `{ approvalId, decision }` (`yes`, `no`, `always`, `no_exit`)
+- `GET /models`, `GET/POST /model`, `GET/PATCH /config`, `GET/POST /agent`
+- `GET /sessions/saved`, `POST /session/restore`, `POST /session/:id/save`
+- `GET /session/:id/mcp`, `POST /session/:id/mcp/connect`, `POST /session/:id/mcp/call`
+
+All SSE payloads include `sessionID`. Without `--token`, only localhost clients are accepted.
 
 ---
 
