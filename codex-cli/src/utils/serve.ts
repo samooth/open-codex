@@ -34,6 +34,15 @@ interface Session {
   items: ChatCompletionMessageParam[];
   clients: Set<http.ServerResponse>;
   running: boolean;
+  promptQueue: Array<{
+    text: string;
+    files: unknown;
+    resolve: () => void;
+    reject: (err: unknown) => void;
+  }>;
+  processingPrompts: boolean;
+  eventBuffer: Array<{ id: number; type: string; payload: string }>;
+  nextEventId: number;
   pluginManager: PluginManager;
   skillManager: SkillManager;
   agentLoop: AgentLoop;
@@ -61,11 +70,28 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
   res.end(payload);
 }
 
-function readBody(req: http.IncomingMessage): Promise<any> {
+function readBody(
+  req: http.IncomingMessage,
+  maxBytes: number = 1024 * 1024,
+): Promise<any> {
   return new Promise((resolve) => {
     const chunks: Array<Buffer> = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
+    let size = 0;
+    let tooLarge = false;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > maxBytes) {
+        tooLarge = true;
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on("end", () => {
+      if (tooLarge) {
+        resolve(null);
+        return;
+      }
       const raw = Buffer.concat(chunks).toString("utf8");
       if (!raw) {
         resolve({});
@@ -77,7 +103,7 @@ function readBody(req: http.IncomingMessage): Promise<any> {
         resolve({});
       }
     });
-    req.on("error", () => resolve({}));
+    req.on("error", () => resolve(tooLarge ? null : {}));
   });
 }
 
@@ -107,7 +133,12 @@ function emit(session: Session, type: string, data: unknown): void {
     data && typeof data === "object" && !Array.isArray(data)
       ? { sessionID: session.id, ...(data as Record<string, unknown>) }
       : { sessionID: session.id };
-  const payload = `event: ${type}\ndata: ${JSON.stringify(base)}\n\n`;
+  const id = session.nextEventId++;
+  const payload = `id: ${id}\nevent: ${type}\ndata: ${JSON.stringify(base)}\n\n`;
+  session.eventBuffer.push({ id, type, payload });
+  if (session.eventBuffer.length > 500) {
+    session.eventBuffer.splice(0, session.eventBuffer.length - 500);
+  }
   for (const client of session.clients) {
     try {
       client.write(payload);
@@ -291,6 +322,10 @@ async function createSession(
     items: [],
     clients: new Set(),
     running: false,
+    promptQueue: [],
+    processingPrompts: false,
+    eventBuffer: [],
+    nextEventId: 1,
     pluginManager,
     skillManager,
     agentLoop: null as any,
@@ -374,15 +409,11 @@ async function createSession(
 
 let runQueue: Promise<void> = Promise.resolve();
 
-async function runPrompt(
+async function runPromptTask(
   session: Session,
   text: string,
   files: unknown,
 ): Promise<void> {
-  if (session.running) {
-    throw new Error("session is busy");
-  }
-
   const previous = runQueue;
   let releaseQueue: () => void = () => {};
   runQueue = new Promise<void>((resolve) => {
@@ -451,6 +482,34 @@ async function runPrompt(
     emit(session, "session.idle", {});
     releaseQueue();
   }
+}
+
+async function enqueuePrompt(
+  session: Session,
+  text: string,
+  files: unknown,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    session.promptQueue.push({ text, files, resolve, reject });
+    void processPromptQueue(session);
+  });
+}
+
+async function processPromptQueue(session: Session): Promise<void> {
+  if (session.processingPrompts) {
+    return;
+  }
+  session.processingPrompts = true;
+  while (session.promptQueue.length > 0) {
+    const job = session.promptQueue.shift()!;
+    try {
+      await runPromptTask(session, job.text, job.files);
+      job.resolve();
+    } catch (err) {
+      job.reject(err);
+    }
+  }
+  session.processingPrompts = false;
 }
 
 function matchSessionPath(pathname: string): { id: string; rest: string } | null {
@@ -642,27 +701,23 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
         // POST /session/:id/prompt
         if (sm.rest === "/prompt" && method === "POST") {
           const body = await readBody(req);
-          if (session.running) {
-            sendJson(res, 409, { error: "session is busy" });
-            return;
-          }
           const text = body?.text ?? body?.prompt ?? "";
           const files = body?.files;
           const wait =
             body?.wait !== false &&
             url.searchParams.get("wait") !== "false" &&
             url.searchParams.get("async") !== "true";
+          const task = enqueuePrompt(session, String(text), files);
           if (wait) {
             try {
-              await runPrompt(session, String(text), files);
+              await task;
               sendJson(res, 200, { ok: true, id: session.id });
             } catch (err) {
               sendJson(res, 500, { error: String(err) });
             }
             return;
           }
-          // fire and forget
-          runPrompt(session, String(text), files).catch(() => {});
+          task.catch(() => {});
           sendJson(res, 202, { ok: true, id: session.id });
           return;
         }
@@ -811,8 +866,36 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
             Connection: "keep-alive",
           });
           session.clients.add(res);
-          res.write(`event: connected\ndata: ${JSON.stringify({ id: session.id })}\n\n`);
+
+          const lastEventId = req.headers["last-event-id"];
+          const lastId = lastEventId ? parseInt(String(lastEventId), 10) : 0;
+          if (lastId > 0) {
+            for (const ev of session.eventBuffer) {
+              if (ev.id > lastId) {
+                try {
+                  res.write(ev.payload);
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          } else {
+            res.write(
+              `event: connected\ndata: ${JSON.stringify({ id: session.id })}\n\n`,
+            );
+          }
+
+          const heartbeat = setInterval(() => {
+            try {
+              res.write(`: heartbeat\n\n`);
+            } catch {
+              clearInterval(heartbeat);
+              session.clients.delete(res);
+            }
+          }, 15000);
+
           req.on("close", () => {
+            clearInterval(heartbeat);
             session.clients.delete(res);
           });
           return;
@@ -967,6 +1050,8 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
     }
   });
 
+  server.timeout = 0;
+  server.keepAliveTimeout = 65000;
   server.listen(options.port, options.host, () => {
     // eslint-disable-next-line no-console
     console.log(
