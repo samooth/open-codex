@@ -63,7 +63,11 @@ export interface ServeOptions {
   token?: string;
 }
 
-function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+function sendJson(
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+): void {
   const payload = JSON.stringify(body);
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -214,7 +218,11 @@ function handlePartial(
 
 function handleItem(session: Session, item: ChatCompletionMessageParam): void {
   if (item.role === "assistant") {
-    if (typeof item.content === "string" && item.content && session.textStarted) {
+    if (
+      typeof item.content === "string" &&
+      item.content &&
+      session.textStarted
+    ) {
       emit(session, "session.text.ended", {});
       session.textStarted = false;
       session.prevText = "";
@@ -387,10 +395,7 @@ async function createSession(
         command,
         applyPatch,
       };
-      for (const type of [
-        "session.approval.requested",
-        "permission.asked",
-      ]) {
+      for (const type of ["session.approval.requested", "permission.asked"]) {
         emit(session, type, payload);
       }
 
@@ -512,13 +517,15 @@ async function processPromptQueue(session: Session): Promise<void> {
   session.processingPrompts = false;
 }
 
-function matchSessionPath(pathname: string): { id: string; rest: string } | null {
+function matchSessionPath(
+  pathname: string,
+): { id: string; rest: string } | null {
   const m = pathname.match(/^\/session\/([^/]+)(\/.*)?$/);
   if (!m) return null;
   return { id: decodeURIComponent(m[1] ?? ""), rest: m[2] ?? "" };
 }
 
-export async function runServeMode(options: ServeOptions): Promise<void> {
+export function createServeServer(options: ServeOptions): http.Server {
   const sessions = new Map<string, Session>();
   const baseConfig: AppConfig = { ...options.config };
   let currentModel = baseConfig.model;
@@ -598,9 +605,7 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           data = await loadRollout(String(body.path));
         } else if (body?.id) {
           const rollouts = await loadRollouts();
-          const match = rollouts.find(
-            (r: any) => r.session?.id === body.id,
-          );
+          const match = rollouts.find((r: any) => r.session?.id === body.id);
           if (match) {
             data = await loadRollout(match.path);
           }
@@ -807,7 +812,7 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           const servers =
             body?.servers && typeof body.servers === "object"
               ? body.servers
-              : session.config.mcpServers ?? baseConfig.mcpServers ?? {};
+              : (session.config.mcpServers ?? baseConfig.mcpServers ?? {});
           const mcp = session.agentLoop.getMcpManager();
           try {
             await mcp.connectServers(servers);
@@ -863,7 +868,7 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
           res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
-            Connection: "keep-alive",
+            "Connection": "keep-alive",
           });
           session.clients.add(res);
 
@@ -934,7 +939,10 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
       // GET /models
       if (pathname === "/models" && method === "GET") {
         const provider = url.searchParams.get("provider") || currentProvider;
-        const cfg: AppConfig = { ...baseConfig, provider: provider ?? baseConfig.provider };
+        const cfg: AppConfig = {
+          ...baseConfig,
+          provider: provider ?? baseConfig.provider,
+        };
         try {
           const models = await getAvailableModels(cfg);
           sendJson(res, 200, { provider, models });
@@ -1052,13 +1060,18 @@ export async function runServeMode(options: ServeOptions): Promise<void> {
 
   server.timeout = 0;
   server.keepAliveTimeout = 65000;
-  server.listen(options.port, options.host, () => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `open-codex serve listening on http://${options.host}:${options.port}`,
-    );
-  });
+  return server;
+}
 
-  // Keep process alive.
-  await new Promise<void>(() => {});
+export async function runServeMode(options: ServeOptions): Promise<void> {
+  const server = createServeServer(options);
+  await new Promise<void>(() => {
+    server.listen(options.port, options.host, () => {
+      // eslint-disable-next-line no-console
+      console.log(
+        `open-codex serve listening on http://${options.host}:${options.port}`,
+      );
+      // keep running
+    });
+  });
 }

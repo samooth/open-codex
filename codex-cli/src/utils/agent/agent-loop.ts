@@ -149,7 +149,7 @@ export class AgentLoop {
   private onReset: () => void;
 
   /**
-   * Files automatically pulled into context because they were mentioned 
+   * Files automatically pulled into context because they were mentioned
    * in thoughts or modified.
    */
   private autoPulledFiles: Set<string> = new Set();
@@ -479,8 +479,13 @@ export class AgentLoop {
     setSessionId(this.sessionId);
     setCurrentModel(this.model);
 
-    if (this.config.mcpServers && Object.keys(this.config.mcpServers).length > 0) {
-      this.mcpInitPromise = this.mcpManager.connectServers(this.config.mcpServers);
+    if (
+      this.config.mcpServers &&
+      Object.keys(this.config.mcpServers).length > 0
+    ) {
+      this.mcpInitPromise = this.mcpManager.connectServers(
+        this.config.mcpServers,
+      );
     }
 
     this.hardAbort = new AbortController();
@@ -783,13 +788,13 @@ export class AgentLoop {
                 content: `--- CURRENT PROJECT CONTEXT & MISSION STATE ---\n${dynamicContext}`,
               },
             ];
-            this.pluginManager.applySystemTransforms(input, systemMessages).catch((e) =>
-              log(`System transform error: ${e}`),
-            );
+            this.pluginManager
+              .applySystemTransforms(input, systemMessages)
+              .catch((e) => log(`System transform error: ${e}`));
             const toolsToUse = [
               ...tools,
               ...this.pluginManager.getAllDefinitions(),
-              ...this.mcpManager.getAllDefinitions()
+              ...this.mcpManager.getAllDefinitions(),
             ];
 
             if (isLoggingEnabled()) {
@@ -881,7 +886,8 @@ export class AgentLoop {
                 }),
               );
 
-              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const providerConfig =
+                this.config.providers?.[this.config.provider || ""];
               const extraBody = providerConfig?.extraBody;
 
               const requestBody = {
@@ -893,7 +899,12 @@ export class AgentLoop {
                 max_tokens: this.config.maxTokens || 8192,
                 temperature: this.config.temperature,
                 top_p: this.config.topP,
-                ...(() => { const f = (this.config.stop || []).filter((s) => typeof s === 'string' && s.trim().length > 0); return f.length ? { stop_sequences: f } : {}; })(),
+                ...(() => {
+                  const f = (this.config.stop || []).filter(
+                    (s) => typeof s === "string" && s.trim().length > 0,
+                  );
+                  return f.length ? { stop_sequences: f } : {};
+                })(),
                 ...extraBody,
               };
 
@@ -1035,7 +1046,8 @@ export class AgentLoop {
                 );
               }
 
-              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const providerConfig =
+                this.config.providers?.[this.config.provider || ""];
               const extraBody = providerConfig?.extraBody;
 
               const requestBody = {
@@ -1063,7 +1075,7 @@ export class AgentLoop {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${this.config.apiKey}`,
+                  "Authorization": `Bearer ${this.config.apiKey}`,
                 },
                 body: JSON.stringify(requestBody),
                 signal: this.execAbortController?.signal,
@@ -1186,7 +1198,8 @@ export class AgentLoop {
                 );
               }
 
-              const providerConfig = this.config.providers?.[this.config.provider || ""];
+              const providerConfig =
+                this.config.providers?.[this.config.provider || ""];
               const extraBody = providerConfig?.extraBody;
 
               const ollamaOptions: any = {};
@@ -1217,7 +1230,12 @@ export class AgentLoop {
                 top_p: this.config.topP,
                 max_tokens: this.config.maxTokens,
                 seed: this.config.seed,
-                ...(() => { const f = (this.config.stop || []).filter((s) => typeof s === 'string' && s.trim().length > 0); return f.length ? { stop: f } : {}; })(),
+                ...(() => {
+                  const f = (this.config.stop || []).filter(
+                    (s) => typeof s === "string" && s.trim().length > 0,
+                  );
+                  return f.length ? { stop: f } : {};
+                })(),
                 presence_penalty: this.config.presencePenalty,
                 frequency_penalty: this.config.frequencyPenalty,
                 tools: toolsToUse.filter((tool: any) => {
@@ -1280,15 +1298,16 @@ export class AgentLoop {
                   attempt = 0; // Reset and try again
                   continue;
                 } else if (choice === "Switch Model") {
-                  // We can't easily trigger the overlay from here without a callback, 
+                  // We can't easily trigger the overlay from here without a callback,
                   // but we can ask the user to use /model or implement a specialized callback.
-                  // For now, let's assume the UI will handle it if we return a specific signal 
+                  // For now, let's assume the UI will handle it if we return a specific signal
                   // or if we just stop and let the user decide.
                   // Actually, let's just abort and show a message.
                   this.stageItem(
                     {
                       role: "assistant",
-                      content: "Request failed. Please use `/model` to switch to a different model and try again.",
+                      content:
+                        "Request failed. Please use `/model` to switch to a different model and try again.",
                     },
                     thisGeneration,
                   );
@@ -1336,7 +1355,7 @@ export class AgentLoop {
                 }
                 const retrySeconds = Math.round(delayMs / 1000);
                 const retryMessage = `⚠️ Rate limit exceeded. Retrying in ${retrySeconds}s... (Attempt ${attempt}/${MAX_RETRIES})`;
-                
+
                 log(
                   `${this.config.provider || "AI"} rate limit exceeded (attempt ${attempt}/${MAX_RETRIES}), retrying in ${Math.round(
                     delayMs,
@@ -1348,14 +1367,15 @@ export class AgentLoop {
 
                 // eslint-disable-next-line no-await-in-loop
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
-                
+
                 // Clear the status message before the next attempt
                 this.onPartialUpdate?.("", "", undefined, undefined);
                 continue;
               } else if (this.getUserChoice) {
                 const provider = this.config.provider || "AI";
                 const rawMsg = (error as any).message || "";
-                const details = cleanErrorMessage(rawMsg) || (error as any).code || "Unknown";
+                const details =
+                  cleanErrorMessage(rawMsg) || (error as any).code || "Unknown";
                 const prompt = `${provider} rate limit exceeded after ${MAX_RETRIES} attempts (${details}). How would you like to proceed?`;
                 const choices = ["Retry Now", "Switch Model", "Abort"];
                 const choice = await this.getUserChoice(prompt, choices);
@@ -1367,7 +1387,8 @@ export class AgentLoop {
                   this.stageItem(
                     {
                       role: "assistant",
-                      content: "Rate limit reached. Please use `/model` to switch to a different model and try again.",
+                      content:
+                        "Rate limit reached. Please use `/model` to switch to a different model and try again.",
                     },
                     thisGeneration,
                   );
@@ -1487,11 +1508,16 @@ export class AgentLoop {
 
               // Smart Context: Extract mentioned file paths (regex looking for paths like src/app.ts)
               // This enables "Automatic inclusion of files mentioned in thoughts".
-              const pathRegex = /(?:^|\s|`|'|")([\w\/\.-]+\.[a-zA-Z0-9]{1,10})(?:$|\s|`|'|")/g;
+              const pathRegex =
+                /(?:^|\s|`|'|")([\w\/\.-]+\.[a-zA-Z0-9]{1,10})(?:$|\s|`|'|")/g;
               let match;
               while ((match = pathRegex.exec(content)) !== null) {
                 const possiblePath = match[1]?.trim();
-                if (possiblePath && existsSync(possiblePath) && lstatSync(possiblePath).isFile()) {
+                if (
+                  possiblePath &&
+                  existsSync(possiblePath) &&
+                  lstatSync(possiblePath).isFile()
+                ) {
                   this.autoPulledFiles.add(possiblePath);
                 }
               }
@@ -1504,7 +1530,10 @@ export class AgentLoop {
                   for (const call of extracted) {
                     if (call.id) {
                       this.pendingAborts.set(call.id, {
-                        name: (call as any).function?.name || (call as any).name || "unknown",
+                        name:
+                          (call as any).function?.name ||
+                          (call as any).name ||
+                          "unknown",
                       });
                     }
                   }
@@ -1680,7 +1709,6 @@ export class AgentLoop {
             // The 'thought_signature' is not present in the new Response API format logs.
             // It is handled in the 'else' block above for other providers.
 
-
             const content = delta?.content;
             const reasoning = (delta as any)?.reasoning_content;
             const tool_calls = delta?.tool_calls;
@@ -1759,7 +1787,10 @@ export class AgentLoop {
                       thought_signature;
                   }
 
-                  if (normalizedToolCall.id && normalizedToolCall.function?.name) {
+                  if (
+                    normalizedToolCall.id &&
+                    normalizedToolCall.function?.name
+                  ) {
                     this.pendingAborts.set(normalizedToolCall.id, {
                       name: normalizedToolCall.function.name,
                     });
@@ -1781,7 +1812,11 @@ export class AgentLoop {
               lastFinishReason = finish_reason;
             }
           }
-          if (this.config.provider === "openai" && responseIdFromChunk && !this.responseId) {
+          if (
+            this.config.provider === "openai" &&
+            responseIdFromChunk &&
+            !this.responseId
+          ) {
             this.responseId = responseIdFromChunk;
           }
 

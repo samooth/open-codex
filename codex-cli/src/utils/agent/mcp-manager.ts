@@ -7,7 +7,12 @@ import type { McpServerConfig } from "../config.js";
 export type McpToolInfo = {
   serverName: string;
   originalName: string;
-  type: "tool" | "resource_list" | "resource_read" | "prompt_list" | "prompt_get";
+  type:
+    | "tool"
+    | "resource_list"
+    | "resource_read"
+    | "prompt_list"
+    | "prompt_get";
   definition: ChatCompletionTool;
 };
 
@@ -22,7 +27,10 @@ export class McpManager {
         const transport = new StdioClientTransport({
           command: config.command,
           args: config.args || [],
-          env: { ...(process.env as Record<string, string>), ...(config.env || {}) },
+          env: {
+            ...(process.env as Record<string, string>),
+            ...(config.env || {}),
+          },
           stderr: "pipe",
         });
 
@@ -42,7 +50,7 @@ export class McpManager {
               roots: { listChanged: true },
               sampling: { context: {}, tools: {} },
             },
-          }
+          },
         );
         await client.connect(transport);
         this.clients.set(name, client);
@@ -52,7 +60,10 @@ export class McpManager {
         // 1. Load Tools
         const toolsResult = await client.listTools();
         for (const tool of toolsResult.tools) {
-          const functionName = `${name}_${tool.name}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+          const functionName = `${name}_${tool.name}`.replace(
+            /[^a-zA-Z0-9_-]/g,
+            "_",
+          );
           this.tools.set(functionName, {
             serverName: name,
             originalName: tool.name,
@@ -61,7 +72,9 @@ export class McpManager {
               type: "function",
               function: {
                 name: functionName,
-                description: tool.description || `Tool ${tool.name} from MCP server ${name}`,
+                description:
+                  tool.description ||
+                  `Tool ${tool.name} from MCP server ${name}`,
                 parameters: tool.inputSchema as any,
               },
             },
@@ -70,8 +83,14 @@ export class McpManager {
 
         // 2. Load Resources (if supported)
         if (capabilities?.resources) {
-          const listName = `${name}_list_resources`.replace(/[^a-zA-Z0-9_-]/g, "_");
-          const readName = `${name}_read_resource`.replace(/[^a-zA-Z0-9_-]/g, "_");
+          const listName = `${name}_list_resources`.replace(
+            /[^a-zA-Z0-9_-]/g,
+            "_",
+          );
+          const readName = `${name}_read_resource`.replace(
+            /[^a-zA-Z0-9_-]/g,
+            "_",
+          );
 
           this.tools.set(listName, {
             serverName: name,
@@ -116,7 +135,10 @@ export class McpManager {
 
         // 3. Load Prompts (if supported)
         if (capabilities?.prompts) {
-          const listName = `${name}_list_prompts`.replace(/[^a-zA-Z0-9_-]/g, "_");
+          const listName = `${name}_list_prompts`.replace(
+            /[^a-zA-Z0-9_-]/g,
+            "_",
+          );
           const getName = `${name}_get_prompt`.replace(/[^a-zA-Z0-9_-]/g, "_");
 
           this.tools.set(listName, {
@@ -165,7 +187,9 @@ export class McpManager {
           });
         }
 
-        log(`Connected to MCP server ${name} and loaded ${toolsResult.tools.length} tools.`);
+        log(
+          `Connected to MCP server ${name} and loaded ${toolsResult.tools.length} tools.`,
+        );
       } catch (e) {
         log(`Failed to connect to MCP server ${name}: ${e}`);
       }
@@ -243,7 +267,10 @@ export class McpManager {
     // Format results based on type
     if (toolInfo.type === "resource_list") {
       return (result.resources as Array<any>)
-        .map((r: any) => `- ${r.name} (${r.uri}): ${r.description || "No description"}`)
+        .map(
+          (r: any) =>
+            `- ${r.name} (${r.uri}): ${r.description || "No description"}`,
+        )
         .join("\n");
     }
 
@@ -255,23 +282,30 @@ export class McpManager {
 
     if (toolInfo.type === "prompt_get") {
       return (result.messages as Array<any>)
-        .map((m: any) => `[${m.role}] ${m.content.text || JSON.stringify(m.content)}`)
+        .map(
+          (m: any) =>
+            `[${m.role}] ${m.content.text || JSON.stringify(m.content)}`,
+        )
         .join("\n");
     }
 
     // Default formatting for tools and resource content
     const contents = result.content || result.contents || [];
-    return (contents as Array<any>).map((c: any) => c.text || JSON.stringify(c)).join("\n");
+    return (contents as Array<any>)
+      .map((c: any) => c.text || JSON.stringify(c))
+      .join("\n");
   }
 
   public async shutdown() {
-    const promises = Array.from(this.clients.entries()).map(async ([name, client]) => {
-      try {
-        await client.close();
-      } catch (e) {
-        log(`Error closing MCP client ${name}: ${e}`);
-      }
-    });
+    const promises = Array.from(this.clients.entries()).map(
+      async ([name, client]) => {
+        try {
+          await client.close();
+        } catch (e) {
+          log(`Error closing MCP client ${name}: ${e}`);
+        }
+      },
+    );
     await Promise.allSettled(promises);
   }
 }
