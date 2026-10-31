@@ -2,6 +2,7 @@ import http from "node:http";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 import { AgentLoop } from "./agent/agent-loop.js";
@@ -12,6 +13,7 @@ import { ReviewDecision } from "./agent/review.js";
 import { createInputItem } from "./input-utils.js";
 import { setSessionId, setCurrentModel } from "./session.js";
 import { getAvailableModels } from "./model-utils.js";
+import { process_patch } from "./agent/apply-patch.js";
 import { approximateTokensUsed } from "./approximate-tokens-used.js";
 import {
   loadRollouts,
@@ -902,6 +904,64 @@ export function createServeServer(options: ServeOptions): http.Server {
           return;
         }
 
+        // POST /session/:id/patch
+        if (sm.rest === "/patch" && method === "POST") {
+          const body = await readBody(req);
+          const patch = body?.patch ?? body?.text;
+          if (!patch) {
+            sendJson(res, 400, { error: "patch required" });
+            return;
+          }
+          const cwd = session.directory;
+          const openFn = (p: string) =>
+            fs.readFileSync(path.resolve(cwd, p), "utf8");
+          const writeFn = (p: string, c: string) =>
+            writeFileSync(path.resolve(cwd, p), c, "utf8");
+          const removeFn = (p: string) => {
+            const rp = path.resolve(cwd, p);
+            if (fs.existsSync(rp)) unlinkSync(rp);
+          };
+          const mkdirFn = (d: string) =>
+            mkdirSync(path.resolve(cwd, d), { recursive: true });
+          try {
+            const result = process_patch(
+              String(patch),
+              openFn,
+              writeFn,
+              removeFn,
+              mkdirFn,
+            );
+            emit(session, "session.patch.applied", result);
+            sendJson(res, result.success ? 200 : 400, result);
+          } catch (err) {
+            sendJson(res, 400, { error: String(err) });
+          }
+          return;
+        }
+
+        // POST /session/:id/file/write
+        if (sm.rest === "/file/write" && method === "POST") {
+          const body = await readBody(req);
+          const p = body?.path;
+          if (!p) {
+            sendJson(res, 400, { error: "path required" });
+            return;
+          }
+          const resolved = path.resolve(session.directory, String(p));
+          try {
+            const dir = path.dirname(resolved);
+            if (!fs.existsSync(dir)) {
+              mkdirSync(dir, { recursive: true });
+            }
+            writeFileSync(resolved, String(body?.content ?? ""), "utf8");
+            emit(session, "session.file.written", { path: p });
+            sendJson(res, 200, { ok: true, path: p });
+          } catch (err) {
+            sendJson(res, 400, { error: String(err) });
+          }
+          return;
+        }
+
         // POST /session/:id/compact
         if (sm.rest === "/compact" && method === "POST") {
           const body = await readBody(req);
@@ -1063,9 +1123,46 @@ export function createServeServer(options: ServeOptions): http.Server {
           openapi: "3.0.0",
           info: { title: "open-codex serve API", version: "1" },
           paths: {
-            "/session": { post: { summary: "Create session" } },
+            "/session": {
+              get: { summary: "List sessions" },
+              post: { summary: "Create session" },
+            },
+            "/session/{id}": {
+              get: { summary: "Get session" },
+              delete: { summary: "Delete session" },
+            },
+            "/session/{id}/move": { post: { summary: "Move session" } },
             "/session/{id}/prompt": { post: { summary: "Run a turn" } },
+            "/session/{id}/interrupt": { post: { summary: "Interrupt" } },
+            "/session/{id}/approve": { post: { summary: "Approve permission" } },
             "/session/{id}/events": { get: { summary: "SSE events" } },
+            "/session/{id}/compact": { post: { summary: "Compact session" } },
+            "/session/{id}/patch": { post: { summary: "Apply patch" } },
+            "/session/{id}/mcp": { get: { summary: "MCP status" } },
+            "/config": {
+              get: { summary: "Get config" },
+              patch: { summary: "Patch config" },
+            },
+            "/model": {
+              get: { summary: "Get model" },
+              post: { summary: "Set model" },
+            },
+            "/models": { get: { summary: "List models" } },
+            "/agent": {
+              get: { summary: "Get agent" },
+              post: { summary: "Set agent" },
+            },
+            "/file/list": { get: { summary: "List files" } },
+            "/file/read": { get: { summary: "Read file" } },
+            "/file/write": { post: { summary: "Write file" } },
+            "/apply_patch": { post: { summary: "Apply patch" } },
+            "/vcs/status": { get: { summary: "VCS status" } },
+            "/vcs/diff": { get: { summary: "VCS diff" } },
+            "/sessions/saved": { get: { summary: "List saved sessions" } },
+            "/session/restore": { post: { summary: "Restore session" } },
+            "/mcp": { get: { summary: "MCP servers" } },
+            "/mcp/servers": { get: { summary: "MCP servers" } },
+            "/openapi.json": { get: { summary: "OpenAPI spec" } },
           },
         });
         return;
@@ -1101,6 +1198,61 @@ export function createServeServer(options: ServeOptions): http.Server {
         try {
           const content = fs.readFileSync(resolved, "utf8");
           sendJson(res, 200, { path: p, content });
+        } catch (err) {
+          sendJson(res, 400, { error: String(err) });
+        }
+        return;
+      }
+
+      // POST /file/write
+      if (pathname === "/file/write" && method === "POST") {
+        const body = await readBody(req);
+        const p = body?.path;
+        if (!p) {
+          sendJson(res, 400, { error: "path required" });
+          return;
+        }
+        const resolved = path.resolve(process.cwd(), String(p));
+        try {
+          const dir = path.dirname(resolved);
+          if (!fs.existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+          }
+          writeFileSync(resolved, String(body?.content ?? ""), "utf8");
+          sendJson(res, 200, { ok: true, path: p });
+        } catch (err) {
+          sendJson(res, 400, { error: String(err) });
+        }
+        return;
+      }
+
+      // POST /apply_patch
+      if (pathname === "/apply_patch" && method === "POST") {
+        const body = await readBody(req);
+        const patch = body?.patch ?? body?.text;
+        if (!patch) {
+          sendJson(res, 400, { error: "patch required" });
+          return;
+        }
+        const cwd = body?.directory ? path.resolve(String(body.directory)) : process.cwd();
+        const openFn = (p: string) =>
+          fs.readFileSync(path.resolve(cwd, p), "utf8");
+        const writeFn = (p: string, c: string) =>
+          writeFileSync(path.resolve(cwd, p), c, "utf8");
+        const removeFn = (p: string) => {
+          const rp = path.resolve(cwd, p);
+          if (fs.existsSync(rp)) unlinkSync(rp);
+        };
+        const mkdirFn = (d: string) => mkdirSync(path.resolve(cwd, d), { recursive: true });
+        try {
+          const result = process_patch(
+            String(patch),
+            openFn,
+            writeFn,
+            removeFn,
+            mkdirFn,
+          );
+          sendJson(res, result.success ? 200 : 400, result);
         } catch (err) {
           sendJson(res, 400, { error: String(err) });
         }
