@@ -15,6 +15,7 @@ import { setSessionId, setCurrentModel } from "./session.js";
 import { getAvailableModels } from "./model-utils.js";
 import { process_patch } from "./agent/apply-patch.js";
 import { approximateTokensUsed } from "./approximate-tokens-used.js";
+import OpenAI from "openai";
 import {
   loadRollouts,
   loadRollout,
@@ -290,6 +291,50 @@ function handleLoading(session: Session, loading: boolean): void {
   }
 }
 
+async function summarizeItems(
+  config: AppConfig,
+  items: Array<ChatCompletionMessageParam>,
+): Promise<string | null> {
+  try {
+    if (!config.apiKey && config.provider !== "ollama") {
+      return null;
+    }
+    const client = new OpenAI({
+      apiKey: config.apiKey || "none",
+      baseURL: config.baseURL,
+    });
+    const text = items
+      .map((i) => {
+        const content =
+          typeof i.content === "string"
+            ? i.content
+            : Array.isArray(i.content)
+              ? i.content
+                  .map((c: any) => (c.type === "text" ? c.text : ""))
+                  .join(" ")
+              : "";
+        return `[${i.role}] ${content}`;
+      })
+      .join("\n")
+      .slice(0, 12000);
+    const resp = await client.chat.completions.create({
+      model: config.model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Summarize the conversation concisely, preserving key decisions, files changed, and pending tasks.",
+        },
+        { role: "user", content: text },
+      ],
+      max_tokens: 400,
+    });
+    return resp.choices?.[0]?.message?.content ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function createSession(
   opts: any,
   baseConfig: AppConfig,
@@ -422,6 +467,30 @@ async function createSession(
       session.items = [];
     },
   });
+
+  const restoreId =
+    opts?.restoreId ?? opts?.savedId ?? opts?.resume ?? opts?.restore;
+  if (restoreId) {
+    try {
+      let data: { items?: any } | null = null;
+      if (typeof restoreId === "string" && restoreId.includes("/")) {
+        data = await loadRollout(restoreId);
+      } else {
+        const rollouts = await loadRollouts();
+        const match = rollouts.find(
+          (r: any) => r.session?.id === restoreId,
+        );
+        if (match) {
+          data = await loadRollout(match.path);
+        }
+      }
+      if (data && Array.isArray(data.items)) {
+        session.items = data.items;
+      }
+    } catch {
+      // ignore restore errors
+    }
+  }
 
   session.agentLoop = agentLoop;
   return session;
@@ -966,17 +1035,40 @@ export function createServeServer(options: ServeOptions): http.Server {
         if (sm.rest === "/compact" && method === "POST") {
           const body = await readBody(req);
           const keep = Number(body?.keep ?? 20);
+          const useSummary = body?.summary === true;
           const systemItems = session.items.filter((i) => i.role === "system");
           const otherItems = session.items.filter((i) => i.role !== "system");
-          const trimmed = otherItems.slice(-Math.max(1, keep));
-          session.items = [...systemItems, ...trimmed];
+          let removed = 0;
+          if (useSummary) {
+            const summary = await summarizeItems(session.config, session.items);
+            if (summary) {
+              session.items = [
+                ...systemItems,
+                {
+                  role: "assistant",
+                  content: `Conversation summary:\\n${summary}`,
+                },
+              ];
+              removed = otherItems.length;
+            } else {
+              const trimmed = otherItems.slice(-Math.max(1, keep));
+              session.items = [...systemItems, ...trimmed];
+              removed = otherItems.length - trimmed.length;
+            }
+          } else {
+            const trimmed = otherItems.slice(-Math.max(1, keep));
+            session.items = [...systemItems, ...trimmed];
+            removed = otherItems.length - trimmed.length;
+          }
           emit(session, "session.compacted", {
             items: session.items.length,
-            removed: otherItems.length - trimmed.length,
+            removed,
+            summary: useSummary,
           });
           sendJson(res, 200, {
             ok: true,
             items: session.items.length,
+            removed,
           });
           return;
         }
