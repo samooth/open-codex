@@ -12,6 +12,7 @@ import { ReviewDecision } from "./agent/review.js";
 import { createInputItem } from "./input-utils.js";
 import { setSessionId, setCurrentModel } from "./session.js";
 import { getAvailableModels } from "./model-utils.js";
+import { approximateTokensUsed } from "./approximate-tokens-used.js";
 import {
   loadRollouts,
   loadRollout,
@@ -61,6 +62,7 @@ export interface ServeOptions {
   port: number;
   host: string;
   token?: string;
+  corsOrigin?: string;
 }
 
 function sendJson(
@@ -371,6 +373,17 @@ async function createSession(
     onLoading: (loading: boolean) => {
       handleLoading(session, loading);
     },
+    onFileAccess: (path: string) => {
+      emit(session, "session.file.access", { path });
+      emit(session, "file.accessed", { path });
+    },
+    onTasksUpdate: (tasks: any[]) => {
+      emit(session, "session.tasks", { tasks });
+      emit(session, "tasks.updated", { tasks });
+    },
+    onIndexingStatus: (status: any) => {
+      emit(session, "session.indexing", status);
+    },
     getCommandConfirmation: async (
       command: Array<string>,
       applyPatch: any,
@@ -419,6 +432,7 @@ async function runPromptTask(
   text: string,
   files: unknown,
 ): Promise<void> {
+  const startedAt = Date.now();
   const previous = runQueue;
   let releaseQueue: () => void = () => {};
   runQueue = new Promise<void>((resolve) => {
@@ -473,6 +487,15 @@ async function runPromptTask(
   } finally {
     process.chdir(prevCwd);
     session.running = false;
+    const durationMs = Date.now() - startedAt;
+    try {
+      const usage = approximateTokensUsed(session.model, session.items);
+      emit(session, "session.usage", usage);
+      emit(session, "session.cost", { cost: usage.cost, total: usage.total });
+    } catch {
+      // ignore
+    }
+    emit(session, "session.metrics", { durationMs });
     emit(session, "session.status", { status: "idle" });
     if (session.items.length > 0) {
       try {
@@ -527,6 +550,7 @@ function matchSessionPath(
 
 export function createServeServer(options: ServeOptions): http.Server {
   const sessions = new Map<string, Session>();
+  const rateLimits = new Map<string, { count: number; reset: number }>();
   const baseConfig: AppConfig = { ...options.config };
   let currentModel = baseConfig.model;
   let currentProvider = baseConfig.provider;
@@ -535,7 +559,10 @@ export function createServeServer(options: ServeOptions): http.Server {
 
   const server = http.createServer(async (req, res) => {
     try {
-      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader(
+        "Access-Control-Allow-Origin",
+        options.corsOrigin || process.env["OPEN_CODEX_CORS_ORIGIN"] || "*",
+      );
       res.setHeader(
         "Access-Control-Allow-Headers",
         "Authorization, Content-Type",
@@ -550,6 +577,20 @@ export function createServeServer(options: ServeOptions): http.Server {
         return;
       }
 
+      // Simple per-IP rate limiting (120 req/min).
+      const ip = req.socket.remoteAddress ?? "unknown";
+      const now = Date.now();
+      let rl = rateLimits.get(ip);
+      if (!rl || now > rl.reset) {
+        rl = { count: 0, reset: now + 60000 };
+        rateLimits.set(ip, rl);
+      }
+      rl.count += 1;
+      if (rl.count > 120) {
+        sendJson(res, 429, { error: "rate limit exceeded" });
+        return;
+      }
+
       if (!authorize(req, options.token)) {
         sendJson(res, options.token ? 401 : 403, {
           error: "unauthorized",
@@ -561,7 +602,12 @@ export function createServeServer(options: ServeOptions): http.Server {
         req.url ?? "/",
         `http://${req.headers.host ?? "localhost"}`,
       );
-      const pathname = url.pathname;
+      let pathname = url.pathname;
+      if (pathname === "/v1") {
+        pathname = "/";
+      } else if (pathname.startsWith("/v1/")) {
+        pathname = pathname.slice(3);
+      }
       const method = req.method ?? "GET";
 
       // GET /session
@@ -858,8 +904,20 @@ export function createServeServer(options: ServeOptions): http.Server {
 
         // POST /session/:id/compact
         if (sm.rest === "/compact" && method === "POST") {
-          emit(session, "session.compacted", { items: session.items.length });
-          sendJson(res, 200, { ok: true, items: session.items.length });
+          const body = await readBody(req);
+          const keep = Number(body?.keep ?? 20);
+          const systemItems = session.items.filter((i) => i.role === "system");
+          const otherItems = session.items.filter((i) => i.role !== "system");
+          const trimmed = otherItems.slice(-Math.max(1, keep));
+          session.items = [...systemItems, ...trimmed];
+          emit(session, "session.compacted", {
+            items: session.items.length,
+            removed: otherItems.length - trimmed.length,
+          });
+          sendJson(res, 200, {
+            ok: true,
+            items: session.items.length,
+          });
           return;
         }
 
@@ -995,6 +1053,20 @@ export function createServeServer(options: ServeOptions): http.Server {
       if (pathname === "/mcp" && method === "GET") {
         sendJson(res, 200, {
           servers: baseConfig.mcpServers ?? {},
+        });
+        return;
+      }
+
+      // GET /openapi.json
+      if (pathname === "/openapi.json" && method === "GET") {
+        sendJson(res, 200, {
+          openapi: "3.0.0",
+          info: { title: "open-codex serve API", version: "1" },
+          paths: {
+            "/session": { post: { summary: "Create session" } },
+            "/session/{id}/prompt": { post: { summary: "Run a turn" } },
+            "/session/{id}/events": { get: { summary: "SSE events" } },
+          },
         });
         return;
       }
