@@ -42,6 +42,7 @@ export type AgentLoopParams = {
     file?: string;
   }) => void;
   onShellFocus?: (isFocused: boolean) => void;
+  onMcpStatus?: (status: { connected: Array<string>; tools: number }) => void;
 
   /** Called when the command is not auto-approved to request explicit user review. */
   getCommandConfirmation: (

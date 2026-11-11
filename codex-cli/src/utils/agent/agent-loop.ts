@@ -101,6 +101,10 @@ export class AgentLoop {
     total?: number;
     file?: string;
   }) => void;
+  private onMcpStatus?: (status: {
+    connected: Array<string>;
+    tools: number;
+  }) => void;
   private getCommandConfirmation: (
     command: Array<string>,
     applyPatch: ApplyPatchCommand | undefined,
@@ -389,6 +393,7 @@ export class AgentLoop {
     onFileAccess,
     onTasksUpdate,
     onIndexingStatus,
+    onMcpStatus,
     onShellFocus,
     getCommandConfirmation,
     getUserChoice,
@@ -422,6 +427,7 @@ export class AgentLoop {
     this.onFileAccess = onFileAccess;
     this.onTasksUpdate = onTasksUpdate;
     this.onIndexingStatus = onIndexingStatus;
+    this.onMcpStatus = onMcpStatus;
     const originalOnShellFocus = onShellFocus;
     onShellFocus = (isFocused: boolean) => {
       this.isFocused = isFocused;
@@ -644,6 +650,10 @@ export class AgentLoop {
       if (this.mcpInitPromise) {
         await this.mcpInitPromise;
         this.mcpInitPromise = null;
+        this.onMcpStatus?.({
+          connected: this.mcpManager.getServerNames(),
+          tools: this.mcpManager.getToolNames().length,
+        });
       }
 
       while (turnInput.length > 0) {

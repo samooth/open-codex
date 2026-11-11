@@ -185,4 +185,222 @@ describe("serve mode", () => {
     expect(res.status).toBe(200);
     expect(res.data).toHaveProperty("servers");
   });
+
+  it("file write and patch", async () => {
+    const filePath = "serve-test-file.txt";
+    const write = await request(
+      port,
+      "POST",
+      "/file/write",
+      { path: filePath, content: "hello" },
+      "test-token",
+    );
+    expect(write.status).toBe(200);
+
+    const patch = await request(
+      port,
+      "POST",
+      "/apply_patch",
+      {
+        patch:
+          "*** Begin Patch\\n*** Update File: serve-test-file.txt\\n@@\\n-hello\\n+hi\\n*** End Patch\\n",
+        directory: process.cwd(),
+      },
+      "test-token",
+    );
+    expect(patch.status).toBe(200);
+    expect(patch.data.success).toBe(true);
+  });
+
+  it("compact session", async () => {
+    const created = await request(
+      port,
+      "POST",
+      "/session",
+      { directory: process.cwd() },
+      "test-token",
+    );
+    const id = created.data.id;
+    const compact = await request(
+      port,
+      "POST",
+      `/session/${id}/compact`,
+      { keep: 1 },
+      "test-token",
+    );
+    expect(compact.status).toBe(200);
+    expect(compact.data).toHaveProperty("items");
+  });
+
+  it("openapi available", async () => {
+    const res = await request(
+      port,
+      "GET",
+      "/openapi.json",
+      undefined,
+      "test-token",
+    );
+    expect(res.status).toBe(200);
+    expect(res.data.openapi).toBe("3.0.0");
+  });
+
+  it("metrics and v1 prefix", async () => {
+    const metrics = await request(
+      port,
+      "GET",
+      "/v1/metrics",
+      undefined,
+      "test-token",
+    );
+    expect(metrics.status).toBe(200);
+    expect(metrics.data.requests).toBeGreaterThan(0);
+  });
+
+  it("session model change", async () => {
+    const created = await request(
+      port,
+      "POST",
+      "/session",
+      { directory: process.cwd(), model: "m1" },
+      "test-token",
+    );
+    const id = created.data.id;
+    const changed = await request(
+      port,
+      "POST",
+      `/session/${id}/model`,
+      { model: "m2", variant: "fast" },
+      "test-token",
+    );
+    expect(changed.status).toBe(200);
+    expect(changed.data.model).toBe("m2");
+  });
+
+  it("session-scoped file write and patch", async () => {
+    const created = await request(
+      port,
+      "POST",
+      "/session",
+      { directory: process.cwd() },
+      "test-token",
+    );
+    const id = created.data.id;
+    const filePath = "serve-test-session-file.txt";
+    const write = await request(
+      port,
+      "POST",
+      `/session/${id}/file/write`,
+      { path: filePath, content: "hello" },
+      "test-token",
+    );
+    expect(write.status).toBe(200);
+
+    const patch = await request(
+      port,
+      "POST",
+      `/session/${id}/patch`,
+      {
+        patch:
+          "*** Begin Patch\\n*** Update File: serve-test-session-file.txt\\n@@\\n-hello\\n+hi\\n*** End Patch\\n",
+      },
+      "test-token",
+    );
+    expect(patch.status).toBe(200);
+    expect(patch.data.success).toBe(true);
+  });
+
+  it("approve unknown returns 404", async () => {
+    const created = await request(
+      port,
+      "POST",
+      "/session",
+      { directory: process.cwd() },
+      "test-token",
+    );
+    const id = created.data.id;
+    const res = await request(
+      port,
+      "POST",
+      `/session/${id}/approve`,
+      { approvalId: "nope", decision: "yes" },
+      "test-token",
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("saved sessions endpoint", async () => {
+    const res = await request(
+      port,
+      "GET",
+      "/sessions/saved",
+      undefined,
+      "test-token",
+    );
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.data)).toBe(true);
+  });
+
+  it("sse replay with last-event-id", async () => {
+    const created = await request(
+      port,
+      "POST",
+      "/session",
+      { directory: process.cwd() },
+      "test-token",
+    );
+    const id = created.data.id;
+    // generate events
+    await request(
+      port,
+      "POST",
+      `/session/${id}/move`,
+      { directory: "/tmp" },
+      "test-token",
+    );
+    await request(
+      port,
+      "POST",
+      `/session/${id}/compact`,
+      { keep: 1 },
+      "test-token",
+    );
+
+    const body = await new Promise<string>((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: "127.0.0.1",
+          port,
+          path: `/session/${id}/events`,
+          method: "GET",
+          headers: {
+            "Authorization": "Bearer test-token",
+            "Last-Event-ID": "1",
+          },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (c) => {
+            data += c.toString();
+            if (data.includes("session.compacted")) {
+              req.destroy();
+              resolve(data);
+            }
+          });
+          res.on("end", () => resolve(data));
+          res.on("error", () => resolve(data));
+        },
+      );
+      req.on("error", reject);
+      setTimeout(() => {
+        try {
+          req.destroy();
+        } catch {}
+        resolve("");
+      }, 2000);
+      req.end();
+    });
+
+    expect(body).toContain("id:");
+    expect(body).not.toContain("event: connected");
+  });
 });

@@ -170,7 +170,6 @@ open-codex --dry-run "Refactor all components to TypeScript"
 The hardening mechanism Codex uses depends on your OS:
 
 - **macOS 12+** – commands are wrapped with **Apple Seatbelt** (`sandbox-exec`).
-
   - Everything is placed in a read‑only jail except for a small set of
     writable roots (`$PWD`, `$TMPDIR`, `~/.open-codex`, etc.).
   - Outbound network is _fully blocked_ by default – even if a child process
@@ -201,13 +200,13 @@ The hardening mechanism Codex uses depends on your OS:
 
 ## CLI Reference
 
-| Command                                   | Purpose                               | Example                        |
-| :---------------------------------------- | :------------------------------------ | :----------------------------- |
-| `open-codex`                              | Interactive REPL                      | `codex`                        |
-| `open-codex "…"`                          | Initial prompt for interactive REPL   | `codex "fix lint errors"`      |
-| `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY    | `codex "explain utils.ts"`     |
-| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template | `codex -r test "src/utils.ts"` |
-| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script         | `codex completion bash`        |
+| Command                                   | Purpose                                  | Example                        |
+| :---------------------------------------- | :--------------------------------------- | :----------------------------- |
+| `open-codex`                              | Interactive REPL                         | `codex`                        |
+| `open-codex "…"`                          | Initial prompt for interactive REPL      | `codex "fix lint errors"`      |
+| `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY       | `codex "explain utils.ts"`     |
+| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template    | `codex -r test "src/utils.ts"` |
+| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script            | `codex completion bash`        |
 | `open-codex serve`                        | Run an HTTP + SSE server (for bots/IDEs) | `open-codex serve --port 4096` |
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
@@ -250,20 +249,20 @@ open-codex serve --port 4096 --host 127.0.0.1 --token <secret>
 ```
 
 Endpoints (basic):
-- `POST /session` create session `{ directory, model, agent, approvalPolicy }` → `{ id, directory, model }`
-- `GET /session` list active sessions
-- `GET /session/:id` session details
-- `DELETE /session/:id` remove session
-- `POST /session/:id/move` change working directory
-- `POST /session/:id/prompt` `{ text, files?, wait? }` run a turn (blocks by default)
-- `POST /session/:id/interrupt` cancel
-- `GET /session/:id/events` SSE stream (`permission.asked`, `session.text.*`, `session.tool.*`, `session.step.*`, `session.status`, `session.idle`, …)
-- `POST /session/:id/approve` `{ approvalId, decision }` (`yes`, `no`, `always`, `no_exit`)
+
+- `POST /session` create session `{ directory, model, agent, approvalPolicy, restoreId? }` → `{ id, directory, model }`
+- `GET /session` list active sessions, `GET /session/:id`, `DELETE /session/:id`, `POST /session/:id/move`
+- `POST /session/:id/prompt` `{ text, files?, wait? }` run a turn (blocks by default, queued per session)
+- `POST /session/:id/interrupt`, `POST /session/:id/approve` `{ approvalId, decision }`
+- `GET /session/:id/events` SSE stream (`permission.asked`, `session.text.*`, `session.tool.*`, `session.step.*`, `session.status`, `session.usage/cost/metrics`, `session.mcp.connected`, `session.idle`, …) with `Last-Event-ID` replay
+- `POST /session/:id/model` change model/variant/params, `POST /session/:id/compact` `{ keep?, summary? }`
 - `GET /models`, `GET/POST /model`, `GET/PATCH /config`, `GET/POST /agent`
 - `GET /sessions/saved`, `POST /session/restore`, `POST /session/:id/save`
 - `GET /session/:id/mcp`, `POST /session/:id/mcp/connect`, `POST /session/:id/mcp/call`
+- `GET|POST /file/list|read|write`, `POST /apply_patch`, `GET /vcs/status|diff`, `POST /session/:id/file/write`, `POST /session/:id/patch`
+- `GET /metrics`, `GET /openapi.json` (also available under `/v1/...`)
 
-All SSE payloads include `sessionID`. Without `--token`, only localhost clients are accepted.
+All SSE payloads include `sessionID`. Without `--token`, only localhost clients are accepted. Set `OPEN_CODEX_SERVE_LOG=json` for structured request logs and `OPEN_CODEX_CORS_ORIGIN` to configure CORS. A minimal container build is provided in `codex-cli/Dockerfile.serve`.
 
 ---
 
@@ -445,6 +444,7 @@ You can fine-tune model behavior using several parameters, both via CLI flags an
 - **`--frequency-penalty <num>`**: Set frequency penalty (-2.0 to 2.0).
 
 **Ollama Specific Flags**:
+
 - **`--top-k <num>`**: Set top-k sampling threshold.
 - **`--repeat-penalty <num>`**: Set repeat penalty.
 
@@ -538,10 +538,10 @@ Here's a list of all the providers and their default models:
 
 | Provider   | Environment Variable Required | Default Agentic Model   | Default Full Context Model |
 | :--------- | :---------------------------- | :---------------------- | :------------------------- |
-| openai     | OPENAI_API_KEY                | gpt-5.2                 | gpt-5.2                         |
+| openai     | OPENAI_API_KEY                | gpt-5.2                 | gpt-5.2                    |
 | anthropic  | ANTHROPIC_API_KEY             | claude-opus-4-6         | claude-opus-4-6            |
 | gemini     | GEMINI_API_KEY                | gemini-2.5-flash        | gemini-2.5-flash           |
-| openrouter | OPENROUTER_API_KEY            | openai/gpt-5.2          | openai/gpt-5.2                  |
+| openrouter | OPENROUTER_API_KEY            | openai/gpt-5.2          | openai/gpt-5.2             |
 | ollama     | OLLAMA_API_KEY (optional)     | User must specify       | User must specify          |
 | xai        | XAI_API_KEY                   | grok-4-1-fast-reasoning | grok-4-1-fast-reasoning    |
 | deepseek   | DS_API_KEY                    | deepseek-chat           | deepseek-reasoner          |

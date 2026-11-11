@@ -431,6 +431,15 @@ async function createSession(
     onIndexingStatus: (status: any) => {
       emit(session, "session.indexing", status);
     },
+    onMcpStatus: (status: any) => {
+      const payload = {
+        ...status,
+        toolNames:
+          status?.toolNames ?? session.agentLoop.getMcpManager().getToolNames(),
+      };
+      emit(session, "session.mcp.connected", payload);
+      emit(session, "mcp.connected", payload);
+    },
     getCommandConfirmation: async (
       command: Array<string>,
       applyPatch: any,
@@ -477,9 +486,7 @@ async function createSession(
         data = await loadRollout(restoreId);
       } else {
         const rollouts = await loadRollouts();
-        const match = rollouts.find(
-          (r: any) => r.session?.id === restoreId,
-        );
+        const match = rollouts.find((r: any) => r.session?.id === restoreId);
         if (match) {
           data = await loadRollout(match.path);
         }
@@ -619,9 +626,29 @@ function matchSessionPath(
   return { id: decodeURIComponent(m[1] ?? ""), rest: m[2] ?? "" };
 }
 
+function logServe(level: string, event: string, data?: unknown): void {
+  if (process.env["OPEN_CODEX_SERVE_LOG"] === "json") {
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        level,
+        event,
+        ...(data && typeof data === "object" ? data : { data }),
+      }),
+    );
+  }
+}
+
 export function createServeServer(options: ServeOptions): http.Server {
   const sessions = new Map<string, Session>();
   const rateLimits = new Map<string, { count: number; reset: number }>();
+  const metrics = {
+    requests: 0,
+    errors: 0,
+    sessionsCreated: 0,
+    prompts: 0,
+  };
   const baseConfig: AppConfig = { ...options.config };
   let currentModel = baseConfig.model;
   let currentProvider = baseConfig.provider;
@@ -629,6 +656,10 @@ export function createServeServer(options: ServeOptions): http.Server {
   let currentAgent = "default";
 
   const server = http.createServer(async (req, res) => {
+    metrics.requests += 1;
+    const started = Date.now();
+    let reqPath = req.url ?? "/";
+    let reqMethod = req.method ?? "GET";
     try {
       res.setHeader(
         "Access-Control-Allow-Origin",
@@ -636,7 +667,7 @@ export function createServeServer(options: ServeOptions): http.Server {
       );
       res.setHeader(
         "Access-Control-Allow-Headers",
-        "Authorization, Content-Type",
+        "Authorization, Content-Type, Last-Event-ID",
       );
       res.setHeader(
         "Access-Control-Allow-Methods",
@@ -658,6 +689,7 @@ export function createServeServer(options: ServeOptions): http.Server {
       }
       rl.count += 1;
       if (rl.count > 120) {
+        metrics.errors += 1;
         sendJson(res, 429, { error: "rate limit exceeded" });
         return;
       }
@@ -674,12 +706,14 @@ export function createServeServer(options: ServeOptions): http.Server {
         `http://${req.headers.host ?? "localhost"}`,
       );
       let pathname = url.pathname;
+      reqPath = pathname;
       if (pathname === "/v1") {
         pathname = "/";
       } else if (pathname.startsWith("/v1/")) {
         pathname = pathname.slice(3);
       }
       const method = req.method ?? "GET";
+      reqMethod = method;
 
       // GET /session
       if (pathname === "/session" && method === "GET") {
@@ -699,6 +733,7 @@ export function createServeServer(options: ServeOptions): http.Server {
         const body = await readBody(req);
         const session = await createSession(body, baseConfig);
         sessions.set(session.id, session);
+        metrics.sessionsCreated += 1;
         sendJson(res, 201, {
           id: session.id,
           directory: session.directory,
@@ -741,6 +776,7 @@ export function createServeServer(options: ServeOptions): http.Server {
         );
         restored.items = Array.isArray(data.items) ? data.items : [];
         sessions.set(restored.id, restored);
+        metrics.sessionsCreated += 1;
         sendJson(res, 201, {
           id: restored.id,
           directory: restored.directory,
@@ -829,6 +865,7 @@ export function createServeServer(options: ServeOptions): http.Server {
             body?.wait !== false &&
             url.searchParams.get("wait") !== "false" &&
             url.searchParams.get("async") !== "true";
+          metrics.prompts += 1;
           const task = enqueuePrompt(session, String(text), files);
           if (wait) {
             try {
@@ -944,6 +981,13 @@ export function createServeServer(options: ServeOptions): http.Server {
           }
           // update config
           session.config.mcpServers = servers;
+          const mcpStatus = {
+            connected: mcp.getServerNames(),
+            tools: mcp.getToolNames().length,
+            toolNames: mcp.getToolNames(),
+          };
+          emit(session, "session.mcp.connected", mcpStatus);
+          emit(session, "mcp.connected", mcpStatus);
           sendJson(res, 200, {
             ok: true,
             servers: mcp.getServerNames(),
@@ -1028,6 +1072,38 @@ export function createServeServer(options: ServeOptions): http.Server {
           } catch (err) {
             sendJson(res, 400, { error: String(err) });
           }
+          return;
+        }
+
+        // POST /session/:id/model
+        if (sm.rest === "/model" && method === "POST") {
+          const body = await readBody(req);
+          if (body?.model) session.model = String(body.model);
+          if (body?.provider) session.provider = String(body.provider);
+          if (body?.variant !== undefined) {
+            (session.config as any).modelVariant = String(body.variant);
+          }
+          if (body?.temperature !== undefined)
+            (session.config as any).temperature = body.temperature;
+          if (body?.topP !== undefined)
+            (session.config as any).topP = body.topP;
+          if (body?.maxTokens !== undefined)
+            (session.config as any).maxTokens = body.maxTokens;
+          session.config.model = session.model;
+          if (session.provider) session.config.provider = session.provider;
+          emit(session, "session.model.changed", {
+            model: session.model,
+            provider: session.provider,
+            variant: (session.config as any).modelVariant,
+            temperature: (session.config as any).temperature,
+            topP: (session.config as any).topP,
+            maxTokens: (session.config as any).maxTokens,
+          });
+          sendJson(res, 200, {
+            model: session.model,
+            provider: session.provider,
+            variant: (session.config as any).modelVariant,
+          });
           return;
         }
 
@@ -1209,6 +1285,16 @@ export function createServeServer(options: ServeOptions): http.Server {
         return;
       }
 
+      // GET /metrics
+      if (pathname === "/metrics" && method === "GET") {
+        sendJson(res, 200, {
+          ...metrics,
+          sessions: sessions.size,
+          uptimeMs: Math.round(process.uptime() * 1000),
+        });
+        return;
+      }
+
       // GET /openapi.json
       if (pathname === "/openapi.json" && method === "GET") {
         sendJson(res, 200, {
@@ -1226,11 +1312,16 @@ export function createServeServer(options: ServeOptions): http.Server {
             "/session/{id}/move": { post: { summary: "Move session" } },
             "/session/{id}/prompt": { post: { summary: "Run a turn" } },
             "/session/{id}/interrupt": { post: { summary: "Interrupt" } },
-            "/session/{id}/approve": { post: { summary: "Approve permission" } },
+            "/session/{id}/approve": {
+              post: { summary: "Approve permission" },
+            },
             "/session/{id}/events": { get: { summary: "SSE events" } },
             "/session/{id}/compact": { post: { summary: "Compact session" } },
             "/session/{id}/patch": { post: { summary: "Apply patch" } },
             "/session/{id}/mcp": { get: { summary: "MCP status" } },
+            "/session/{id}/model": {
+              post: { summary: "Change session model" },
+            },
             "/config": {
               get: { summary: "Get config" },
               patch: { summary: "Patch config" },
@@ -1255,6 +1346,7 @@ export function createServeServer(options: ServeOptions): http.Server {
             "/mcp": { get: { summary: "MCP servers" } },
             "/mcp/servers": { get: { summary: "MCP servers" } },
             "/openapi.json": { get: { summary: "OpenAPI spec" } },
+            "/metrics": { get: { summary: "Metrics" } },
           },
         });
         return;
@@ -1326,7 +1418,9 @@ export function createServeServer(options: ServeOptions): http.Server {
           sendJson(res, 400, { error: "patch required" });
           return;
         }
-        const cwd = body?.directory ? path.resolve(String(body.directory)) : process.cwd();
+        const cwd = body?.directory
+          ? path.resolve(String(body.directory))
+          : process.cwd();
         const openFn = (p: string) =>
           fs.readFileSync(path.resolve(cwd, p), "utf8");
         const writeFn = (p: string, c: string) =>
@@ -1335,7 +1429,8 @@ export function createServeServer(options: ServeOptions): http.Server {
           const rp = path.resolve(cwd, p);
           if (fs.existsSync(rp)) unlinkSync(rp);
         };
-        const mkdirFn = (d: string) => mkdirSync(path.resolve(cwd, d), { recursive: true });
+        const mkdirFn = (d: string) =>
+          mkdirSync(path.resolve(cwd, d), { recursive: true });
         try {
           const result = process_patch(
             String(patch),
@@ -1370,7 +1465,17 @@ export function createServeServer(options: ServeOptions): http.Server {
 
       sendJson(res, 404, { error: "not found" });
     } catch (err) {
+      metrics.errors += 1;
       sendJson(res, 500, { error: String(err) });
+    } finally {
+      if (reqMethod !== "OPTIONS") {
+        logServe("info", "http.request", {
+          method: reqMethod,
+          path: reqPath,
+          status: res.statusCode,
+          durationMs: Date.now() - started,
+        });
+      }
     }
   });
 
