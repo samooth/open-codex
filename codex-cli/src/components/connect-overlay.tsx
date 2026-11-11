@@ -1,8 +1,8 @@
-import type { Theme } from "../utils/theme.js";
 import type { AppConfig } from "../utils/config.js";
+import type { Theme } from "../utils/theme.js";
 
-import { useAppContext } from "../contexts/app-context.js";
 import CenteredOverlay from "./centered-overlay.js";
+import { useAppContext } from "../contexts/app-context.js";
 import SelectInput from "./select-input/select-input.js";
 import TextInput from "./vendor/ink-text-input.js";
 import {

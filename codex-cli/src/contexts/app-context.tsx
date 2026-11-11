@@ -1,10 +1,10 @@
 import type { AppConfig } from "../utils/config.js";
 import type { ReactNode } from "react";
+
 import {
   useOverlayManager,
   type OverlayMode,
 } from "../hooks/use-overlay-manager.js";
-
 import React, { createContext, useContext, useState } from "react";
 
 interface AppContextType {

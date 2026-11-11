@@ -1,8 +1,9 @@
-import { existsSync, readdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
+import type { PluginManager, PluginTool } from "./plugin-manager.js";
+
 import { log } from "./log.js";
-import { PluginManager, type PluginTool } from "./plugin-manager.js";
+import { existsSync, readdirSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { pathToFileURL } from "url";
 
 export interface SkillManifest {
@@ -59,7 +60,7 @@ export class SkillManager {
       : SkillManager.getDefaultSearchPaths(process.cwd());
 
     for (const dir of paths) {
-      if (!existsSync(dir)) continue;
+      if (!existsSync(dir)) {continue;}
       await this.scanDir(dir);
     }
 

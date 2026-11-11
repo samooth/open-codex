@@ -1,10 +1,10 @@
 import type { Theme } from "../../utils/theme";
 
+import { getSyntaxTheme } from "../../utils/theme";
+import { highlight as syntaxHighlight } from "cli-highlight";
 import * as diff from "diff";
 import { Text, Box } from "ink";
 import React, { useMemo } from "react";
-import { highlight as syntaxHighlight } from "cli-highlight";
-import { getSyntaxTheme } from "../../utils/theme";
 
 /**
  * Renders a single diff line with character-level highlighting.
@@ -109,7 +109,7 @@ export function SemanticDiffPair({
   // This is a simplified approach, a more robust solution would involve parsing
   // the highlighted text and then applying diffs.
   const applyCharDiff = (fullLine: string, isRemovedLine: boolean) => {
-    const parts: React.ReactNode[] = [];
+    const parts: Array<React.ReactNode> = [];
     let currentIndex = 0;
 
     diffResult.forEach((part: any) => {

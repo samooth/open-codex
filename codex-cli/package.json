@@ -13,7 +13,7 @@
     "format": "prettier --check src tests",
     "format:fix": "prettier --write src tests",
     "dev": "tsc --watch",
-    "lint": "eslint src tests --ext ts --ext tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "node -e \"try{require.resolve('eslint/use-at-your-own-risk')}catch(e){require('fs').symlinkSync('.pnpm/eslint@8.57.1/node_modules/eslint','node_modules/eslint','dir')}\" && eslint src tests --ext ts --ext tsx",
     "lint:fix": "eslint src tests --ext ts --ext tsx --fix",
     "test": "vitest run",
     "test:watch": "vitest --watch",

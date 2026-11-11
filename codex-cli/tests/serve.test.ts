@@ -394,7 +394,9 @@ describe("serve mode", () => {
       setTimeout(() => {
         try {
           req.destroy();
-        } catch {}
+        } catch {
+          // ignore
+        }
         resolve("");
       }, 2000);
       req.end();

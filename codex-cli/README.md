@@ -182,7 +182,6 @@ Simply type `/undo` in the chat or use the Command Palette (`Ctrl+P`).
 The hardening mechanism Codex uses depends on your OS:
 
 - **macOS 12+** – commands are wrapped with **Apple Seatbelt** (`sandbox-exec`).
-
   - Everything is placed in a read‑only jail except for a small set of
     writable roots (`$PWD`, `$TMPDIR`, `~/.open-codex`, etc.).
   - Outbound network is _fully blocked_ by default – even if a child process
@@ -213,13 +212,13 @@ The hardening mechanism Codex uses depends on your OS:
 
 ## CLI Reference
 
-| Command                                   | Purpose                               | Example                        |
-| :---------------------------------------- | :------------------------------------ | :----------------------------- |
-| `open-codex`                              | Interactive REPL                      | `codex`                        |
-| `open-codex "…"`                          | Initial prompt for interactive REPL   | `codex "fix lint errors"`      |
-| `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY    | `codex "explain utils.ts"`     |
-| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template | `codex -r test "src/utils.ts"` |
-| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script         | `codex completion bash`        |
+| Command                                   | Purpose                                  | Example                        |
+| :---------------------------------------- | :--------------------------------------- | :----------------------------- |
+| `open-codex`                              | Interactive REPL                         | `codex`                        |
+| `open-codex "…"`                          | Initial prompt for interactive REPL      | `codex "fix lint errors"`      |
+| `open-codex "…"`                          | Auto-enabled quiet mode if non-TTY       | `codex "explain utils.ts"`     |
+| `open-codex -r <recipe> "…"`              | Run with a predefined prompt template    | `codex -r test "src/utils.ts"` |
+| `open-codex completion <bash\|zsh\|fish>` | Print shell completion script            | `codex completion bash`        |
 | `open-codex serve`                        | Run an HTTP + SSE server (for bots/IDEs) | `open-codex serve --port 4096` |
 
 Inside the chat, use slash commands like `/help`, `/model`, `/approval`, `/config`, `/history`, and `/clear`.
@@ -255,6 +254,7 @@ open-codex serve --port 4096 --host 127.0.0.1 --token <secret>
 ```
 
 Endpoints (basic):
+
 - `POST /session` create session `{ directory, model, agent, approvalPolicy, restoreId? }` → `{ id, directory, model }`
 - `GET /session` list active sessions, `GET /session/:id`, `DELETE /session/:id`, `POST /session/:id/move`
 - `POST /session/:id/prompt` `{ text, files?, wait? }` run a turn (blocks by default, queued per session)

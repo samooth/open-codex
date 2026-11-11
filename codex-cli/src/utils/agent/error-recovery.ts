@@ -4,12 +4,12 @@
  * built-in tools or correct patterns.
  */
 export function getActionableSuggestion(
-  command: string[],
+  command: Array<string>,
   exitCode: number,
   stdout: string,
   stderr: string
 ): string | undefined {
-  if (exitCode === 0) return undefined;
+  if (exitCode === 0) {return undefined;}
 
   const fullOutput = (stdout + "\n" + stderr).toLowerCase();
   const cmdStr = command.join(" ").toLowerCase();

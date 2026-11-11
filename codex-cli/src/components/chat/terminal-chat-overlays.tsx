@@ -1,12 +1,13 @@
-import type { ApprovalPolicy } from "../../approvals.js";
 import type { ExtendedChatCompletionMessageParam } from "../../app";
+import type { ApprovalPolicy } from "../../approvals.js";
+
 import { useAppContext } from "../../contexts/app-context.js";
-import { clearTerminal } from "../../utils/terminal.js";
-import { setSessionId } from "../../utils/session.js";
-import { recipes } from "../../utils/recipes.js";
 import { log, isLoggingEnabled } from "../../utils/agent/log.js";
-import { saveConfig } from "../../utils/config.js";
 import { prefix } from "../../utils/agent/system-prompt.js";
+import { saveConfig } from "../../utils/config.js";
+import { recipes } from "../../utils/recipes.js";
+import { setSessionId } from "../../utils/session.js";
+import { clearTerminal } from "../../utils/terminal.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
 import CommandHistoryOverlay from "../command-history-overlay.js";
 import CommandPaletteOverlay from "../command-palette-overlay.js";
@@ -81,7 +82,7 @@ export default function TerminalChatOverlays({
           onSelect={(rollout) => {
             // Sanitize items: Remove any trailing assistant message that has tool_calls
             // but no subsequent tool response. This prevents OpenAI 400 errors.
-            let sanitizedItems = [...rollout.items];
+            const sanitizedItems = [...rollout.items];
             while (sanitizedItems.length > 0) {
               const lastItem = sanitizedItems[sanitizedItems.length - 1];
               if (

@@ -1,10 +1,11 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 import type { Theme } from "../utils/theme.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
+
 import { TOOL_SHELL } from "../utils/agent/tool-constants.js";
-import { Box, Text, useInput } from "ink";
-import React, { useMemo } from "react";
 // @ts-expect-error select.js is JavaScript and has no types
 import { Select } from "./vendor/ink-select/select";
+import { Box, Text, useInput } from "ink";
+import React, { useMemo } from "react";
 
 type Props = {
   items: Array<ChatCompletionMessageParam>;
@@ -20,7 +21,7 @@ export const CommandHistoryOverlay: React.FC<Props> = ({
   theme,
 }) => {
   const commands = useMemo(() => {
-    const cmds: string[] = [];
+    const cmds: Array<string> = [];
     for (const item of items) {
       if (item.role === "assistant" && item.tool_calls) {
         for (const tc of item.tool_calls) {

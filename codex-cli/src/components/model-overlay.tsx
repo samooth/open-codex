@@ -60,7 +60,7 @@ export default function ModelOverlay({
     setLoading(true);
     getAvailableModels(config)
       .then((list) => {
-        if (cancelled) return;
+        if (cancelled) {return;}
         if (list && list.length > 0) {
           setModels(list);
         } else {
@@ -76,7 +76,7 @@ export default function ModelOverlay({
         setLoading(false);
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled) {return;}
         const configured = (config as any).providers?.[
           config.provider || "openai"
         ]?.models;

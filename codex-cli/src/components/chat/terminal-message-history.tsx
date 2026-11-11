@@ -1,9 +1,9 @@
 import type { TerminalHeaderProps } from "./terminal-header.js";
 import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type { ExtendedChatCompletionMessageParam } from "../../app";
 import type { ApplyPatchCommand } from "../../approvals.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Theme } from "../../utils/theme.js";
-import type { ExtendedChatCompletionMessageParam } from "../../app";
 
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TerminalChatResponseItem from "./terminal-chat-response-item.js";

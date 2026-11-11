@@ -1,11 +1,11 @@
+import type { McpManager } from "./mcp-manager.js";
 import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
+import type { PluginManager } from "./plugin-manager.js";
 import type OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
-import type { PluginManager } from "./plugin-manager.js";
-import type { McpManager } from "./mcp-manager.js";
 
 export type CommandConfirmation = {
   review: ReviewDecision;

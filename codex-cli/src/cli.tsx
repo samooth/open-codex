@@ -14,11 +14,11 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import App from "./app";
 import { runSinglePass } from "./cli-singlepass";
 import { AgentLoop } from "./utils/agent/agent-loop";
-import { PluginManager } from "./utils/agent/plugin-manager";
-import { SkillManager } from "./utils/agent/skill-manager";
 import { authorizeCommand } from "./utils/agent/handle-exec-command";
 import { initLogger, log, isLoggingEnabled } from "./utils/agent/log";
+import { PluginManager } from "./utils/agent/plugin-manager";
 import { ReviewDecision } from "./utils/agent/review";
+import { SkillManager } from "./utils/agent/skill-manager";
 import { approximateTokensUsed } from "./utils/approximate-tokens-used";
 import { AutoApprovalMode } from "./utils/auto-approval-mode";
 import { checkForUpdates } from "./utils/check-updates";

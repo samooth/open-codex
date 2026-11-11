@@ -1,30 +1,30 @@
-import http from "node:http";
-import { randomUUID } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import type { CommandConfirmation } from "./agent/types.js";
+import type { AppConfig } from "./config.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
 
 import { AgentLoop } from "./agent/agent-loop.js";
-import { PluginManager } from "./agent/plugin-manager.js";
-import { SkillManager } from "./agent/skill-manager.js";
-import { AutoApprovalMode } from "./auto-approval-mode.js";
-import { ReviewDecision } from "./agent/review.js";
-import { createInputItem } from "./input-utils.js";
-import { setSessionId, setCurrentModel } from "./session.js";
-import { getAvailableModels } from "./model-utils.js";
 import { process_patch } from "./agent/apply-patch.js";
+import { PluginManager } from "./agent/plugin-manager.js";
+import { ReviewDecision } from "./agent/review.js";
+import { SkillManager } from "./agent/skill-manager.js";
 import { approximateTokensUsed } from "./approximate-tokens-used.js";
-import OpenAI from "openai";
+import { AutoApprovalMode } from "./auto-approval-mode.js";
+import { createInputItem } from "./input-utils.js";
+import { getAvailableModels } from "./model-utils.js";
+import { setSessionId, setCurrentModel } from "./session.js";
 import {
   loadRollouts,
   loadRollout,
   saveRollout,
   flushRollout,
 } from "./storage/save-rollout.js";
-import type { AppConfig } from "./config.js";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
-import type { CommandConfirmation } from "./agent/types.js";
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import fs, { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import http from "node:http";
+import path from "node:path";
+import OpenAI from "openai";
+
 
 interface Session {
   id: string;
@@ -35,7 +35,7 @@ interface Session {
   approvalPolicy: string;
   config: AppConfig;
   createdAt: number;
-  items: ChatCompletionMessageParam[];
+  items: Array<ChatCompletionMessageParam>;
   clients: Set<http.ServerResponse>;
   running: boolean;
   promptQueue: Array<{
@@ -424,7 +424,7 @@ async function createSession(
       emit(session, "session.file.access", { path });
       emit(session, "file.accessed", { path });
     },
-    onTasksUpdate: (tasks: any[]) => {
+    onTasksUpdate: (tasks: Array<any>) => {
       emit(session, "session.tasks", { tasks });
       emit(session, "tasks.updated", { tasks });
     },
@@ -536,7 +536,7 @@ async function runPromptTask(
           : f && typeof f === "object" && "path" in f
             ? String((f as any).path)
             : "";
-      if (!p) continue;
+      if (!p) {continue;}
       if (/\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(p)) {
         imagePaths.push(p);
       } else {
@@ -622,7 +622,7 @@ function matchSessionPath(
   pathname: string,
 ): { id: string; rest: string } | null {
   const m = pathname.match(/^\/session\/([^/]+)(\/.*)?$/);
-  if (!m) return null;
+  if (!m) {return null;}
   return { id: decodeURIComponent(m[1] ?? ""), rest: m[2] ?? "" };
 }
 
@@ -1032,7 +1032,7 @@ export function createServeServer(options: ServeOptions): http.Server {
             writeFileSync(path.resolve(cwd, p), c, "utf8");
           const removeFn = (p: string) => {
             const rp = path.resolve(cwd, p);
-            if (fs.existsSync(rp)) unlinkSync(rp);
+            if (fs.existsSync(rp)) {unlinkSync(rp);}
           };
           const mkdirFn = (d: string) =>
             mkdirSync(path.resolve(cwd, d), { recursive: true });
@@ -1078,19 +1078,19 @@ export function createServeServer(options: ServeOptions): http.Server {
         // POST /session/:id/model
         if (sm.rest === "/model" && method === "POST") {
           const body = await readBody(req);
-          if (body?.model) session.model = String(body.model);
-          if (body?.provider) session.provider = String(body.provider);
+          if (body?.model) {session.model = String(body.model);}
+          if (body?.provider) {session.provider = String(body.provider);}
           if (body?.variant !== undefined) {
             (session.config as any).modelVariant = String(body.variant);
           }
           if (body?.temperature !== undefined)
-            (session.config as any).temperature = body.temperature;
+            {(session.config as any).temperature = body.temperature;}
           if (body?.topP !== undefined)
-            (session.config as any).topP = body.topP;
+            {(session.config as any).topP = body.topP;}
           if (body?.maxTokens !== undefined)
-            (session.config as any).maxTokens = body.maxTokens;
+            {(session.config as any).maxTokens = body.maxTokens;}
           session.config.model = session.model;
-          if (session.provider) session.config.provider = session.provider;
+          if (session.provider) {session.config.provider = session.provider;}
           emit(session, "session.model.changed", {
             model: session.model,
             provider: session.provider,
@@ -1241,11 +1241,11 @@ export function createServeServer(options: ServeOptions): http.Server {
       // POST /model
       if (pathname === "/model" && method === "POST") {
         const body = await readBody(req);
-        if (body?.model) currentModel = String(body.model);
-        if (body?.provider) currentProvider = String(body.provider);
-        if (body?.variant !== undefined) currentVariant = String(body.variant);
+        if (body?.model) {currentModel = String(body.model);}
+        if (body?.provider) {currentProvider = String(body.provider);}
+        if (body?.variant !== undefined) {currentVariant = String(body.variant);}
         baseConfig.model = currentModel;
-        if (currentProvider) baseConfig.provider = currentProvider;
+        if (currentProvider) {baseConfig.provider = currentProvider;}
         (baseConfig as any).modelVariant = currentVariant;
         sendJson(res, 200, {
           model: currentModel,
@@ -1264,7 +1264,7 @@ export function createServeServer(options: ServeOptions): http.Server {
       // POST /agent
       if (pathname === "/agent" && method === "POST") {
         const body = await readBody(req);
-        if (body?.agent) currentAgent = String(body.agent);
+        if (body?.agent) {currentAgent = String(body.agent);}
         sendJson(res, 200, { agent: currentAgent });
         return;
       }
@@ -1427,7 +1427,7 @@ export function createServeServer(options: ServeOptions): http.Server {
           writeFileSync(path.resolve(cwd, p), c, "utf8");
         const removeFn = (p: string) => {
           const rp = path.resolve(cwd, p);
-          if (fs.existsSync(rp)) unlinkSync(rp);
+          if (fs.existsSync(rp)) {unlinkSync(rp);}
         };
         const mkdirFn = (d: string) =>
           mkdirSync(path.resolve(cwd, d), { recursive: true });

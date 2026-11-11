@@ -2,8 +2,8 @@ import type { ApplyPatchCommand } from "../../approvals.js";
 import type { Theme } from "../../utils/theme.js";
 
 import { DiffChanges } from "./diff-changes.js";
-import { ReviewDecision } from "../../utils/agent/review";
 import { useAppContext } from "../../contexts/app-context.js";
+import { ReviewDecision } from "../../utils/agent/review";
 import { openExternalEditor } from "../../utils/input-utils.js";
 import { clearTerminal } from "../../utils/terminal.js";
 
@@ -134,14 +134,14 @@ export function TerminalChatCommandReview({
   }, [showAlwaysApprove, applyPatch]);
 
   const hunks = React.useMemo(() => {
-    if (!applyPatch) return [] as string[];
+    if (!applyPatch) {return [] as Array<string>;}
     const lines = applyPatch.patch.split("\n");
-    const out: string[] = [];
-    let current: string[] = [];
+    const out: Array<string> = [];
+    let current: Array<string> = [];
     let inHunk = false;
     for (const line of lines) {
       if (line.startsWith("@@")) {
-        if (inHunk && current.length) out.push(current.join("\n"));
+        if (inHunk && current.length) {out.push(current.join("\n"));}
         current = [line];
         inHunk = true;
       } else if (line.startsWith("*** ")) {
@@ -154,7 +154,7 @@ export function TerminalChatCommandReview({
         current.push(line);
       }
     }
-    if (inHunk && current.length) out.push(current.join("\n"));
+    if (inHunk && current.length) {out.push(current.join("\n"));}
     return out;
   }, [applyPatch]);
 
@@ -164,8 +164,8 @@ export function TerminalChatCommandReview({
   }, [hunks]);
 
   const buildFilteredPatch = React.useCallback(() => {
-    if (!applyPatch) return "";
-    if (selectedHunks.size === hunks.length) return applyPatch.patch;
+    if (!applyPatch) {return "";}
+    if (selectedHunks.size === hunks.length) {return applyPatch.patch;}
     let result = applyPatch.patch;
     hunks.forEach((h, i) => {
       if (!selectedHunks.has(i)) {
@@ -189,8 +189,8 @@ export function TerminalChatCommandReview({
         } else if (input === " ") {
           setSelectedHunks((prev) => {
             const next = new Set(prev);
-            if (next.has(hunkCursor)) next.delete(hunkCursor);
-            else next.add(hunkCursor);
+            if (next.has(hunkCursor)) {next.delete(hunkCursor);}
+            else {next.add(hunkCursor);}
             return next;
           });
         } else if (input === "a") {
@@ -274,7 +274,7 @@ export function TerminalChatCommandReview({
         "grep",
         "glob",
       ].includes(baseCmd);
-      if (readOnly) return { label: "read-only", color: theme.success };
+      if (readOnly) {return { label: "read-only", color: theme.success };}
     }
     return { label: "⚡ EXECUTES COMMAND", color: theme.warning };
   }, [applyPatch, confirmationPrompt, theme]);

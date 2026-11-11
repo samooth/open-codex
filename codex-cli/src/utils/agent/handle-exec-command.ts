@@ -4,6 +4,7 @@ import type { ExecInput } from "./sandbox/interface.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
 
+import { getActionableSuggestion } from "./error-recovery.js";
 import { exec, execApplyPatch } from "./exec.js";
 import { isLoggingEnabled, log } from "./log.js";
 import { ReviewDecision } from "./review.js";
@@ -14,7 +15,6 @@ import { canAutoApprove } from "../../approvals.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { access } from "fs/promises";
 
-import { getActionableSuggestion } from "./error-recovery.js";
 
 // ---------------------------------------------------------------------------
 // Session‑level cache of commands that the user has chosen to always approve.

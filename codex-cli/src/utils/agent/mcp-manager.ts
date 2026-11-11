@@ -1,8 +1,9 @@
+import type { McpServerConfig } from "../config.js";
+import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
+
+import { log } from "./log.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { log } from "./log.js";
-import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
-import type { McpServerConfig } from "../config.js";
 
 export type McpToolInfo = {
   serverName: string;

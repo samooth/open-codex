@@ -1,7 +1,4 @@
 import type { Theme } from "../../utils/theme.js";
-
-import { chalkFor } from "../../utils/theme.js";
-import chalk, { type ForegroundColorName } from "chalk";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
@@ -15,6 +12,8 @@ import {
 } from "../../utils/agent/tool-constants.js";
 import { approximateTokensUsed } from "../../utils/approximate-tokens-used.js";
 import { parseToolCallArguments } from "../../utils/parsers.js";
+import { chalkFor } from "../../utils/theme.js";
+import chalk, { type ForegroundColorName } from "chalk";
 
 export interface CommandReviewDetails {
   cmd: Array<string>;

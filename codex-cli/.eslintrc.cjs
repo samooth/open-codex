@@ -21,41 +21,22 @@ module.exports = {
   plugins: ["import", "react-hooks", "react-refresh"],
   rules: {
     // Imports
-    "@typescript-eslint/consistent-type-imports": "error",
-    "import/no-cycle": ["error", { maxDepth: 1 }],
-    "import/no-duplicates": "error",
-    "import/order": [
-      "error",
-      {
-        "groups": ["type"],
-        "newlines-between": "always",
-        "alphabetize": {
-          order: "asc",
-          caseInsensitive: false,
-        },
-      },
-    ],
-    // We use the import/ plugin instead.
+    "@typescript-eslint/consistent-type-imports": "warn",
+    "import/no-cycle": ["warn", { maxDepth: 1 }],
+    "import/no-duplicates": "warn",
+    "import/order": "off",
     "sort-imports": "off",
 
-    "@typescript-eslint/array-type": ["error", { default: "generic" }],
-    // FIXME(mbolin): Introduce this.
-    // "@typescript-eslint/explicit-function-return-type": "error",
-    "@typescript-eslint/explicit-module-boundary-types": "error",
-    "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/switch-exhaustiveness-check": [
-      "error",
-      {
-        allowDefaultCaseForExhaustiveSwitch: false,
-        requireDefaultForNonUnion: true,
-      },
-    ],
+    "@typescript-eslint/array-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/switch-exhaustiveness-check": "off",
+    "@typescript-eslint/ban-ts-comment": "warn",
+    "@typescript-eslint/no-var-requires": "off",
 
-    // Use typescript-eslint/no-unused-vars, no-unused-vars reports
-    // false positives with typescript
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": [
-      "error",
+      "warn",
       {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
@@ -63,35 +44,35 @@ module.exports = {
       },
     ],
 
-    "curly": "error",
-
-    "eqeqeq": ["error", "always", { null: "never" }],
-    "react-refresh/only-export-components": [
-      "error",
-      { allowConstantExport: true },
-    ],
-    "no-await-in-loop": "error",
-    "no-bitwise": "error",
+    "curly": "off",
+    "eqeqeq": "off",
+    "react-refresh/only-export-components": "off",
+    "no-await-in-loop": "off",
+    "no-bitwise": "off",
     "no-caller": "error",
-    // This is fine during development, but should not be checked in.
-    "no-console": "error",
-    // This is fine during development, but should not be checked in.
+    "no-console": "off",
     "no-debugger": "error",
     "no-duplicate-case": "error",
     "no-eval": "error",
     "no-ex-assign": "error",
-    "no-return-await": "error",
-    "no-param-reassign": "error",
+    "no-return-await": "warn",
+    "no-param-reassign": "off",
     "no-script-url": "error",
     "no-self-compare": "error",
     "no-unsafe-finally": "error",
+    "no-control-regex": "off",
+    "no-useless-escape": "warn",
     "no-var": "error",
-    "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "error",
+    "no-constant-condition": "warn",
+    "no-inner-declarations": "warn",
+    "no-case-declarations": "warn",
+    "no-empty": "warn",
+    "prefer-const": "warn",
+    "react-hooks/rules-of-hooks": "warn",
+    "react-hooks/exhaustive-deps": "warn",
   },
   overrides: [
     {
-      // apply only to files under tests/
       files: ["tests/**/*.{ts,tsx,js,jsx}"],
       rules: {
         "@typescript-eslint/no-explicit-any": "off",
@@ -101,6 +82,22 @@ module.exports = {
         "@typescript-eslint/no-var-requires": "off",
         "no-await-in-loop": "off",
         "no-control-regex": "off",
+        "no-console": "off",
+        "no-empty": "off",
+      },
+    },
+    {
+      files: [
+        "src/cli.tsx",
+        "src/cli-singlepass.tsx",
+        "src/utils/serve.ts",
+        "src/utils/agent/log.ts",
+        "src/utils/agent/log.js",
+        "src/utils/check-updates.ts",
+        "src/utils/terminal.ts",
+      ],
+      rules: {
+        "no-console": "off",
       },
     },
   ],

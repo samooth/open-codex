@@ -1,13 +1,13 @@
 import type { Theme } from "../../utils/theme.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.mjs";
-import { homedir } from "os";
+
 
 import MultilineTextEditor, {
   type MultilineTextEditorHandle,
 } from "./multiline-editor.js";
 import TerminalChatInputThinking from "./terminal-chat-input-thinking.js";
-import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
 import { useAppContext } from "../../contexts/app-context.js";
+import { getFileSearchMatch, filterFiles } from "../../utils/autocomplete.js";
 import { getIgnoredFiles } from "../../utils/check-in-git.js";
 import {
   createInputItem,
@@ -19,6 +19,7 @@ import { clearTerminal, onExit } from "../../utils/terminal.js";
 import { Select } from "../vendor/ink-select/select";
 import { Box, Text, useApp, useInput } from "ink";
 import { fileURLToPath } from "node:url";
+import { homedir } from "os";
 import React, {
   useCallback,
   useState,
@@ -81,6 +82,7 @@ export default function TerminalChatInput({
   openPromptOverlay,
   openPromptsOverlay,
   openRecipesOverlay,
+  openThemeOverlay,
   openCommandPalette,
   openCommandHistory,
   onPin,
@@ -653,9 +655,12 @@ export default function TerminalChatInput({
         return;
       }
 
-      if (inputValue === "/theme") {
+      if (
+        inputValue.toLowerCase() === "/theme" ||
+        inputValue.toLowerCase() === "/themes"
+      ) {
         setInput("");
-        openOverlay();
+        openThemeOverlay();
         return;
       }
 

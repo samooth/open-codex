@@ -1,35 +1,35 @@
 import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type {
+  ExtendedChatCompletionMessageParam,
+  MessageStatus,
+} from "../../app";
 import type { CommandReviewDetails } from "../../utils/parsers";
-import type { Theme } from "../../utils/theme.js";
+import type { Theme, ThemeColor } from "../../utils/theme.js";
+import { chalkFor } from "../../utils/theme.js";
 import type { TerminalRendererOptions } from "marked-terminal";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
 } from "openai/resources/chat/completions.mjs";
 import type { ResponseReasoningItem } from "openai/resources/responses/responses";
-import type {
-  ExtendedChatCompletionMessageParam,
-  MessageStatus,
-} from "../../app";
 
 import { TerminalImage } from "./terminal-image.js";
 import { formatCommandForDisplay } from "../../format-command.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
+import { parseStateSnapshot } from "../../utils/agent/state-manager.js";
 import {
   TOOL_APPLY_PATCH,
   TOOL_SHELL,
 } from "../../utils/agent/tool-constants.js";
+import { SafeText } from "../../utils/ink-safe.js";
 import {
   parseToolCallOutput,
   parseToolCallArguments,
 } from "../../utils/parsers";
-import { parseStateSnapshot } from "../../utils/agent/state-manager.js";
 import { extractReasoningParts } from "../../utils/reasoning.js";
-import { SafeText } from "../../utils/ink-safe.js";
 import { getSyntaxTheme } from "../../utils/theme.js";
 import Spinner from "../vendor/ink-spinner.js";
 import chalk, { type ForegroundColorName } from "chalk";
-import { chalkFor, type ThemeColor } from "../../utils/theme.js";
 import { highlight as syntaxHighlight } from "cli-highlight";
 import { Box, Text, useInput } from "ink";
 import { parse } from "marked";
@@ -1026,7 +1026,7 @@ export const TerminalChatResponseMessage = React.memo(
               .replace(/<state_snapshot>[\s\S]*?<\/state_snapshot>/gim, "")
               .trim();
 
-            if (!cleanThought && !snapshot) return null;
+            if (!cleanThought && !snapshot) {return null;}
 
             return (
               <Box

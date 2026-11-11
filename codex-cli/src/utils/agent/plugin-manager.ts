@@ -1,12 +1,13 @@
-import { existsSync, mkdirSync, readdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
-import { log } from "./log.js";
 import type { AgentContext } from "./types.js";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources/chat/completions.mjs";
+
+import { log } from "./log.js";
+import { existsSync, mkdirSync, readdirSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { pathToFileURL } from "url";
 
 export interface PluginTool {
@@ -66,7 +67,7 @@ export class PluginManager {
    * function shape. Runs dispose hooks in reverse-load order on exit.
    */
   public async loadPlugins(options?: Record<string, Record<string, unknown>>): Promise<void> {
-    if (!existsSync(this.pluginsDir)) return;
+    if (!existsSync(this.pluginsDir)) {return;}
 
     try {
       const files = readdirSync(this.pluginsDir).filter((f) =>

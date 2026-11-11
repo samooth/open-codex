@@ -1,7 +1,7 @@
 export interface ReasoningParts {
   displayContent: string;
-  thoughts: string[];
-  plans: string[];
+  thoughts: Array<string>;
+  plans: Array<string>;
 }
 
 // Tag aliases recognised as reasoning/thought blocks.
@@ -23,8 +23,8 @@ function clean(s: string): string {
   return s.replace(/\r\n/g, "\n").trim();
 }
 
-function dedupe(list: string[]): string[] {
-  const out: string[] = [];
+function dedupe(list: Array<string>): Array<string> {
+  const out: Array<string> = [];
   for (const item of list) {
     if (item && (out.length === 0 || out[out.length - 1] !== item)) {
       out.push(item);
@@ -47,8 +47,8 @@ export function extractReasoningParts(content: string): ReasoningParts {
     return { displayContent: "", thoughts: [], plans: [] };
   }
 
-  const thoughts: string[] = [];
-  const plans: string[] = [];
+  const thoughts: Array<string> = [];
+  const plans: Array<string> = [];
 
   const closedThoughtRegex = new RegExp(
     `<(?:${THOUGHT_TAGS})(?:\\s[^>]*)?>([\\s\\S]*?)</(?:${THOUGHT_TAGS})>`,
@@ -65,13 +65,13 @@ export function extractReasoningParts(content: string): ReasoningParts {
 
   let displayContent = content.replace(closedThoughtRegex, (_m, thought) => {
     const t = clean(thought);
-    if (t) thoughts.push(t);
+    if (t) {thoughts.push(t);}
     return "";
   });
 
   displayContent = displayContent.replace(closedPlanRegex, (_m, plan) => {
     const p = clean(plan);
-    if (p) plans.push(p);
+    if (p) {plans.push(p);}
     return "";
   });
 
@@ -137,8 +137,8 @@ export function extractReasoningParts(content: string): ReasoningParts {
   if (unclosedCandidates.length > 0) {
     const first = unclosedCandidates[0]!;
     for (const c of unclosedCandidates) {
-      if (c.type === "thought" && c.content) thoughts.push(c.content);
-      else if (c.type === "plan" && c.content) plans.push(c.content);
+      if (c.type === "thought" && c.content) {thoughts.push(c.content);}
+      else if (c.type === "plan" && c.content) {plans.push(c.content);}
     }
     if (first.type !== "response") {
       displayContent = displayContent.slice(0, first.index);

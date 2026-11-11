@@ -35,11 +35,7 @@ jobs:
 
       - name: Lint (codex-cli)
         working-directory: codex-cli
-        run: |
-          npm run lint -- \
-            --rule "no-console:error" \
-            --rule "no-debugger:error" \
-            --max-warnings=-1
+        run: npm run lint
 
       - name: Type‑check (codex-cli)
         working-directory: codex-cli

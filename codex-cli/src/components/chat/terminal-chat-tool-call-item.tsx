@@ -6,12 +6,12 @@ import { SemanticDiffLine, SemanticDiffPair } from "./semantic-diff.js";
 import { TerminalHyperlink, getFileUrl } from "./terminal-hyperlink.js";
 import { useTerminalSize } from "../../hooks/use-terminal-size";
 import { parseApplyPatch } from "../../parse-apply-patch";
-import { shortenPath } from "../../utils/short-path";
 import { getFileExtension } from "../../utils/file-utils";
+import { shortenPath } from "../../utils/short-path";
+import { Spinner } from "@inkjs/ui";
 import chalk from "chalk";
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
-import { Spinner } from "@inkjs/ui";
 
 export function TerminalChatToolCallCommand({
   commandForDisplay,

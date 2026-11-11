@@ -1,6 +1,12 @@
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type {
+  AgentContext,
+  AgentLoopParams,
+  CommandConfirmation,
+  Task,
+} from "./types.js";
+import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions/completions.mjs";
@@ -14,24 +20,17 @@ import {
   tryExtractToolCallsFromContent,
 } from "../parsers.js";
 import { setCurrentModel, setSessionId, getSessionId } from "../session.js";
-import { tools } from "./tool-definitions.js";
-import { readFileSync, existsSync, lstatSync } from "fs";
-import { randomUUID } from "node:crypto";
-
-import OpenAI, { APIConnectionTimeoutError } from "openai";
-import { GoogleGenAI } from "@google/genai";
-import { prefix } from "./system-prompt.js";
 import {
   type StateSnapshot,
   parseStateSnapshot,
   formatStateForPrompt,
 } from "./state-manager.js";
-import type {
-  AgentContext,
-  AgentLoopParams,
-  CommandConfirmation,
-  Task,
-} from "./types.js";
+import { prefix } from "./system-prompt.js";
+import { tools } from "./tool-definitions.js";
+import { GoogleGenAI } from "@google/genai";
+import { readFileSync, existsSync, lstatSync } from "fs";
+import { randomUUID } from "node:crypto";
+import OpenAI, { APIConnectionTimeoutError } from "openai";
 export type { AgentContext, AgentLoopParams, CommandConfirmation, Task };
 import { SemanticMemory } from "./semantic-memory.js";
 import {
@@ -65,7 +64,8 @@ const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
   10,
 );
 
-import { PluginManager } from "./plugin-manager.js";
+import type { PluginManager } from "./plugin-manager.js";
+
 import { McpManager } from "./mcp-manager.js";
 
 export class AgentLoop {
@@ -94,7 +94,7 @@ export class AgentLoop {
   ) => void;
   private onLoading: (loading: boolean) => void;
   private onFileAccess?: (path: string) => void;
-  private onTasksUpdate?: (tasks: Task[]) => void;
+  private onTasksUpdate?: (tasks: Array<Task>) => void;
   private onIndexingStatus?: (status: {
     indexing: boolean;
     current?: number;
@@ -248,7 +248,7 @@ export class AgentLoop {
     }
   }
 
-  public async searchCode(query: string, limit: number = 5): Promise<any[]> {
+  public async searchCode(query: string, limit: number = 5): Promise<Array<any>> {
     return this.semanticMemory.search(query, limit);
   }
 
@@ -791,7 +791,7 @@ export class AgentLoop {
               .filter(Boolean)
               .join("\n");
 
-            let systemMessages: Array<ChatCompletionMessageParam> = [
+            const systemMessages: Array<ChatCompletionMessageParam> = [
               { role: "system" as const, content: stableInstructions },
               {
                 role: "system" as const,
@@ -964,14 +964,14 @@ export class AgentLoop {
                   let buffer = "";
                   while (true) {
                     const { done, value } = await reader!.read();
-                    if (done) break;
+                    if (done) {break;}
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split("\n");
                     buffer = lines.pop() || "";
                     for (const line of lines) {
                       if (line.startsWith("data: ")) {
                         const data = line.slice(6);
-                        if (data === "[DONE]") return;
+                        if (data === "[DONE]") {return;}
                         try {
                           yield JSON.parse(data);
                         } catch (e) {
@@ -1107,7 +1107,7 @@ export class AgentLoop {
 
               const openAiResponseApiAsyncIterable = {
                 async *[Symbol.asyncIterator]() {
-                  if (!reader) return;
+                  if (!reader) {return;}
 
                   // Read the entire response body
                   let buffer = "";
@@ -1124,7 +1124,7 @@ export class AgentLoop {
                       .filter((line) => line.startsWith("data: "));
                     for (const line of lines) {
                       const data = line.slice(6);
-                      if (data === "[DONE]") continue;
+                      if (data === "[DONE]") {continue;}
                       try {
                         yield JSON.parse(data);
                       } catch (e) {
@@ -1215,11 +1215,11 @@ export class AgentLoop {
               const ollamaOptions: any = {};
               if (this.config.provider === "ollama") {
                 if (this.config.topK !== undefined)
-                  ollamaOptions.top_k = this.config.topK;
+                  {ollamaOptions.top_k = this.config.topK;}
                 if (this.config.repeatPenalty !== undefined)
-                  ollamaOptions.repeat_penalty = this.config.repeatPenalty;
+                  {ollamaOptions.repeat_penalty = this.config.repeatPenalty;}
                 if (this.config.contextSize !== undefined)
-                  ollamaOptions.num_ctx = this.config.contextSize;
+                  {ollamaOptions.num_ctx = this.config.contextSize;}
               }
 
               const mergedExtraBody = { ...extraBody };
@@ -1466,7 +1466,7 @@ export class AgentLoop {
           const finalizeMessage = async (
             msg: Extract<ChatCompletionMessageParam, { role: "assistant" }>,
           ) => {
-            if (messageProcessed) return;
+            if (messageProcessed) {return;}
             messageProcessed = true;
 
             if (this.lastThoughtSignature) {
@@ -1501,7 +1501,7 @@ export class AgentLoop {
 
                 // If the snapshot contains task_state, sync it with the UI TaskChecklist
                 if (newSnapshot.task_state && this.onTasksUpdate) {
-                  const tasks: Task[] = newSnapshot.task_state.map((line) => {
+                  const tasks: Array<Task> = newSnapshot.task_state.map((line) => {
                     const status = line.includes("[DONE]")
                       ? "done"
                       : line.includes("[IN_PROGRESS]")

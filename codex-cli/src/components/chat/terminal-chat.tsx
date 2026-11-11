@@ -1,17 +1,19 @@
 import type { GroupedResponseItem } from "./use-message-grouping.js";
+import type { ExtendedChatCompletionMessageParam } from "../../app";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { CommandConfirmation } from "../../utils/agent/agent-loop.js";
 import type { ReviewDecision } from "../../utils/agent/review.js";
 import type { Task } from "../../utils/agent/types.js";
 import type { ColorName } from "chalk";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions.mjs";
-// @ts-expect-error - MessageStatus is used in types but not in code currently
-import type { ExtendedChatCompletionMessageParam, MessageStatus } from "../../app";
 
 
 
+import { ChatErrorBoundary } from "./chat-error-boundary.js";
+import SuggestBar from "./suggest-bar.js";
 import TaskChecklist from "./task-checklist.js";
 import TerminalChatInput from "./terminal-chat-input.js";
+import TerminalChatOverlays from "./terminal-chat-overlays.js";
 import { TerminalChatToolCallCommand } from "./terminal-chat-tool-call-item.js";
 import {
   calculateContextPercentRemaining,
@@ -25,15 +27,14 @@ import { formatCommandForDisplay } from "../../format-command.js";
 import { useConfirmation } from "../../hooks/use-confirmation.js";
 import { AgentLoop } from "../../utils/agent/agent-loop.js";
 import { loadPersistedApprovedCommands } from "../../utils/agent/handle-exec-command.js";
+import { log, isLoggingEnabled } from "../../utils/agent/log.js";
 import { PluginManager } from "../../utils/agent/plugin-manager.js";
 import { SkillManager } from "../../utils/agent/skill-manager.js";
-import { log, isLoggingEnabled } from "../../utils/agent/log.js";
-import { ChatErrorBoundary } from "./chat-error-boundary.js";
 import { createInputItem } from "../../utils/input-utils.js";
 import { detectInteraction } from "../../utils/interactive-detection.js";
 import { listAllFiles } from "../../utils/list-all-files.js";
-import { CLI_VERSION } from "../../utils/session.js";
 import { parseToolCallOutput } from "../../utils/parsers.js";
+import { CLI_VERSION } from "../../utils/session.js";
 import { shortCwd } from "../../utils/short-path.js";
 import {
   loadRollout,
@@ -43,8 +44,6 @@ import {
 } from "../../utils/storage/save-rollout.js";
 import { setTerminalTitle, beep, clearTerminal } from "../../utils/terminal.js";
 import { getTheme } from "../../utils/theme.js";
-import TerminalChatOverlays from "./terminal-chat-overlays.js";
-import SuggestBar from "./suggest-bar.js";
 import clipboard from "clipboardy";
 import isEqual from "fast-deep-equal";
 import fs from "fs";
@@ -723,10 +722,10 @@ export default function TerminalChat({
       if (index < welcomeRecentCount) {
         const rollouts = await loadRollouts();
         const target = rollouts[index];
-        if (!target) return;
+        if (!target) {return;}
         const data = await loadRollout(target.path);
-        if (!data) return;
-        let sanitizedItems = [...data.items];
+        if (!data) {return;}
+        const sanitizedItems = [...data.items];
         while (
           sanitizedItems.length > 0 &&
           sanitizedItems[sanitizedItems.length - 1]?.role === "assistant" &&
@@ -871,7 +870,7 @@ export default function TerminalChat({
   }, [loading]);
 
   const lastAssistantText = React.useMemo(() => {
-    if (loading || lastTurnEnd === null) return "";
+    if (loading || lastTurnEnd === null) {return "";}
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i];
       if (item?.role === "assistant") {
@@ -885,7 +884,7 @@ export default function TerminalChat({
               : "";
         return content.trim();
       }
-      if (item?.role === "user") break; // turn already consumed by user
+      if (item?.role === "user") {break;} // turn already consumed by user
     }
     return "";
   }, [items, loading, lastTurnEnd]);

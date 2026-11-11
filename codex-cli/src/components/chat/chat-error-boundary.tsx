@@ -1,4 +1,5 @@
 import type { Theme } from "../../utils/theme.js";
+
 import { Box, Text } from "ink";
 import React from "react";
 

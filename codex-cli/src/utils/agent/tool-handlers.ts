@@ -9,6 +9,7 @@ import { getIgnoreFilter } from "./ignore-utils.js";
 import { log } from "./log.js";
 import { extractSymbols } from "./symbol-extractor.js";
 import { validateFileSyntax } from "./validate-file.js";
+import { spawnSync } from "child_process";
 import {
   existsSync,
   mkdirSync,
@@ -21,7 +22,6 @@ import {
 } from "fs";
 import { homedir } from "os";
 import { join, resolve, dirname } from "path";
-import { spawnSync } from "child_process";
 
 /**
  * Cached check for whether the `rg` (ripgrep) binary is available on PATH.

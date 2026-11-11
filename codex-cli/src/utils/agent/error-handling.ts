@@ -196,12 +196,12 @@ export function createNetworkErrorSystemMessage(
  * Supports OpenAI headers, Google structured RetryInfo, and common string patterns.
  */
 export function extractRetryDelay(error: any): number | undefined {
-  if (!error) return undefined;
+  if (!error) {return undefined;}
 
   // 1. Check for explicit retryAfter property (often from headers)
   if (error.retryAfter) {
     const suggested = parseFloat(error.retryAfter) * 1000;
-    if (!Number.isNaN(suggested)) return suggested;
+    if (!Number.isNaN(suggested)) {return suggested;}
   }
 
   const rawMsg = error.message || "";
@@ -222,7 +222,7 @@ export function extractRetryDelay(error: any): number | undefined {
           );
           if (retryInfo?.retryDelay) {
             const seconds = parseFloat(retryInfo.retryDelay);
-            if (!Number.isNaN(seconds)) return seconds * 1000;
+            if (!Number.isNaN(seconds)) {return seconds * 1000;}
           }
         }
       }
@@ -236,7 +236,7 @@ export function extractRetryDelay(error: any): number | undefined {
   const m = /(?:retry|try again) in ([\d.]+)s/i.exec(rawMsg);
   if (m && m[1]) {
     const seconds = parseFloat(m[1]);
-    if (!Number.isNaN(seconds)) return seconds * 1000;
+    if (!Number.isNaN(seconds)) {return seconds * 1000;}
   }
 
   return undefined;

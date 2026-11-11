@@ -11,8 +11,8 @@ export type ExtendedChatCompletionMessageParam =
 
 import TerminalChat from "./components/chat/terminal-chat";
 import TerminalChatPastRollout from "./components/chat/terminal-chat-past-rollout";
-import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
 import { AppProvider } from "./contexts/app-context.js";
+import { TerminalSizeProvider } from "./contexts/terminal-size-context.js";
 import { checkInGit } from "./utils/check-in-git.js";
 import { type TerminalChatSession } from "./utils/session.js";
 import { onExit } from "./utils/terminal";
